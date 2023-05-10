@@ -66,6 +66,16 @@ class Repository {
         // Only in this case the global parameters (gp) will be used.
         static Repository create(const char* fpath, bool fail_if_exists = false, uint32_t repo_start_pos = 0, const GlobalParameters& gp = GlobalParameters());
 
+        // Open a repository encoded in the given physical file at the
+        // given offset (by default, 0).
+        //
+        // If the file does not exist, it will fail.
+        // If it exists but not a valid repository is there, it will fail.
+        //
+        // If the repository is already open, it will fail. You must
+        // call Repository::close before.
+        void open(const char* fpath, std::streampos repo_start_pos = 0);
+
         // Close the repository and flush any pending write.
         // Multiple calls can be made without trouble.
         void close();
@@ -167,45 +177,33 @@ class Repository {
             seek_read_phy((blk_nr << gp.blk_sz_order) + repo_start_pos);
         }
 
+        // Expand / shrink the underlying physical file
+        // by the given amount in bytes.
         void expand_phy_bytes(uint32_t sz);
-
         void shrink_phy_bytes(uint32_t sz);
 
+        // Create a new repository in the specified file.
+        // If the file exists, the file gets truncated (deleted?)
+        // before creating the repository there.
+        //
+        // This is a static version to work with Repository::create
+        static void _truncate_and_create_new_repository(const char* fpath, std::streampos repo_start_pos, const GlobalParameters& gp);
 
-        void load_global_parameters();
+        // Write the header/trailer moving the file pointer
+        // to the correct position before.
+        //
+        // These are static/class method versions to work with
+        // Repository::create
+        static void _seek_and_write_header(std::fstream& fp, std::streampos repo_start_pos, uint64_t repo_sz, uint32_t blk_total_cnt, const GlobalParameters& gp);
+        static void _seek_and_write_trailer(std::fstream& fp, std::streampos repo_start_pos, const GlobalParameters& gp);
 
-        void store_global_parameters();
+        // Read the header/trailer moving the file pointer
+        // to the correct position and check that the header/trailer
+        // is consistent
+        void seek_read_and_check_header();
+        void seek_read_and_check_trailer();
 
-        static void _store_global_parameters(std::fstream& fp, uint64_t repo_sz, uint32_t blk_total_cnt, const GlobalParameters& gp);
-
-        static void _create_new_repository(const char* fpath, uint32_t repo_start_pos, const GlobalParameters& gp);
+    private:
+        friend class InconsistentXOZ;
 };
 
-
-namespace {
-
-    // In-disk repository's header
-    struct repo_header_t {
-        // It should be "XOZ" followed by a NUL
-        uint8_t magic[4];
-
-        // Log base 2 of the block size in bytes
-        // Order of 10 means block size of 1KB,
-        // order of 11 means block size of 2KB, and so on
-        uint8_t blk_sz_order;
-
-        // Size of the whole repository, including the header
-        // (and trailer?), in bytes
-        uint64_t repo_sz;
-
-        // Count of blocks in the repo.
-        // It should be greater than or equal to repo_sz/blk_sz
-        uint32_t blk_total_cnt;
-
-    } __attribute__ ((aligned (1)));
-
-    struct repo_eof_t {
-        // It should be "EOF" followed by a NUL
-        uint8_t magic[4];
-    } __attribute__ ((aligned (1)));
-}
