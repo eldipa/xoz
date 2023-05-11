@@ -45,7 +45,8 @@ void Repository::close() {
     if (closed)
         return;
 
-    _seek_and_write_trailer(fp, repo_start_pos, gp);
+    _seek_and_write_header(fp, repo_start_pos, repo_sz, blk_total_cnt, gp);
+    _seek_and_write_trailer(fp, repo_start_pos, blk_total_cnt, gp);
     fp.close();
     closed = true;
 
@@ -216,7 +217,13 @@ void Repository::seek_read_and_check_header() {
 
     if (repo_start_pos > phy_end_pos) {
         // This should never happen
-        throw InconsistentXOZ(*this, "the repository started at an offset beyond the file physical size.");
+        throw InconsistentXOZ(*this, F()
+                << "the repository started at an offset ("
+                << repo_start_pos
+                << ") beyond the file physical size ("
+                << phy_end_pos
+                << "."
+                );
     }
 
     gp.repo_start_pos = repo_start_pos;
@@ -236,7 +243,13 @@ void Repository::seek_read_and_check_header() {
         // More real bytes than the ones in the repo
         // Perhaps an incomplete shrink/truncate?
     } else if (phy_repo_size < repo_sz) {
-        throw InconsistentXOZ(*this, "the repository has a declared size greater than the file physical size.");
+        throw InconsistentXOZ(*this, F()
+                << "the repository has a declared size ("
+                << repo_sz
+                << ") greater than the file physical size ("
+                << phy_repo_size
+                << ")."
+                );
     }
 
     assert(phy_repo_size >= repo_sz);
@@ -247,7 +260,13 @@ void Repository::seek_read_and_check_header() {
     }
 
     if (blk_total_cnt != repo_sz / gp.blk_sz) {
-        throw InconsistentXOZ(*this, "the repository has a declared block total count that does not match with the repo size.");
+        throw InconsistentXOZ(*this, F()
+                << "the repository has a declared block total count ("
+                << blk_total_cnt
+                << ") that does not match with the expected repo-size/blk-size ratio ("
+                << repo_sz << "/" << gp.blk_sz
+                << ")."
+                );
     }
 
     gp.blk_init_cnt = u32_from_le(hdr.blk_init_cnt);
@@ -285,11 +304,11 @@ void Repository::_seek_and_write_header(std::fstream& fp, std::streampos repo_st
     fp.write((const char*)&hdr, sizeof(hdr));
 }
 
-void Repository::_seek_and_write_trailer(std::fstream& fp, std::streampos repo_start_pos, const GlobalParameters& gp) {
+void Repository::_seek_and_write_trailer(std::fstream& fp, std::streampos repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp) {
     // Go to the end of the repository.
     // If this goes beyond the current file size, this will
     // "reserve" space for the "ghost" blocks.
-    fp.seekp((uint64_t)repo_start_pos + sizeof(struct repo_header_t) + (gp.blk_init_cnt << gp.blk_sz_order));
+    fp.seekp((uint64_t)repo_start_pos + sizeof(struct repo_header_t) + (blk_total_cnt << gp.blk_sz_order));
 
     struct repo_trailer_t eof = {
         .magic = {'E', 'O', 'F', 0 }
@@ -325,5 +344,5 @@ void Repository::_truncate_and_create_new_repository(const char* fpath, std::str
                        sizeof(struct repo_trailer_t);
 
     _seek_and_write_header(fp, repo_start_pos, repo_sz, gp.blk_init_cnt, gp);
-    _seek_and_write_trailer(fp, repo_start_pos, gp);
+    _seek_and_write_trailer(fp, repo_start_pos, gp.blk_init_cnt, gp);
 }

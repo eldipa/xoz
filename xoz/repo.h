@@ -195,7 +195,7 @@ class Repository {
         // These are static/class method versions to work with
         // Repository::create
         static void _seek_and_write_header(std::fstream& fp, std::streampos repo_start_pos, uint64_t repo_sz, uint32_t blk_total_cnt, const GlobalParameters& gp);
-        static void _seek_and_write_trailer(std::fstream& fp, std::streampos repo_start_pos, const GlobalParameters& gp);
+        static void _seek_and_write_trailer(std::fstream& fp, std::streampos repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp);
 
         // Read the header/trailer moving the file pointer
         // to the correct position and check that the header/trailer

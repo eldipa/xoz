@@ -6,25 +6,30 @@
 #include <sstream>
 #include <stdexcept>
 
-OpenXOZError::OpenXOZError(const char* fpath, const char* msg) {
+OpenXOZError::OpenXOZError(const char* fpath, const std::string& msg) {
     std::stringstream ss;
-    ss << "Open file '" << fpath << "' failed: " << msg;
+    ss << "Open file '" << fpath << "' failed.\n";
+    ss << msg;
 
     this->msg = ss.str();
 }
+
+OpenXOZError::OpenXOZError(const char* fpath, const F& msg) : OpenXOZError(fpath, msg.ss.str()) {}
 
 const char* OpenXOZError::what() const noexcept {
-    return this->msg.data();
+    return msg.data();
 }
 
-InconsistentXOZ::InconsistentXOZ(const Repository& repo, const char* msg) {
+InconsistentXOZ::InconsistentXOZ(const Repository& repo, const std::string& msg) {
     std::stringstream ss;
-    ss << "Repository on file '" << repo.fpath << " (offset " << repo.repo_start_pos << ") seems inconsistent/corrupt."
-       << "Reason: " << msg;
+    ss << "Repository on file '" << repo.fpath << " (offset " << repo.repo_start_pos << ") seems inconsistent/corrupt.\n";
+    ss << msg;
 
     this->msg = ss.str();
 }
 
+InconsistentXOZ::InconsistentXOZ(const Repository& repo, const F& msg) : InconsistentXOZ(repo, msg.ss.str()) {}
+
 const char* InconsistentXOZ::what() const noexcept {
-    return this->msg.data();
+    return msg.data();
 }
