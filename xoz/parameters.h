@@ -17,7 +17,7 @@ struct GlobalParameters {
 
     // In which position of the file the repository
     // begins (in bytes).
-    std::streampos repo_start_pos = 0;
+    uint64_t phy_repo_start_pos = 0;
 
     // Reserve these count of blocks for any new repository.
     // This must be greater than or equal to 1.

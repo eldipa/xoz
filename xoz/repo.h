@@ -18,19 +18,30 @@ class Repository {
 
         // In which position of the physical file the repository
         // begins (in bytes).
-        std::streampos repo_start_pos;
+        uint64_t phy_repo_start_pos;
 
         // In which position of the physical file the repository
         // ends (in bytes).
-        // It is calculated from repo_start_pos plus the repo_sz
+        // It is calculated from phy_repo_start_pos plus the repo_sz
         //
         // Note: the physical file may extend beyond this position
         // and it may or may not be resized (shrink / truncate) when
         // the repository gets closed.
-        std::streampos repo_end_pos;
+        uint64_t phy_repo_end_pos;
 
-        // The size in bytes of the whole repository.
+        // The size in bytes of the whole repository and it is
+        // a multiple of the block size.
+        //
+        // This include the block 0 which contains the header
+        // but it does not contain the trailer
         uint64_t repo_sz;
+
+        // The size of the trailer
+        uint64_t trailer_sz;
+
+        // The end position of the file. It should be such
+        // phy_repo_start_pos < phy_repo_end_pos <= fp_end
+        uint64_t fp_end;
 
         // The total count of blocks reserved in the repository
         // including the block 0.
@@ -39,13 +50,13 @@ class Repository {
 
     public:
         // Open a physical file and read/load the repository from there
-        // starting at the byte repo_start_pos.
+        // starting at the byte phy_repo_start_pos.
         //
         // If the file does not exist, it cannot be opened for read+write
         // or it contains an invalid repository, fail.
         //
         // Te create a new repository, use Repository::create.
-        Repository(const char* fpath, uint32_t repo_start_pos = 0);
+        Repository(const char* fpath, uint64_t phy_repo_start_pos = 0);
 
         // Create a new repository in the given physical file.
         //
@@ -64,7 +75,7 @@ class Repository {
         // create a new file and a repository there.
         //
         // Only in this case the global parameters (gp) will be used.
-        static Repository create(const char* fpath, bool fail_if_exists = false, uint32_t repo_start_pos = 0, const GlobalParameters& gp = GlobalParameters());
+        static Repository create(const char* fpath, bool fail_if_exists = false, uint64_t phy_repo_start_pos = 0, const GlobalParameters& gp = GlobalParameters());
 
         // Open a repository encoded in the given physical file at the
         // given offset (by default, 0).
@@ -74,7 +85,7 @@ class Repository {
         //
         // If the repository is already open, it will fail. You must
         // call Repository::close before.
-        void open(const char* fpath, std::streampos repo_start_pos = 0);
+        void open(const char* fpath, uint64_t phy_repo_start_pos = 0);
 
         // Close the repository and flush any pending write.
         // Multiple calls can be made without trouble.
@@ -169,33 +180,28 @@ class Repository {
         // Alias for blk read / write positioning
         inline void seek_read_blk(uint32_t blk_nr) {
             assert(blk_nr);
-            seek_read_phy((blk_nr << gp.blk_sz_order) + repo_start_pos);
+            seek_read_phy((blk_nr << gp.blk_sz_order) + phy_repo_start_pos);
         }
 
         inline void seek_write_blk(uint32_t blk_nr) {
             assert(blk_nr);
-            seek_read_phy((blk_nr << gp.blk_sz_order) + repo_start_pos);
+            seek_read_phy((blk_nr << gp.blk_sz_order) + phy_repo_start_pos);
         }
-
-        // Expand / shrink the underlying physical file
-        // by the given amount in bytes.
-        void expand_phy_bytes(uint32_t sz);
-        void shrink_phy_bytes(uint32_t sz);
 
         // Create a new repository in the specified file.
         // If the file exists, the file gets truncated (deleted?)
         // before creating the repository there.
         //
         // This is a static version to work with Repository::create
-        static void _truncate_and_create_new_repository(const char* fpath, std::streampos repo_start_pos, const GlobalParameters& gp);
+        static void _truncate_and_create_new_repository(const char* fpath, uint64_t phy_repo_start_pos, const GlobalParameters& gp);
 
         // Write the header/trailer moving the file pointer
         // to the correct position before.
         //
         // These are static/class method versions to work with
         // Repository::create
-        static void _seek_and_write_header(std::fstream& fp, std::streampos repo_start_pos, uint64_t repo_sz, uint32_t blk_total_cnt, const GlobalParameters& gp);
-        static void _seek_and_write_trailer(std::fstream& fp, std::streampos repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp);
+        static void _seek_and_write_header(std::fstream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp);
+        static void _seek_and_write_trailer(std::fstream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp);
 
         // Read the header/trailer moving the file pointer
         // to the correct position and check that the header/trailer

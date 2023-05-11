@@ -14,6 +14,10 @@ struct F {
         ss << val;
         return *this;
     }
+
+    std::string str() {
+        return ss.str();
+    }
 };
 
 class OpenXOZError : public std::exception {

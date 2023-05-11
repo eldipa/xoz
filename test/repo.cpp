@@ -33,8 +33,9 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 4124 bytes, 1 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 4096 bytes, 1 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 4096 bytes (order: 12)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -49,8 +50,8 @@ namespace {
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
         EXPECT_EQ(repo.params().blk_sz_order, (uint8_t)12);
 
-        EXPECT_EQ(repo.params().repo_start_pos, gp.repo_start_pos);
-        EXPECT_EQ(repo.params().repo_start_pos, (std::streampos)0);
+        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
+        EXPECT_EQ(repo.params().phy_repo_start_pos, (uint64_t)0);
 
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
         EXPECT_EQ(repo.params().blk_init_cnt, (uint32_t)1);
@@ -64,10 +65,10 @@ namespace {
         auto hd_str = oss.str();
 
         // Part of the header
-        EXPECT_THAT(hd_str, HasSubstr("00000000  58 4f 5a 00 0c 00 00 00  1c 10 00 00 00 00 00 00  |XOZ.............|"));
+        EXPECT_THAT(hd_str, HasSubstr("00000000  58 4f 5a 00 0c 00 00 00  00 10 00 00 00 00 00 00  |XOZ.............|"));
 
         // Part of the trailer
-        EXPECT_THAT(hd_str, HasSubstr("00001010  00 00 00 00 00 00 00 00  45 4f 46 00              |........EOF.|"));
+        EXPECT_THAT(hd_str, HasSubstr("00001000  45 4f 46 00                                       |EOF."));
     }
 
     TEST(RepositoryTest, CreateNewDefaultsThenOpen) {
@@ -85,8 +86,9 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 4124 bytes, 1 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 4096 bytes, 1 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 4096 bytes (order: 12)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -95,7 +97,7 @@ namespace {
 
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().repo_start_pos, gp.repo_start_pos);
+        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         // Close and check that the file in disk still exists
@@ -109,10 +111,10 @@ namespace {
         auto hd_str = oss.str();
 
         // Part of the header
-        EXPECT_THAT(hd_str, HasSubstr("00000000  58 4f 5a 00 0c 00 00 00  1c 10 00 00 00 00 00 00  |XOZ.............|"));
+        EXPECT_THAT(hd_str, HasSubstr("00000000  58 4f 5a 00 0c 00 00 00  00 10 00 00 00 00 00 00  |XOZ.............|"));
 
         // Part of the trailer
-        EXPECT_THAT(hd_str, HasSubstr("00001010  00 00 00 00 00 00 00 00  45 4f 46 00              |........EOF.|"));
+        EXPECT_THAT(hd_str, HasSubstr("00001000  45 4f 46 00                                       |EOF."));
     }
 
     TEST(RepositoryTest, CreateNonDefaultsThenOpen) {
@@ -131,7 +133,7 @@ namespace {
         // Check repository's parameters after create
         EXPECT_EQ(new_repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(new_repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(new_repo.params().repo_start_pos, gp.repo_start_pos);
+        EXPECT_EQ(new_repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(new_repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         new_repo.close();
@@ -144,13 +146,14 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 8220 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 8192 bytes, 4 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 2048 bytes (order: 11)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters after open
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().repo_start_pos, gp.repo_start_pos);
+        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         repo.close();
@@ -182,13 +185,14 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 8220 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 8192 bytes, 4 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 2048 bytes (order: 11)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters after open
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().repo_start_pos, gp.repo_start_pos);
+        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         repo.close();
@@ -218,8 +222,9 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 8220 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 8192 bytes, 4 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 2048 bytes (order: 11)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters after open
         // Because the second Repository::create *did not* create a fresh
@@ -227,7 +232,7 @@ namespace {
         // created repository.
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().repo_start_pos, gp.repo_start_pos);
+        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         repo.close();
@@ -270,8 +275,9 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 8220 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 8192 bytes, 4 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 2048 bytes (order: 11)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters after open
         // Because the second Repository::create *did not* create a fresh
@@ -279,7 +285,7 @@ namespace {
         // created repository.
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().repo_start_pos, gp.repo_start_pos);
+        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         repo.close();
@@ -302,8 +308,9 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 16412 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 16384 bytes, 4 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 4096 bytes (order: 12)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Add 6 more blocks
         old_top_nr = repo.alloc_blocks(6);
@@ -315,8 +322,9 @@ namespace {
         stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 40988 bytes, 10 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 40960 bytes, 10 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 4096 bytes (order: 12)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Close and reopen and check again
         repo.close();
@@ -328,8 +336,9 @@ namespace {
         stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 40988 bytes, 10 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 40960 bytes, 10 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 4096 bytes (order: 12)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         repo.close();
         HEXDUMP("CreateThenExpand.xoz");
@@ -341,7 +350,69 @@ namespace {
         // Part of the trailer
         // Note the position of the trailer that should
         // match the size of the expanded file
-        EXPECT_THAT(hd_str, HasSubstr("0000a010  00 00 00 00 00 00 00 00  45 4f 46 00              |........EOF.|"));
+        EXPECT_THAT(hd_str, HasSubstr("0000a000  45 4f 46 00                                       |EOF."));
+
+    }
+
+    TEST(RepositoryTest, CreateThenExpandThenRevert) {
+        DELETE("CreateThenExpandThenRevert.xoz");
+        DELETE("CreateThenExpandThenRevert.xoz.hex");
+
+        Repository repo = Repository::create(SCRATCH_HOME "CreateThenExpandThenRevert.xoz", true);
+
+        // The repository by default has 1 block so adding 3 more
+        // will yield 4 blocks in total
+        auto old_top_nr = repo.alloc_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+
+        std::stringstream ss;
+        repo.print_stats(ss);
+
+        auto stats_str = ss.str();
+        // std::cout << stats_str; // for easy debug
+
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 16384 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Block size: 4096 bytes (order: 12)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
+
+        // Now "revert" freeing those 3 blocks
+        repo.free_blocks(3);
+
+        ss.str("");
+        repo.print_stats(ss);
+
+        stats_str = ss.str();
+        // std::cout << stats_str; // for easy debug
+
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 4096 bytes, 1 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Block size: 4096 bytes (order: 12)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
+
+        // Close and reopen and check again
+        repo.close();
+        repo.open(SCRATCH_HOME "CreateThenExpandThenRevert.xoz");
+
+        ss.str("");
+        repo.print_stats(ss);
+
+        stats_str = ss.str();
+        // std::cout << stats_str; // for easy debug
+
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 4096 bytes, 1 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Block size: 4096 bytes (order: 12)"));
+        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
+
+        repo.close();
+        HEXDUMP("CreateThenExpandThenRevert.xoz");
+
+        std::stringstream oss;
+        oss << std::ifstream(SCRATCH_HOME "CreateThenExpandThenRevert.xoz.hex").rdbuf();
+        auto hd_str = oss.str();
+
+        // Part of the trailer
+        // Note the position of the trailer that should
+        // match the size of the expanded-but-then-reverted file
+        EXPECT_THAT(hd_str, HasSubstr("00001000  45 4f 46 00                                       |EOF."));
 
     }
 }

@@ -22,7 +22,7 @@ const char* OpenXOZError::what() const noexcept {
 
 InconsistentXOZ::InconsistentXOZ(const Repository& repo, const std::string& msg) {
     std::stringstream ss;
-    ss << "Repository on file '" << repo.fpath << " (offset " << repo.repo_start_pos << ") seems inconsistent/corrupt.\n";
+    ss << "Repository on file '" << repo.fpath << " (offset " << repo.phy_repo_start_pos << ") seems inconsistent/corrupt.\n";
     ss << msg;
 
     this->msg = ss.str();
