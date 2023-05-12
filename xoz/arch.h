@@ -13,7 +13,8 @@
 #define u32_from_le(X) (X)
 #define u64_from_le(X) (X)
 
-#define __count_leading_zeros(X) __builtin_clz((X))
+#define __u32_count_leading_zeros(X) __builtin_clz((X))
 
-#define  u16_log2_floor(X) (16 - __count_leading_zeros((X)) - 1)
-#define  u32_log2_floor(X) (32 - __count_leading_zeros((X)) - 1)
+inline int u16_log2_floor(uint16_t X) { return (32 - __u32_count_leading_zeros((X)) - 1); }
+inline int u32_log2_floor(uint32_t X) { return (32 - __u32_count_leading_zeros((X)) - 1); }
+
