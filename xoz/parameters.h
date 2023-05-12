@@ -11,9 +11,8 @@ struct GlobalParameters {
     // Order of 10 are for block size of 1KB;
     // order of 11 are for block size of 2KB; and so on
     //
-    // It must be less or equal than 16 (max block size of 64KB)
+    // It must be between 10 and 16 (block sizes of 1KB to 64KB)
     uint8_t blk_sz_order = 12;
-
 
     // In which position of the file the repository
     // begins (in bytes).

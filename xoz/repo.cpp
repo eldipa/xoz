@@ -130,7 +130,6 @@ void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
 
     gp.phy_repo_start_pos = phy_repo_start_pos;
 
-    // TODO check??
     seek_read_and_check_header();
     seek_read_and_check_trailer();
 
@@ -259,9 +258,16 @@ void Repository::seek_read_and_check_header() {
         throw InconsistentXOZ(*this, "magic string 'XOZ' not found in the header.");
     }
 
-    // TODO check minimum blk sz / order
     gp.blk_sz_order = u8_from_le(hdr.blk_sz_order);
     gp.blk_sz = (1 << hdr.blk_sz_order);
+
+    if (gp.blk_sz_order < 10 or gp.blk_sz_order > 16) {
+        throw InconsistentXOZ(*this, F()
+                << "block size order "
+                << gp.blk_sz_order
+                << " is out of range [10 to 16] (block sizes of 1K to 64K)."
+                );
+    }
 
     blk_total_cnt = u32_from_le(hdr.blk_total_cnt);
     if (blk_total_cnt == 0) {
