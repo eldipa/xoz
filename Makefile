@@ -5,7 +5,7 @@ CXXFLAGS=-std=c++2a -pedantic -Wall -Werror -ggdb -O0
 GTESTPATH=../googletest/../out/usr/local
 
 GTESTFLAGS=-I${GTESTPATH}/include/ -L${GTESTPATH}/lib/
-GTESTLIBS=-lgtest -lgtest_main -lpthread
+GTESTLIBS=-lgtest -lpthread
 
 
 all: build
@@ -24,7 +24,7 @@ build-test: test/alltests
 test: build-test
 	./test/alltests
 
-prepare-scratch:
+mount-scratch:
 	sudo mount -t tmpfs -o size=10M tmpfs scratch/mem/
 	sudo chown user:user scratch/mem/
 
