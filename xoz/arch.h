@@ -60,8 +60,6 @@ constexpr inline uint64_t u64_to_le(uint64_t x) {
 #define u32_from_le(X) u32_to_le(X)
 #define u64_from_le(X) u64_to_le(X)
 
-#define __u32_count_leading_zeros(X) __builtin_clz((X))
-
-// Calculate the log2 of a uint16_t or uint32_t
-inline int u16_log2_floor(uint16_t X) { return (32 - __u32_count_leading_zeros((X)) - 1); }
-inline int u32_log2_floor(uint32_t X) { return (32 - __u32_count_leading_zeros((X)) - 1); }
+// Calculate the log2 of a uint16_t or uint32_t values
+constexpr inline int u16_log2_floor(uint16_t x) { return (16 - std::countl_zero(x) - 1); }
+constexpr inline int u32_log2_floor(uint32_t x) { return (32 - std::countl_zero(x) - 1); }
