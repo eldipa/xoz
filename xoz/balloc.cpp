@@ -84,6 +84,10 @@ std::list<Extent> BlockAllocator::alloc(const BlockRequest& req) {
         // TODO we are not checking overflow in repo.alloc_blocks
         // not returning an error.
         uint32_t new_first_blk_nr = repo.alloc_blocks(req.blk_cnt);
+
+        // We expect to receive the immediately following block
+        // of the highest_blk_nr seen so far.
+        assert (new_first_blk_nr == highest_blk_nr + 1);
         highest_blk_nr = new_first_blk_nr + req.blk_cnt - 1;
 
         allocd.push_back({
@@ -105,12 +109,19 @@ std::list<Extent> BlockAllocator::alloc(const BlockRequest& req) {
     return allocd;
 }
 
-// TODO how to prevent double free?
-// and 2 overlapping free?
-// and a free that frees beyond the range?
 void BlockAllocator::free(const Extent& ext) {
     assert (ext.blk_nr > 0);
     assert (ext.blk_cnt > 0);
+
+    // The extent should be within the range of so-far
+    // allocated by the repo blocks
+    assert (ext.blk_nr + ext.blk_cnt - 1 <= highest_blk_nr);
+
+#ifndef NDEBUG
+    // This should check double free and overlapping free
+    Extent overlapping = find_overlapping(ext);
+    assert (overlapping.blk_nr == 0);
+#endif
 
     unsigned bin_nr = u16_log2_floor(ext.blk_cnt);
     bins[bin_nr].push_back(ext);
@@ -190,3 +201,21 @@ std::ostream& BlockAllocator::print_stats(std::ostream& out) const {
     return out;
 }
 
+Extent BlockAllocator::find_overlapping(const Extent& target) const {
+    for (unsigned i = 0; i < sizeof(bins)/sizeof(bins[0]); ++i) {
+        for (auto it = bins[i].begin(); it != bins[i].end(); ++it) {
+            const auto& ext = *it;
+
+            if (
+                    ((ext.blk_nr <= target.blk_nr) and (target.blk_nr < ext.blk_nr + ext.blk_cnt)) or
+                    ((target.blk_nr <= ext.blk_nr) and (ext.blk_nr < target.blk_nr + target.blk_cnt))
+               ) {
+                // overlapping found
+                return ext;
+            }
+        }
+    }
+
+    // no overlapping found
+    return Extent {.blk_nr = 0, .blk_cnt = 0};
+}

@@ -124,4 +124,5 @@ class BlockAllocator {
 
     private:
         uint32_t remove_extent_ending_in(uint32_t end_blk_nr);
+        Extent find_overlapping(const Extent& target) const;
 };
