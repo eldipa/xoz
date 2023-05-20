@@ -1,8 +1,8 @@
 # XOZ Format
 
-**Author:** Martin Di Paola
-**Status:** Draft
-**Version:** 1
+ - **Author:** Martin Di Paola
+ - **Status:** Draft
+ - **Version:** 1
 
 # Abstract
 
@@ -20,7 +20,7 @@ the new format and which may be delayed for a future version.
 
 # Motivation
 
-Latest version of Xournal++ has `.xopp` as its default (and unique)
+Xournal++ has `.xopp` as its unique
 file format: a text-based XML file compressed with GZip.
 
 The XML format does not support random access for reading nor modifications
@@ -246,7 +246,59 @@ This *preserves* the original ordering of the objects in the *stream*.
 All the present structures in this RFC are the structures in-disk that form the
 `.xoz` file. They are aligned to 1 byte, with numbers in little endian.
 
-## Data Block ??
+## Data Block
+
+*Data blocks* are the basic unit of allocated space to be used. With the
+exception of the *trailer*, anything is stored in a *data block*.
+
+The `.xoz` file is divided into blocks of some fixed size: 1KB but other
+power of 2 greater than 1KB could be used.
+
+Each *data block* allocated and in use is assigned to an *object* or to a
+*stream*.
+
+A `.xoz` file may be larger than the sum of the in-use blocks: the
+library may had allocated more blocks which remain free.
+
+The administration of the *data blocks* is in charge of the
+*block allocator*.
+
+The mechanisms of the *block allocator* are not part of this RFC.
+
+### Block Number 0
+
+The block number 0 is a special one and it cannot be accessed, pointed
+to, reused or freed.
+
+It is exclusively used to store the *header* and other important
+main structures: *free map* and the *page index*.
+
+### Free Map
+
+The *block allocator* needs to know which blocks are in-use and which are
+free.
+
+The *free map* contains a snapshot of the block usage so the
+*block allocator* is not required to scan the entire file and detect
+heuristically which blocks are free and which aren't.
+
+```cpp
+struct free_blk_map_t {
+    uint32_t next_blk_nr;
+
+    uint16_t extcnt;
+    struct extent_t exts[/* extcnt */];
+};
+```
+
+The `next_blk_nr` is the block number of the next block that expands
+and continues the *free map*. If it is zero, no more blocks
+are needed to complete the *free map*.
+
+`extcnt` counts how many entries the following `exts` array has.
+Note that this `extcnt` is `uint16_t` and not `uint8_t` as it is
+defined in `struct ext_arr_t`.
+
 
 ### Block Extents
 
@@ -287,6 +339,10 @@ similar.
 A `blk_nr` and `blk_cnt` of zeros means that that *extent* is inactive.
 Because `extcnt` says how many entries the `exts` array has, this is the
 only way to signal that an entry (an *extent*) should be skipped.
+
+### Page index
+
+
 
 ## Object
 
@@ -469,19 +525,26 @@ struct desc_stream_t {
     uint32_t last_blk_nr;
     uint16_t offset;
 
-    /* Stats are for in-memory only */
-    uint32_t unreclaimed_desc_cnt; // this does not include the continuations
-    uint32_t unreclaimed_inline_bytes; // this does not include the continuations
-    uint32_t unreclaimed_blk_cnt; // may not include sub-allocations
-    /* ----- */
-
     uint8_t extcnt; // extcnt >= 2
     struct extent_t exts[/* extcnt */];
 };
 ```
 
+The `last_blk_nr` and `offset` indicate the block and offset within of
+the last entry added to the *stream* so it is not required to scan
+entirely.
 
-### Stream Reordering
+On load, the library may read the next few bytes and check that they are
+zeros just to confirm it is at the end of the *stream*.
+
+The `extcnt` of a *stream* should be equal or greater than 2. This makes
+room for at least 2 entries in the array `exts` even if they are zero'd
+so the *stream* can grow and add more *data blocks* without requiring
+changes in its *descriptor*.
+
+
+
+### Reordering
 
 The application is in its own right to reorder the *objects* of
 a *stream*, this RFC does not put any restriction on that.
@@ -489,7 +552,11 @@ a *stream*, this RFC does not put any restriction on that.
 The restrictions on the reordering are for any possible reordering
 that the *library* may do (not the application).
 
-If a *stream* has two objects `A` and `B` such `A` is before than `B`
+Let be a *stream* with two objects `A` and `B` where `A` and `B`
+are *object descriptors* or the first `struct desc_moved_downstream_t`
+*descriptors*.
+
+If `A` is before than `B`
 (schematically `[.. A .. B ..]`), then the library guarantee that if a
 reordering happen, the *relative order* between the objects
 *will not change*.
@@ -504,11 +571,29 @@ and `a1` will still be before `a2`
 
 The library also must guarantee that any *continuation* of an *object*
 appear after the *object descriptor* or after its first
-`struct desc_moved_downstream_t` *descriptor*
+`struct desc_moved_downstream_t` *descriptor*.
 
+These rules guarantee that when the library read the *stream* in order
+it will find first or the *object descriptor* or its `struct
+desc_moved_downstream_t` *descriptor* and only then its continuations.
 
+The relative order preserved can be used by the application to encode
+the rendering order for example.
 
+### Compaction
 
+The library should track how many *zombies objects* a *stream* has (dead but not
+removed), how many *zero'd holes* has (dead objects that were removed)
+and how many bytes are not reclaimed.
+
+This not reclaimed space comes from space wasted in *zombies* and
+*zero'd holes* inside the *stream* but also comes from the *data blocks* of dead
+objects and from their *continuations*.
+
+If the *stream* grows beyond certain threshold, the library may do a *compaction*:
+a full scan and rewrite of the *stream*.
+
+This RFC does not defines exactly how or when.
 
 
 # Backwards Compatibility
@@ -700,6 +785,13 @@ Should the non-global objects have a reference count too?
 The author couldn't think in a use-case to justify it but the PDF format
 apparently allows to do it.
 
+## Minimum Extent Count for Stream
+
+This RFC proposes a minimum of 2 *extents* to hold all the
+*data blocks* of a *stream* with the expectation to be enough
+and avoid any reallocation or expansion.
+
+Will be this enough?
 
 ## Stream-Local Objects' IDs
 
@@ -807,7 +899,7 @@ whole file unreadable.
 The author consideres that this must be resolved and taken into account
 before releasing the file format.
 
-## Forward and Backward Compatibility
+# Forward and Backward Compatibility
 
 This RFC mandates that certain bits across certain structures are
 reserved for future uses. *Continuations* is a mechanism to add or patch
@@ -818,12 +910,12 @@ safely fallback.
 
 Is this enough?
 
-## Copyright/License
+# Copyright/License
 
 This document is placed in the public domain or under the
 CC0-1.0-Universal license, whichever is more permissive.
 
-## References
+# References
 
 For the reader that wants to learn more about the `.xopp` format,
 it is fully described in [issue #2124](https://github.com/xournalpp/xournalpp/issues/2124).
