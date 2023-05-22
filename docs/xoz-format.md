@@ -1,109 +1,71 @@
 # XOZ Format
 
-**Author:** Martin Di Paola
-**Status:** Draft
-**Version:** 1
+ - **Author:** Martin Di Paola
+ - **Status:** Draft
+ - **Version:** 1
+
+### Summary of changes
+
+None. No changes respect to the previous draft version.
 
 # Abstract
 
-We propose a new binary format `.xoz` to support Xournal++ specific
+A new binary format `.xoz` is proposed to support Xournal++ specific
 needs:
 
  - Random read access to data associated with a document's page
 including strokes, images and other embedded files.
  - Random write access to update in-place the associated data with a
 page.
+ - More efficient data representation.
+ - Embed arbitrary files, including but not limited to, PDF, images, audio
+and fonts.
 
-The present RFC describes the `.xoz` format and
-which modifications to Xournal++ source code are required to integrate
+The present RFC describes the `.xoz` format and which modifications to
+Xournal++ source code are required to integrate
 the new format and which may be delayed for a future version.
 
 # Motivation
 
-Latest version of Xournal++ has `.xopp` as its default (and unique)
+Xournal++ has `.xopp` as its unique
 file format: a text-based XML file compressed with GZip.
 
 The XML format does not support random access for reading nor modifications
 in-place. Due its text-based nature, it require an explicit encoding to
-store binary data.
+store binary data making large files.
 
-These limitations are not specific to Xournal++, it is just how XML
-works.
+And compressing with GZip does not help:
+While it reduces the file size, it trades space by CPU time.
 
-Compressing the entire file with GZip does not help.
+Therefore Xournal++ requires to:
 
-While it reduces the file size, trading it by CPU time, it also prevents
-random read/write access.
+ - uncompress and read the entire file to load a single page.
+ - compress and write the entire file even if only a single page is changed.
 
-This means that to read and render a page, Xournal++ requires to
-uncompress and read the entire file; On saving, it requires to compress
-and write the entire file even if only a single page changed.
-
-For small files, this is not a real issue but it is inadequate
-to handle large contents.
-
-Users had reported in the past that `.xopp` files were "too large"
-or Xournal++ takes "too much time" in load them.
-
-People in the past tried to reduce the impact of using a text-based
-format (XML):
-
- - Reduce the file size writing less digits in the strokes' points - [issue 1277 (merged)](https://github.com/xournalpp/xournalpp/issues/1277)
- - Encode in binary-raw format the PNG images - [issue #3416 (not merged)](https://github.com/xournalpp/xournalpp/issues/3416)
-
-About the load/save time, there were also some tried to reduce them:
-
- - Explore different compression strategies. `zstd` and `brotli` are
-the winners but it was shown that encoding in binary and not in text is even better - [issue 1869 (not merged)](https://github.com/xournalpp/xournalpp/issues/1869)
- - Per page `"was modified"` flag so the saving would write to disk only
-those pages which changed - [issue #2130 (not merged)](https://github.com/xournalpp/xournalpp/issues/2130)
- - Write in parallel (speed up) and/or in background (do not block the user) approaches were explored - [issue #2684](https://github.com/xournalpp/xournalpp/issues/2684)
+Users had reported in the past that `.xopp` files were *"too large"*
+or it takes *"too much time"* to load them.
 
 While read performance can be amortized in time (we don't expect a
 typical user to open several files every minute), write performance is
 more critical.
 
-Xournal++ writes to disk a backup file every 5 minutes or so for crash
+Xournal++ writes a backup file every 5 minutes or so for crash
 recovery so even if the user does not modify the document, he/she will
 pay the cost.
 
-Moreover, current SSD disks degrade their performance after multiple
-writes. This is specially true for phones / tablets that ship with more
-"cheap" SSD disks.
+This translates to *disk degradation* (specially for "cheap" SSDs found in
+phones / tables) and *battery drain*.
 
 On top of those limitations, there is interest in adding even more
-data into a `.xopp`, making Xournal++ files "self-contained".
+data into a `.xopp` like PDF and fonts, making Xournal++ files *"self-contained"*
+but also larger due the impossibility to write binary.
 
- - Enable non-PNG image loading for `.xopz` (but PNG was enforced for backward compatibility) - [pull req #3782 (merged)](https://github.com/xournalpp/xournalpp/pull/3782)
- - Embed PDF inside Xournal++ files - [issue #4252 (not merged)](https://github.com/xournalpp/xournalpp/issues/4252), [issue #4249 (not merged)](https://github.com/xournalpp/xournalpp/issues/4249)
- - Background images are not embedded (bug) - [issue #3845 (open)](https://github.com/xournalpp/xournalpp/issues/3845)
-
-The author would add also embed audio files and specially fonts. While Xournal++
-gracefully fallbacks to a default font if the one specified in the
-`.xopp` is found, it will be easier for the users to have everything in
-the same file.
-
-Trying to support any of those embedded files into `.xopp` would require
-encoding their binary data, necessary increasing the file size.
-
-
-All the pain points and feature requests boil down to support:
-
- - Random read access: this means allow Xournal++ to read
-only a fraction of the file in order to render an arbitrary page.
- - Random write access: knowing which part of document had
-changed, Xournal++ may update and write to disk only those changed,
-avoiding a entire rewrite.
- - Efficient representation of strokes and points.
- - Embed arbitrary files, including but not limited to, PDF, images, audio
-and fonts.
 
 # Overview
 
 ## Objects
 
-In this RFC, Xournal++'s strokes, images and texts are globally named
-*objects*.
+Strokes, images, texts as well embedded files are named *objects*.
 
 An *object* has three parts:
 
@@ -124,9 +86,6 @@ where its *object descriptor* lives.
 An *object* may require much more space that its *descriptor* can offer
 to store its data. This is stored in *data blocks*.
 
-The *object descriptor* and/or one or more *continuations* will encode
-which blocks belong to the object using *extents*.
-
 ## Streams
 
 A *stream* is a ordered sequence of *object descriptors* and their
@@ -142,111 +101,53 @@ A *stream* has two components:
 The *data blocks* of a *stream* contains the ordered sequence of
 *object descriptors* and their *continuations*.
 
-The implementation is an *append-only* stream:
+## Layers
 
- - modification of *object descriptors* is allowed if they can be do it
-   *in-place* (without requiring displacements)
- - deletion of *object descriptors* is achieved marking *in-place*
-   the deletion (see `struct obj_hdr_t`) or overwriting the
-   *descriptors* with zeros.
- - modifications that cannot be done *in-place* or via *continuations*,
-   the original *descriptor* is replaced with a
-   `struct desc_moved_downstream_t`
-   and the modified *descriptor* is appended at the end of the *stream*
+A *layer* is a 2-dimensional mosaic.
 
-The library may run a *compaction* if detects that a significant
-amount of space can be recovered.
+In each *tile* there may be zero or one *stream* associated.
 
-# Rationale
+The *layer* at the bottom of the stack is the *background layer*
+and it is the only *layer* that has **no** *streams* but special
+*background descriptors*.
 
-## Object and Stream Descriptors
-
-The reason behind having separated the *descriptor* from the *object*'s
-or *stream*'s main body is because we can store there attributes
-that are likely to be changed.
-
-To mention a few examples:
-
- - strokes' and texts' color
- - strokes', texts' and images' position (x and y)
-
-Having them in a *descriptor* allow to do only a *tiny update in-place*
-with the possibility of modifying several *descriptors* of the
-same *stream* all at once (because they would be probably in the
-same *stream*'s *data block*).
-
-If these attributes where in a *data block*, would require an additional
-lookup (from the *descriptor* to the *data block*) and would definitely
-require accessing and modifying several blocks.
-
-## Append-only Streams
-
-Xournal++ has only a few object types:
-
- - stroke
- - text
- - image
- - teximage
- - embedded file
-
-All of them, except text, are of fixed size: once known the size will
-not change.
-
-This allows to allocate the exact count of *data blocks* and *extents*
-required and having the *descriptor* of a fixed size
-(see `struct desc_stroke_t` for an example).
-
-Nothing needs to be expanded so everything can be consecutively written
-without padding and without worrying to reserve some slack space for
-growing.
-
-The library would require to read the entire *stream* once and optionally
-build an *index* for direct random access to each *object descriptor*.
-
-And keeping the index updated, where the indexed entries don't move,
-is much simpler.
-
-Such index enables modifications of common attributes like color
-and position to be done *in-place*.
-
-The author believes that most of the changed done by the users
-are mostly creation of new objects and modification such translations
-of existing ones. For this an *append-only* structure fits well.
-
-On deletion, deleted *objects* are marked or zero'd leaving *"holes"*
-in the *stream* which will not be filled until a *stream compaction*.
-
-The *append-only* implementation trades off speed by space (wasted
-in fragmentation).
-
-The author believes that this use case is less frequent than
-the rest and the benefits and simplicity of the *append-only* implementation
-compensate the temporal fragmentation.
-
-## Moved downstream
-
-For text objects the thing may be different: they may grow or shrink in size
-and they are small enough to not be worth of spending *full data blocks*
-on them.
-
-In this case it may be better to store the text inside the *descriptor*
-(aka *inline data*) but it is an open question yet.
-
-A general solution is to replace the *text descriptor* with a special
-*descriptor* that signals that the object was moved downstream:
-`struct desc_moved_downstream_t`.
-
-Then, the modified (and possibly larger) *text object* is appended at
-the end of the *stream*.
-
-This *preserves* the original ordering of the objects in the *stream*.
+A *page* is a *stack* of tiles
+that have the *same position* across the *layers*.
 
 # Specification
 
-All the present structures in this RFC are the structures in-disk that form the
-`.xoz` file. They are aligned to 1 byte, with numbers in little endian.
+All the present structures in this RFC are the *structures in-disk* that form the
+`.xoz` file.
 
-## Data Block ??
+They are:
+
+ - aligned to 1 byte
+ - numbers are in little endian
+
+## Data Block
+
+*Data blocks* are the basic unit of allocated space to be used. With the
+exception of the *trailer*, anything is stored in a *data block*.
+
+The `.xoz` file is divided into blocks of some fixed size: 1KB but other
+power of 2 greater than 1KB could be used.
+
+Each *data block* allocated and in use is assigned to an *object*,
+*stream* or other structure.
+
+A `.xoz` file may be larger than the sum of the in-use blocks: the
+library may had allocated more blocks which remain free.
+
+The administration of the *data blocks* is in charge of the
+*block allocator*.
+
+The mechanisms of the *block allocator* are not part of this RFC.
+
+The *block number 0* is a **special** one and it cannot be accessed, pointed
+to, reused or freed.
+
+It is exclusively used to store the *header* and other important
+**main structures**: *free map*, *free ids* and the *layout*.
 
 ### Block Extents
 
@@ -267,12 +168,12 @@ an *array of extents*:
 
 ```cpp
 struct ext_arr_t {
-    uint8_t extcnt;
-    struct extent_t exts[/* extcnt */];
+    uint8_t ext_cnt;
+    struct extent_t exts[/* ext_cnt */];
 }
 ```
 
-The `extcnt` is *fixed* at the moment of the creation, so the size of
+The `ext_cnt` is *fixed* at the moment of the creation, so the size of
 `struct ext_arr_t` is known.
 
 It is possible to *pre-allocate* more blocks than the required, just
@@ -285,8 +186,9 @@ elsewhere and dependent of the type of the *object* , *stream* or
 similar.
 
 A `blk_nr` and `blk_cnt` of zeros means that that *extent* is inactive.
-Because `extcnt` says how many entries the `exts` array has, this is the
+Because `ext_cnt` says how many entries the `exts` array has, this is the
 only way to signal that an entry (an *extent*) should be skipped.
+
 
 ## Object
 
@@ -294,7 +196,7 @@ Any object share a common header:
 
 ```cpp
 struct obj_hdr_t {
-    uint16_t type; // bits: <DCRR RRTT TTTT TTTT>
+    uint16_t type; // bit mask: <DCRR RRTT TTTT TTTT>
     uint32_t id;
 };
 ```
@@ -321,7 +223,7 @@ of `struct obj_hdr_t` and possibly the bytes *after* the structure.
 The stroke objects are defined as:
 
 ```cpp
-struct desc_stroke_t {
+struct obj_stroke_desc_t {
     struct obj_hdr_t;
     uint32_t color_rgba;
 
@@ -332,10 +234,10 @@ struct desc_stroke_t {
 Data blocks pointed by the extents store the following:
 
 ```cpp
-struct data_stroke_t {
-    uint16_t flags;  // bits: <FFFF CCCC PPPP TTTT>
+struct obj_stroke_data_t {
+    uint16_t flags;  // bit mask: <FFFF CCCC PPPP TTTT>
     uint32_t pointcnt;
-    float coords[/* pointcnt * (2 or 3) */];
+    float coords[/* (2 * pointcnt + 1) or (3 * pointcnt - 1) */];
 };
 ```
 
@@ -360,25 +262,25 @@ all.
 **TODO:** explain about the continuations for a stroke to define
 *custom* style patterns.
 
-### Resources
+## Resources
 
 Resources are objects that can be *referenced* by zero, one
 or more objects.
 
 ```cpp
-struct resource_t {
+struct obj_resource_desc_t {
     struct obj_hdr_t hdr;
-    uint32_t refcnt;
+    uint32_t ref_cnt;
 
-    uint8_t extcnt;
-    struct extent_t exts[/* extcnt */];
+    uint8_t ext_cnt;
+    struct extent_t exts[/* ext_cnt */];
 };
 ```
 
-The `refcnt` field tracks how many other objects are referencing this
+The `ref_cnt` field tracks how many other objects are referencing this
 resource.
 
-This RFC does not mandates what to do with a resource with a `refcnt`
+This RFC does not mandates what to do with a resource with a `ref_cnt`
 of zero.
 
 The application may decide to delete the resource to release space
@@ -391,6 +293,47 @@ able to recover later.
 struct res_font_t {
 };
 ```
+
+### Solid Background
+
+```cpp
+struct res_bg_solid_t {
+    uint32_t color_rgba;
+    uint8_t style;
+
+    uint16_t param_flags; // bit mask: <ABCD WMRT XXXX XXXX>
+    uint8_t params[/* based on flags */ ];
+}
+```
+
+`param_flags` encodes how many bytes the `params` array has and how to
+interpret them,
+
+For the MSB 4 bits (mask 0xF000), `params` requires 4 bytes
+per each bit set: these bytes are interpreted as `uint32_t` and
+represent a RGBA color.
+
+These, in order are:
+
+ - foreground color 1
+ - foreground alternative color 1
+ - foreground color 2
+ - foreground alternative color 2
+
+For the next 4 bits (mask 0x0F00), `params` requires 4 bytes
+per each bit set: these bytes are interpreted as `float` and represent
+a measurement.
+
+These, in order are:
+
+ - line width
+ - margin
+ - round margin
+ - raster
+
+The lower 8 bits (mask 0x00FF) are reserved.
+
+
 
 
 ## Object's Continuations
@@ -407,19 +350,19 @@ extending.
 
 #### More Extents
 
-The *continuation* adds `extcnt` additional extents to the object. The
+The *continuation* adds `ext_cnt` additional extents to the object. The
 interpretation of the data blocks is up to the original object.
 
 ```cpp
 struct cont_more_extents_t {
     struct obj_hdr_t;
 
-    uint8_t extcnt;
-    struct extent_t exts[/* extcnt */];
+    uint8_t ext_cnt;
+    struct extent_t exts[/* ext_cnt */];
 };
 ```
 
-If an *object descriptor* has a `struct ext_arr_t` with an `extcnt`
+If an *object descriptor* has a `struct ext_arr_t` with an `ext_cnt`
 of 2, let's say `[A, B]`, if a following `struct cont_more_extents_t`
 adds 3 additional extents `[C, D, E]`, then the *data blocks* of the object
 are described by the extents `[A, B, C, D, E]`, in that order.
@@ -465,23 +408,30 @@ struct cont_audio_attach_t {
 ### Stream Descriptor
 
 ```cpp
-struct desc_stream_t {
+struct stream_desc_t {
     uint32_t last_blk_nr;
     uint16_t offset;
 
-    /* Stats are for in-memory only */
-    uint32_t unreclaimed_desc_cnt; // this does not include the continuations
-    uint32_t unreclaimed_inline_bytes; // this does not include the continuations
-    uint32_t unreclaimed_blk_cnt; // may not include sub-allocations
-    /* ----- */
-
-    uint8_t extcnt; // extcnt >= 2
-    struct extent_t exts[/* extcnt */];
+    uint8_t ext_cnt; // ext_cnt >= 2
+    struct extent_t exts[/* ext_cnt */];
 };
 ```
 
+The `last_blk_nr` and `offset` indicate the block and offset within of
+the last entry added to the *stream* so it is not required to scan
+entirely.
 
-### Stream Reordering
+On load, the library may read the next few bytes and check that they are
+zeros just to confirm it is at the end of the *stream*.
+
+The `ext_cnt` of a *stream* should be equal or greater than 2. This makes
+room for at least 2 entries in the array `exts` even if they are zero'd
+so the *stream* can grow and add more *data blocks* without requiring
+changes in its *descriptor*.
+
+
+
+### Reordering
 
 The application is in its own right to reorder the *objects* of
 a *stream*, this RFC does not put any restriction on that.
@@ -489,7 +439,11 @@ a *stream*, this RFC does not put any restriction on that.
 The restrictions on the reordering are for any possible reordering
 that the *library* may do (not the application).
 
-If a *stream* has two objects `A` and `B` such `A` is before than `B`
+Let be a *stream* with two objects `A` and `B` where `A` and `B`
+are *object descriptors* or the first `struct obj_moved_downstream_desc_t`
+*descriptors*.
+
+If `A` is before than `B`
 (schematically `[.. A .. B ..]`), then the library guarantee that if a
 reordering happen, the *relative order* between the objects
 *will not change*.
@@ -504,8 +458,197 @@ and `a1` will still be before `a2`
 
 The library also must guarantee that any *continuation* of an *object*
 appear after the *object descriptor* or after its first
-`struct desc_moved_downstream_t` *descriptor*
+`struct obj_moved_downstream_desc_t` *descriptor*.
 
+These rules guarantee that when the library read the *stream* in order
+it will find first or the *object descriptor* or its `struct
+obj_moved_downstream_desc_t` *descriptor* and only then its continuations.
+
+The relative order preserved can be used by the application to encode
+the rendering order for example.
+
+### Compaction
+
+The library should track how many *zombies objects* a *stream* has (dead but not
+removed), how many *zero'd holes* has (dead objects that were removed)
+and how many bytes are not reclaimed.
+
+This not reclaimed space comes from space wasted in *zombies* and
+*zero'd holes* inside the *stream* but also comes from the *data blocks* of dead
+objects and from their *continuations*.
+
+If the *stream* grows beyond certain threshold, the library may do a *compaction*:
+a full scan and rewrite of the *stream*.
+
+This RFC does not defines exactly how or when.
+
+## Tile List
+
+The *tiles* of all the *layers* are listed in the same
+structure, grouped by *layer*.
+
+The *background tiles* and the rest of the *tiles* and listed
+separately as they always belong to the *background layer*.
+
+```cpp
+struct tile_list_t {
+    uint16_t layer_cnt; // assert layer_cnt >= 1
+
+    struct layer_desc_t layers[/* layer_cnt */];
+
+    struct bg_desc_t bgs[/* layers[0].tile_cnt */];
+
+    uint32_t rows[/* sum (tile_cnt) for all layer */];
+    uint32_t cols[/* sum (tile_cnt) for all layer */];
+
+    struct stream_desc_t stms[/* sum (tile_cnt) for all layer except 0th */];
+}
+```
+
+ - `layer_cnt` counts how many *layers* there are. Because the
+ *background layer* is mandatory, this counter must be greater or
+ equal than 1.
+
+ - `layers` is an array of *layer descriptors* which have each the count
+ of *tiles* inside plus some metadata. The first entry (`layers[0]`)
+ is dedicated to the *background layer*.
+
+ The order of the entries in `layers` defines the *stack order*
+ to *compose a page*, being `layers[0]` the bottom of the stack.
+
+ - `rows` and `cols` are the coordinates of each *tile*
+ in the mosaics that each *layer* defines.
+
+ By definition each *tile* has a single position so the
+ `rows` and `cols` arrays are as long as the sum of all
+ the count of tiles.
+
+ - `bgs` is the array of *background descriptors* of length
+ `layers[0].tile_cnt`.
+
+ - `stms` is the array of *stream descriptors* that stores all the
+ non-background non-empty tiles. So its length is the sum of
+ all the count of tiles in `layers` *except* `layers[0]`.
+
+The `layers`, `bgs`, `rows`, `cols`, `stms` arrays are "paired" each
+other.
+
+The first `layers[0].tile_cnt` numbers in `rows` and `cols` are the
+coordinates for the tiles in the *background layer*, coordinates
+paired 1-to-1 with the entries in the `bgs` array.
+
+The *next* `layers[1].tile_cnt` numbers in `rows` and `cols` are the
+coordinates for the tiles in the *first non-background layer*,
+coordinates paired 1-to-1 with the *first*
+`layers[1].tile_cnt` entries of the `stms` array.
+
+And so on.
+
+**Note:** the `struct tile_list_t` layout prevents any modification in place:
+adding or removing a single page will require a full rewrite of
+structure. The same happen for a layer reorder.
+
+The author believes that the cost will be amortized in time as it is not
+expected such changes to be frequent.
+
+The library may reserve an extra space in the arrays to reduce the
+full rewrite.
+
+Knowing the count of *background tiles*, the author believes that
+reserving space for `layers[1]` assuming a `layers[1].tile_cnt` equal to
+`layers[0].tile_cnt` should prevent any full rewrite in most use cases.
+
+This would require an additional space of
+`(sizeof(stms[0]) + sizeof(rows[0]) + sizeof(cols[0])) * layers[1].tile_cnt`
+(worst case).
+
+
+### Layer Descriptor
+
+```cpp
+struct layer_desc_t {
+    uint32_t tile_cnt;
+    char* name;  // UTF-8 null terminated
+}
+```
+
+The `tile_cnt` defines how non-empty *tiles* this *layer* has.
+
+The `name` is the optional name of this *layer*. It is a null terminated
+UTF-8 string.
+
+### Background Descriptor
+
+The *background descriptor* has the following structure:
+
+```cpp
+struct bg_desc_t {
+    float width;
+    float height;
+
+    uint32_t res;
+    uint32_t page_nr; // pdf (generalize??)
+};
+```
+
+The allowed types of *resources* pointed by `res` to be
+used as the *background* are:
+
+ - Image
+ - PDF
+ - Solid background
+
+
+## File Main Structures
+
+### File Header
+
+```cpp
+struct xoz_hdr_t {
+    uint8_t magic[4];   // "XOZ" followed by NUL
+
+    uint8_t blk_sz_order;
+
+    uint64_t repo_sz;
+    uint64_t trailer_sz;
+
+    uint32_t blk_total_cnt;
+    uint32_t blk_init_cnt;
+
+    uint8_t layout_flags; // TODO
+    uint16_t layout_extcnt;
+    struct extent_t layout_exts[/* layout_exts */];
+};
+```
+
+### Free Map
+
+The *block allocator* needs to know which blocks are in-use and which are
+free.
+
+The *free map* contains a snapshot of the block usage so the
+*block allocator* is not required to scan the entire file and detect
+heuristically which blocks are free and which aren't.
+
+```cpp
+struct free_blk_map_t {
+    struct xoz_internal_t hdr;
+
+    uint32_t next_blk_nr;
+
+    uint16_t free_blks_extcnt;
+    struct extent_t free_blks_exts[/* free_blks_extcnt */];
+};
+```
+
+The `next_blk_nr` is the block number of the next block that expands
+and continues the *free map*. If it is zero, no more blocks
+are needed to complete the *free map*.
+
+`free_blks_extcnt` counts how many entries the following `free_blks_exts`
+array has.
+Note that this `free_blks_extcnt` is `uint16_t` and not `uint8_t` as it is
+defined in `struct ext_arr_t`.
 
 
 
@@ -570,7 +713,7 @@ This is the most sensible phase as it requires the user to upgrade
 their Xournal++ versions and start migrating the files.
 
 People may have different devices with different versions and they may
-not be able to upgrade all of them. If an user has a single pre-`.xoz`
+not be able to upgrade all of them. If an user has a single pre `.xoz`
 version, the user will probably not want to switch to `.xoz`.
 
 Adoption of `.xoz` will take time so releasing a Xournal++ version with
@@ -598,7 +741,7 @@ slowly upgrade and migrate to `.xoz`.
 Once `.xoz` gets integrated and a `.xoz`-aware Xournal++ version gets released,
 we should document in the webpage about the new format.
 
-Users having at least one pre-`.xoz` version should stick to `.xopp`
+Users having at least one pre `.xoz` version should stick to `.xopp`
 format until they can upgrade.
 
 `.xoz`-aware Xournal++ versions will be able to convert `.xopp` files
@@ -700,6 +843,13 @@ Should the non-global objects have a reference count too?
 The author couldn't think in a use-case to justify it but the PDF format
 apparently allows to do it.
 
+## Minimum Extent Count for Stream
+
+This RFC proposes a minimum of 2 *extents* to hold all the
+*data blocks* of a *stream* with the expectation to be enough
+and avoid any reallocation or expansion.
+
+Will be this enough?
 
 ## Stream-Local Objects' IDs
 
@@ -796,6 +946,19 @@ simple rotation/scape. More over we can preserve the original data and
 revert any transformation without losing quality (raster images are
 particular sensible to this).
 
+Such transformation could be encoded as 4 numbers `[a, b, c, d]`:
+
+ - `[sx, 0, 0, sy]`: scale the object by `sx` in the `x` axis and `sy`
+    in the `y` axis.
+ - `[cos(q), sin(q), -sin(q), cos(q)]`: rotates the object by `q`
+    degrees clockwise.
+ - `[1, tan(wx), tan(wy), 1]`: skews the object by `wx` degrees
+    in the `x` axis and `wy` degrees in the `y` axis.
+
+Reference: 2008 PDF Reference, Section 8.3.3
+
+
+
 ## Tolerance to Failures
 
 The current RFC does not talk about any mechanism to prevent data
@@ -807,7 +970,7 @@ whole file unreadable.
 The author consideres that this must be resolved and taken into account
 before releasing the file format.
 
-## Forward and Backward Compatibility
+# Forward and Backward Compatibility
 
 This RFC mandates that certain bits across certain structures are
 reserved for future uses. *Continuations* is a mechanism to add or patch
@@ -818,12 +981,36 @@ safely fallback.
 
 Is this enough?
 
-## Copyright/License
+# Previous work
+
+People in the past tried to reduce the impact of using a text-based
+format (XML):
+
+ - Reduce the file size writing less digits in the strokes' points - [issue 1277 (merged)](https://github.com/xournalpp/xournalpp/issues/1277)
+ - Encode in binary-raw format the PNG images - [issue #3416 (open)](https://github.com/xournalpp/xournalpp/issues/3416)
+
+About the load/save time, there were also some tried to reduce them:
+
+ - Explore different compression strategies. `zstd` and `brotli` are
+the winners but it was shown that encoding in binary and not in text is even better - [issue 1869 (research/proposal)](https://github.com/xournalpp/xournalpp/issues/1869)
+ - Per page `"was modified"` flag so the saving would write to disk only
+those pages which changed - [issue #2130 (proposal)](https://github.com/xournalpp/xournalpp/issues/2130)
+ - Write in parallel (speed up) and/or in background (do not block the user) approaches were explored - [issue #2684 (proposal)](https://github.com/xournalpp/xournalpp/issues/2684)
+
+There were some work on embedding other files and making `.xopp`
+"self-contained":
+
+ - Enable non-PNG image loading for `.xopz` (but PNG was enforced for backward compatibility) - [pull request #3782 (merged)](https://github.com/xournalpp/xournalpp/pull/3782)
+ - Embed PDF inside Xournal++ files - [issue #4252 (open)](https://github.com/xournalpp/xournalpp/issues/4252), [issue #4249 (open)](https://github.com/xournalpp/xournalpp/issues/4249)
+ - Background images are not embedded (bug) - [issue #3845 (open)](https://github.com/xournalpp/xournalpp/issues/3845)
+
+
+# Copyright/License
 
 This document is placed in the public domain or under the
 CC0-1.0-Universal license, whichever is more permissive.
 
-## References
+# References
 
 For the reader that wants to learn more about the `.xopp` format,
 it is fully described in [issue #2124](https://github.com/xournalpp/xournalpp/issues/2124).
@@ -831,4 +1018,107 @@ it is fully described in [issue #2124](https://github.com/xournalpp/xournalpp/is
 The first discussions about the need of a new format and the proposed
 ideas can be found in [issue #937](https://github.com/xournalpp/xournalpp/issues/937).
 
+
+
+
+
+
+The implementation is an *append-only* stream:
+
+ - modification of *object descriptors* is allowed if they can be do it
+   *in-place* (without requiring displacements)
+ - deletion of *object descriptors* is achieved marking *in-place*
+   the deletion (see `struct obj_hdr_t`) or overwriting the
+   *descriptors* with zeros.
+ - modifications that cannot be done *in-place* or via *continuations*,
+   the original *descriptor* is replaced with a
+   `struct obj_moved_downstream_desc_t`
+   and the modified *descriptor* is appended at the end of the *stream*
+
+The library may run a *compaction* if detects that a significant
+amount of space can be recovered.
+
+# Rationale
+
+## Object and Stream Descriptors
+
+The reason behind having separated the *descriptor* from the *object*'s
+or *stream*'s main body is because we can store there attributes
+that are likely to be changed.
+
+To mention a few examples:
+
+ - strokes' and texts' color
+ - strokes', texts' and images' position (x and y)
+
+Having them in a *descriptor* allow to do only a *tiny update in-place*
+with the possibility of modifying several *descriptors* of the
+same *stream* all at once (because they would be probably in the
+same *stream*'s *data block*).
+
+If these attributes where in a *data block*, would require an additional
+lookup (from the *descriptor* to the *data block*) and would definitely
+require accessing and modifying several blocks.
+
+## Append-only Streams
+
+Xournal++ has only a few object types:
+
+ - stroke
+ - text
+ - image
+ - teximage
+ - embedded file
+
+All of them, except text, are of fixed size: once known the size will
+not change.
+
+This allows to allocate the exact count of *data blocks* and *extents*
+required and having the *descriptor* of a fixed size
+(see `struct obj_stroke_desc_t` for an example).
+
+Nothing needs to be expanded so everything can be consecutively written
+without padding and without worrying to reserve some slack space for
+growing.
+
+The library would require to read the entire *stream* once and optionally
+build an *index* for direct random access to each *object descriptor*.
+
+And keeping the index updated, where the indexed entries don't move,
+is much simpler.
+
+Such index enables modifications of common attributes like color
+and position to be done *in-place*.
+
+The author believes that most of the changed done by the users
+are mostly creation of new objects and modification such translations
+of existing ones. For this an *append-only* structure fits well.
+
+On deletion, deleted *objects* are marked or zero'd leaving *"holes"*
+in the *stream* which will not be filled until a *stream compaction*.
+
+The *append-only* implementation trades off speed by space (wasted
+in fragmentation).
+
+The author believes that this use case is less frequent than
+the rest and the benefits and simplicity of the *append-only* implementation
+compensate the temporal fragmentation.
+
+## Moved downstream
+
+For text objects the thing may be different: they may grow or shrink in size
+and they are small enough to not be worth of spending *full data blocks*
+on them.
+
+In this case it may be better to store the text inside the *descriptor*
+(aka *inline data*) but it is an open question yet.
+
+A general solution is to replace the *text descriptor* with a special
+*descriptor* that signals that the object was moved downstream:
+`struct obj_moved_downstream_desc_t`.
+
+Then, the modified (and possibly larger) *text object* is appended at
+the end of the *stream*.
+
+This *preserves* the original ordering of the objects in the *stream*.
 
