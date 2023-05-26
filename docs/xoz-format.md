@@ -201,37 +201,94 @@ struct obj_hdr_t {
 };
 ```
 
-Each object is identified uniquely by its `id`.
+The least 10 significant bits (mask 0x03FF) of `type`
+encode the *object type*.
 
-The most significant bits of `type` have a special purposes:
+The meaning of the rest of the bits of `type`
+and the `id` depends on the specific *object type*.
 
- - The MSB says if the object is alive (0) or dead (1)
- - The next bit says if the object is an ordinary
-object (0) or if it is a *continuation* (1).
- - The next 4 bits are reserved.
- - The remaining 10 bits encode the type of the object.
+The following is
+the default interpretation followed by most of the *object types*.
 
-
-The `type` of an object defines how to interpret the rest of the fields
-of `struct obj_hdr_t` and possibly the bytes *after* the structure.
+ - The MSB of `type` (mask 0x8000) says if the object is
+   alive (0) or dead (1)
+ - The next bit (mask 0x4000) says if the object is an ordinary
+   object (0) or if it is a *continuation* (1).
+ - The next 4 bits (mask 0x3c00) are reserved.
+ - The field `id` represents the unique identifier of the *object*.
 
 `.xoz` supports different types of objects which are defined below.
 
+### Object Types (Summary)
 
-### Stroke Objects
+For convenience the *object types* are grouped and assigned
+a subset of the 10 bits space.
+
+Types of plain objects are in the range `0x01 - 0x0f`, continuations
+are in the range `0x10 - 0x1f` and so on.
+
+Plain objects:
+
+ - 0x01: *stroke object*
+ - 0x02: *text object*
+ - 0x03: *image object*
+ - 0x04: *Tex/Latex image object*
+
+Continuations:
+
+ - 0x10: *more extents continuation*
+ - 0x11: *stroke pattern continuation*
+ - 0x12: *audio attachment*
+ - 0x13: *stream continuation* (reserved for extend *stream*'s attributes)
+
+Structural:
+
+ - 0x00: *discard bytes object*.
+ - 0x80: *stream object*
+ - 0x81: *layer object*
+ - 0x82: *background object*
+ - 0xff: *end of stream object*
+
+
+**Note:** The value assigned to each type is mandatory, the ranges are not.
+For example, the library must not assume that `0x10 - 0x1f` is the exclusive
+range of *continuation* types: *continuation types* may exist outside
+the range and *non-continuation types* may exist inside the range.
+
+
+### Discard Bytes Object
+
+```cpp
+struct obj_discard_bytes_desc_t {
+    struct obj_hdr_t;   // type: 0x00
+};
+```
+
+The *discard bytes object* represents a *"hole"* or a *"gap"*.
+
+The least 16 significant bits of `id` (mask 0x00FF) represent the
+length of the gap: how many bytes should be skipped.
+
+The rest of the bits of `id` (mask 0xFF00) are reserved.
+
+The most 6 significant bits of `type` (mask 0xFC00) are reserved.
+
+### Stroke Object
 
 The stroke objects are defined as:
 
 ```cpp
 struct obj_stroke_desc_t {
-    struct obj_hdr_t;
+    struct obj_hdr_t;   // type: 0x01
     uint32_t color_rgba;
 
-    struct ext_arr_t;
+    struct ext_arr_t exts;
 };
 ```
 
-Data blocks pointed by the extents store the following:
+Data blocks pointed by the extents must be concatenated and
+seen as a contiguous buffer from which the following structure
+is read:
 
 ```cpp
 struct obj_stroke_data_t {
@@ -259,11 +316,127 @@ interpreted as an `uint8_t` number with 1 being a fill nearly transparent
 and 255 a fill fully opaque. The bit pattern `0000` (0) means no fill at
 all.
 
-**TODO:** explain about the continuations for a stroke to define
-*custom* style patterns.
+### Text Object
 
-## Resources
+The *text objects* are defined as:
 
+```cpp
+struct obj_text_desc_t {
+    struct obj_hdr_t hdr;   // type: 0x02
+    uint8_t flags;
+
+    uint32_t color_rgba;
+
+    float x;
+    float y;
+
+    uint8_t font_size;
+    uint32_t font_obj_id;
+
+    struct ext_arr_t exts;
+};
+```
+
+The 8 bits of `flags` are reserved.
+
+The `color_rgba` is the color of the text and `x` and `y` its position.
+
+The `font_size` says the size of the text and `font_obj_id` is the
+*object id* of the *font object*.
+
+Data blocks pointed by the extents must be concatenated and
+seen as a contiguous null-terminated UTF-8 encoded text.
+
+### Image Object
+
+The *image objects* are defined as:
+
+```cpp
+struct obj_image_desc_t {
+    struct obj_hdr_t;   // type: 0x03
+
+    float x;
+    float y;
+
+    struct ext_arr_t exts;
+};
+```
+
+Data blocks pointed by the extents must be concatenated and
+seen as a contiguous buffer from which the following structure:
+
+```cpp
+struct obj_image_data_t {
+    uint16_t flags;
+
+    uint32_t size;
+    uint8_t raw[/* size */];
+};
+```
+
+All the 16 bits of `flags` are reserved.
+
+The possible compressed raw representation of the image is stored
+in the `raw` array of `size` bytes.
+
+No information about the image format or dimensions is given: the
+library will have to load the image from `raw`, probe and test the
+first bytes to deduce of which format is.
+
+### Tex/Latex Image Object
+
+The *Tex/Latex image objects* (or just *teximage objects*) are defined as:
+
+```cpp
+struct obj_teximage_desc_t {
+    struct obj_hdr_t;   // type: 0x04
+
+    float x;
+    float y;
+
+    struct ext_arr_t exts;
+};
+```
+
+Data blocks pointed by the extents must be concatenated and
+seen as a contiguous buffer from which the following structure:
+
+```cpp
+struct obj_teximage_data_t {
+    uint16_t flags;
+
+    uint32_t size;
+    uint8_t raw[/* size */];
+
+    uint8_t texsrc[/* null terminated */];
+};
+```
+
+All the 16 bits of `flags` are reserved.
+
+The possible compressed raw representation of the image is stored
+in the `raw` array of `size` bytes.
+
+The Tex/Latex source code from which the image was generated is stored
+in `texsrc` as a null terminated UTF-8 encoded text.
+
+
+### End of Stream Object
+
+This *object descriptor* marks the end of a *stream*.
+
+```cpp
+struct obj_end_of_stream_desc_t {
+    struct obj_hdr_t;   // type: 0xff
+};
+```
+
+The `id` field and the most 6 significant bits of `type` (mask 0xFC00)
+are reserved.
+
+## Resources and Attachments
+
+**todo**
 Resources are objects that can be *referenced* by zero, one
 or more objects.
 
@@ -288,11 +461,6 @@ The application may decide to delete the resource to release space
 able to recover later.
 
 
-
-```cpp
-struct res_font_t {
-};
-```
 
 ### Solid Background
 
@@ -333,13 +501,26 @@ These, in order are:
 
 The lower 8 bits (mask 0x00FF) are reserved.
 
+### Fonts
+
+```cpp
+struct res_font_t {
+
+};
+```
 
 
 
-## Object's Continuations
 
-As said any object may require more information or be extended in
-someway beyond what its *descriptor* offer.
+## Object Continuations
+
+An *object descriptor* may not be enough to encode all the information.
+
+A *continuation* may be used to
+
+ - add more room for more data.
+ - attach additional objects or metadata.
+ - specify optional parameters.
 
 An *object continuation* is an structure that looks like an ordinary
 object but with the most significant bit of `type` field set to 1.
@@ -355,7 +536,7 @@ interpretation of the data blocks is up to the original object.
 
 ```cpp
 struct cont_more_extents_t {
-    struct obj_hdr_t;
+    struct obj_hdr_t;   // type: 0x10
 
     uint8_t ext_cnt;
     struct extent_t exts[/* ext_cnt */];
@@ -371,7 +552,7 @@ More than one `struct cont_more_extents_t` can be used to extend
 the same *object*.
 
 
-#### Stroke's Non-Standard Pattern
+#### Stroke Non-Standard Pattern
 
 A *stroke* may be draw using a non-standard pattern. This pattern is
 defined as a array of `valuecnt` values which interpretation is
@@ -379,7 +560,7 @@ based on `pattern_type` and it is up to the application.
 
 ```cpp
 struct cont_stroke_pattern_t {
-    struct obj_hdr_t;
+    struct obj_hdr_t;   // type: 0x11
 
     uint8_t pattern_type;
     uint8_t valuecnt;
@@ -409,27 +590,39 @@ struct cont_audio_attach_t {
 
 ```cpp
 struct stream_desc_t {
-    uint32_t last_blk_nr;
-    uint16_t offset;
-
-    uint8_t ext_cnt; // ext_cnt >= 2
-    struct extent_t exts[/* ext_cnt */];
+    struct obj_hdr_t hdr;   // type: 0x80
+    struct ext_arr_t exts;
 };
 ```
 
-The `last_blk_nr` and `offset` indicate the block and offset within of
-the last entry added to the *stream* so it is not required to scan
-entirely.
+The `exts.ext_cnt` of a *stream* should be equal or greater than 2.
+This makes room for at least 2 entries in the array `exts` even
+if they are zero'd so the *stream* can grow and add more
+*data blocks* without requiring changes in its *descriptor*.
 
-On load, the library may read the next few bytes and check that they are
-zeros just to confirm it is at the end of the *stream*.
+The *data blocks* pointed by the same extent should be considered
+a *contiguous* buffer from which **complete / non-fragmented**
+*object descriptors* can be read.
 
-The `ext_cnt` of a *stream* should be equal or greater than 2. This makes
-room for at least 2 entries in the array `exts` even if they are zero'd
-so the *stream* can grow and add more *data blocks* without requiring
-changes in its *descriptor*.
+An *object descriptor* must not be fragmented and spread across
+different *data blocks* of **different** extents.
 
+When appending a new entry to the *stream*, if it does not fit because
+it is at the end of the latest *data block* of the extent, the entry
+is added somewhere else and the space remaining will be wasted.
 
+This space must be filled with a `struct obj_discard_bytes_desc_t`
+to describe how many bytes are left.
+
+If no space for `struct obj_discard_bytes_desc_t` exists, pad with
+zeros.
+
+On load, the library should access the latest valid extent in `exts`,
+load its blocks and scan from the beginning in search for the
+`strcut obj_end_of_stream_desc_t` *descriptor* that signals the end.
+
+A *stream* must have one and only one `strcut obj_end_of_stream_desc_t`
+at its end.
 
 ### Reordering
 
@@ -440,8 +633,7 @@ The restrictions on the reordering are for any possible reordering
 that the *library* may do (not the application).
 
 Let be a *stream* with two objects `A` and `B` where `A` and `B`
-are *object descriptors* or the first `struct obj_moved_downstream_desc_t`
-*descriptors*.
+are *object descriptors*.
 
 If `A` is before than `B`
 (schematically `[.. A .. B ..]`), then the library guarantee that if a
@@ -457,30 +649,45 @@ and `a1` will still be before `a2`
 (schematically `[.. A .. a1 .. a2..]`)
 
 The library also must guarantee that any *continuation* of an *object*
-appear after the *object descriptor* or after its first
-`struct obj_moved_downstream_desc_t` *descriptor*.
-
-These rules guarantee that when the library read the *stream* in order
-it will find first or the *object descriptor* or its `struct
-obj_moved_downstream_desc_t` *descriptor* and only then its continuations.
+appear after the *object descriptor*.
 
 The relative order preserved can be used by the application to encode
 the rendering order for example.
 
 ### Compaction
 
-The library should track how many *zombies objects* a *stream* has (dead but not
-removed), how many *zero'd holes* has (dead objects that were removed)
-and how many bytes are not reclaimed.
+*Zombie objects* are *object descriptors* in a *stream*
+marked as dead but still occupying space in the *stream* (in the
+form of *descriptors* and *continuations*) and space in *data blocks*
+(pointed by the *object descriptor*).
 
-This not reclaimed space comes from space wasted in *zombies* and
-*zero'd holes* inside the *stream* but also comes from the *data blocks* of dead
-objects and from their *continuations*.
+The library should track how many *zombies objects* a *stream* has, how
+many bytes in the *stream* are unreclaimed and many bytes in the *data
+blocks* are unreclaimed.
 
 If the *stream* grows beyond certain threshold, the library may do a *compaction*:
 a full scan and rewrite of the *stream*.
 
-This RFC does not defines exactly how or when.
+This RFC does not define exactly how or when to do the compaction
+or if the compaction has to be done per extent basis, or across
+all the extents, if objects from one extent should migrate
+to a previous or if empty extents should be released as well.
+
+The author does not think that a sophisticated mechanism is required
+but some kind of minimal compaction should be implemented.
+
+However, if an *zombie object* is removed from the *stream*, all
+the *continuations* pointing to it **must** be removed as well.
+
+This is because as long as the *object* exists in the *stream*,
+its *object id* is still in-use and *continuations* can safely
+point to it because no other *object* will have the same id.
+
+When removing an *object* and releasing the its *object id*,
+a *continuation* pointing to it would be ambiguous: is it
+pointing to the deleted *object* or is pointing to the
+future-incoming new *object* that by luck has the same id?
+
 
 ## Tile List
 
@@ -488,7 +695,8 @@ The *tiles* of all the *layers* are listed in the same
 structure, grouped by *layer*.
 
 The *background tiles* and the rest of the *tiles* and listed
-separately as they always belong to the *background layer*.
+separately as they have different structures (`struct bg_desc_t`
+and `struct layer_desc_t`).
 
 ```cpp
 struct tile_list_t {
@@ -567,15 +775,18 @@ This would require an additional space of
 
 ```cpp
 struct layer_desc_t {
+    struct obj_hdr_t hdr;  // type: 0x81
+
     uint32_t tile_cnt;
-    char* name;  // UTF-8 null terminated
+    uint8_t capacity;
+    char name[/* capacity */];  // UTF-8 null terminated
 }
 ```
 
 The `tile_cnt` defines how non-empty *tiles* this *layer* has.
 
 The `name` is the optional name of this *layer*. It is a null terminated
-UTF-8 string.
+UTF-8 string but more bytes may had been reserved (`capacity`).
 
 ### Background Descriptor
 
@@ -583,11 +794,16 @@ The *background descriptor* has the following structure:
 
 ```cpp
 struct bg_desc_t {
+    struct obj_hdr_t hdr;   // type: 0x82
+
     float width;
     float height;
 
     uint32_t res;
     uint32_t page_nr; // pdf (generalize??)
+
+    uint8_t capacity;
+    char name[/* capacity */];  // UTF-8 null terminated
 };
 ```
 
@@ -597,6 +813,9 @@ used as the *background* are:
  - Image
  - PDF
  - Solid background
+
+The `name` is the optional name of this *background*. It is a null terminated
+UTF-8 string but more bytes may had been reserved (`capacity`).
 
 
 ## File Main Structures
@@ -615,18 +834,37 @@ struct xoz_hdr_t {
     uint32_t blk_total_cnt;
     uint32_t blk_init_cnt;
 
-    uint8_t layout_flags; // TODO
-    uint16_t layout_extcnt;
-    struct extent_t layout_exts[/* layout_exts */];
 };
 ```
 
-### Free Map
+### Resources / global objects (use stream? continuations?)
+
+Metadata to organize the resources like a tree/directory?
+
+### Metadata ??
+
+**TODO:** editor preferences, latex preamble, page template, history,
+user defined metadata
+
+### Ref counters ??
+
+**TODO:** track the reference count of each shared object like
+resources being referenced by N objects; normal in-stream objects being
+referenced by another object.
+
+Continuations/attachments don't count as references.
+
+Some shared objects may be:
+ - automatically deleted if ref-count is 0 (this applies to resources
+   that were internally generated and not visible by the users)
+ - require explicit user permission to be deleted
+
+### Free Block Map
 
 The *block allocator* needs to know which blocks are in-use and which are
 free.
 
-The *free map* contains a snapshot of the block usage so the
+The *free block map* contains a snapshot of the block usage so the
 *block allocator* is not required to scan the entire file and detect
 heuristically which blocks are free and which aren't.
 
@@ -642,8 +880,8 @@ struct free_blk_map_t {
 ```
 
 The `next_blk_nr` is the block number of the next block that expands
-and continues the *free map*. If it is zero, no more blocks
-are needed to complete the *free map*.
+and continues the *free block map*. If it is zero, no more blocks
+are needed to complete the *free block map*.
 
 `free_blks_extcnt` counts how many entries the following `free_blks_exts`
 array has.
@@ -817,6 +1055,20 @@ experimentation is required.
 Sub-block allocation is possible too to mitigate the internal
 fragmentation (but trading it with external fragmentation).
 
+The idea is that partially filled *"logical" data blocks* could share the same
+*"physical" data block*.
+
+When the data is from *objects* of fixed size, this is posible as by
+definition the data of each *object* will not grow.
+
+Variable size *objects* may still take advantage of sub-allocation but
+it may require move the data in case of grow.
+
+*streams* fall in this category. Because a *stream* is likely to grow,
+it may be desired to *pre-allocate* more space but still below a
+full block.
+
+
 ## Block Alignment
 
 This RFC does not mandate the begin of a block to be aligned to any
@@ -833,15 +1085,25 @@ fragmentation.
 
 By how much?
 
-## Reference Count
+## Markdown
 
-Global objects have a reference count to know if it is safe to deleted
-or not.
+`struct obj_text_desc_t` has a reserved `flags` field. A future
+extension could interpret this to enable Markdown text.
 
-Should the non-global objects have a reference count too?
+Support for Markdown could enable a bunch of features on Xournal++:
 
-The author couldn't think in a use-case to justify it but the PDF format
-apparently allows to do it.
+ - rich text: [issue 4503](https://github.com/xournalpp/xournalpp/issues/4503), [issue 3659](https://github.com/xournalpp/xournalpp/issues/3659), [issue 729](https://github.com/xournalpp/xournalpp/issues/729)
+ - links: [issue 4772](https://github.com/xournalpp/xournalpp/pull/4772)
+
+Links could not be just to web resources (URL) but to internal ones like
+jumping to a arbitrary page or playing an audio.
+
+Almost everything in `.xoz` has an *object id* which identifies uniquely
+the object so mounting anchoring and linking on top of that is possible.
+
+However a *reference count* should be taken into account so we can know
+when an object is safe to be deleted or not based if other object
+points/links to it.
 
 ## Minimum Extent Count for Stream
 
@@ -850,18 +1112,6 @@ This RFC proposes a minimum of 2 *extents* to hold all the
 and avoid any reallocation or expansion.
 
 Will be this enough?
-
-## Stream-Local Objects' IDs
-
-The RFC uses object ids that are unique globally: all the objects of all
-the streams including global objects have an unique id.
-
-This requires 32 bits (but possibly fewer bits are ok).
-
-Should *objects* living in a *stream* have an id unique within that *stream*
-but not globally?
-
-We may save 1 byte or 2 per object.
 
 ## Object Zombies (not reclaimed)
 
@@ -878,10 +1128,6 @@ objects*?
 What about the *objects* which *stream* is deleted? Should the *stream*
 deletion deferred? Should be deleted but its *objects* temporally
 preserved (aka *orphans*)?
-
-## Infinite Pages
-
-`.xoz` does not handle in any way this but it should be.
 
 ## Merge of `.xoz` Files
 
@@ -931,8 +1177,8 @@ What compression algorithm(s) use, if any, it open to research.
 
 ## Transformations
 
-Currently on a rotation or scale, Xournal++ computes the final stroke's points
-or image and save it as is as a new stroke/image.
+Currently on a rotation or scale, Xournal++ computes the final *stroke*'s points
+or *image* and save it as is as a new stroke/image.
 
 It could be possible with the new `.xoz` format to add transformations:
 the strokes/images are stored without any rotation/scale applied and
@@ -957,7 +1203,17 @@ Such transformation could be encoded as 4 numbers `[a, b, c, d]`:
 
 Reference: 2008 PDF Reference, Section 8.3.3
 
+## Concurrency
 
+The `.xoz` file may support concurrent reads and writes but it is not
+clear how.
+
+An user may be modifies one layer of a page while other is modifying
+another of the same page. Both users will be modifying different
+*streams*.
+
+Support for distributed reads and writes may be also possible (aka
+remote collaboration).
 
 ## Tolerance to Failures
 
@@ -1030,21 +1286,18 @@ The implementation is an *append-only* stream:
  - deletion of *object descriptors* is achieved marking *in-place*
    the deletion (see `struct obj_hdr_t`) or overwriting the
    *descriptors* with zeros.
- - modifications that cannot be done *in-place* or via *continuations*,
-   the original *descriptor* is replaced with a
-   `struct obj_moved_downstream_desc_t`
-   and the modified *descriptor* is appended at the end of the *stream*
 
 The library may run a *compaction* if detects that a significant
 amount of space can be recovered.
 
+
 # Rationale
 
-## Object and Stream Descriptors
+## Descriptors
 
 The reason behind having separated the *descriptor* from the *object*'s
 or *stream*'s main body is because we can store there attributes
-that are likely to be changed.
+that are likely to be changed in the *descriptor*.
 
 To mention a few examples:
 
@@ -1104,21 +1357,6 @@ The author believes that this use case is less frequent than
 the rest and the benefits and simplicity of the *append-only* implementation
 compensate the temporal fragmentation.
 
-## Moved downstream
+## Tile/Mosaic
 
-For text objects the thing may be different: they may grow or shrink in size
-and they are small enough to not be worth of spending *full data blocks*
-on them.
-
-In this case it may be better to store the text inside the *descriptor*
-(aka *inline data*) but it is an open question yet.
-
-A general solution is to replace the *text descriptor* with a special
-*descriptor* that signals that the object was moved downstream:
-`struct obj_moved_downstream_desc_t`.
-
-Then, the modified (and possibly larger) *text object* is appended at
-the end of the *stream*.
-
-This *preserves* the original ordering of the objects in the *stream*.
-
+infinite pages support
