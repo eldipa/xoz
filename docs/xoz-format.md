@@ -1,4 +1,4 @@
-# XOZ Format
+# XOZ File Format - Objects Specification
 
  - **Author:** Martin Di Paola
  - **Status:** Draft
@@ -21,9 +21,13 @@ page.
  - Embed arbitrary files, including but not limited to, PDF, images, audio
 and fonts.
 
-The present RFC describes the `.xoz` format and which modifications to
-Xournal++ source code are required to integrate
-the new format and which may be delayed for a future version.
+This RFC describes the *objects specification* for the `.xoz` file format,
+which modifications to
+Xournal++ source code are required to integrate it
+and which may be delayed for a future version.
+
+It describes the *what* and the *why* but it leaves out (most of) the *how*
+and *when*.
 
 # Motivation
 
@@ -63,9 +67,40 @@ but also larger due the impossibility to write binary.
 
 # Overview
 
-## Objects
+Xournal++ has the concept of *strokes*, *text* and *images*. These are
+specified by this RFC as *objects*.
 
-Strokes, images, texts as well embedded files are named *objects*.
+*objects* are grouped together in a ordered sequence called *stream*.
+
+A *page* does not exist as a single entity in `.xoz`. Instead, the
+parts of a *page* are represented in different places called *tiles*
+
+A *tile* has a *stream of objects* associated with and represents
+a part of a *page*.
+
+Each *tile* belongs to a single *layer* and it has an unique location
+inside.
+
+The *tiles* of a *layer* are organized in
+a 2 dimensional matrix or *mosaic* such each *tile* occupies a
+single position but not necessary every location is full.
+
+The *layer* is defined then as *stream of tiles*.
+
+The *stack of layers* composes the whole *document*, the *stack of tiles*
+for a particular location composes a single *page* for the same
+location.
+
+`.xoz` does not define a structure neither for a *page* nor a
+*stack of tiles*. These are convenient abstractions for the purpose of
+documentation and enables a parallelism with the `.xopp` concepts of
+page and page's layer.
+
+
+## Object Descriptors, Continuations and Data Blocks
+
+Strokes, images, texts as well embedded files and others
+are *objects*.
 
 An *object* has three parts:
 
@@ -76,78 +111,211 @@ An *object* has three parts:
 The *object descriptor* is the only required piece of information that
 describes the object.
 
-For cases where the *descriptor* is not enough or additional metadata
-is added, the *descriptor* can be
+All the *object descriptors* belongs to one and only one *stream*:
+the *object* is owned by that *stream*.
+
+There are cases where a *descriptor* is not enough:
+
+ - more space is required
+ - optional attributes are set
+ - tags and attachments are linked
+
+For these cases the *descriptor* can be
 continued or extended with a *continuation*.
 
 *Continuations* always live in the same *stream*
 where its *object descriptor* lives.
 
-An *object* may require much more space that its *descriptor* can offer
-to store its data. This is stored in *data blocks*.
+One exception: for performance reasons the *continuations of tiles* live
+inside the *stream of layers*, outside of the *stream* where
+the *tile descriptors* live (out of band).
 
-## Streams
+An *object* may require much more space that its *descriptor* or a
+*continuation* can offer: This is stored in *data blocks*.
 
-A *stream* is a ordered sequence of *object descriptors* and their
-*continuations*.
+### Rationale - Descriptors
 
-All the *objects* belongs to one and only one *stream*.
+The reason behind having separated the *descriptor* from the *object*'s
+main body is because we can store there attributes
+that are likely to be changed in the *descriptor* and leave the rest
+outside.
 
-A *stream* has two components:
+To mention a few examples:
 
- - a *stream descriptor*
- - zero or more *data blocks*
+ - strokes' and texts' color
+ - strokes', texts' and images' position (x and y)
 
-The *data blocks* of a *stream* contains the ordered sequence of
-*object descriptors* and their *continuations*.
+A attribute modification can the be **in-place** inside the
+*descriptor*.
 
-## Layers
+Grouping all the related *descriptors* in a single *stream* (like all
+the *objects* of a *page*) makes possible to update several of them
+**in-place** with only the *stream* loaded in memory.
 
-A *layer* is a 2-dimensional mosaic.
+If these attributes where in the *objects*' *data blocks*, each
+attribute modification would require an additional
+lookup per *object* changed (from the *descriptor* to the *data block*).
 
-In each *tile* there may be zero or one *stream* associated.
+### Rationale - Continuations
 
-The *layer* at the bottom of the stack is the *background layer*
-and it is the only *layer* that has **no** *streams* but special
-*background descriptors*.
+An *object* may have optional attributes:
 
-A *page* is a *stack* of tiles
-that have the *same position* across the *layers*.
+ - storing them in the *descriptor* would require reserve space for
+   these optional attributes for **all** the *objects*, not matter
+   if they are used or not.
+ - storing them in the *data blocks* would require an additional
+   lookup to read/write them.
+
+A *continuation* is an optional extension of the *object descriptor*:
+
+ - only the *objects* that really need these optional attributes
+   will have a concrete *continuation* allocated.
+ - being in the same *stream* that its *descriptor*, a *continuation*
+   can be read/written/updated **in-place** and without an
+   additional lookup.
+
+A *continuation* also enables to add more *data blocks* to an *object*
+(`struct cont_more_extents_t`) and attach or link *objects*
+(`struct cont_audio_attach_t`).
+
+Future `.xoz` versions may expand *objects* in different ways
+without breaking their structure layout (maintaining compatibility,
+in principle)
+
+### Rationale - Out of Band Tile Continuations
+
+All the *continuations* leave in the same *stream* where its
+*descriptor* leaves except for *tiles*.
+
+Because the *tile descriptors* has a fixed structure
+(`struct tile_desc_t`) and a *stream of tiles* is entirely made
+of these structures, it is possible to optimize the access
+using efficient simple indexes.
+
+This RFC does not mandate the use of indexes but such may be required
+as fast arbitrary-random *tile* access is a critical
+part to compose a specific *page*.
+
+If *continuations* (or other *objects*) would live there, indexing
+may be more complex.
+
+These *continuations* then live in the *stream of layers*.
+
+## Document, Layers and Tiles
+
+*Layers* define a 2-dimensional *mosaic* where a *tile* can be set and
+hold *objects*.
+
+A *document* stacks one layer on top of each other: for a given
+location, the stacked *tiles* in that location compose a *page*.
+
+Xournal++ should render the *objects* inside each *tile* from the bottom
+of the stack to the top.
+
+The lowest *layer* (at the bottom of the stack) is the *background layer*
+and its *tiles* are *background tiles* grouped in
+a *stream of background tiles*.
+
+This 2-dimensional mosaic defines how the tiles are located each other,
+**not** how Xournal++ renders them in the UI.
+
+Currently Xournal++ has a way to render multiple pages on the same
+display, a *layout*. The concept of the *mosaic* is **not** related.
+
+### Rationale - No Pages but First Citizen Layers
+
+The `.xopp` file format represents each *page* as a series of layers.
+This is a handy representation to quickly read all the components of a
+*page* cross all the layers.
+
+But this prevents to add/remove/modify a single layer, requiring
+to modify **all** the pages of `.xopp`.
+
+The `.xoz` file format drops the *page* concept and makes *layers* a
+first citizen *object*.
+
+The render a single *page*, the library will have to read the multiple
+*tiles* in a particular location across all the *layers*.
+
+While this may sound more expensive, most of the `.xopp` documents from
+the community has very few *layers* so the cost should be minimal.
+
+Having the *layers* separately and independent each of the other may
+allow to implement operations between `.xoz` files like *merging*.
+
+This RFC however does not go further.
+
+### Rationale - Mosaic of Tiles
+
+Xournal++ traditionally modeled a document as a ordered linear sequence
+of pages.
+
+If the user wanted to add a new page between, it was possible but always
+preserving the same linear sequence.
+
+If the user wanted to add more space on a side of a page or wanted pages
+without limits (aka *infinite pages*), this was not possible.
+
+The *layers* in `.xoz` model the document as a 2-dimensional *mosaic of tiles*.
+
+A traditional document can still be modeled as a ordered linear
+sequence: the *tiles* just need to be located at a fixed column (like
+`col = 0`)
+
+But no hard limit is imposed: if the user wanted to add more space on a
+side of a page or wanted pages without limits, more
+*tiles* can be added to the *layer* in the direction that the user wanted.
 
 # Specification
 
 All the present structures in this RFC are the *structures in-disk* that form the
 `.xoz` file.
 
-They are:
+Unless noted, by default they are:
 
  - aligned to 1 byte
- - numbers are in little endian
+ - with no padding
+ - with integer numbers in little endian unsigned
 
-## Data Block
+This RFC uses `uint8_t` and `uint16_t` to denote unsigned integers of 8
+and 16 bits.
 
-*Data blocks* are the basic unit of allocated space to be used. With the
-exception of the *trailer*, anything is stored in a *data block*.
+When bit specification is required the RFC uses pseudo-C notation with
+the bit count on the right.
 
-The `.xoz` file is divided into blocks of some fixed size: 1KB but other
-power of 2 greater than 1KB could be used.
+Such specification is always backed by native integer aligned to 1 byte.
+and the first entry are the most significant bits (MSB).
+
+```cpp
+struct some_t {
+    uint32_t {
+        uint a  : 10;   // 10 most significant bits
+        uint b  : 22;   // next 22 bits
+    };
+
+    uint16_t c;
+};
+```
+
+The structure above has 3 fields:
+
+ - `some_t.a` an unsigned integer stored in the 10 MSB of a 32 bits integer
+ - `some_t.b` an unsigned integer stored in the next 22 bits of the same 32 bits integer
+ - `some_t.c` an unsigned integer of 16 bits.
+
+**Note:** a library implementing this RFC should not use C/C++ bit fields.
+They are not portable. Instead bit masks and shifts should be used.
+
+## Data Blocks
+
+*Data blocks* are the basic unit of allocated space: everything
+is stored in one or more *data blocks* of a power-of-2 fixed size.
 
 Each *data block* allocated and in use is assigned to an *object*,
 *stream* or other structure.
 
-A `.xoz` file may be larger than the sum of the in-use blocks: the
-library may had allocated more blocks which remain free.
-
-The administration of the *data blocks* is in charge of the
-*block allocator*.
-
-The mechanisms of the *block allocator* are not part of this RFC.
-
-The *block number 0* is a **special** one and it cannot be accessed, pointed
-to, reused or freed.
-
-It is exclusively used to store the *header* and other important
-**main structures**: *free map*, *free ids* and the *layout*.
+How their are allocated and in which structures metadata for them
+exist is out of the scope for this RFC.
 
 ### Block Extents
 
@@ -182,42 +350,96 @@ having a larger *extent* or an extra *extent* in the array.
 This enables room for growing at the expense of wasting unused space.
 
 Therefore the exact byte count/size/length of useful data is defined
-elsewhere and dependent of the type of the *object* , *stream* or
-similar.
+elsewhere.
 
 A `blk_nr` and `blk_cnt` of zeros means that that *extent* is inactive.
 Because `ext_cnt` says how many entries the `exts` array has, this is the
-only way to signal that an entry (an *extent*) should be skipped.
+only way to signal that an entry (an *extent*) should be ignored.
+
+This RFC does not define a *sub-block allocation* schema for
+reducing the internal fragmentation for data smaller
+than the block size.
 
 
-## Object
+### Rationale - Extents and Data Blocks
 
-Any object share a common header:
+Most of the *strokes* have around 100 coordinates but some
+reach 1000.
+
+With a conservative 4 bytes per coordinate, this gives between sizes
+around 400 up to 4000 bytes.
+
+*Texts* are around 10 and 100 bytes, *tex/latex images* are 10 kilobytes
+and *images* are around 100 kilobytes and 1 MB.
+
+This are educated guessed numbers based on
+[statistics (discussions 4862)](https://github.com/xournalpp/xournalpp/discussions/4862)
+calculated from some real-life `.xopp` files.
+
+In essence, `.xoz` is like a tiny file system storing several tiny and
+not so tiny files.
+
+Indexing them by byte would be wasteful so the author proposes to index
+by *block*.
+
+Because most the data to be stored is expected to have a known fixed
+size (like an image), the library can allocate a contiguous array of
+blocks.
+
+In this case, indexing them block by block is not necessary and a simple
+block number plus length is enough: an *extent*.
+
+The author took inspiration from the
+[ext4 file system](https://en.wikipedia.org/wiki/Ext4)
+
+
+## Objects
+
+Any *object* or *continuation* share a common header:
 
 ```cpp
 struct obj_hdr_t {
-    uint16_t type; // bit mask: <DCRR RRTT TTTT TTTT>
-    uint32_t id;
+    // bit mask: <DCRR RSSS SSSS SSSS>
+    uint16_t {
+        uint alive    : 1;  // mask 0x8000
+        uint cont     : 1;  // mask 0x4000
+        uint reserved : 3;  // mask 0x3800
+        uint size     : 11; // mask 0x07ff
+    };
+
+    uint32_t {
+        uint type     : 10; // mask 0xffc00000
+        uint id       : 22; // mask 0x003fffff
+    }
 };
 ```
 
-The least 10 significant bits (mask 0x03FF) of `type`
-encode the *object type*.
+The following bit field is backed by the first `uint16_t` integer:
 
-The meaning of the rest of the bits of `type`
-and the `id` depends on the specific *object type*.
-
-The following is
-the default interpretation followed by most of the *object types*.
-
- - The MSB of `type` (mask 0x8000) says if the object is
-   alive (0) or dead (1)
- - The next bit (mask 0x4000) says if the object is an ordinary
+ - `alive` says if the object is alive (0) or dead (1) (aka, zombie)
+ - `cont` says if the object is an ordinary
    object (0) or if it is a *continuation* (1).
- - The next 4 bits (mask 0x3c00) are reserved.
- - The field `id` represents the unique identifier of the *object*.
+ - `reserved` are reserved.
+ - `size` says the size of the *object descriptor* in words of 2 bytes.
+   This imposes a limit of 2^11 = 2048 2-byte words = 4096 bytes.
 
-`.xoz` supports different types of objects which are defined below.
+This last item implies that any *object descriptor* or *continuation*
+**must** have a size multiple of 2.
+
+Then the next `uint32_t` integer has two parts:
+
+ - `type` encodes the *object type*.
+   `.xoz` supports different types of objects which are defined below.
+ - `id` says which *object id* is assigned to this *object*.
+
+The field `id` represents the 22-bits unique identifier of the *object* being
+described by the *descriptor* or of the *object* that the *continuation*
+is extending/attaching to.
+
+However the interpretation of `id` may change for some special
+*object types* and the `id` 0x000000 and 0x3fffff are reserved.
+
+The generation and assignation of *object ids* is not part of this RFC.
 
 ### Object Types (Summary)
 
@@ -233,20 +455,26 @@ Plain objects:
  - 0x02: *text object*
  - 0x03: *image object*
  - 0x04: *Tex/Latex image object*
+ - 0x05: *blob object*
+ - 0x05: *solid background object*
 
 Continuations:
 
  - 0x10: *more extents continuation*
  - 0x11: *stroke pattern continuation*
- - 0x12: *audio attachment*
- - 0x13: *stream continuation* (reserved for extend *stream*'s attributes)
+ - 0x12: *link*
+ - 0x13: *tag*
+ - 0x14: *stream continuation* (reserved)
+ - 0x15: *tile continuation* (reserved)
+ - 0x16: *layer continuation* (reserved)
 
 Structural:
 
  - 0x00: *discard bytes object*.
- - 0x80: *stream object*
- - 0x81: *layer object*
- - 0x82: *background object*
+ - 0x80: *document object*
+ - 0x81: *tile object*
+ - 0x82: *background tile object*
+ - 0x83: *layer object*
  - 0xff: *end of stream object*
 
 
@@ -260,18 +488,16 @@ the range and *non-continuation types* may exist inside the range.
 
 ```cpp
 struct obj_discard_bytes_desc_t {
-    struct obj_hdr_t;   // type: 0x00
+    struct obj_hdr_t hdr;   // type: 0x00
 };
 ```
 
 The *discard bytes object* represents a *"hole"* or a *"gap"*.
 
-The least 16 significant bits of `id` (mask 0x00FF) represent the
+The least 16 significant bits of `hdr.id` represents the
 length of the gap: how many bytes should be skipped.
 
-The rest of the bits of `id` (mask 0xFF00) are reserved.
-
-The most 6 significant bits of `type` (mask 0xFC00) are reserved.
+The rest of the bits of `hdr.id` are reserved.
 
 ### Stroke Object
 
@@ -279,12 +505,18 @@ The stroke objects are defined as:
 
 ```cpp
 struct obj_stroke_desc_t {
-    struct obj_hdr_t;   // type: 0x01
-    uint32_t color_rgba;
+    struct obj_hdr_t hdr;   // type: 0x01
 
+    uint8_t flags;
     struct ext_arr_t exts;
+
+    uint32_t color_rgba;
 };
 ```
+
+`color_rgba` encodes the red-green-blue-alpha color.
+
+`flags` are a reserved.
 
 Data blocks pointed by the extents must be concatenated and
 seen as a contiguous buffer from which the following structure
@@ -292,29 +524,64 @@ is read:
 
 ```cpp
 struct obj_stroke_data_t {
-    uint16_t flags;  // bit mask: <FFFF CCCC PPPP TTTT>
-    uint32_t pointcnt;
-    float coords[/* (2 * pointcnt + 1) or (3 * pointcnt - 1) */];
+    // bit mask: <FFFF FFFF CCCC PPPP>
+    uint16_t {
+        uint fill      : 8; // mask 0xff00
+        uint cap_style : 4; // mask 0x00f0
+        uint pattern   : 4; // mask 0x000f
+    };
+
+    uint32_t {
+        uint tool      : 5;  // mask 0xf8000000
+        uint enc       : 4;  // mask 0x07800000
+        uint reserved  : 3;  // mask 0x00700000
+        uint point_cnt : 20; // mask 0x000fffff
+    };
+
+    float coords[/* based on enc and point_cnt */];
 };
 ```
 
- - bits 0 to 3 (mask 0x000F) encode the *tool* used to draw the stroke:
-currently `pen` (0), `highlighter` (1) and `eraser` (2). The bit pattern `1111`
-(15) is reserved.
+The first `uint16_t` is interpreted as follows:
 
- - bits 4 to 7 (mask 0x00F0) encode the style or *pattern* of the stroke:
-currently `solid` (0), `dot` (1), `dashdot` (2), `dash` (3). The bit
-pattern `1110` (14) means that it is a *custom style/pattern* and it is defined
-in the *continuation* `struct cont_stroke_pattern_t`. The bit pattern `1111` (15) is reserved.
+ - `fill` encodes the *fill transparency* of the stroke: it is
+interpreted as an `uint8_t` linear scale being 1 a
+fill nearly transparent and 255 a fill fully opaque.
+The value 0 means no fill at all.
 
- - bits 8 to 11 (mask 0x0F00) encode the *cap-style* of the stroke:
-currently `butt` (0), `round` (1) and `square` (2). The bit pattern `1111`
-(15) is reserved.
+ - `cap_style` encodes the *cap-style* of the stroke:
+currently `butt` (0), `round` (1) and `square` (2) are defined.
+The bit pattern `1111` (7) is reserved.
 
- - bits 12 to 17 (mask 0xF000) encode the *fill transparency* of the stroke: it is
-interpreted as an `uint8_t` number with 1 being a fill nearly transparent
-and 255 a fill fully opaque. The bit pattern `0000` (0) means no fill at
-all.
+ - `pattern` encodes the style or *pattern* of the stroke:
+currently `solid` (0), `dot` (1), `dashdot` (2) and `dash` (3) are
+defined. The bit pattern `1110` (14) means that it is a
+*custom style/pattern* and it is defined in the *continuation*
+`struct cont_stroke_pattern_t`. The bit pattern `1111` (15) is reserved.
+
+Then, the next `uint32_t` is interpreted as follows:
+
+ - `tool` encodes the *tool* used to draw the stroke:
+currently `pen` (0), `highlighter` (1) and `eraser` (2) are defined.
+The bit pattern `11111` (31) is reserved.
+
+ - `enc` says how to interpret the coordinates in `coords`
+(*point encoding*, see below)
+
+ - `reserved` are reserved bits.
+
+ - `point_cnt` encodes how many points form the *stroke*. How many
+coordinates the `coords` has is a combination of the `point_cnt`
+and the dimension set in `enc`.
+
+Point encoding (`enc`):
+
+ - 0x0: there are `2 * N + 1` coordinates for a *stroke* of `N` points.
+The last coordinate is the *uniform width* of the *stroke*.
+ - 0x1: there are `3 * N - 1` coordinates for a *stroke* of `N` points
+for a non-uniform *width*/*pressure* *stroke*.
+
+**TODO:** the *point encoding* is still under review.
 
 ### Text Object
 
@@ -323,25 +590,28 @@ The *text objects* are defined as:
 ```cpp
 struct obj_text_desc_t {
     struct obj_hdr_t hdr;   // type: 0x02
+
     uint8_t flags;
+    struct ext_arr_t exts;
 
     uint32_t color_rgba;
 
     float x;
     float y;
 
-    uint8_t font_size;
-    uint32_t font_obj_id;
-
-    struct ext_arr_t exts;
+    uint32_t {
+        uint font_size : 7;  // mask 0xfe000000
+        uint reserved  : 3;  // mask 0x01c00000
+        uint font_id   : 22; // mask 0x003fffff
+    }
 };
 ```
 
-The 8 bits of `flags` are reserved.
+The 8 bits of `flags` and the 3 bits of `reserved` are reserved.
 
 The `color_rgba` is the color of the text and `x` and `y` its position.
 
-The `font_size` says the size of the text and `font_obj_id` is the
+The `font_size` says the size of the text and `font_id` is the
 *object id* of the *font object*.
 
 Data blocks pointed by the extents must be concatenated and
@@ -355,10 +625,11 @@ The *image objects* are defined as:
 struct obj_image_desc_t {
     struct obj_hdr_t;   // type: 0x03
 
+    uint8_t flags;
+    struct ext_arr_t exts;
+
     float x;
     float y;
-
-    struct ext_arr_t exts;
 };
 ```
 
@@ -369,6 +640,10 @@ seen as a contiguous buffer from which the following structure:
 struct obj_image_data_t {
     uint16_t flags;
 
+    uint8_t format;
+    uint32_t width;
+    uint32_t height;
+
     uint32_t size;
     uint8_t raw[/* size */];
 };
@@ -379,9 +654,17 @@ All the 16 bits of `flags` are reserved.
 The possible compressed raw representation of the image is stored
 in the `raw` array of `size` bytes.
 
-No information about the image format or dimensions is given: the
-library will have to load the image from `raw`, probe and test the
-first bytes to deduce of which format is.
+The `format` encodes the image format and `width` and `height` the
+image dimensions in pixels.
+
+They may be zero however in which case the
+library may try read the first bytes of `raw` to deduce the missing
+information.
+
+Supported image formats are:
+
+ - `0x00`: undefined
+ - `0x01`: PNG
 
 ### Tex/Latex Image Object
 
@@ -391,10 +674,11 @@ The *Tex/Latex image objects* (or just *teximage objects*) are defined as:
 struct obj_teximage_desc_t {
     struct obj_hdr_t;   // type: 0x04
 
+    uint8_t flags;
+    struct ext_arr_t exts;
+
     float x;
     float y;
-
-    struct ext_arr_t exts;
 };
 ```
 
@@ -403,22 +687,71 @@ seen as a contiguous buffer from which the following structure:
 
 ```cpp
 struct obj_teximage_data_t {
-    uint16_t flags;
-
-    uint32_t size;
-    uint8_t raw[/* size */];
+    struct obj_image_data_t img;
 
     uint8_t texsrc[/* null terminated */];
 };
 ```
 
-All the 16 bits of `flags` are reserved.
-
-The possible compressed raw representation of the image is stored
-in the `raw` array of `size` bytes.
+All the 16 bits of `img.flags` are reserved.
 
 The Tex/Latex source code from which the image was generated is stored
 in `texsrc` as a null terminated UTF-8 encoded text.
+
+
+### Blob Object
+
+*blob objects* represent arbitrary data: this can be fonts,
+audio or even ZIP files.
+
+```cpp
+struct obj_blob_desc_t {
+    struct obj_hdr_t;   // type: 0x05
+
+    uint8_t flags;
+    struct ext_arr_t exts;
+
+    uint16_t flags2;
+    uint32_t blob_size;
+};
+```
+
+Data blocks pointed by the extents must be concatenated and
+seen as a contiguous buffer from which the binary blob of
+`size` bytes can be read or written.
+
+`flags` and `flags2` are reserved.
+
+### Solid Background Object
+
+```cpp
+struct obj_solid_bg_desc_t {
+    struct obj_hdr_t;   // type: 0x06
+    uint32_t color_rgba;
+    uint8_t style;
+
+    // bit map
+    uint32_t {
+        uint fg_color_1_set     : 1;
+        uint fg_alt_color_1_set : 1;
+        uint fg_color_2_set     : 1;
+        uint fg_alt_color_2_set : 1;
+
+        uint line_width_set     : 1;
+        uint margin_set         : 1;
+        uint round_margin_set   : 1;
+        uint raster_set         : 1;
+
+        uint reserved           : 24;
+    }
+    uint8_t params[/* based on bits set */ ];
+}
+```
+
+Each bit set of the bitmap adds 4 bytes to the `params` array.
+
+These 4 bytes are interpreted as `uint32_t` numbers for the `fg_*_set`
+bits and as `float` numbers for the rest of the `*_set` bits.
 
 
 ### End of Stream Object
@@ -427,90 +760,12 @@ This *object descriptor* marks the end of a *stream*.
 
 ```cpp
 struct obj_end_of_stream_desc_t {
-    struct obj_hdr_t;   // type: 0xff
+    struct obj_hdr_t hdr;   // type: 0xff
 };
 ```
 
-The `id` field and the most 6 significant bits of `type` (mask 0xFC00)
-are reserved.
-
-## Resources and Attachments
-
-**todo**
-Resources are objects that can be *referenced* by zero, one
-or more objects.
-
-```cpp
-struct obj_resource_desc_t {
-    struct obj_hdr_t hdr;
-    uint32_t ref_cnt;
-
-    uint8_t ext_cnt;
-    struct extent_t exts[/* ext_cnt */];
-};
-```
-
-The `ref_cnt` field tracks how many other objects are referencing this
-resource.
-
-This RFC does not mandates what to do with a resource with a `ref_cnt`
-of zero.
-
-The application may decide to delete the resource to release space
-**but** it may also delete data that the user may not be
-able to recover later.
-
-
-
-### Solid Background
-
-```cpp
-struct res_bg_solid_t {
-    uint32_t color_rgba;
-    uint8_t style;
-
-    uint16_t param_flags; // bit mask: <ABCD WMRT XXXX XXXX>
-    uint8_t params[/* based on flags */ ];
-}
-```
-
-`param_flags` encodes how many bytes the `params` array has and how to
-interpret them,
-
-For the MSB 4 bits (mask 0xF000), `params` requires 4 bytes
-per each bit set: these bytes are interpreted as `uint32_t` and
-represent a RGBA color.
-
-These, in order are:
-
- - foreground color 1
- - foreground alternative color 1
- - foreground color 2
- - foreground alternative color 2
-
-For the next 4 bits (mask 0x0F00), `params` requires 4 bytes
-per each bit set: these bytes are interpreted as `float` and represent
-a measurement.
-
-These, in order are:
-
- - line width
- - margin
- - round margin
- - raster
-
-The lower 8 bits (mask 0x00FF) are reserved.
-
-### Fonts
-
-```cpp
-struct res_font_t {
-
-};
-```
-
-
-
+Except `hdr.type` and `hdr.size`, the rest of the content of `hdr`
+is reserved.
 
 ## Object Continuations
 
@@ -523,13 +778,14 @@ A *continuation* may be used to
  - specify optional parameters.
 
 An *object continuation* is an structure that looks like an ordinary
-object but with the most significant bit of `type` field set to 1.
+object but the `id` of `struct obj_hdr_t` is reinterpreted
+not as the `id` of the continuation but the `id` of the object
+that this continuation is extending.
 
-The `id` of `struct obj_hdr_t` is reinterpreted not as the `id` of the
-continuation but the `id` of the object that this continuation is
-extending.
+Like any other *descriptor*, a *continuation* must have a size
+multiple of 2.
 
-#### More Extents
+### More Extents
 
 The *continuation* adds `ext_cnt` additional extents to the object. The
 interpretation of the data blocks is up to the original object.
@@ -538,8 +794,8 @@ interpretation of the data blocks is up to the original object.
 struct cont_more_extents_t {
     struct obj_hdr_t;   // type: 0x10
 
-    uint8_t ext_cnt;
-    struct extent_t exts[/* ext_cnt */];
+    uint8_t flags;
+    struct ext_arr_t exts;
 };
 ```
 
@@ -552,7 +808,7 @@ More than one `struct cont_more_extents_t` can be used to extend
 the same *object*.
 
 
-#### Stroke Non-Standard Pattern
+### Stroke Non-Standard Pattern
 
 A *stroke* may be draw using a non-standard pattern. This pattern is
 defined as a array of `valuecnt` values which interpretation is
@@ -560,7 +816,7 @@ based on `pattern_type` and it is up to the application.
 
 ```cpp
 struct cont_stroke_pattern_t {
-    struct obj_hdr_t;   // type: 0x11
+    struct obj_hdr_t hdr;   // type: 0x11
 
     uint8_t pattern_type;
     uint8_t valuecnt;
@@ -568,31 +824,69 @@ struct cont_stroke_pattern_t {
 };
 ```
 
-#### Audio Attachment
+### Link
 
-**TODO:** this requires more thought
-
-Any object can have one or more audio attached. On user request,
-Xournal++ can then play it.
+Any object can be *linked* to another. The purpose or reason
+of the link depends on the `meaning` field.
 
 ```cpp
-struct cont_audio_attach_t {
-    struct obj_hdr_t;
+struct cont_link_t {
+    struct obj_hdr_t hdr;   // type: 0x12
 
-    uint32_t iobj_audio;
+    uint32_t {
+        uint meaning   : 5;  // mask 0xf8000000
+        uint reserved  : 5;  // mask 0x07c00000
+        uint obj_id    : 22; // mask 0x003fffff
+    }
 };
 ```
 
+Defined `meaning` values:
+
+ - 0x00: play an audio on user request, `obj_id` must refer to a
+*blob object* storing an audio file.
+
+**Note:** linking object `A` to another object `B` opens several questions:
+
+ - if the`obj_id` is `B`, does it mean that `A` links to `B` or `B`
+   links to `A`?
+ - if `A` is deleted, should `B` being deleted? If not, what would
+   be the state of the link if `obj_id` points to a deletes object?
+ - cycles are possible, what should happen?
+
+These questions are meant to be answered in a future RFC.
+
+### Tag
+
+Any object can be *tagged* with some arbitrary text.
+
+```cpp
+struct cont_tag_t {
+    struct obj_hdr_t hdr;   // type: 0x12
+
+    uint8_t {
+        uint meaning   : 5;  // mask 0xf8
+        uint reserved  : 3;  // mask 0x07
+    };
+    uint8_t tag[/* null terminated */];
+};
+```
+
+`tag` is null-terminated UTF-8 encoded text possibly padded with an
+additional zero byte to make the size of `struct cont_tag_t` multiple
+of 2.
 
 ## Stream
 
-### Stream Descriptor
+### Stream of Objects
+
+A *stream* is defined as:
 
 ```cpp
 struct stream_desc_t {
-    struct obj_hdr_t hdr;   // type: 0x80
+    uint8_t reserved;
     struct ext_arr_t exts;
-};
+}; // size multiple of 2
 ```
 
 The `exts.ext_cnt` of a *stream* should be equal or greater than 2.
@@ -606,6 +900,20 @@ a *contiguous* buffer from which **complete / non-fragmented**
 
 An *object descriptor* must not be fragmented and spread across
 different *data blocks* of **different** extents.
+
+The *stream* works as an *append-only* journal: new *objects*
+are added to the end but no *object* can be removed or resized.
+
+*Objects* may be marked *in-place* as deleted (become *zombie*),
+removed or shrank leaving a *hole* or may be expanded with a
+*continuation*.
+
+In no case the layout in disk of a *stream* should change except
+only during a *compaction*.
+
+Hence the need to put in the *object descriptors* the most likely
+attributes that can change so they can be updated *in-place*
+without affecting the layout.
 
 When appending a new entry to the *stream*, if it does not fit because
 it is at the end of the latest *data block* of the extent, the entry
@@ -624,6 +932,31 @@ load its blocks and scan from the beginning in search for the
 A *stream* must have one and only one `strcut obj_end_of_stream_desc_t`
 at its end.
 
+### Rationale - Append-Only
+
+Xournal++ elements tend to have two parts: one that it is likely to
+be modified by the user and the other that it is unlikely or even
+imposible to change.
+
+The former part tends to be a small set of known fixed-size attributes,
+of only a few bytes; the latter tends to be an unknown fixed-size,
+possibly large data.
+
+For example, when an user creates a *stroke*, its position and
+color can be changed but not the amount of points.
+
+If an user deletes a part of a *stroke* cutting it into halves,
+Xournal++ models this as a full deletion of the former and the creation
+of 2 independent *strokes*.
+
+The points of a *stroke* cannot be changed.
+
+This suggests two different locations for the data.
+
+Most of the *streams* will represent (part of) *pages* with several
+*objects* to be rendered (from a ~10 to ~1000 elements).
+
+
 ### Reordering
 
 The application is in its own right to reorder the *objects* of
@@ -636,23 +969,23 @@ Let be a *stream* with two objects `A` and `B` where `A` and `B`
 are *object descriptors*.
 
 If `A` is before than `B`
-(schematically `[.. A .. B ..]`), then the library guarantee that if a
-reordering happen, the *relative order* between the objects
+(schematically `[.. A .. B ..]`), then the library guarantees that if a
+reorder happen, the *relative order* between the objects
 *will not change*.
 
 In other words, `A` will still be before `B`.
 
 For *continuations* something similar applies: if an object `A` has 2
 *continuations* `a1` and `a2` and `a1` is before `a2`, then the library
-guarantees that if a reordering happen, `A` will still be before `a1`
+guarantees that if a reorder happen, `A` will still be before `a1`
 and `a1` will still be before `a2`
 (schematically `[.. A .. a1 .. a2..]`)
 
 The library also must guarantee that any *continuation* of an *object*
 appear after the *object descriptor*.
 
-The relative order preserved can be used by the application to encode
-the rendering order for example.
+The relative order preserved can be used by Xournal++ to encode
+the rendering order of the objects of a *page*.
 
 ### Compaction
 
@@ -668,15 +1001,10 @@ blocks* are unreclaimed.
 If the *stream* grows beyond certain threshold, the library may do a *compaction*:
 a full scan and rewrite of the *stream*.
 
-This RFC does not define exactly how or when to do the compaction
-or if the compaction has to be done per extent basis, or across
-all the extents, if objects from one extent should migrate
-to a previous or if empty extents should be released as well.
-
 The author does not think that a sophisticated mechanism is required
 but some kind of minimal compaction should be implemented.
 
-However, if an *zombie object* is removed from the *stream*, all
+If an *zombie object* is removed from the *stream*, all
 the *continuations* pointing to it **must** be removed as well.
 
 This is because as long as the *object* exists in the *stream*,
@@ -688,211 +1016,129 @@ a *continuation* pointing to it would be ambiguous: is it
 pointing to the deleted *object* or is pointing to the
 future-incoming new *object* that by luck has the same id?
 
+*Links* between an *object* and a *zombie* should be handled too.
 
-## Tile List
+This RFC does not define exactly how or when to do the compaction
+or if the compaction has to be done per extent basis, or across
+all the extents, if objects from one extent should migrate
+to a previous or if empty extents should be released as well
+or what to do with linked objects.
 
-The *tiles* of all the *layers* are listed in the same
-structure, grouped by *layer*.
+### Rationale - Zombie Objects
 
-The *background tiles* and the rest of the *tiles* and listed
-separately as they have different structures (`struct bg_desc_t`
-and `struct layer_desc_t`).
+
+## Tiles and Layers
+
+### Tile Object
+
+A *tile descriptor* is a specialization of a *stream descriptor*.
+The content of the *tile* is stored in the `exts` extents of the *stream*
+`content`.
+
+This is where most of the *objects* and *continuations* will leave.
 
 ```cpp
-struct tile_list_t {
-    uint16_t layer_cnt; // assert layer_cnt >= 1
-
-    struct layer_desc_t layers[/* layer_cnt */];
-
-    struct bg_desc_t bgs[/* layers[0].tile_cnt */];
-
-    uint32_t rows[/* sum (tile_cnt) for all layer */];
-    uint32_t cols[/* sum (tile_cnt) for all layer */];
-
-    struct stream_desc_t stms[/* sum (tile_cnt) for all layer except 0th */];
-}
+struct tile_desc_t {
+    struct obj_hdr_t hdr;   // type: 0x81
+    struct stream_desc_t content;
+    uint32_t row;
+    uint32_t col;
+};
 ```
 
- - `layer_cnt` counts how many *layers* there are. Because the
- *background layer* is mandatory, this counter must be greater or
- equal than 1.
+The `row` and `col` are the location of this *tile* in the
+mosaic defined by the *layer* that owns this *tile*.
 
- - `layers` is an array of *layer descriptors* which have each the count
- of *tiles* inside plus some metadata. The first entry (`layers[0]`)
- is dedicated to the *background layer*.
+### Background Tile Object
 
- The order of the entries in `layers` defines the *stack order*
- to *compose a page*, being `layers[0]` the bottom of the stack.
-
- - `rows` and `cols` are the coordinates of each *tile*
- in the mosaics that each *layer* defines.
-
- By definition each *tile* has a single position so the
- `rows` and `cols` arrays are as long as the sum of all
- the count of tiles.
-
- - `bgs` is the array of *background descriptors* of length
- `layers[0].tile_cnt`.
-
- - `stms` is the array of *stream descriptors* that stores all the
- non-background non-empty tiles. So its length is the sum of
- all the count of tiles in `layers` *except* `layers[0]`.
-
-The `layers`, `bgs`, `rows`, `cols`, `stms` arrays are "paired" each
-other.
-
-The first `layers[0].tile_cnt` numbers in `rows` and `cols` are the
-coordinates for the tiles in the *background layer*, coordinates
-paired 1-to-1 with the entries in the `bgs` array.
-
-The *next* `layers[1].tile_cnt` numbers in `rows` and `cols` are the
-coordinates for the tiles in the *first non-background layer*,
-coordinates paired 1-to-1 with the *first*
-`layers[1].tile_cnt` entries of the `stms` array.
-
-And so on.
-
-**Note:** the `struct tile_list_t` layout prevents any modification in place:
-adding or removing a single page will require a full rewrite of
-structure. The same happen for a layer reorder.
-
-The author believes that the cost will be amortized in time as it is not
-expected such changes to be frequent.
-
-The library may reserve an extra space in the arrays to reduce the
-full rewrite.
-
-Knowing the count of *background tiles*, the author believes that
-reserving space for `layers[1]` assuming a `layers[1].tile_cnt` equal to
-`layers[0].tile_cnt` should prevent any full rewrite in most use cases.
-
-This would require an additional space of
-`(sizeof(stms[0]) + sizeof(rows[0]) + sizeof(cols[0])) * layers[1].tile_cnt`
-(worst case).
-
-
-### Layer Descriptor
+The *background tile descriptor*  has the following structure:
 
 ```cpp
-struct layer_desc_t {
-    struct obj_hdr_t hdr;  // type: 0x81
-
-    uint32_t tile_cnt;
-    uint8_t capacity;
-    char name[/* capacity */];  // UTF-8 null terminated
-}
-```
-
-The `tile_cnt` defines how non-empty *tiles* this *layer* has.
-
-The `name` is the optional name of this *layer*. It is a null terminated
-UTF-8 string but more bytes may had been reserved (`capacity`).
-
-### Background Descriptor
-
-The *background descriptor* has the following structure:
-
-```cpp
-struct bg_desc_t {
+struct bg_tile_desc_t {
     struct obj_hdr_t hdr;   // type: 0x82
+    uint32_t row;
+    uint32_t col;
 
     float width;
     float height;
 
-    uint32_t res;
-    uint32_t page_nr; // pdf (generalize??)
+    uint32_t {
+        uint bg_type   : 2;  // mask 0xc0000000
+        uint reserved  : 8;  // mask 0x3fc00000
+        uint obj_id    : 22; // mask 0x003fffff
+    }
+
+    uint32_t index;
+};
+```
+
+The supported background types (`bg_type`) are:
+
+ - 0x0: Image: `obj_id` should refer to an *image object*
+ - 0x1: PDF: `obj_id` should refer to a *blob object* encoding a PDF file
+ - 0x2: Solid: `obj_id` should refer to a *solid background object*
+
+The `row` and `col` are the location of this *tile* in the
+mosaic defined by the *layer* that owns this *tile*.
+
+The `index` selects which page of the PDF file should be used
+as the background. For the rest of the types, the field is
+not used.
+
+### Layer Object
+
+A *layer* is a 2-dimensional matrix or *mosaic* of *tiles*
+using a *stream of tiles*.
+
+This *stream* is may be a sequence of `struct tile_desc_t`
+or `struct bg_tile_desc_t` and optionally of
+*layer* and *tile continuations*.
+
+A location in the *mosaic* may have a *tile* or not:
+Empty locations are possible.
+
+The *layer descriptor* is as follows:
+
+```cpp
+struct layer_desc_t {
+    struct obj_hdr_t hdr;   // type: 0x83
+    struct stream_desc_t tiles_stm;
 
     uint8_t capacity;
     char name[/* capacity */];  // UTF-8 null terminated
-};
+}
 ```
 
-The allowed types of *resources* pointed by `res` to be
-used as the *background* are:
+The `name` is the optional name of this *layer*. It is a null terminated
+UTF-8 string but more bytes may had been reserved (`capacity`) to pad
+the structure and have a size multiple of 2.
 
- - Image
- - PDF
- - Solid background
-
-The `name` is the optional name of this *background*. It is a null terminated
-UTF-8 string but more bytes may had been reserved (`capacity`).
-
-
-## File Main Structures
-
-### File Header
+## Document
 
 ```cpp
-struct xoz_hdr_t {
-    uint8_t magic[4];   // "XOZ" followed by NUL
+struct doc_desc_t {
+    struct obj_hdr_t hdr;   // type: 0x80
+    struct stream_desc_t layers_stm;
 
-    uint8_t blk_sz_order;
-
-    uint64_t repo_sz;
-    uint64_t trailer_sz;
-
-    uint32_t blk_total_cnt;
-    uint32_t blk_init_cnt;
-
+    // more fields
 };
 ```
 
-### Resources / global objects (use stream? continuations?)
+The *layers* in the *stream* `layers_stm` are ordered:
+the first *layer* corresponds
+to the *background layer* at the bottom of the stack. Subsequent
+*layers* follow the stack-order.
 
-Metadata to organize the resources like a tree/directory?
+The rest of the `struct doc_desc_t` will be defined in a future RFC.
 
-### Metadata ??
+This includes:
 
-**TODO:** editor preferences, latex preamble, page template, history,
-user defined metadata
+ - tracking of global *objects* (the ones that do not live in a tile)
+such *fonts*, *PDF* and other *"resources-like" objects*.
+ - metadata about the document creation, history and user defined data
+ - additional settings and configurations of Xournal++ like *page template*
 
-### Ref counters ??
-
-**TODO:** track the reference count of each shared object like
-resources being referenced by N objects; normal in-stream objects being
-referenced by another object.
-
-Continuations/attachments don't count as references.
-
-Some shared objects may be:
- - automatically deleted if ref-count is 0 (this applies to resources
-   that were internally generated and not visible by the users)
- - require explicit user permission to be deleted
-
-### Free Block Map
-
-The *block allocator* needs to know which blocks are in-use and which are
-free.
-
-The *free block map* contains a snapshot of the block usage so the
-*block allocator* is not required to scan the entire file and detect
-heuristically which blocks are free and which aren't.
-
-```cpp
-struct free_blk_map_t {
-    struct xoz_internal_t hdr;
-
-    uint32_t next_blk_nr;
-
-    uint16_t free_blks_extcnt;
-    struct extent_t free_blks_exts[/* free_blks_extcnt */];
-};
-```
-
-The `next_blk_nr` is the block number of the next block that expands
-and continues the *free block map*. If it is zero, no more blocks
-are needed to complete the *free block map*.
-
-`free_blks_extcnt` counts how many entries the following `free_blks_exts`
-array has.
-Note that this `free_blks_extcnt` is `uint16_t` and not `uint8_t` as it is
-defined in `struct ext_arr_t`.
-
-
-
-
-
-# Backwards Compatibility
+# Backwards and Forwards Compatibility
 
 The new `.xoz` is not backward compatible and it cannot be read by
 previous versions of Xournal++.
@@ -901,17 +1147,21 @@ previous versions of Xournal++.
 migration from `.xopp` to `.xoz` can be made by Xournal++ without any
 user intervention (except upgrading Xournal++).
 
-It may be theoretically possible to write `.xopp` files in such a way
-that a `.xoz` is embedded inside.
+The size of each *object descriptor* is in the header
+`struct obj_hdr_t`: the library should use this to know how many
+bytes should be read or ignore.
 
-`.xoz`-non-aware versions of Xournal++ would read/write `.xopp` files
-as usual ignoring the `.xoz` content; `.xoz`-aware would require to read
-once the modifications in the `.xopp` part and translate them to the `.xoz`
-on loading.
+This allow the *descriptors* to grow in size in future versions
+of `.xoz` without breaking compatibility.
 
-None of this was thoroughly thought-out however: this RFC does not
-explore this any further and it should not be considered for granted
-that it may be implemented in the future.
+*Continuations* are also a way to extend them.
+
+A version of Xournal++ may not be able to understand completely
+a higher version of `.xoz` but it should be capable of ignore what
+it does not understand and process the rest without trouble.
+
+This RFC does not define the *features flags* schema for `.xoz`.
+
 
 # Security Implications
 
@@ -923,70 +1173,23 @@ malicious `.xoz` files:
 
  - any `size`/`length`-like fields may trigger the parser to
 reserve huge amount of memory for "very large" objects.
- - objects have references to other objects, the parser should protect
+ - objects have references to other objects (like a *background tile*
+pointing to a *font object*), the parser should protect
 itself against recursive cycles.
-
-# Integration Roadmap
-
-The author proposes the following milestones
-
- 1) Implement a working `.xoz` library (but perhaps not fully optimized)
- 2) Refactor `LoadHandler` and `SaveHandler` to delegate everything to a
-    `.xopp` library. `LoadHandler` and `SaveHandler` will still
-    load/save an entire `.xopp` file but most of the code will be behind
-    the library
- 3) Integrate `.xoz` library and make it accessible from `LoadHandler`
-    and `SaveHandler`.
-
-With milestone 3, Xournal++ will be able to read and write both `.xopp`
-and `.xoz` files. Being still `.xopp` the default but the user will
-allowed to change it.
-
-We can configure the save-on-crash and backup systems to write both
-`.xopp` and `.xoz` just in case.
-
-When we have confidence, we can change the default to `.xoz`.
-
-This is the most sensible phase as it requires the user to upgrade
-their Xournal++ versions and start migrating the files.
-
-People may have different devices with different versions and they may
-not be able to upgrade all of them. If an user has a single pre `.xoz`
-version, the user will probably not want to switch to `.xoz`.
-
-Adoption of `.xoz` will take time so releasing a Xournal++ version with
-support fo `.xoz` as soon as possible is important.
-
-In the meantime, we can work on a better integration. After milestone 3
-Xournal++ still loads and saves the entire `.xoz` file, not taking
-advantage of the random access and in-place writing.
-
-The next milestones would be:
-
- 4) Design a *page management (PM)* layer on top of `.xoz`: Xournal++ will
- assume that all the pages are loaded in memory (as today) but it will
- not.
- On request, the PM will load the page from `.xoz`; on memory pressure
- or timeout the PM will offload the page saving it on disk.
- 5) Implement and integrate the page management.
-
-The last milestones are the ones that will enable Xournal++ to take full
-advantage of `.xoz` and they can be developed in the meantime the users
-slowly upgrade and migrate to `.xoz`.
 
 # How to Teach This
 
 Once `.xoz` gets integrated and a `.xoz`-aware Xournal++ version gets released,
 we should document in the webpage about the new format.
 
-Users having at least one pre `.xoz` version should stick to `.xopp`
-format until they can upgrade.
+Users having at least one pre `.xoz` version of Xournal++ should stick
+to `.xopp` format until they can upgrade.
 
 `.xoz`-aware Xournal++ versions will be able to convert `.xopp` files
 into `.xoz`.
 
 Xournal++ developers and contributors that wants to know more about the
-library are encouraged to read this RFC.
+file format and the library are encouraged to read this RFC.
 
 # Reference Implementation
 
@@ -1032,50 +1235,14 @@ Creation modifications and deletions are appended to the end of the
 file. On reading, the library would require to read the entire file and
 discard any item that is modified later.
 
-This is how PDF works but as explained in the previous section, this
-strategy generates too large files and forces the application to wait
+This is how PDF works but this
+strategy generates large files and forces the application to wait
 for reading the entire file on open.
 
 The append-only journal-like strategy is applied to *streams* to get
-most of the benefices but with bounded defects.
+most of the benefices but with limited deficients.
 
 # Open Issues / Questions
-
-## Block Size
-
-Larger block size means much smaller and fewer *extents*, useful for
-storing large embedded files, like images.
-
-On the other hand it means more wasted space due internal fragmentation.
-This is specially true for small objects like texts.
-
-The author believes that a block size of 1KB is the sweet spot but more
-experimentation is required.
-
-Sub-block allocation is possible too to mitigate the internal
-fragmentation (but trading it with external fragmentation).
-
-The idea is that partially filled *"logical" data blocks* could share the same
-*"physical" data block*.
-
-When the data is from *objects* of fixed size, this is posible as by
-definition the data of each *object* will not grow.
-
-Variable size *objects* may still take advantage of sub-allocation but
-it may require move the data in case of grow.
-
-*streams* fall in this category. Because a *stream* is likely to grow,
-it may be desired to *pre-allocate* more space but still below a
-full block.
-
-
-## Block Alignment
-
-This RFC does not mandate the begin of a block to be aligned to any
-particular number. When the `.xoz` starts at the begin of the file, each
-block will be naturally aligned to its size.
-
-Should we check this?
 
 ## Inline Data
 
@@ -1129,38 +1296,6 @@ What about the *objects* which *stream* is deleted? Should the *stream*
 deletion deferred? Should be deleted but its *objects* temporally
 preserved (aka *orphans*)?
 
-## Merge of `.xoz` Files
-
-There are a few tickets and tools of users merging `.xopp` files for
-different reasons:
-
- - [issue #2816](https://github.com/xournalpp/xournalpp/issues/2816)
- - [xopp-merger-app](https://github.com/MrPancakes39/xopp-merger-app)
- - [xoppmerge](https://github.com/sergeigribanov/xoppmerge)
- - [xopp-merger-GUI](https://github.com/afonsosousah/xopp-merger-GUI/blob/main/Form1.cs)
- - [XOPP_Functions](https://github.com/Leonardo0101/XOPP_Functions)
- - [xopp-merger-cli](https://github.com/MrPancakes39/xopp-merger-cli)
-
-Other users had created tools to manipulate the data inside `.xopp`:
- - [extract_formulas](https://github.com/Lautron/xopp2latex/blob/master/extract_formulas.py)
-
-`.xoz` probably should handle this case or at least not block other
-solutions.
-
-## `.xoz` Embedded in a PDF
-
-The `.xoz` format will support embed PDF what if we do the other way around:
-that `.xoz` be embedded *into* a PDF.
-
-The author thinks that it is possible to do it:
-
- - contrary to popular belief, the PDF can be updated so a `.xoz` could
-be added and eventually updated.
- - the `.xoz` format does not hardcode any file offset: anything is in
-terms of block numbers and offsets within the block.
-
-It is not clear if worth it but it should be possible.
-
 ## Compression
 
 A compression could be applied to the *data blocks* of a *object* based on its *type*.
@@ -1173,11 +1308,15 @@ For binary embedded files the library
 could try to compress it once and if the compression ratio worth it, it
 may decide to leave it compressed or not, trading off space by CPU time.
 
+For *strokes*, how their coordinates should be encoded?
+(aka *point encoding*)
+
 What compression algorithm(s) use, if any, it open to research.
+
 
 ## Transformations
 
-Currently on a rotation or scale, Xournal++ computes the final *stroke*'s points
+Xournal++ computes the scale or rotation of *stroke*'s points
 or *image* and save it as is as a new stroke/image.
 
 It could be possible with the new `.xoz` format to add transformations:
@@ -1203,18 +1342,6 @@ Such transformation could be encoded as 4 numbers `[a, b, c, d]`:
 
 Reference: 2008 PDF Reference, Section 8.3.3
 
-## Concurrency
-
-The `.xoz` file may support concurrent reads and writes but it is not
-clear how.
-
-An user may be modifies one layer of a page while other is modifying
-another of the same page. Both users will be modifying different
-*streams*.
-
-Support for distributed reads and writes may be also possible (aka
-remote collaboration).
-
 ## Tolerance to Failures
 
 The current RFC does not talk about any mechanism to prevent data
@@ -1225,17 +1352,6 @@ whole file unreadable.
 
 The author consideres that this must be resolved and taken into account
 before releasing the file format.
-
-# Forward and Backward Compatibility
-
-This RFC mandates that certain bits across certain structures are
-reserved for future uses. *Continuations* is a mechanism to add or patch
-an *object*.
-
-Older version of Xournal++ (but aware of the new `.xoz` format) should
-safely fallback.
-
-Is this enough?
 
 # Previous work
 
@@ -1275,88 +1391,3 @@ The first discussions about the need of a new format and the proposed
 ideas can be found in [issue #937](https://github.com/xournalpp/xournalpp/issues/937).
 
 
-
-
-
-
-The implementation is an *append-only* stream:
-
- - modification of *object descriptors* is allowed if they can be do it
-   *in-place* (without requiring displacements)
- - deletion of *object descriptors* is achieved marking *in-place*
-   the deletion (see `struct obj_hdr_t`) or overwriting the
-   *descriptors* with zeros.
-
-The library may run a *compaction* if detects that a significant
-amount of space can be recovered.
-
-
-# Rationale
-
-## Descriptors
-
-The reason behind having separated the *descriptor* from the *object*'s
-or *stream*'s main body is because we can store there attributes
-that are likely to be changed in the *descriptor*.
-
-To mention a few examples:
-
- - strokes' and texts' color
- - strokes', texts' and images' position (x and y)
-
-Having them in a *descriptor* allow to do only a *tiny update in-place*
-with the possibility of modifying several *descriptors* of the
-same *stream* all at once (because they would be probably in the
-same *stream*'s *data block*).
-
-If these attributes where in a *data block*, would require an additional
-lookup (from the *descriptor* to the *data block*) and would definitely
-require accessing and modifying several blocks.
-
-## Append-only Streams
-
-Xournal++ has only a few object types:
-
- - stroke
- - text
- - image
- - teximage
- - embedded file
-
-All of them, except text, are of fixed size: once known the size will
-not change.
-
-This allows to allocate the exact count of *data blocks* and *extents*
-required and having the *descriptor* of a fixed size
-(see `struct obj_stroke_desc_t` for an example).
-
-Nothing needs to be expanded so everything can be consecutively written
-without padding and without worrying to reserve some slack space for
-growing.
-
-The library would require to read the entire *stream* once and optionally
-build an *index* for direct random access to each *object descriptor*.
-
-And keeping the index updated, where the indexed entries don't move,
-is much simpler.
-
-Such index enables modifications of common attributes like color
-and position to be done *in-place*.
-
-The author believes that most of the changed done by the users
-are mostly creation of new objects and modification such translations
-of existing ones. For this an *append-only* structure fits well.
-
-On deletion, deleted *objects* are marked or zero'd leaving *"holes"*
-in the *stream* which will not be filled until a *stream compaction*.
-
-The *append-only* implementation trades off speed by space (wasted
-in fragmentation).
-
-The author believes that this use case is less frequent than
-the rest and the benefits and simplicity of the *append-only* implementation
-compensate the temporal fragmentation.
-
-## Tile/Mosaic
-
-infinite pages support
