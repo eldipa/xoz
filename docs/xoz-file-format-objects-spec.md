@@ -13,10 +13,9 @@ None. No changes respect to the previous draft version.
 A new binary format `.xoz` is proposed to support Xournal++ specific
 needs:
 
- - Random read access to data associated with a document's page
-including strokes, images and other embedded files.
- - Random write access to update in-place the associated data with a
-page.
+ - Random read and write access to data associated with a document's page
+including strokes, images and other embedded files without requiring
+reading or writing the entire file.
  - More efficient data representation.
  - Embed arbitrary files, including but not limited to, PDF, images, audio
 and fonts.
@@ -34,11 +33,13 @@ and *when*.
 Xournal++ has `.xopp` as its unique
 file format: a text-based XML file compressed with GZip.
 
-The XML format does not support random access for reading nor modifications
-in-place. Due its text-based nature, it require an explicit encoding to
+The XML format does not support neither random access for reading nor modifications
+in-place which forces to read and write the entire file on each access.
+
+And due its text-based nature, it requires an explicit encoding to
 store binary data making large files.
 
-And compressing with GZip does not help:
+`.xopp` is compressed with GZip:
 While it reduces the file size, it trades space by CPU time.
 
 Therefore Xournal++ requires to:
@@ -73,7 +74,7 @@ specified by this RFC as *objects*.
 *objects* are grouped together in a ordered sequence called *stream*.
 
 A *page* does not exist as a single entity in `.xoz`. Instead, the
-parts of a *page* are represented in different places called *tiles*
+parts of a *page* are represented in different places called *tiles*.
 
 A *tile* has a *stream of objects* associated with and represents
 a part of a *page*.
@@ -81,15 +82,15 @@ a part of a *page*.
 Each *tile* belongs to a single *layer* and it has an unique location
 inside.
 
-The *tiles* of a *layer* are organized in
+A *layer* is defined as a *stream of tiles* organized in
 a 2 dimensional matrix or *mosaic* such each *tile* occupies a
-single position but not necessary every location is full.
+single position but not necessary every location is occupied.
 
-The *layer* is defined then as *stream of tiles*.
+The *stack of layers* composes the whole *document*, a for each
+particular location, the *stack of tiles*
+composes a single *page* for that location.
 
-The *stack of layers* composes the whole *document*, the *stack of tiles*
-for a particular location composes a single *page* for the same
-location.
+![image](https://github.com/eldipa/xoz/assets/2665522/7fee7e8c-220d-48d9-8b3c-4aa5eb5d066b)
 
 `.xoz` does not define a structure neither for a *page* nor a
 *stack of tiles*. These are convenient abstractions for the purpose of
@@ -107,6 +108,8 @@ An *object* has three parts:
  - a *object descriptor*
  - zero or more *continuations*
  - zero or more *data blocks*
+
+![image](https://github.com/eldipa/xoz/assets/2665522/18dbb904-0589-4d9f-802e-4ef2512293eb)
 
 The *object descriptor* is the only required piece of information that
 describes the object.
@@ -345,9 +348,8 @@ The `ext_cnt` is *fixed* at the moment of the creation, so the size of
 `struct ext_arr_t` is known.
 
 It is possible to *pre-allocate* more blocks than the required, just
-having a larger *extent* or an extra *extent* in the array.
-
-This enables room for growing at the expense of wasting unused space.
+having a larger *extent* or an extra *extent* in the array. This enables room
+for growing at the expense of wasting unused space.
 
 Therefore the exact byte count/size/length of useful data is defined
 elsewhere.
@@ -355,6 +357,11 @@ elsewhere.
 A `blk_nr` and `blk_cnt` of zeros means that that *extent* is inactive.
 Because `ext_cnt` says how many entries the `exts` array has, this is the
 only way to signal that an entry (an *extent*) should be ignored.
+
+This RFC does not fully define the meaning of `blk_nr` or `blk_cnt`.
+For example the library should not assume that all the 32 bits of `uint32_t blk_nr`
+are fully allocated to encode the block number. A future RFC will provide
+such definitions.
 
 This RFC does not define a *sub-block allocation* schema for
 reducing the internal fragmentation for data smaller
@@ -401,7 +408,7 @@ Any *object* or *continuation* share a common header:
 struct obj_hdr_t {
     // bit mask: <DCRR RSSS SSSS SSSS>
     uint16_t {
-        uint alive    : 1;  // mask 0x8000
+        uint dead     : 1;  // mask 0x8000
         uint cont     : 1;  // mask 0x4000
         uint reserved : 3;  // mask 0x3800
         uint size     : 11; // mask 0x07ff
@@ -416,7 +423,7 @@ struct obj_hdr_t {
 
 The following bit field is backed by the first `uint16_t` integer:
 
- - `alive` says if the object is alive (0) or dead (1) (aka, zombie)
+ - `dead` says if the object is alive (0) or dead (1) (aka, zombie)
  - `cont` says if the object is an ordinary
    object (0) or if it is a *continuation* (1).
  - `reserved` are reserved.
@@ -428,9 +435,9 @@ This last item implies that any *object descriptor* or *continuation*
 
 Then the next `uint32_t` integer has two parts:
 
- - `type` encodes the *object type*.
+ - `type` encodes the *object type* (~1024 types)
    `.xoz` supports different types of objects which are defined below.
- - `id` says which *object id* is assigned to this *object*.
+ - `id` says which *object id* is assigned to this *object* (~4M ids)
 
 The field `id` represents the 22-bits unique identifier of the *object* being
 described by the *descriptor* or of the *object* that the *continuation*
@@ -446,40 +453,40 @@ The generation and assignation of *object ids* is not part of this RFC.
 For convenience the *object types* are grouped and assigned
 a subset of the 10 bits space.
 
-Types of plain objects are in the range `0x01 - 0x0f`, continuations
-are in the range `0x10 - 0x1f` and so on.
+Types of plain objects are in the range `0x001 - 0x00f`, continuations
+are in the range `0x010 - 0x01f` and so on.
 
 Plain objects:
 
- - 0x01: *stroke object*
- - 0x02: *text object*
- - 0x03: *image object*
- - 0x04: *Tex/Latex image object*
- - 0x05: *blob object*
- - 0x05: *solid background object*
+ - 0x001: *stroke object*
+ - 0x002: *text object*
+ - 0x003: *image object*
+ - 0x004: *Tex/Latex image object*
+ - 0x005: *blob object*
+ - 0x005: *solid background object*
 
 Continuations:
 
- - 0x10: *more extents continuation*
- - 0x11: *stroke pattern continuation*
- - 0x12: *link*
- - 0x13: *tag*
- - 0x14: *stream continuation* (reserved)
- - 0x15: *tile continuation* (reserved)
- - 0x16: *layer continuation* (reserved)
+ - 0x010: *more extents continuation*
+ - 0x011: *stroke pattern continuation*
+ - 0x012: *link*
+ - 0x013: *tag*
+ - 0x014: *stream continuation* (reserved)
+ - 0x015: *tile continuation* (reserved)
+ - 0x016: *layer continuation* (reserved)
 
 Structural:
 
- - 0x00: *discard bytes object*.
- - 0x80: *document object*
- - 0x81: *tile object*
- - 0x82: *background tile object*
- - 0x83: *layer object*
- - 0xff: *end of stream object*
+ - 0x000: *discard bytes object*.
+ - 0x080: *document object*
+ - 0x081: *tile object*
+ - 0x082: *background tile object*
+ - 0x083: *layer object*
+ - 0x3ff: *end of stream object*
 
 
 **Note:** The value assigned to each type is mandatory, the ranges are not.
-For example, the library must not assume that `0x10 - 0x1f` is the exclusive
+For example, the library must not assume that `0x010 - 0x01f` is the exclusive
 range of *continuation* types: *continuation types* may exist outside
 the range and *non-continuation types* may exist inside the range.
 
@@ -488,7 +495,7 @@ the range and *non-continuation types* may exist inside the range.
 
 ```cpp
 struct obj_discard_bytes_desc_t {
-    struct obj_hdr_t hdr;   // type: 0x00
+    struct obj_hdr_t hdr;   // type: 0x000
 };
 ```
 
@@ -497,7 +504,8 @@ The *discard bytes object* represents a *"hole"* or a *"gap"*.
 The least 16 significant bits of `hdr.id` represents the
 length of the gap: how many bytes should be skipped.
 
-The rest of the bits of `hdr.id` are reserved.
+The rest of the bits of `hdr.id` are reserved and the flags
+`dead` and `cont` are ignored (should be 0)
 
 ### Stroke Object
 
@@ -505,7 +513,7 @@ The stroke objects are defined as:
 
 ```cpp
 struct obj_stroke_desc_t {
-    struct obj_hdr_t hdr;   // type: 0x01
+    struct obj_hdr_t hdr;   // type: 0x001
 
     uint8_t flags;
     struct ext_arr_t exts;
@@ -589,7 +597,7 @@ The *text objects* are defined as:
 
 ```cpp
 struct obj_text_desc_t {
-    struct obj_hdr_t hdr;   // type: 0x02
+    struct obj_hdr_t hdr;   // type: 0x002
 
     uint8_t flags;
     struct ext_arr_t exts;
@@ -623,7 +631,7 @@ The *image objects* are defined as:
 
 ```cpp
 struct obj_image_desc_t {
-    struct obj_hdr_t;   // type: 0x03
+    struct obj_hdr_t;   // type: 0x003
 
     uint8_t flags;
     struct ext_arr_t exts;
@@ -672,7 +680,7 @@ The *Tex/Latex image objects* (or just *teximage objects*) are defined as:
 
 ```cpp
 struct obj_teximage_desc_t {
-    struct obj_hdr_t;   // type: 0x04
+    struct obj_hdr_t;   // type: 0x004
 
     uint8_t flags;
     struct ext_arr_t exts;
@@ -706,7 +714,7 @@ audio or even ZIP files.
 
 ```cpp
 struct obj_blob_desc_t {
-    struct obj_hdr_t;   // type: 0x05
+    struct obj_hdr_t;   // type: 0x005
 
     uint8_t flags;
     struct ext_arr_t exts;
@@ -726,7 +734,7 @@ seen as a contiguous buffer from which the binary blob of
 
 ```cpp
 struct obj_solid_bg_desc_t {
-    struct obj_hdr_t;   // type: 0x06
+    struct obj_hdr_t;   // type: 0x006
     uint32_t color_rgba;
     uint8_t style;
 
@@ -744,7 +752,7 @@ struct obj_solid_bg_desc_t {
 
         uint reserved           : 24;
     }
-    uint8_t params[/* based on bits set */ ];
+    uint8_t params[/* based on bits set */];
 }
 ```
 
@@ -760,7 +768,7 @@ This *object descriptor* marks the end of a *stream*.
 
 ```cpp
 struct obj_end_of_stream_desc_t {
-    struct obj_hdr_t hdr;   // type: 0xff
+    struct obj_hdr_t hdr;   // type: 0x3ff
 };
 ```
 
@@ -792,7 +800,7 @@ interpretation of the data blocks is up to the original object.
 
 ```cpp
 struct cont_more_extents_t {
-    struct obj_hdr_t;   // type: 0x10
+    struct obj_hdr_t;   // type: 0x010
 
     uint8_t flags;
     struct ext_arr_t exts;
@@ -816,7 +824,7 @@ based on `pattern_type` and it is up to the application.
 
 ```cpp
 struct cont_stroke_pattern_t {
-    struct obj_hdr_t hdr;   // type: 0x11
+    struct obj_hdr_t hdr;   // type: 0x011
 
     uint8_t pattern_type;
     uint8_t valuecnt;
@@ -831,7 +839,7 @@ of the link depends on the `meaning` field.
 
 ```cpp
 struct cont_link_t {
-    struct obj_hdr_t hdr;   // type: 0x12
+    struct obj_hdr_t hdr;   // type: 0x012
 
     uint32_t {
         uint meaning   : 5;  // mask 0xf8000000
@@ -848,7 +856,7 @@ Defined `meaning` values:
 
 **Note:** linking object `A` to another object `B` opens several questions:
 
- - if the`obj_id` is `B`, does it mean that `A` links to `B` or `B`
+ - if the `obj_id` is `B`, does it mean that `A` links to `B` or `B`
    links to `A`?
  - if `A` is deleted, should `B` being deleted? If not, what would
    be the state of the link if `obj_id` points to a deletes object?
@@ -862,7 +870,7 @@ Any object can be *tagged* with some arbitrary text.
 
 ```cpp
 struct cont_tag_t {
-    struct obj_hdr_t hdr;   // type: 0x12
+    struct obj_hdr_t hdr;   // type: 0x013
 
     uint8_t {
         uint meaning   : 5;  // mask 0xf8
@@ -927,16 +935,16 @@ zeros.
 
 On load, the library should access the latest valid extent in `exts`,
 load its blocks and scan from the beginning in search for the
-`strcut obj_end_of_stream_desc_t` *descriptor* that signals the end.
+`struct obj_end_of_stream_desc_t` *descriptor* that signals the end.
 
-A *stream* must have one and only one `strcut obj_end_of_stream_desc_t`
+A *stream* must have one and only one `struct obj_end_of_stream_desc_t`
 at its end.
 
 ### Rationale - Append-Only
 
 Xournal++ elements tend to have two parts: one that it is likely to
 be modified by the user and the other that it is unlikely or even
-imposible to change.
+impossible to change.
 
 The former part tends to be a small set of known fixed-size attributes,
 of only a few bytes; the latter tends to be an unknown fixed-size,
@@ -1024,14 +1032,12 @@ all the extents, if objects from one extent should migrate
 to a previous or if empty extents should be released as well
 or what to do with linked objects.
 
-### Rationale - Zombie Objects
-
 
 ## Tiles and Layers
 
 ### Tile Object
 
-A *tile descriptor* is a specialization of a *stream descriptor*.
+A *tile descriptor* is a specialization of a *stream descriptor* .
 The content of the *tile* is stored in the `exts` extents of the *stream*
 `content`.
 
@@ -1039,7 +1045,7 @@ This is where most of the *objects* and *continuations* will leave.
 
 ```cpp
 struct tile_desc_t {
-    struct obj_hdr_t hdr;   // type: 0x81
+    struct obj_hdr_t hdr;   // type: 0x081
     struct stream_desc_t content;
     uint32_t row;
     uint32_t col;
@@ -1055,7 +1061,7 @@ The *background tile descriptor*  has the following structure:
 
 ```cpp
 struct bg_tile_desc_t {
-    struct obj_hdr_t hdr;   // type: 0x82
+    struct obj_hdr_t hdr;   // type: 0x082
     uint32_t row;
     uint32_t col;
 
@@ -1097,11 +1103,13 @@ or `struct bg_tile_desc_t` and optionally of
 A location in the *mosaic* may have a *tile* or not:
 Empty locations are possible.
 
+![image](https://github.com/eldipa/xoz/assets/2665522/75f920fd-a947-4c6b-9961-eb1229d52a94)
+
 The *layer descriptor* is as follows:
 
 ```cpp
 struct layer_desc_t {
-    struct obj_hdr_t hdr;   // type: 0x83
+    struct obj_hdr_t hdr;   // type: 0x083
     struct stream_desc_t tiles_stm;
 
     uint8_t capacity;
@@ -1117,7 +1125,7 @@ the structure and have a size multiple of 2.
 
 ```cpp
 struct doc_desc_t {
-    struct obj_hdr_t hdr;   // type: 0x80
+    struct obj_hdr_t hdr;   // type: 0x080
     struct stream_desc_t layers_stm;
 
     // more fields
@@ -1128,6 +1136,8 @@ The *layers* in the *stream* `layers_stm` are ordered:
 the first *layer* corresponds
 to the *background layer* at the bottom of the stack. Subsequent
 *layers* follow the stack-order.
+
+![image](https://github.com/eldipa/xoz/assets/2665522/519a7424-c580-42a2-bc24-2996b5f862b5)
 
 The rest of the `struct doc_desc_t` will be defined in a future RFC.
 
@@ -1240,7 +1250,7 @@ strategy generates large files and forces the application to wait
 for reading the entire file on open.
 
 The append-only journal-like strategy is applied to *streams* to get
-most of the benefices but with limited deficients.
+most of the benefices but with limited deficiency.
 
 # Open Issues / Questions
 
@@ -1327,7 +1337,7 @@ The application would apply such transformation each time the object is
 read.
 
 Would be this useful? We can avoid rewriting the whole stroke/image on a
-simple rotation/scape. More over we can preserve the original data and
+simple rotation/scale. More over we can preserve the original data and
 revert any transformation without losing quality (raster images are
 particular sensible to this).
 
@@ -1350,7 +1360,7 @@ corruption in case of a crash or to recover from corrupted files.
 Binary format is particularly sensible: a single bit flip may render the
 whole file unreadable.
 
-The author consideres that this must be resolved and taken into account
+The author considers that this must be resolved and taken into account
 before releasing the file format.
 
 # Previous work
