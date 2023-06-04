@@ -231,7 +231,6 @@ With 512 bytes blocks:
  - an single *extent* can then describe *objects* of size 8KB
    (using `smallcnt` - 4 bits) and 32MB (using `blk_cnt` - 16 bits).
  - a single *sub-block* (1/16 th of a block) can store up to 32 bytes.
- - *inline data* for objects should not exceed 16 bytes (half sub-block)
  - the `.xoz` has a theoretical limit of 2^26 = 64M blocks, *32GB in total*.
 
 With 1024 bytes blocks:
@@ -239,15 +238,19 @@ With 1024 bytes blocks:
  - an single *extent* can then describe *objects* of size 16KB
    (using `smallcnt` - 4 bits) and 64MB (using `blk_cnt` - 16 bits).
  - a single *sub-block* (1/16 th of a block) can store up to 64 bytes.
- - *inline data* for objects should not exceed 32 bytes (half sub-block)
  - the `.xoz` has a theoretical limit of 2^26 = 64M blocks, *64GB in total*.
+
+The (soft) limit for the *inline data* is between 32 and 64 bytes.
+Probably a limit larger than the 1/16 th of a block is not worth.
+The author does not have a strong opinion on this.
 
 The author proposes these numbers ( *block size* and
 *inline data limit* ) based on some simulation and statistics obtained
 from real `.xopp` files.
 
-Simulations show that the overhead ( *descriptors* ) and unused space
-( *internal* and *external fragmentation* ) is between 10% and 15%.
+Simulations show that the overhead ( *descriptors* ), unused space
+( *internal* and *external fragmentation* ) is between 10% and 15%
+and objects inlined are between 1% and 5%.
 
 ![file_overhead_tradeoffs](https://github.com/eldipa/xoz/assets/2665522/fb8695df-523f-4d64-ae03-cfecf87b79f4)
 
@@ -264,6 +267,18 @@ different inline data limit (with 0 meaning that no-inline was made)
 
 In all the cases, the sub-block allocation was enabled.
 
+![obj_inlined](https://github.com/eldipa/xoz/assets/2665522/d4ef7bf4-a43b-48aa-b60a-7ade8de5b37a)
+
+The figure shows on the x-axis the ratio between the inlined objects
+and total count of objects.
+
+For the simulation, objects smaller than the `max_inline_allowed` were
+fully inlined, while objects larger were not inlined.
+
+The figure shows that only a small fraction of objects can be inlined
+for *inline data limit* of 32 and 64 bytes. Larger limits allow
+more objects to be inlined but the first figure shows that this
+generates more fragmentation and larger `.xoz` files in general.
 <!--
 ![blk_sz_frag](https://github.com/eldipa/xoz/assets/2665522/c419ec5a-8a8a-46ad-ae1b-6ec8913b331f)
 -->
