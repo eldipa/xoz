@@ -29,7 +29,7 @@ struct extent_t {
     uint16_t {
         uint suballoc   : 1;    // mask 0x8000
         uint smallcnt   : 4:    // mask 0x7800
-        uint more       : 1;    // mask 0x0600
+        uint more       : 1;    // mask 0x0400
         uint hi_blk_nr  : 10;   // mask 0x03ff
     };
 
@@ -85,7 +85,7 @@ The `struct extent_t` can then be seen as:
 struct extent_t /* inline data mode */ {
     uint16_t {
         uint suballoc   : 1;    // mask 0x8000 (MUST BE SET TO 1)
-        uint inline     : 1;    // mask 0x6000 (MUST BE SET TO 1)
+        uint inline     : 1;    // mask 0x4000 (MUST BE SET TO 1)
         uint reserved   : 6;    // mask 0x3f00
         uint size       : 8;    // mask 0x00ff
     };
@@ -170,6 +170,7 @@ The `struct extent_t` has two invariants:
  - it has always a size multiple of 2.
  - the first 2 bytes (`uint16_t`) are always enough to decode the rest
    of the structure and if more `struct extent_t` follows.
+ - `blk_nr` are 26 bits long.
 
 # Sub-Block Allocation
 
