@@ -37,8 +37,8 @@ namespace {
         Extent ext1 = exts.front();
 
         // Check this singleton extent
-        EXPECT_EQ(ext1.blk_nr, (unsigned) 1);
-        EXPECT_EQ(ext1.blk_cnt, (unsigned) 1);
+        EXPECT_EQ(ext1.blk_nr(), (unsigned) 1);
+        EXPECT_EQ(ext1.blk_cnt(), (unsigned) 1);
 
         // This will force to request 5 new blocks from the repo and expand it
         std::list<Extent> exts2 = balloc.alloc({
@@ -56,8 +56,8 @@ namespace {
         Extent ext2 = exts2.front();
 
         // Check this singleton extent
-        EXPECT_EQ(ext2.blk_nr, (unsigned) 2);
-        EXPECT_EQ(ext2.blk_cnt, (unsigned) 5);
+        EXPECT_EQ(ext2.blk_nr(), (unsigned) 2);
+        EXPECT_EQ(ext2.blk_cnt(), (unsigned) 5);
 
         // Check the repo size
         std::stringstream ss;
@@ -138,12 +138,12 @@ namespace {
         //  |-------|  |--------|  |--------|  |--------|  |--------|  |--------|
         //             == extA ==  ======== extB ========  ======== extC ========
         //
-        EXPECT_EQ(extA.blk_nr, (unsigned)1);
-        EXPECT_EQ(extA.blk_cnt, (unsigned)1);
-        EXPECT_EQ(extB.blk_nr, (unsigned)2);
-        EXPECT_EQ(extB.blk_cnt, (unsigned)2);
-        EXPECT_EQ(extC.blk_nr, (unsigned)4);
-        EXPECT_EQ(extC.blk_cnt, (unsigned)2);
+        EXPECT_EQ(extA.blk_nr(), (unsigned)1);
+        EXPECT_EQ(extA.blk_cnt(), (unsigned)1);
+        EXPECT_EQ(extB.blk_nr(), (unsigned)2);
+        EXPECT_EQ(extB.blk_cnt(), (unsigned)2);
+        EXPECT_EQ(extC.blk_nr(), (unsigned)4);
+        EXPECT_EQ(extC.blk_cnt(), (unsigned)2);
 
         // Check the repo size
         std::stringstream ss;

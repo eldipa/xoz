@@ -73,6 +73,10 @@ class Extent {
     inline bool is_suballoc() const {
         return (bool)(_blk_nr & 0x80000000);
     }
+
+    inline void shrink_by(uint16_t cnt) {
+        _blk_cnt -= cnt;
+    }
 };
 
 struct ExtentGroup {

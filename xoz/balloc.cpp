@@ -41,7 +41,7 @@ std::list<Extent> BlockAllocator::alloc(const BlockRequest& req) {
             Extent& ext = bin.back();
 
             // Best fit?
-            if (ext.blk_cnt == req.blk_cnt) {
+            if (ext.blk_cnt() == req.blk_cnt) {
                 allocd.push_back(bin.back());
                 bin.pop_back();
 
@@ -50,14 +50,15 @@ std::list<Extent> BlockAllocator::alloc(const BlockRequest& req) {
 
             } else {
                 // The extent is too large, split it
-                allocd.push_back({
-                    .blk_nr = ext.blk_nr + (ext.blk_cnt - req.blk_cnt),
-                    .blk_cnt = req.blk_cnt
-                });
+                allocd.emplace_back(
+                    ext.blk_nr() + (ext.blk_cnt() - req.blk_cnt),
+                    req.blk_cnt,
+                    false /* not a suballoc */
+                );
 
                 // Modify in-place the extent in the bin, do not
                 // pop it.
-                ext.blk_cnt -= req.blk_cnt;
+                ext.shrink_by(req.blk_cnt);
 
                 // Near
                 break;
@@ -72,7 +73,7 @@ std::list<Extent> BlockAllocator::alloc(const BlockRequest& req) {
         //
         // If the list is non-empty then we should be in the first case
         assert (allocd.size() == 1);
-        assert (allocd.back().blk_cnt == req.blk_cnt);
+        assert (allocd.back().blk_cnt() == req.blk_cnt);
 
     } else {
 
@@ -90,10 +91,11 @@ std::list<Extent> BlockAllocator::alloc(const BlockRequest& req) {
         assert (new_first_blk_nr == highest_blk_nr + 1);
         highest_blk_nr = new_first_blk_nr + req.blk_cnt - 1;
 
-        allocd.push_back({
-                .blk_nr = new_first_blk_nr,
-                .blk_cnt = req.blk_cnt
-                });
+        allocd.emplace_back(
+                new_first_blk_nr,
+                req.blk_cnt,
+                false /* not a suballoc */
+                );
 
         free_blk_cnt += req.blk_cnt;
     }
@@ -110,23 +112,23 @@ std::list<Extent> BlockAllocator::alloc(const BlockRequest& req) {
 }
 
 void BlockAllocator::free(const Extent& ext) {
-    assert (ext.blk_nr > 0);
-    assert (ext.blk_cnt > 0);
+    assert (ext.blk_nr() > 0);  // TODO
+    assert (ext.blk_cnt() > 0);  // TODO
 
     // The extent should be within the range of so-far
     // allocated by the repo blocks
-    assert (ext.blk_nr + ext.blk_cnt - 1 <= highest_blk_nr);
+    assert (ext.blk_nr() + ext.blk_cnt() - 1 <= highest_blk_nr);
 
 #ifndef NDEBUG
     // This should check double free and overlapping free
     Extent overlapping = find_overlapping(ext);
-    assert (overlapping.blk_nr == 0);
+    assert (overlapping.blk_nr() == 0);
 #endif
 
-    unsigned bin_nr = u16_log2_floor(ext.blk_cnt);
+    unsigned bin_nr = u16_log2_floor(ext.blk_cnt());
     bins[bin_nr].push_back(ext);
 
-    free_blk_cnt += ext.blk_cnt;
+    free_blk_cnt += ext.blk_cnt();
 }
 
 // TODO: this is a really ugly O(n^2) algorithm with n being the number
@@ -167,8 +169,8 @@ uint32_t BlockAllocator::remove_extent_ending_in(uint32_t end_blk_nr) {
     for (unsigned i = 0; i < sizeof(bins)/sizeof(bins[0]); ++i) {
         for (auto it = bins[i].begin(); it != bins[i].end(); ++it) {
             const auto& ext = *it;
-            if (ext.blk_nr + ext.blk_cnt - 1 == end_blk_nr) {
-                uint32_t blk_nr = ext.blk_nr; // copy so we can call erase()
+            if (ext.blk_nr() + ext.blk_cnt() - 1 == end_blk_nr) {
+                uint32_t blk_nr = ext.blk_nr(); // copy so we can call erase()
                 bins[i].erase(it);
 
                 return blk_nr;
@@ -207,8 +209,8 @@ Extent BlockAllocator::find_overlapping(const Extent& target) const {
             const auto& ext = *it;
 
             if (
-                    ((ext.blk_nr <= target.blk_nr) and (target.blk_nr < ext.blk_nr + ext.blk_cnt)) or
-                    ((target.blk_nr <= ext.blk_nr) and (ext.blk_nr < target.blk_nr + target.blk_cnt))
+                    ((ext.blk_nr() <= target.blk_nr()) and (target.blk_nr() < ext.blk_nr() + ext.blk_cnt())) or
+                    ((target.blk_nr() <= ext.blk_nr()) and (ext.blk_nr() < target.blk_nr() + target.blk_cnt()))
                ) {
                 // overlapping found
                 return ext;
@@ -217,5 +219,5 @@ Extent BlockAllocator::find_overlapping(const Extent& target) const {
     }
 
     // no overlapping found
-    return Extent {.blk_nr = 0, .blk_cnt = 0};
+    return Extent(0, 0, false);
 }

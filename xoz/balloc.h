@@ -95,7 +95,7 @@ class BlockAllocator {
 
         // Just validate the assumption made above: extent's length/count
         // are encoded as 2 bytes (2**16).
-        static_assert(sizeof(((Extent*)0)->blk_cnt) == 2);
+        static_assert(Extent::BLK_CNT_FIELD_SIZE_IN_BYTES == 2);
 
         Repository& repo;
         const GlobalParameters gp;
