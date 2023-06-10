@@ -124,31 +124,32 @@ class Repository {
         //
         // Reading / writing out of bounds may succeed *but* it is undefined
         // and it will probably lead to corruption.
-        inline void read_blks(uint32_t blk_nr, uint16_t blk_cnt, char* blk_data) {
-            assert (blk_nr > 0);
-            assert (blk_cnt > 0);
-            assert (blk_nr + blk_cnt <= blk_total_cnt);
+        //
+        // Suballocation is not supported neither for reading nor writing.
+        void read_full_blks(const Extent& ext, char* blk_data) {
+            assert (not ext.is_suballoc()); // TODO, exception?
+            assert (ext.blk_nr() > 0); // TODO, exception?
+            if (ext.blk_cnt() == 0) // TODO, exception?
+                return;
 
-            seek_read_blk(blk_nr);
-            fp.read(blk_data, blk_cnt << gp.blk_sz_order);
+            // Check this invariant only after checking is_suballoc is false
+            assert (ext.blk_nr() + ext.blk_cnt() <= blk_total_cnt);
+
+            seek_read_blk(ext.blk_nr());
+            fp.read(blk_data, ext.blk_cnt() << gp.blk_sz_order);
         }
 
-        inline void write_blks(uint32_t blk_nr, uint16_t blk_cnt, const char* blk_data) {
-            assert (blk_nr > 0);
-            assert (blk_cnt > 0);
-            assert (blk_nr + blk_cnt <= blk_total_cnt);
+        void write_full_blks(const Extent& ext, const char* blk_data) {
+            assert (not ext.is_suballoc()); // TODO, exception?
+            assert (ext.blk_nr() > 0); // TODO, exception?
+            if (ext.blk_cnt() == 0) // TODO, exception?
+                return;
 
-            seek_write_blk(blk_nr);
-            fp.write(blk_data, blk_cnt << gp.blk_sz_order);
-        }
+            // Check this invariant only after checking is_suballoc is false
+            assert (ext.blk_nr() + ext.blk_cnt() <= blk_total_cnt);
 
-        // The same but using the Extent structure
-        inline void read_blks(const Extent& ext, char* blk_data) {
-            return read_blks(ext.blk_nr, ext.blk_cnt, blk_data);
-        }
-
-        inline void write_blks(const Extent& ext, const char* blk_data) {
-            return write_blks(ext.blk_nr, ext.blk_cnt, blk_data);
+            seek_write_blk(ext.blk_nr());
+            fp.write(blk_data, ext.blk_cnt() << gp.blk_sz_order);
         }
 
         Repository(const Repository&) = delete;
