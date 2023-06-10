@@ -31,6 +31,7 @@ class OpenXOZError : public std::exception {
         virtual const char* what() const noexcept override;
 };
 
+// Error when reading a xoz file and we find inconsistencies.
 class InconsistentXOZ : public std::exception {
     private:
         std::string msg;
@@ -41,6 +42,7 @@ class InconsistentXOZ : public std::exception {
 
         virtual const char* what() const noexcept override;
 };
+
 
 // Error detected before writing/modifying a xoz file that if we allow
 // the change would end up in an inconsistent file

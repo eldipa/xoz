@@ -33,6 +33,7 @@ InconsistentXOZ::InconsistentXOZ(const Repository& repo, const F& msg) : Inconsi
 const char* InconsistentXOZ::what() const noexcept {
     return msg.data();
 }
+
 WouldEndUpInconsistentXOZ::WouldEndUpInconsistentXOZ(const std::string& msg) {
     this->msg = msg;
 }

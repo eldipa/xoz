@@ -1,0 +1,510 @@
+#include "xoz/extent.h"
+#include "xoz/exceptions.h"
+
+#include "gtest/gtest.h"
+#include "gmock/gmock.h"
+
+using ::testing::HasSubstr;
+using ::testing::ThrowsMessage;
+using ::testing::AllOf;
+
+std::string hexdump(std::stringstream& fp) {
+    auto cur = fp.tellg();
+
+    std::stringstream out;
+
+    std::string bytes = fp.str();
+    for (unsigned i = 0; i < bytes.size(); ++i) {
+        out << std::setfill('0') << std::setw(2) << std::hex << (int)(unsigned char)bytes[i];
+        if (i % 2 == 1 and i+1 < bytes.size())
+            out << " ";
+    }
+
+    fp.seekg(cur);
+    return out.str();
+}
+
+
+// Check the size in bytes of the exts in terms of how much is needed
+// to store the extents and how much they are pointing (allocated)
+#define XOZ_EXPECT_SIZES(exts, blk_sz_order, disk_sz, allocated_sz) do {                \
+    EXPECT_EQ(calc_size_in_disk((exts)), (unsigned)(disk_sz));                          \
+    EXPECT_EQ(calc_allocated_size((exts), (blk_sz_order)), (unsigned)(allocated_sz));   \
+} while (0)
+
+// Check that the serialization of the extents in fp are of the
+// expected size (call calc_size_in_disk) and they match
+// byte-by-byte with the expected data (in hexdump)
+#define XOZ_EXPECT_SERIALIZATION(fp, exts, data) do {           \
+    EXPECT_EQ((fp).str().size(), calc_size_in_disk((exts)));    \
+    EXPECT_EQ(hexdump((fp)), (data));                           \
+} while (0)
+
+// Load from fp the extents and serialize it back again into
+// a temporal fp2 stream. Then compare both (they should be the same)
+#define XOZ_EXPECT_DESERIALIZATION(fp, endpos) do {             \
+    std::stringstream fp2;                                      \
+    auto curg = (fp).tellg();                                   \
+    auto curp = (fp).tellp();                                   \
+    (fp).seekg(0);                                              \
+    (fp).seekp(0);                                              \
+                                                                \
+    write_ext_arr(fp2, (endpos), load_ext_arr((fp), (endpos))); \
+    EXPECT_EQ((fp).str(), fp2.str());                           \
+    (fp).seekg(curg);                                           \
+    (fp).seekp(curp);                                           \
+    (fp).clear(); /* clear the flags */                         \
+} while (0)
+
+namespace {
+    TEST(ExtentTest, CalcSizeInvalidEmpty) {
+        const uint8_t blk_sz_order = 10;
+        const uint64_t endpos = (1 << 20);
+        std::stringstream fp;
+        ExtentGroup exts;
+
+        // An "uninitialized/empty" ExtentGroup is *not* a valid
+        // empty ExtentGroup.
+        EXPECT_THAT(
+            [&]() { calc_size_in_disk(exts); },
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr("ExtentGroup is literally empty: no extents and no inline data.")
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { calc_allocated_size(exts, blk_sz_order); },
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr("ExtentGroup is literally empty: no extents and no inline data.")
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { write_ext_arr(fp, endpos, exts); },
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr("ExtentGroup is literally empty: no extents and no inline data.")
+                    )
+                )
+        );
+
+        EXPECT_EQ(fp.str().size(), (unsigned) 0);
+    }
+
+    TEST(ExtentTest, CalcSizeValidEmpty) {
+        const uint8_t blk_sz_order = 10;
+        const uint64_t endpos = (1 << 20);
+        std::stringstream fp;
+        ExtentGroup exts = ExtentGroup::createEmpty();
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                2, /* disc size */
+                0 /* allocated size */
+                );
+
+        // Write and check the dump
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "00c0");
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+    }
+
+    TEST(ExtentTest, CalcSizeInlineDataOnly) {
+        const uint8_t blk_sz_order = 10;
+        const uint64_t endpos = (1 << 20);
+        std::stringstream fp;
+        ExtentGroup exts;
+
+        exts.set_inline_data({0x41, 0x42});
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                4, /* disc size */
+                2 /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "01c0 4142");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        fp.str(""); // reset
+
+        exts.set_inline_data({0x41, 0x42, 0x43, 0x44});
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                4 /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "02c0 4142 4344");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+    }
+
+    TEST(ExtentTest, CalcSizeInlineDataBadSize) {
+        const uint8_t blk_sz_order = 10;
+        const uint64_t endpos = (1 << 20);
+        std::stringstream fp;
+        ExtentGroup exts;
+        exts.set_inline_data({1, 2, 0});
+
+        // Inline data size *must* be a multiple of 2
+        EXPECT_THAT(
+            [&]() { calc_size_in_disk(exts); },
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr("Inline data size must be a multiple of 2 but it has 3 bytes.")
+                    )
+                )
+        );
+        EXPECT_THAT(
+            [&]() { calc_allocated_size(exts, blk_sz_order); },
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr("Inline data size must be a multiple of 2 but it has 3 bytes.")
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { write_ext_arr(fp, endpos, exts); },
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr("Inline data size must be a multiple of 2 but it has 3 bytes.")
+                    )
+                )
+        );
+
+        EXPECT_EQ(fp.str().size(), (unsigned) 0);
+
+        exts.set_inline_data(std::vector<uint8_t>(1 << 9));
+
+        // Inline data size has a limit
+        EXPECT_THAT(
+            [&]() { calc_size_in_disk(exts); },
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr("Inline data too large: it has 512 bytes but only up to 510 bytes are allowed.")
+                    )
+                )
+        );
+        EXPECT_THAT(
+            [&]() { calc_allocated_size(exts, blk_sz_order); },
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr("Inline data too large: it has 512 bytes but only up to 510 bytes are allowed.")
+                    )
+                )
+        );
+        EXPECT_THAT(
+            [&]() { write_ext_arr(fp, endpos, exts); },
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr("Inline data too large: it has 512 bytes but only up to 510 bytes are allowed.")
+                    )
+                )
+        );
+        EXPECT_EQ(fp.str().size(), (unsigned) 0);
+
+        // This check the maximum allowed
+        exts.set_inline_data(std::vector<uint8_t>((1 << 9) - 2));
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                512, /* disc size */
+                510 /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        EXPECT_EQ(fp.str().size(), calc_size_in_disk(exts));
+        EXPECT_EQ(hexdump(fp).substr(0, 14), "ffc0 0000 0000");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+    }
+
+    TEST(ExtentTest, CalcSizeOneExtentFullBlockOnly) {
+        const uint8_t blk_sz_order = 10;
+        const uint64_t endpos = (1 << 20);
+        std::stringstream fp;
+        ExtentGroup exts;
+
+        exts.add_extent(Extent(0xab, 0, false)); // 0 full block (large extent)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                0 << blk_sz_order /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "0000 ab00 0000");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        exts.clear_extents();
+        fp.str("");
+
+        exts.add_extent(Extent(0x00abcdef, 0, false)); // 0 full block (large extent) (diff addr)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                0 << blk_sz_order /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "ab00 efcd 0000");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        exts.clear_extents();
+        fp.str("");
+
+        exts.add_extent(Extent(0xab, 1, false)); // 1 full block (small extent)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                4, /* disc size */
+                1 << blk_sz_order /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "0008 ab00");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        exts.clear_extents();
+        fp.str("");
+
+        exts.add_extent(Extent(1, 3, false)); // 3 full blocks (small extent)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                4, /* disc size */
+                3 << blk_sz_order /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "0018 0100");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        exts.clear_extents();
+        fp.str("");
+
+        exts.add_extent(Extent(0xab, 16, false)); // 16 full blocks (large extent)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                16 << blk_sz_order /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "0000 ab00 1000");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        exts.clear_extents();
+        fp.str("");
+
+        exts.add_extent(Extent(0xab, (1 << 15), false)); // 32k full blocks (large extent)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                (1 << 15) << blk_sz_order /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "0000 ab00 0080");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+    }
+
+    TEST(ExtentTest, CalcSizeOneExtentSubAllocOnly) {
+        const uint8_t blk_sz_order = 10;
+        const uint64_t endpos = (1 << 20);
+        std::stringstream fp;
+        ExtentGroup exts;
+
+        exts.add_extent(Extent(0xab, 0, true));    // 0 sub-alloc'd blocks
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                0 /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "0080 ab00 0000");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        exts.clear_extents();
+        fp.str("");
+
+        exts.add_extent(Extent(0xab, 0b00001001, true));    // 2 sub-alloc'd blocks
+        EXPECT_EQ(calc_size_in_disk(exts), (unsigned) 6);
+        EXPECT_EQ(calc_allocated_size(exts, blk_sz_order), (unsigned) (2 << (blk_sz_order - 4)));
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                2 << (blk_sz_order - 4)  /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "0080 ab00 0900");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        exts.clear_extents();
+        fp.str("");
+
+        exts.add_extent(Extent(1, 0b11111111, true));    // 8 sub-alloc'd blocks
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                8 << (blk_sz_order - 4)  /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "0080 0100 ff00");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        exts.clear_extents();
+        fp.str("");
+
+        exts.add_extent(Extent(1, 0b1111111111111111, true));    // 16 sub-alloc'd blocks
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                16 << (blk_sz_order - 4)  /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "0080 0100 ffff");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+    }
+
+    TEST(ExtentTest, CalcSizeSeveralExtentsAndInline) {
+        const uint8_t blk_sz_order = 10;
+        const uint64_t endpos = (1 << 20);
+        std::stringstream fp;
+        ExtentGroup exts;
+
+        exts.add_extent(Extent(1, 16, false)); // 16 full blocks (large extent)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                6, /* disc size */
+                16 << blk_sz_order   /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts,
+                "0000 0100 1000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        fp.str("");
+
+        exts.add_extent(Extent(2, 0, true));    // 0 sub-alloc'd blocks
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                12, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0)
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts,
+                "0004 0100 1000 "
+                "0080 0200 0000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        fp.str("");
+
+        exts.add_extent(Extent(3, 1, false)); // 1 full block (small extent)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                16, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order)
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts,
+                "0004 0100 1000 "
+                "0084 0200 0000 "
+                "0008 0300"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        fp.str("");
+
+        exts.add_extent(Extent(4, 0b00001001, true));    // 2 sub-alloc'd blocks
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                22, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4))
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts,
+                "0004 0100 1000 "
+                "0084 0200 0000 "
+                "000c 0300 "
+                "0080 0400 0900"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        fp.str("");
+
+        exts.add_extent(Extent(5, 0, false)); // 0 full block (large extent)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                28, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4)) +
+                (0)
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts,
+                "0004 0100 1000 "
+                "0084 0200 0000 "
+                "000c 0300 "
+                "0084 0400 0900 "
+                "0000 0500 0000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        fp.str("");
+
+        exts.set_inline_data({0xaa, 0xbb, 0xcc, 0xdd}); // 4 bytes of inline data
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                34, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4)) +
+                (0) +
+                (4)
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts,
+                "0004 0100 1000 "
+                "0084 0200 0000 "
+                "000c 0300 "
+                "0084 0400 0900 "
+                "0004 0500 0000 "
+                "02c0 aabb ccdd"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        fp.str("");
+
+        exts.add_extent(Extent(6, 8, false)); // 8 full blocks (small extent)
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                38, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4)) +
+                (0) +
+                (4) +
+                (8 << blk_sz_order)
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts,
+                "0004 0100 1000 "
+                "0084 0200 0000 "
+                "000c 0300 "
+                "0084 0400 0900 "
+                "0004 0500 0000 "
+                "0044 0600 "
+                "02c0 aabb ccdd"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+    }
+}
