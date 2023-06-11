@@ -82,9 +82,9 @@ std::list<Extent> BlockAllocator::alloc(const BlockRequest& req) {
         //
         // Request the repository more free blocks
         //
-        // TODO we are not checking overflow in repo.alloc_blocks
+        // TODO we are not checking overflow in repo.grow_by_blocks
         // not returning an error.
-        uint32_t new_first_blk_nr = repo.alloc_blocks(req.blk_cnt);
+        uint32_t new_first_blk_nr = repo.grow_by_blocks(req.blk_cnt);
 
         // We expect to receive the immediately following block
         // of the highest_blk_nr seen so far.
@@ -158,7 +158,7 @@ void BlockAllocator::try_release() {
     highest_blk_nr -= highest_free_blk_cnt;
 
     if (highest_free_blk_cnt) {
-        repo.free_blocks(highest_free_blk_cnt);
+        repo.shrink_by_blocks(highest_free_blk_cnt);
 
         assert (free_blk_cnt >= highest_free_blk_cnt);
         free_blk_cnt -= highest_free_blk_cnt;

@@ -162,7 +162,7 @@ void Repository::open_internal(const char* fpath, uint64_t phy_repo_start_pos) {
     closed = false;
 }
 
-uint32_t Repository::alloc_blocks(uint16_t blk_cnt) {
+uint32_t Repository::grow_by_blocks(uint16_t blk_cnt) {
     if (blk_cnt == 0)
         throw std::runtime_error("alloc of 0 blocks is not allowed");
 
@@ -178,7 +178,7 @@ uint32_t Repository::alloc_blocks(uint16_t blk_cnt) {
     return blk_total_cnt - blk_cnt;
 }
 
-void Repository::free_blocks(uint16_t blk_cnt) {
+void Repository::shrink_by_blocks(uint16_t blk_cnt) {
     if (blk_cnt == 0) {
         throw std::runtime_error("free of 0 blocks is not allowed");
     }

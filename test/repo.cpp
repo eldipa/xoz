@@ -299,7 +299,7 @@ namespace {
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto old_top_nr = repo.alloc_blocks(3);
+        auto old_top_nr = repo.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
         std::stringstream ss;
@@ -313,7 +313,7 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Add 6 more blocks
-        old_top_nr = repo.alloc_blocks(6);
+        old_top_nr = repo.grow_by_blocks(6);
         EXPECT_EQ(old_top_nr, (uint32_t)4);
 
         ss.str("");
@@ -362,7 +362,7 @@ namespace {
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto old_top_nr = repo.alloc_blocks(3);
+        auto old_top_nr = repo.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
         std::stringstream ss;
@@ -376,7 +376,7 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Now "revert" freeing those 3 blocks
-        repo.free_blocks(3);
+        repo.shrink_by_blocks(3);
 
         ss.str("");
         repo.print_stats(ss);
