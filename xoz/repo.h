@@ -5,13 +5,18 @@
 
 #include <ios>
 #include <fstream>
+#include <sstream>
 #include <cstdint>
 #include <cassert>
 
 class Repository {
     private:
         const char* fpath;
-        std::fstream fp;
+
+        std::fstream disk_fp;
+        std::stringstream mem_fp;
+        std::iostream& fp;
+
         bool closed;
 
         GlobalParameters gp;
@@ -201,8 +206,8 @@ class Repository {
         //
         // These are static/class method versions to work with
         // Repository::create
-        static void _seek_and_write_header(std::fstream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp);
-        static void _seek_and_write_trailer(std::fstream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp);
+        static void _seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp);
+        static void _seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp);
 
         // Read the header/trailer moving the file pointer
         // to the correct position and check that the header/trailer

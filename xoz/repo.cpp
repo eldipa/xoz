@@ -44,7 +44,7 @@ namespace {
     } __attribute__ ((aligned (1)));
 }
 
-Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos) : fpath(fpath), closed(true) {
+Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos) : fpath(fpath), fp(disk_fp), closed(true) {
     open(fpath, phy_repo_start_pos);
     assert(not closed);
 }
@@ -63,7 +63,11 @@ void Repository::close() {
 
     _seek_and_write_header(fp, phy_repo_start_pos, trailer_sz, blk_total_cnt, gp);
     _seek_and_write_trailer(fp, phy_repo_start_pos, blk_total_cnt, gp);
-    fp.close();
+
+    if (std::addressof(fp) == std::addressof(disk_fp)) {
+        disk_fp.close();
+    }
+
     closed = true;
 
     // TODO
@@ -76,6 +80,10 @@ void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
         throw std::runtime_error("The current repository is not closed. You need to close it before opening a new one");
     }
 
+    if (std::addressof(fp) != std::addressof(disk_fp)) {
+        throw std::runtime_error("The current repository is memory based. You cannot open a disk based file.");
+    }
+
     // Try to avoid raising an exception on the opening so we can
     // raise better exceptions.
     //
@@ -83,7 +91,9 @@ void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
     fp.exceptions(std::ifstream::goodbit);
     fp.clear();
 
-    fp.open(
+    // note: iostream does not have open() so we must access disk_fp directly
+    // but the check above ensure that fp *is* disk_fp
+    disk_fp.open(
             fpath,
             // in/out binary file stream
             std::fstream::in | std::fstream::out | std::fstream::binary
@@ -361,7 +371,7 @@ void Repository::seek_read_and_check_trailer() {
     }
 }
 
-void Repository::_seek_and_write_header(std::fstream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp) {
+void Repository::_seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp) {
     fp.seekp(phy_repo_start_pos);
     struct repo_header_t hdr = {
         .magic = {'X', 'O', 'Z', 0},
@@ -375,7 +385,7 @@ void Repository::_seek_and_write_header(std::fstream& fp, uint64_t phy_repo_star
     fp.write((const char*)&hdr, sizeof(hdr));
 }
 
-void Repository::_seek_and_write_trailer(std::fstream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp) {
+void Repository::_seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp) {
     // Go to the end of the repository.
     // If this goes beyond the current file size, this will
     // "reserve" space for the "ghost" blocks.
