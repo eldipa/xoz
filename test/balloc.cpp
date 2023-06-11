@@ -3,21 +3,13 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
-#define SCRATCH_HOME "./scratch/mem/"
-
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 using ::testing::AllOf;
 
-#define DELETE(X) system("rm -f '" SCRATCH_HOME X "'")
-#define HEXDUMP(X) system("hexdump -C '" SCRATCH_HOME X "' > '" SCRATCH_HOME X ".hex'")
-
 namespace {
     TEST(BlockAllocatorTest, EmptyThenAllocSoGrow) {
-        DELETE("EmptyThenAllocSoGrow.xoz");
-        DELETE("EmptyThenAllocSoGrow.xoz.hex");
-
-        Repository repo = Repository::create(SCRATCH_HOME "EmptyThenAllocSoGrow.xoz", true);
+        Repository repo = Repository::create_mem_based();
 
         BlockAllocator balloc = BlockAllocator(repo);
 
@@ -86,10 +78,7 @@ namespace {
 
 
     TEST(BlockAllocatorTest, FreeButNotShrinkThenFreeAgainAndShrink) {
-        DELETE("FreeButNotShrinkThenFreeAgainAndShrink.xoz");
-        DELETE("FreeButNotShrinkThenFreeAgainAndShrink.xoz.hex");
-
-        Repository repo = Repository::create(SCRATCH_HOME "FreeButNotShrinkThenFreeAgainAndShrink.xoz", true);
+        Repository repo = Repository::create_mem_based();
 
         BlockAllocator balloc = BlockAllocator(repo);
 
