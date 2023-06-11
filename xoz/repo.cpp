@@ -111,8 +111,8 @@ void Repository::open_internal(const char* fpath, uint64_t phy_repo_start_pos) {
     } else {
         // note: fstream.open implicitly reset the read/write pointers
         // so we emulate the same for the memory based file
-        mem_fp.seekg(0);
-        mem_fp.seekp(0);
+        mem_fp.seekg(0, std::ios_base::beg);
+        mem_fp.seekp(0, std::ios_base::beg);
     }
 
     if (!fp) {
@@ -124,7 +124,7 @@ void Repository::open_internal(const char* fpath, uint64_t phy_repo_start_pos) {
 
     // Calculate the end of the file
     // If it cannot be represented by uint64_t, fail.
-    seek_read_phy(0, std::ios_base::end);
+    seek_read_phy(fp, 0, std::ios_base::end);
     auto tmp_fp_end = fp.tellg();
     if (tmp_fp_end >= MAX_SIGNED_INT64) { // TODO signed or unsigned check?
         throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");
@@ -282,7 +282,7 @@ void Repository::seek_read_and_check_header() {
     assert (phy_repo_start_pos >= 0);
     assert (phy_repo_start_pos <= fp_end);
 
-    seek_read_phy(phy_repo_start_pos);
+    seek_read_phy(fp, phy_repo_start_pos);
 
     struct repo_header_t hdr;
     fp.read((char*)&hdr, sizeof(hdr));
@@ -395,7 +395,7 @@ void Repository::seek_read_and_check_trailer() {
 }
 
 void Repository::_seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp) {
-    fp.seekp(phy_repo_start_pos);
+    may_grow_and_seek_write_phy(fp, phy_repo_start_pos);
     struct repo_header_t hdr = {
         .magic = {'X', 'O', 'Z', 0},
         .blk_sz_order = u8_to_le(gp.blk_sz_order),
@@ -412,7 +412,7 @@ void Repository::_seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_sta
     // Go to the end of the repository.
     // If this goes beyond the current file size, this will
     // "reserve" space for the "ghost" blocks.
-    fp.seekp(phy_repo_start_pos + (blk_total_cnt << gp.blk_sz_order));
+    may_grow_and_seek_write_phy(fp, phy_repo_start_pos + (blk_total_cnt << gp.blk_sz_order));
 
     struct repo_trailer_t eof = {
         .magic = {'E', 'O', 'F', 0 }
@@ -451,6 +451,28 @@ void Repository::_init_new_repository_into(std::iostream& fp, uint64_t phy_repo_
     _seek_and_write_header(fp, phy_repo_start_pos, trailer_sz, gp.blk_init_cnt, gp);
     _seek_and_write_trailer(fp, phy_repo_start_pos, gp.blk_init_cnt, gp);
 
-    fp.seekg(0);
-    fp.seekp(0);
+    fp.seekg(0, std::ios_base::beg);
+    fp.seekp(0, std::ios_base::beg);
+}
+
+void Repository::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff offset, std::ios_base::seekdir way) {
+    if ((way == std::ios_base::cur and offset > 0) or way == std::ios_base::beg) {
+        const auto cur_pos = fp.tellp();
+
+        fp.seekp(0, std::ios_base::end);
+        const auto end_pos = fp.tellp();
+        const auto ref_pos = way == std::ios_base::beg ? std::streampos(0) : cur_pos;
+
+        if ((ref_pos + offset) > end_pos) {
+            const auto hole = (ref_pos + offset) - end_pos;
+            const char zeros[16] = {0};
+            for(unsigned batch = 0; batch < hole/sizeof(zeros); ++batch) {
+                fp.write(zeros, sizeof(zeros));
+            }
+            fp.write(zeros, hole % sizeof(zeros));
+        }
+
+        // restore the pointer
+        fp.seekp(cur_pos, std::ios_base::beg);
+    }
 }

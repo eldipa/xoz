@@ -176,37 +176,67 @@ class Repository {
         Repository& operator=(const Repository&) = delete;
 
     private:
-        // Alias for fp.seekg (get / read) and fp.seekp (put / write)
-        // Honestly, it is too easy to confuse those two and set the
-        // reading pointer (seekg) thinking that you are setting the
-        // write pointer (seekp).
+        // Seek the underlying file for reading (seek_read_phy)
+        // and for writing (seek_write_phy).
         //
-        // Prefer these 4 aliases.
-        inline void seek_read_phy(std::streampos pos) {
-            fp.seekg(pos);
-        }
-
-        inline void seek_read_phy(std::streamoff offset, std::ios_base::seekdir way) {
+        // These are aliases for std::istream::seekg and
+        // std::ostream::seekp. The names seekg and seekp are
+        // *very* similar so it is preferred to call
+        // seek_read_phy and seek_write_phy to make it clear.
+        //
+        // Prefer these 2 aliases.
+        //
+        // For reading, seek beyond the end of the file is undefined
+        // and very likely will end up in a failure.
+        //
+        // There is no point to do a check here because the seek could
+        // be set to a few bytes *before* the end (so no error) but the
+        // caller then may read bytes *beyond* the end (so we cannot check
+        // it here).
+        //
+        // For writing, the seek goes beyond the end of the file is
+        // also undefined.
+        //
+        // For disk-based files, the file system may support gaps/holes
+        // and it may not fail.
+        // For memory-based files, it will definitely fail.
+        //
+        // It is safe to call may_grow_and_seek_write_phy function
+        // instead of seek_write_phy.
+        //
+        // The function will grow the file to the seek position so
+        // it is left at the end, filling with zeros the gap between
+        // the new and old end positions.
+        static inline void seek_read_phy(std::istream& fp, std::streamoff offset, std::ios_base::seekdir way = std::ios_base::beg) {
             fp.seekg(offset, way);
         }
 
-        inline void seek_write_phy(std::streampos pos) {
-            fp.seekp(pos);
-        }
-
-        inline void seek_write_phy(std::streamoff offset, std::ios_base::seekdir way) {
+        static inline void seek_write_phy(std::ostream& fp, std::streamoff offset, std::ios_base::seekdir way = std::ios_base::beg) {
             fp.seekp(offset, way);
         }
+
+        static inline void may_grow_and_seek_write_phy(std::ostream& fp, std::streamoff offset, std::ios_base::seekdir way = std::ios_base::beg) {
+            // handle holes (seeks beyond the end of the file)
+            may_grow_file_due_seek_phy(fp, offset, way);
+            fp.seekp(offset, way);
+        }
+
+        // Fill with zeros the space between the end of the file and the seek
+        // position if it is beyond the end.
+        //
+        // This effectively grows the file but no statistics are updated.
+        // The file's write pointer is left as it was at the begin of the operation.
+        static void may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff offset, std::ios_base::seekdir way = std::ios_base::beg);
 
         // Alias for blk read / write positioning
         inline void seek_read_blk(uint32_t blk_nr) {
             assert(blk_nr);
-            seek_read_phy((blk_nr << gp.blk_sz_order) + phy_repo_start_pos);
+            seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos);
         }
 
         inline void seek_write_blk(uint32_t blk_nr) {
             assert(blk_nr);
-            seek_read_phy((blk_nr << gp.blk_sz_order) + phy_repo_start_pos);
+            seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos);
         }
 
         // Initialize  a new repository in the specified file.
