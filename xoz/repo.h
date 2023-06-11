@@ -60,8 +60,15 @@ class Repository {
         // If the file does not exist, it cannot be opened for read+write
         // or it contains an invalid repository, fail.
         //
-        // Te create a new repository, use Repository::create.
+        // To create a new repository, use Repository::create.
         Repository(const char* fpath, uint64_t phy_repo_start_pos = 0);
+
+        // Open the repository from an in-memory file given by the iostream.
+        // If the in-memory file does not have a valid repository, it will fail.
+        //
+        // To create a new repository with a memory based file,
+        // use Repository::create_mem_based.
+        Repository(std::stringstream&& mem, uint64_t phy_repo_start_pos = 0);
 
         // Create a new repository in the given physical file.
         //
@@ -82,6 +89,9 @@ class Repository {
         // Only in this case the global parameters (gp) will be used.
         static Repository create(const char* fpath, bool fail_if_exists = false, uint64_t phy_repo_start_pos = 0, const GlobalParameters& gp = GlobalParameters());
 
+        // Like Repository::create but make the repository be memory based
+        static Repository create_mem_based(uint64_t phy_repo_start_pos = 0, const GlobalParameters& gp = GlobalParameters());
+
         // Open a repository encoded in the given physical file at the
         // given offset (by default, 0).
         //
@@ -90,10 +100,15 @@ class Repository {
         //
         // If the repository is already open, it will fail. You must
         // call Repository::close before.
+        //
+        // It is an error also call open on a memory based repository.
         void open(const char* fpath, uint64_t phy_repo_start_pos = 0);
 
         // Close the repository and flush any pending write.
         // Multiple calls can be made without trouble.
+        //
+        // Also, close() is safe to be called for both disk based
+        // and memory based repositories.
         void close();
 
         // Call to close()
@@ -194,12 +209,11 @@ class Repository {
             seek_read_phy((blk_nr << gp.blk_sz_order) + phy_repo_start_pos);
         }
 
-        // Create a new repository in the specified file.
-        // If the file exists, the file gets truncated (deleted?)
-        // before creating the repository there.
-        //
-        // This is a static version to work with Repository::create
-        static void _truncate_and_create_new_repository(const char* fpath, uint64_t phy_repo_start_pos, const GlobalParameters& gp);
+        // Initialize  a new repository in the specified file.
+        static void _init_new_repository_into(std::iostream& fp, uint64_t phy_repo_start_pos, const GlobalParameters& gp);
+
+        // Create an empty file if it does not exist; truncate if it does
+        static std::fstream _truncate_disk_file(const char* fpath);
 
         // Write the header/trailer moving the file pointer
         // to the correct position before.
@@ -214,6 +228,10 @@ class Repository {
         // is consistent
         void seek_read_and_check_header();
         void seek_read_and_check_trailer();
+
+        // Open the given file *iff* the repository is disk based otherwise
+        // reset the memory based file (and path can be any symbolic name)
+        void open_internal(const char* fpath, uint64_t phy_repo_start_pos);
 
     private:
         friend class InconsistentXOZ;
