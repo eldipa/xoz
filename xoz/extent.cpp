@@ -7,26 +7,26 @@
 #include <cassert>
 
 #define READ_HiEXT_SUBALLOC_FLAG(hi_ext)     (bool)((hi_ext) & 0x8000)
-#define WRITE_HiEXT_SUBALLOC_FLAG(hi_ext)    ((hi_ext) | 0x8000)
+#define WRITE_HiEXT_SUBALLOC_FLAG(hi_ext)    (uint16_t)((hi_ext) | 0x8000)
 
 #define READ_HiEXT_INLINE_FLAG(hi_ext)       (bool)((hi_ext) & 0x4000)
-#define WRITE_HiEXT_INLINE_FLAG(hi_ext)      ((hi_ext) | 0x4000)
+#define WRITE_HiEXT_INLINE_FLAG(hi_ext)      (uint16_t)((hi_ext) | 0x4000)
 
 #define READ_HiEXT_INLINE_SZ(hi_ext)         (((hi_ext) & 0x00ff) << 1)
-#define WRITE_HiEXT_INLINE_SZ(hi_ext, sz)    ((hi_ext) | ((sz) >> 1))
+#define WRITE_HiEXT_INLINE_SZ(hi_ext, sz)    (uint16_t)((hi_ext) | ((sz) >> 1))
 
 #define READ_HiEXT_INLINE_FLAGS(hi_ext)         (uint8_t)(((hi_ext) & 0x3f00) >> 8)
-#define WRITE_HiEXT_INLINE_FLAGS(hi_ext, flags) ((hi_ext) | ((flags) << 8))
+#define WRITE_HiEXT_INLINE_FLAGS(hi_ext, flags) (uint16_t)((hi_ext) | ((flags) << 8))
 
 #define READ_HiEXT_MORE_FLAG(hi_ext)      (bool)((hi_ext) & 0x0400)
-#define WRITE_HiEXT_MORE_FLAG(hi_ext)     ((hi_ext) | 0x0400)
+#define WRITE_HiEXT_MORE_FLAG(hi_ext)     (uint16_t)((hi_ext) | 0x0400)
 
 #define READ_HiEXT_SMALLCNT(hi_ext)             (uint8_t)(((hi_ext) & 0x7800) >> 11)
-#define WRITE_HiEXT_SMALLCNT(hi_ext, smallcnt)  ((hi_ext) | ((smallcnt) << 11))
+#define WRITE_HiEXT_SMALLCNT(hi_ext, smallcnt)  (uint16_t)((hi_ext) | ((smallcnt) << 11))
 #define EXT_SMALLCNT_MAX                        (uint16_t)(0x000f)
 
 #define READ_HiEXT_HI_BLK_NR(hi_ext)              ((hi_ext) & 0x03ff)
-#define WRITE_HiEXT_HI_BLK_NR(hi_ext, hi_blk_nr)  ((hi_ext) | (hi_blk_nr))
+#define WRITE_HiEXT_HI_BLK_NR(hi_ext, hi_blk_nr)  (uint16_t)((hi_ext) | (hi_blk_nr))
 
 #define EXT_INLINE_SZ_MAX_u16                (uint16_t)(0xff)
 
@@ -53,7 +53,7 @@ void fail_if_invalid_empty(const ExtentGroup& exts) {
 }
 
 void fail_if_bad_inline_sz(const ExtentGroup& exts) {
-    uint32_t inline_sz = exts.raw.size();
+    size_t inline_sz = exts.raw.size();
     if (inline_sz % 2 != 0) {
         throw WouldEndUpInconsistentXOZ(F()
                 << "Inline data size must be a multiple of 2 but it has "
@@ -166,7 +166,12 @@ uint32_t calc_size_in_disk(const ExtentGroup& exts) {
 
         // No blk_nr or blk_cnt are present in an inline
         // After the header the uint8_t raw follows
-        uint32_t inline_sz = exts.raw.size();
+        //
+        // Note: the cast from size_t to uint16_t should be
+        // safe because if the size of the raw cannot be represented
+        // by uint16_t, fail_if_bad_inline_sz() should had failed
+        // before
+        uint16_t inline_sz = uint16_t(exts.raw.size());
         sz += inline_sz;
     }
 
@@ -187,7 +192,11 @@ uint32_t calc_allocated_size(const ExtentGroup& exts, uint8_t blk_sz_order) {
     if (exts.inline_present) {
         fail_if_bad_inline_sz(exts);
 
-        uint32_t inline_sz = exts.raw.size();
+        // Note: the cast from size_t to uint16_t should be
+        // safe because if the size of the raw cannot be represented
+        // by uint16_t, fail_if_bad_inline_sz() should had failed
+        // before
+        uint16_t inline_sz = uint16_t(exts.raw.size());
         sz += inline_sz;
     }
 
@@ -202,7 +211,7 @@ void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts) {
     // All the extent except the last one will have the 'more' bit set
     // We track how many extents remain in the list to know when
     // and when not we have to set the 'more' bit
-    uint32_t remain = exts.arr.size();
+    size_t remain = exts.arr.size();
 
     // If an inline follows the last extent, make it appear
     // and another remain item.
@@ -231,7 +240,7 @@ void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts) {
 
         uint8_t smallcnt = 0;
         if (not is_suballoc and ext.blk_cnt() <= EXT_SMALLCNT_MAX and ext.blk_cnt() > 0) {
-            smallcnt = ext.blk_cnt();
+            smallcnt = uint8_t(ext.blk_cnt());
         }
 
         // This may set the smallcnt *iff* not suballoc and the
@@ -273,7 +282,7 @@ void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts) {
         // We should write an empty inline-data extent at least.
         fail_if_bad_inline_sz(exts);
 
-        uint32_t inline_sz = exts.raw.size();
+        uint16_t inline_sz = uint16_t(exts.raw.size());
 
         // The first (highest) 2 bytes
         uint16_t hi_ext = 0;

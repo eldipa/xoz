@@ -1,6 +1,6 @@
 .PHONY: all test prepare-scratch build build-test
 
-CXXFLAGS=-std=c++2a -pedantic -Wall -Werror -ggdb -O0
+CXXFLAGS=-std=c++20 -pedantic -Wall -Wextra -Wzero-as-null-pointer-constant -Wconversion -Wno-sign-conversion -Werror -ggdb -O0
 
 GTESTPATH=../googletest/../out/usr/local
 

@@ -178,7 +178,7 @@ uint32_t Repository::grow_by_blocks(uint16_t blk_cnt) {
     return blk_total_cnt - blk_cnt;
 }
 
-void Repository::shrink_by_blocks(uint16_t blk_cnt) {
+void Repository::shrink_by_blocks(uint32_t blk_cnt) {
     if (blk_cnt == 0) {
         throw std::runtime_error("free of 0 blocks is not allowed");
     }
@@ -279,7 +279,6 @@ Repository Repository::create_mem_based(uint64_t phy_repo_start_pos, const Globa
 
 
 void Repository::seek_read_and_check_header() {
-    assert (phy_repo_start_pos >= 0);
     assert (phy_repo_start_pos <= fp_end);
 
     seek_read_phy(fp, phy_repo_start_pos);

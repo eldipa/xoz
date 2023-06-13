@@ -127,7 +127,7 @@ class Repository {
         // new allocated blocks.
         uint32_t grow_by_blocks(uint16_t blk_cnt);
 
-        void shrink_by_blocks(uint16_t blk_cnt);
+        void shrink_by_blocks(uint32_t blk_cnt);
 
         // Pretty print stats
         std::ostream& print_stats(std::ostream& out) const;
