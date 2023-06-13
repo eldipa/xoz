@@ -74,7 +74,7 @@ void fail_if_bad_inline_sz(const ExtentGroup& exts) {
 }
 
 ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos) {
-    assert(endpos - fp.tellg() >= 0);
+    assert(std::streampos(endpos) >= fp.tellg());
     bool is_more = true;
 
     ExtentGroup exts;
@@ -205,7 +205,7 @@ uint32_t calc_allocated_size(const ExtentGroup& exts, uint8_t blk_sz_order) {
 
 
 void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts) {
-    assert(endpos - fp.tellp() >= 0);
+    assert(std::streampos(endpos) >= fp.tellp());
     fail_if_invalid_empty(exts);
 
     // All the extent except the last one will have the 'more' bit set
