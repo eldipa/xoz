@@ -2,11 +2,14 @@
 
  - **Author:** Martin Di Paola
  - **Status:** Draft
- - **Version:** 1
+ - **Version:** 2
 
 ### Summary of changes
 
-None. No changes respect to the previous draft version.
+Changed in version 2: reduced the maximum size of inline data
+from 512 bytes to 64 bytes. The data no longer must be a multiple
+of 2 and this saves 1 byte of metadata when the data size is an
+odd number.
 
 # Abstract
 
@@ -86,24 +89,37 @@ struct extent_t /* inline data mode */ {
     uint16_t {
         uint suballoc   : 1;    // mask 0x8000 (MUST BE SET TO 1)
         uint inline     : 1;    // mask 0x4000 (MUST BE SET TO 1)
-        uint reserved   : 6;    // mask 0x3f00
-        uint size       : 8;    // mask 0x00ff
+        uint size       : 6;    // mask 0x3f00
+        uint end        : 8;    // mask 0x00ff
     };
 
-    uint8_t raw[/* size * 2 */];
+    uint8_t raw[/* size or size - 1 */];
 };
 ```
 
 The bits `suballoc` and `inline` **must** be set to 1 (`inline` set to 1
 ensures that `smallcnt > 0`).
 
-Then `raw` is the 2-bytes words array of the given `size`.
+`size` is the count of bytes of user data inline'd which may be zero.
+
+If `size` is an even number (including zero), `raw` has `size` bytes;
+of `size` is an odd number, `raw` has `size - 1` bytes.
+
+In both cases, the byte `end` contains the *last byte*
+of the user data and `raw` the rest (with `raw[0]` being the first byte
+of the user data).
+
+If `size` is zero, `raw` is empty (zero bytes length) and
+the value of `last` is zero.
+
+These rules guarantees that the size of `struct extent_t` is
+always a multiple of 2:
+
+ - `2 + size` bytes if `size` is even
+ - `2 + size - 1` bytes if `size` is odd
 
 Note that the maximum *inline data* size may be capped by the maximum
 size of the *object descriptor* that has this *extent* (if applies).
-
-The `struct extent_t` still has a size multiple of 2: `2 + (2 * size)`
-bytes
 
 ### Rationale - Inline Data
 
@@ -118,7 +134,7 @@ are mostly append-only, it is not expected to be copying/moving
 the descriptors frequently so storing a lot of data should
 not introduce a significant performance problem.
 
-The maximum size of the *inline data* is 512 bytes but it is expected
+The maximum size of the *inline data* is 64 bytes but it is expected
 to keep much less and larger data should be stored in
 a fully dedicated *data block* to keep the *object descriptor*
 small.
@@ -161,7 +177,8 @@ may encode an *empty extent array* by setting the **first**
  - `size` set to 0
 
 In this way the `struct extent_t` looks like an *inline data*
-of zero bytes, effectively, the *extent array* only occupies 2 bytes.
+of zero bytes, effectively, the *extent array* only occupies 2 bytes
+(1 for the header and 1 of padding).
 
 # Invariants of the `struct extent_t`
 
@@ -248,9 +265,13 @@ The author proposes these numbers ( *block size* and
 *inline data limit* ) based on some simulation and statistics obtained
 from real `.xopp` files.
 
-Simulations show that the overhead ( *descriptors* ), unused space
+The simulation shows that the overhead ( *descriptors* ), unused space
 ( *internal* and *external fragmentation* ) is between 10% and 15%
 and objects inlined are between 1% and 5%.
+
+Note: The simulation was made for the version 1 of this RFC where the limit
+size of the *inline data* was 512 bytes. Version 2 reduced this to 64
+bytes.
 
 ![file_overhead_tradeoffs](https://github.com/eldipa/xoz/assets/2665522/fb8695df-523f-4d64-ae03-cfecf87b79f4)
 
