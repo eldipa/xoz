@@ -178,11 +178,11 @@ may encode an *empty extent array* by setting the **first**
 
 In this way the `struct extent_t` looks like an *inline data*
 of zero bytes, effectively, the *extent array* only occupies 2 bytes
-(1 for the header and 1 of padding).
+(2 for the header).
 
 # Invariants of the `struct extent_t`
 
-The `struct extent_t` has two invariants:
+The `struct extent_t` has 3 invariants:
 
  - it has always a size multiple of 2.
  - the first 2 bytes (`uint16_t`) are always enough to decode the rest
