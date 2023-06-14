@@ -129,7 +129,7 @@ namespace {
                 );
 
         write_ext_arr(fp, endpos, exts);
-        XOZ_EXPECT_SERIALIZATION(fp, exts, "01c0 4142");
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "00c2 4142");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
         fp.str(""); // reset
@@ -141,7 +141,31 @@ namespace {
                 );
 
         write_ext_arr(fp, endpos, exts);
-        XOZ_EXPECT_SERIALIZATION(fp, exts, "02c0 4142 4344");
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "00c4 4142 4344");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        fp.str(""); // reset
+
+        exts.set_inline_data({0x41, 0x42, 0x43});
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                4, /* disc size */
+                3 /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "43c3 4142");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        fp.str(""); // reset
+
+        exts.set_inline_data({0x41});
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                2, /* disc size */
+                1 /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        XOZ_EXPECT_SERIALIZATION(fp, exts, "41c1");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
     }
 
@@ -150,45 +174,15 @@ namespace {
         const uint64_t endpos = (1 << 20);
         std::stringstream fp;
         ExtentGroup exts;
-        exts.set_inline_data({1, 2, 0});
 
-        // Inline data size *must* be a multiple of 2
-        EXPECT_THAT(
-            [&]() { calc_size_in_disk(exts); },
-            ThrowsMessage<WouldEndUpInconsistentXOZ>(
-                AllOf(
-                    HasSubstr("Inline data size must be a multiple of 2 but it has 3 bytes.")
-                    )
-                )
-        );
-        EXPECT_THAT(
-            [&]() { calc_allocated_size(exts, blk_sz_order); },
-            ThrowsMessage<WouldEndUpInconsistentXOZ>(
-                AllOf(
-                    HasSubstr("Inline data size must be a multiple of 2 but it has 3 bytes.")
-                    )
-                )
-        );
-
-        EXPECT_THAT(
-            [&]() { write_ext_arr(fp, endpos, exts); },
-            ThrowsMessage<WouldEndUpInconsistentXOZ>(
-                AllOf(
-                    HasSubstr("Inline data size must be a multiple of 2 but it has 3 bytes.")
-                    )
-                )
-        );
-
-        EXPECT_EQ(fp.str().size(), (unsigned) 0);
-
-        exts.set_inline_data(std::vector<uint8_t>(1 << 9));
+        exts.set_inline_data(std::vector<uint8_t>(1 << 6));
 
         // Inline data size has a limit
         EXPECT_THAT(
             [&]() { calc_size_in_disk(exts); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
-                    HasSubstr("Inline data too large: it has 512 bytes but only up to 510 bytes are allowed.")
+                    HasSubstr("Inline data too large: it has 64 bytes but only up to 63 bytes are allowed.")
                     )
                 )
         );
@@ -196,7 +190,7 @@ namespace {
             [&]() { calc_allocated_size(exts, blk_sz_order); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
-                    HasSubstr("Inline data too large: it has 512 bytes but only up to 510 bytes are allowed.")
+                    HasSubstr("Inline data too large: it has 64 bytes but only up to 63 bytes are allowed.")
                     )
                 )
         );
@@ -204,22 +198,42 @@ namespace {
             [&]() { write_ext_arr(fp, endpos, exts); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
-                    HasSubstr("Inline data too large: it has 512 bytes but only up to 510 bytes are allowed.")
+                    HasSubstr("Inline data too large: it has 64 bytes but only up to 63 bytes are allowed.")
                     )
                 )
         );
         EXPECT_EQ(fp.str().size(), (unsigned) 0);
 
         // This check the maximum allowed
-        exts.set_inline_data(std::vector<uint8_t>((1 << 9) - 2));
+        exts.set_inline_data(std::vector<uint8_t>((1 << 6) - 1));
+        exts.raw[0] = 0x41;
+        exts.raw[exts.raw.size()-1] = 0x78;
+
         XOZ_EXPECT_SIZES(exts, blk_sz_order,
-                512, /* disc size */
-                510 /* allocated size */
+                64, /* disc size */
+                63 /* allocated size */
                 );
 
         write_ext_arr(fp, endpos, exts);
         EXPECT_EQ(fp.str().size(), calc_size_in_disk(exts));
-        EXPECT_EQ(hexdump(fp).substr(0, 14), "ffc0 0000 0000");
+        EXPECT_EQ(hexdump(fp).substr(0, 14), "78ff 4100 0000");
+        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+
+        fp.str("");
+
+        // This check the maximum allowed minus 1
+        exts.set_inline_data(std::vector<uint8_t>((1 << 6) - 2));
+        exts.raw[0] = 0x41;
+        exts.raw[exts.raw.size()-1] = 0x78;
+
+        XOZ_EXPECT_SIZES(exts, blk_sz_order,
+                64, /* disc size */
+                62 /* allocated size */
+                );
+
+        write_ext_arr(fp, endpos, exts);
+        EXPECT_EQ(fp.str().size(), calc_size_in_disk(exts));
+        EXPECT_EQ(hexdump(fp).substr(0, 14), "00fe 4100 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
     }
 
@@ -477,7 +491,7 @@ namespace {
                 "000c 0300 "
                 "0084 0400 0900 "
                 "0004 0500 0000 "
-                "02c0 aabb ccdd"
+                "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
         fp.str("");
@@ -503,7 +517,7 @@ namespace {
                 "0084 0400 0900 "
                 "0004 0500 0000 "
                 "0044 0600 "
-                "02c0 aabb ccdd"
+                "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
     }

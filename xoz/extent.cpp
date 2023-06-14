@@ -12,11 +12,11 @@
 #define READ_HiEXT_INLINE_FLAG(hi_ext)       (bool)((hi_ext) & 0x4000)
 #define WRITE_HiEXT_INLINE_FLAG(hi_ext)      (uint16_t)((hi_ext) | 0x4000)
 
-#define READ_HiEXT_INLINE_SZ(hi_ext)         (((hi_ext) & 0x00ff) << 1)
-#define WRITE_HiEXT_INLINE_SZ(hi_ext, sz)    (uint16_t)((hi_ext) | ((sz) >> 1))
+#define READ_HiEXT_INLINE_SZ(hi_ext)         (uint8_t)(((hi_ext) & 0x3f00) >> 8)
+#define WRITE_HiEXT_INLINE_SZ(hi_ext, sz)    (uint16_t)((hi_ext) | (((sz) & 0x3f) << 8))
 
-#define READ_HiEXT_INLINE_FLAGS(hi_ext)         (uint8_t)(((hi_ext) & 0x3f00) >> 8)
-#define WRITE_HiEXT_INLINE_FLAGS(hi_ext, flags) (uint16_t)((hi_ext) | ((flags) << 8))
+#define READ_HiEXT_INLINE_LAST(hi_ext)         (uint8_t)((hi_ext) & 0x00ff)
+#define WRITE_HiEXT_INLINE_LAST(hi_ext, first) (uint16_t)((hi_ext) | ((first) & 0xff))
 
 #define READ_HiEXT_MORE_FLAG(hi_ext)      (bool)((hi_ext) & 0x0400)
 #define WRITE_HiEXT_MORE_FLAG(hi_ext)     (uint16_t)((hi_ext) | 0x0400)
@@ -28,7 +28,7 @@
 #define READ_HiEXT_HI_BLK_NR(hi_ext)              ((hi_ext) & 0x03ff)
 #define WRITE_HiEXT_HI_BLK_NR(hi_ext, hi_blk_nr)  (uint16_t)((hi_ext) | (hi_blk_nr))
 
-#define EXT_INLINE_SZ_MAX_u16                (uint16_t)(0xff)
+#define EXT_INLINE_SZ_MAX_u16                (uint16_t)(63)
 
 #define CHK_READ_ROOM(fp, endpos, sz)       \
 do {                                        \
@@ -54,20 +54,13 @@ void fail_if_invalid_empty(const ExtentGroup& exts) {
 
 void fail_if_bad_inline_sz(const ExtentGroup& exts) {
     size_t inline_sz = exts.raw.size();
-    if (inline_sz % 2 != 0) {
-        throw WouldEndUpInconsistentXOZ(F()
-                << "Inline data size must be a multiple of 2 but it has "
-                << inline_sz
-                << " bytes."
-                );
-    }
 
-    if ((inline_sz >> 1) > EXT_INLINE_SZ_MAX_u16) {
+    if (inline_sz > EXT_INLINE_SZ_MAX_u16) {
         throw WouldEndUpInconsistentXOZ(F()
                 << "Inline data too large: it has "
                 << inline_sz
                 << " bytes but only up to "
-                << (EXT_INLINE_SZ_MAX_u16 << 1)
+                << EXT_INLINE_SZ_MAX_u16
                 << " bytes are allowed."
                 );
     }
@@ -95,12 +88,22 @@ ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos) {
             exts.inline_present = true;
 
             uint16_t inline_sz = READ_HiEXT_INLINE_SZ(hi_ext);
-            exts.inline_flags = READ_HiEXT_INLINE_FLAGS(hi_ext);
+            uint8_t last = READ_HiEXT_INLINE_LAST(hi_ext);
 
-            CHK_READ_ROOM(fp, endpos, inline_sz);
             exts.raw.resize(inline_sz);
 
-            fp.read((char*)exts.raw.data(), inline_sz);
+            // If the size is odd, reduce it by one as the last
+            // byte was already loaded from hi_ext
+            if (inline_sz % 2 == 1) {
+                exts.raw[inline_sz-1] = last;
+                inline_sz -= 1;
+            }
+
+            if (inline_sz > 0) {
+                CHK_READ_ROOM(fp, endpos, inline_sz);
+                fp.read((char*)exts.raw.data(), inline_sz);
+            }
+
         } else {
             is_more = READ_HiEXT_MORE_FLAG(hi_ext);
 
@@ -172,6 +175,13 @@ uint32_t calc_size_in_disk(const ExtentGroup& exts) {
         // by uint16_t, fail_if_bad_inline_sz() should had failed
         // before
         uint16_t inline_sz = uint16_t(exts.raw.size());
+
+        // If size is odd, raw's last byte was saved in the ext header
+        // so the remaining data is size-1
+        if (inline_sz % 2 == 1) {
+            inline_sz -= 1;
+        }
+
         sz += inline_sz;
     }
 
@@ -197,6 +207,10 @@ uint32_t calc_allocated_size(const ExtentGroup& exts, uint8_t blk_sz_order) {
         // by uint16_t, fail_if_bad_inline_sz() should had failed
         // before
         uint16_t inline_sz = uint16_t(exts.raw.size());
+
+        // Note: calc_allocated_size means how many bytes are allocated
+        // for user data so we register all the inline data as such
+        // (not matter if the size is an even or an odd number)
         sz += inline_sz;
     }
 
@@ -288,20 +302,29 @@ void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts) {
         uint16_t hi_ext = 0;
         hi_ext = WRITE_HiEXT_SUBALLOC_FLAG(hi_ext);
         hi_ext = WRITE_HiEXT_INLINE_FLAG(hi_ext);
-        hi_ext = WRITE_HiEXT_INLINE_FLAGS(hi_ext, exts.inline_flags);
         hi_ext = WRITE_HiEXT_INLINE_SZ(hi_ext, inline_sz);
 
+        uint8_t last = 0x00;
 
-        // TODO bits: backward/forward compat
-        //
+        // If the size is odd, store the last byte in `last`
+        // and subtract 1 to the size
+        if (inline_sz % 2 == 1) {
+            last = exts.raw[inline_sz-1];
+            inline_sz -= 1;
+        }
+
+        // the last byte of raw or 0x00 as padding
+        hi_ext = WRITE_HiEXT_INLINE_LAST(hi_ext, last);
 
         // Now hi_ext is complete: write it to disk
         CHK_WRITE_ROOM(fp, endpos, sizeof(hi_ext) + inline_sz);
         hi_ext = u16_to_le(hi_ext);
         fp.write((char*)&hi_ext, sizeof(hi_ext));
 
-        // After the uint8_t raw follows
-        fp.write((char*)exts.raw.data(), inline_sz);
+        // After the uint8_t raw follows, if any
+        if (inline_sz > 0) {
+            fp.write((char*)exts.raw.data(), inline_sz);
+        }
     }
 
     assert (remain == 0);
