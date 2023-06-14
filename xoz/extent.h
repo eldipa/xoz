@@ -83,10 +83,9 @@ struct ExtentGroup {
     std::vector<Extent> arr;
 
     bool inline_present;
-    uint8_t inline_flags;
     std::vector<uint8_t> raw;
 
-    ExtentGroup() : inline_present(false), inline_flags(0) {}
+    ExtentGroup() : inline_present(false) {}
 
     static ExtentGroup createEmpty() {
         ExtentGroup exts;
@@ -110,7 +109,7 @@ struct ExtentGroup {
 };
 
 uint32_t calc_size_in_disk(const ExtentGroup& exts);
-uint32_t calc_allocated_size(const ExtentGroup& exts, uint8_t blk_sz_order);
+uint32_t calc_usable_space_size(const ExtentGroup& exts, uint8_t blk_sz_order);
 
 void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts);
 ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos);
