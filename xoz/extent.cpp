@@ -141,7 +141,7 @@ ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos) {
     return exts;
 }
 
-uint32_t calc_size_in_disk(const ExtentGroup& exts) {
+uint32_t calc_footprint_disk_size(const ExtentGroup& exts) {
     fail_if_invalid_empty(exts);
     uint32_t sz = 0;
     for (const auto& ext : exts.arr) {
@@ -188,7 +188,7 @@ uint32_t calc_size_in_disk(const ExtentGroup& exts) {
     return sz;
 }
 
-uint32_t calc_allocated_size(const ExtentGroup& exts, uint8_t blk_sz_order) {
+uint32_t calc_usable_space_size(const ExtentGroup& exts, uint8_t blk_sz_order) {
     fail_if_invalid_empty(exts);
     uint32_t sz = 0;
     for (const auto& ext : exts.arr) {
@@ -208,7 +208,7 @@ uint32_t calc_allocated_size(const ExtentGroup& exts, uint8_t blk_sz_order) {
         // before
         uint16_t inline_sz = uint16_t(exts.raw.size());
 
-        // Note: calc_allocated_size means how many bytes are allocated
+        // Note: calc_usable_space_size means how many bytes are allocated
         // for user data so we register all the inline data as such
         // (not matter if the size is an even or an odd number)
         sz += inline_sz;

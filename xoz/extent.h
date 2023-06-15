@@ -34,18 +34,18 @@ class Extent {
     //    blocks and blk_cnt is a 16-bits bitmap which tells
     //    which sub-blocks belong to this extent
     Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc) :
-        _blk_nr(blk_nr),
+        _blk_nr(blk_nr & 0x03ffffff),
         _blk_cnt(blk_cnt)
     {
         if (is_suballoc)
             this->_blk_nr |= 0x80000000;
     }
 
-    // Create an extent with blk_nr formed from the 16 high bits (hi_blk_nr)
+    // Create an extent with blk_nr of 26 bits formed from the 10 high bits (hi_blk_nr)
     // and the 16 low bits (lo_blk_nr)
     Extent(uint16_t hi_blk_nr, uint16_t lo_blk_nr, uint16_t blk_cnt, bool is_suballoc) :
         Extent(
-                ((uint32_t(hi_blk_nr) << 16) | lo_blk_nr),
+                ((uint32_t(hi_blk_nr & 0x03ff) << 16) | lo_blk_nr),
                 blk_cnt,
                 is_suballoc
               ) {}
@@ -108,7 +108,7 @@ struct ExtentGroup {
     }
 };
 
-uint32_t calc_size_in_disk(const ExtentGroup& exts);
+uint32_t calc_footprint_disk_size(const ExtentGroup& exts);
 uint32_t calc_usable_space_size(const ExtentGroup& exts, uint8_t blk_sz_order);
 
 void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts);
