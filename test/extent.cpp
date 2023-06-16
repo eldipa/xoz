@@ -3,26 +3,13 @@
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include "test/testing_xoz.h"
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 using ::testing::AllOf;
 
-std::string hexdump(std::stringstream& fp) {
-    auto cur = fp.tellg();
-
-    std::stringstream out;
-
-    std::string bytes = fp.str();
-    for (unsigned i = 0; i < bytes.size(); ++i) {
-        out << std::setfill('0') << std::setw(2) << std::hex << (int)(unsigned char)bytes[i];
-        if (i % 2 == 1 and i+1 < bytes.size())
-            out << " ";
-    }
-
-    fp.seekg(cur);
-    return out.str();
-}
+using ::testing_xoz::helpers::hexdump;
 
 
 // Check the size in bytes of the exts in terms of how much is needed
