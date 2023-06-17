@@ -43,6 +43,8 @@ namespace {
         // It should be "EOF" followed by a NUL
         uint8_t magic[4];
     } __attribute__ ((aligned (1)));
+
+    static_assert(sizeof(struct repo_header_t) <= 64);
 }
 
 Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos) : fpath(fpath), fp(disk_fp), closed(true) {
@@ -302,11 +304,11 @@ void Repository::seek_read_and_check_header() {
     gp.blk_sz_order = u8_from_le(hdr.blk_sz_order);
     gp.blk_sz = (1 << hdr.blk_sz_order);
 
-    if (gp.blk_sz_order < 10 or gp.blk_sz_order > 16) {
+    if (gp.blk_sz_order < 6 or gp.blk_sz_order > 16) {
         throw InconsistentXOZ(*this, F()
                 << "block size order "
                 << gp.blk_sz_order
-                << " is out of range [10 to 16] (block sizes of 1K to 64K)."
+                << " is out of range [6 to 16] (block sizes of 64 to 64K)."
                 );
     }
 
