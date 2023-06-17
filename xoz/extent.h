@@ -25,7 +25,13 @@ class Extent {
 
     public:
 
+    // How many bytes are required to represent the blk_cnt field
     const static unsigned BLK_CNT_FIELD_SIZE_IN_BYTES = sizeof(((Extent*)0)->_blk_cnt);
+
+    // Which is the size order of a subblock and how many subblocks
+    // fit in a single block
+    const static unsigned SUBBLK_SIZE_ORDER = 4;
+    constexpr static unsigned SUBBLK_CNT_PER_BLK = (1 << SUBBLK_SIZE_ORDER);
 
     // Create an extent:
     //  - if is_suballoc is False, blk_nr points to the first
@@ -37,8 +43,13 @@ class Extent {
         _blk_nr(blk_nr & 0x03ffffff),
         _blk_cnt(blk_cnt)
     {
-        if (is_suballoc)
+        if (blk_nr & (~0x03ffffff)) {
+            // TODO raise warning?
+        }
+
+        if (is_suballoc) {
             this->_blk_nr |= 0x80000000;
+        }
     }
 
     // Create an extent with blk_nr of 26 bits formed from the 10 high bits (hi_blk_nr)
@@ -72,6 +83,10 @@ class Extent {
 
     inline bool is_suballoc() const {
         return (bool)(_blk_nr & 0x80000000);
+    }
+
+    inline bool is_unallocated() const {
+        return blk_nr() == 0x0;
     }
 
     inline void shrink_by(uint16_t cnt) {
@@ -110,6 +125,7 @@ struct ExtentGroup {
 
 uint32_t calc_footprint_disk_size(const ExtentGroup& exts);
 uint32_t calc_usable_space_size(const ExtentGroup& exts, uint8_t blk_sz_order);
+uint32_t calc_usable_space_size(const Extent& ext, uint8_t blk_sz_order);
 
 void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts);
 ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos);

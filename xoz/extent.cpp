@@ -188,15 +188,23 @@ uint32_t calc_footprint_disk_size(const ExtentGroup& exts) {
     return sz;
 }
 
+uint32_t calc_usable_space_size(const Extent& ext, uint8_t blk_sz_order) {
+    if (ext.is_unallocated()) {
+        return 0;
+    }
+
+    if (ext.is_suballoc()) {
+        return std::popcount(ext.blk_cnt()) << (blk_sz_order - 4);
+    } else {
+        return ext.blk_cnt() << blk_sz_order;
+    }
+}
+
 uint32_t calc_usable_space_size(const ExtentGroup& exts, uint8_t blk_sz_order) {
     fail_if_invalid_empty(exts);
     uint32_t sz = 0;
     for (const auto& ext : exts.arr) {
-        if (ext.is_suballoc()) {
-            sz += std::popcount(ext.blk_cnt()) << (blk_sz_order - 4);
-        } else {
-            sz += ext.blk_cnt() << blk_sz_order;
-        }
+        sz += calc_usable_space_size(ext, blk_sz_order);
     }
 
     if (exts.inline_present) {
