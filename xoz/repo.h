@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cassert>
 
+
 class Repository {
     private:
         const char* fpath;
@@ -229,14 +230,14 @@ class Repository {
         static void may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff offset, std::ios_base::seekdir way = std::ios_base::beg);
 
         // Alias for blk read / write positioning
-        inline void seek_read_blk(uint32_t blk_nr) {
+        inline void seek_read_blk(uint32_t blk_nr, uint32_t offset = 0) {
             assert(blk_nr);
-            seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos);
+            seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos + offset);
         }
 
-        inline void seek_write_blk(uint32_t blk_nr) {
+        inline void seek_write_blk(uint32_t blk_nr, uint32_t offset = 0) {
             assert(blk_nr);
-            seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos);
+            seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos + offset);
         }
 
         // Initialize  a new repository in the specified file.
@@ -250,8 +251,8 @@ class Repository {
         //
         // These are static/class method versions to work with
         // Repository::create
-        static void _seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp);
-        static void _seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp);
+        static std::streampos _seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp);
+        static std::streampos _seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp);
 
         // Read the header/trailer moving the file pointer
         // to the correct position and check that the header/trailer

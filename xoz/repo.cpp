@@ -2,6 +2,7 @@
 #include "xoz/arch.h"
 #include "xoz/exceptions.h"
 #include <cstring>
+#include <filesystem>
 
 #define MAX_SIGNED_INT64 int64_t((~((uint64_t)0)) >> 1)
 
@@ -67,7 +68,10 @@ void Repository::close() {
     assert (trailer_sz == sizeof(struct repo_trailer_t));
 
     _seek_and_write_header(fp, phy_repo_start_pos, trailer_sz, blk_total_cnt, gp);
-    _seek_and_write_trailer(fp, phy_repo_start_pos, blk_total_cnt, gp);
+    std::streampos pos_after_trailer = _seek_and_write_trailer(fp, phy_repo_start_pos, blk_total_cnt, gp);
+
+    fp.seekp(0);
+    uintmax_t file_sz = pos_after_trailer - fp.tellp();
 
     if (std::addressof(fp) == std::addressof(disk_fp)) {
         disk_fp.close();
@@ -75,9 +79,11 @@ void Repository::close() {
 
     closed = true;
 
-    // TODO
-    // We should shrink/truncate the physical file
-    // if its size is larger than phy_repo_end_pos
+    if (std::addressof(fp) == std::addressof(disk_fp)) {
+        std::filesystem::resize_file(fpath, file_sz);
+    } else {
+        // TODO
+    }
 }
 
 void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
@@ -171,8 +177,10 @@ uint32_t Repository::grow_by_blocks(uint16_t blk_cnt) {
 
     uint64_t sz = (blk_cnt << gp.blk_sz_order);
 
-    phy_repo_end_pos += sz;
+    may_grow_file_due_seek_phy(fp, phy_repo_end_pos + sz);
 
+    // Update the stats
+    phy_repo_end_pos += sz;
     blk_total_cnt += blk_cnt;
 
     return blk_total_cnt - blk_cnt;
@@ -196,8 +204,9 @@ void Repository::shrink_by_blocks(uint32_t blk_cnt) {
 
     uint64_t sz = (blk_cnt << gp.blk_sz_order);
 
+    // Update the stats but do not truncate the file
+    // (do that on close())
     phy_repo_end_pos -= sz;
-
     blk_total_cnt -= blk_cnt;
 }
 
@@ -393,7 +402,7 @@ void Repository::seek_read_and_check_trailer() {
     }
 }
 
-void Repository::_seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp) {
+std::streampos Repository::_seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp) {
     may_grow_and_seek_write_phy(fp, phy_repo_start_pos);
     struct repo_header_t hdr = {
         .magic = {'X', 'O', 'Z', 0},
@@ -405,9 +414,12 @@ void Repository::_seek_and_write_header(std::ostream& fp, uint64_t phy_repo_star
     };
 
     fp.write((const char*)&hdr, sizeof(hdr));
+
+    std::streampos streampos_after_hdr = fp.tellp();
+    return streampos_after_hdr;
 }
 
-void Repository::_seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp) {
+std::streampos Repository::_seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt, const GlobalParameters& gp) {
     // Go to the end of the repository.
     // If this goes beyond the current file size, this will
     // "reserve" space for the "ghost" blocks.
@@ -417,6 +429,9 @@ void Repository::_seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_sta
         .magic = {'E', 'O', 'F', 0 }
     };
     fp.write((const char*)&eof, sizeof(eof));
+
+    std::streampos streampos_after_trailer = fp.tellp();
+    return streampos_after_trailer;
 }
 
 std::fstream Repository::_truncate_disk_file(const char* fpath) {
@@ -462,6 +477,11 @@ void Repository::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff off
         const auto end_pos = fp.tellp();
         const auto ref_pos = way == std::ios_base::beg ? std::streampos(0) : cur_pos;
 
+        // Note: for physical disk-based files we could use truncate/ftruncate
+        // or C++ fs::resize_file *but* that will require to close the file and reopen
+        // it again.
+        // This is an unhappy thing.
+        // Also, it does not work for memory-based files.
         if ((ref_pos + offset) > end_pos) {
             const auto hole = (ref_pos + offset) - end_pos;
             const char zeros[16] = {0};
