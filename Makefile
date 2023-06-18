@@ -10,9 +10,14 @@ GTESTLIBS=-lgtest -lpthread
 
 all: build
 
-xoz/libxoz.a: xoz/*.cpp xoz/*.h
-	cd xoz/ && g++ ${CXXFLAGS}  -I../ -c *.cpp
-	cd xoz/ && ar -rc libxoz.a *.o
+obj_repo: xoz/repo/*.cpp xoz/repo/*.h
+	cd xoz/repo/ && g++ ${CXXFLAGS} -I../../ -c *.cpp
+
+obj_xoz: xoz/*.cpp xoz/*.h
+	cd xoz/ && g++ ${CXXFLAGS} -I../ -c *.cpp
+
+xoz/libxoz.a: obj_repo obj_xoz
+	cd xoz/ && ar -rc libxoz.a repo/*.o *.o
 
 build: xoz/libxoz.a
 
@@ -31,4 +36,5 @@ mount-scratch:
 clean:
 	rm -f scratch/mem/*
 	rm -f xoz/libxoz.a
+	rm -f xoz/repo/*.o
 	rm -f xoz/*.o
