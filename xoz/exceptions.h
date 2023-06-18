@@ -55,5 +55,16 @@ class WouldEndUpInconsistentXOZ : public std::exception {
         WouldEndUpInconsistentXOZ(const F& msg);
 
         virtual const char* what() const noexcept override;
+}
+;
+class NullBlockAccess : public std::exception {
+    private:
+        std::string msg;
+
+    public:
+        NullBlockAccess(const std::string& msg);
+        NullBlockAccess(const F& msg);
+
+        virtual const char* what() const noexcept override;
 };
 
