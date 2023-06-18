@@ -2,10 +2,8 @@
 #include "xoz/arch.h"
 #include "xoz/exceptions.h"
 #include <filesystem>
+#include <cstdint>
 
-#define MAX_SIGNED_INT64 int64_t((~((uint64_t)0)) >> 1)
-
-static_assert(MAX_SIGNED_INT64 > 0);
 
 void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
     if (std::addressof(fp) != std::addressof(disk_fp)) {
@@ -53,7 +51,7 @@ void Repository::open_internal(const char* fpath, uint64_t phy_repo_start_pos) {
     // If it cannot be represented by uint64_t, fail.
     seek_read_phy(fp, 0, std::ios_base::end);
     auto tmp_fp_end = fp.tellg();
-    if (tmp_fp_end >= MAX_SIGNED_INT64) { // TODO signed or unsigned check?
+    if (tmp_fp_end >= INT64_MAX) { // TODO signed or unsigned check?
         throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");
     }
 
