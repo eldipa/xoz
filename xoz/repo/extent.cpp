@@ -2,8 +2,7 @@
 #include "xoz/arch.h"
 #include "xoz/exceptions.h"
 #include <cstring>
-
-#define MIN(x,y) (((x) < (y)) ? (x) : (y))
+#include <algorithm>
 
 uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) {
     if (ext.is_unallocated()) {
@@ -22,7 +21,7 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
 
     // How much is readable/writeable and how much the caller is willing to read/write?
     const uint32_t read_writeable_sz = usable_sz - start;
-    const uint32_t to_read_write_sz = MIN(read_writeable_sz, max_data_sz);
+    const uint32_t to_read_write_sz = std::min(read_writeable_sz, max_data_sz);
 
     if (to_read_write_sz == 0) {
         // This could happen because the 'start' is at the
@@ -87,7 +86,7 @@ uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, 
                 // skip the subblock entirely
                 skip_offset -= subblk_sz;
             } else {
-                const uint32_t copy_sz = MIN(subblk_sz - skip_offset, remain_to_copy);
+                const uint32_t copy_sz = std::min(subblk_sz - skip_offset, remain_to_copy);
                 if (is_read_op) {
                     memcpy(
                             data + pdata,
@@ -174,7 +173,7 @@ uint32_t Repository::rw_fully_allocated_extent(bool is_read_op, const Extent& ex
 
 uint32_t Repository::read_extent(const Extent& ext, std::vector<char>& data, uint32_t max_data_sz, uint32_t start) {
     const uint32_t usable_sz = calc_usable_space_size(ext, gp.blk_sz_order);
-    const uint32_t reserve_sz = MIN(usable_sz, max_data_sz);
+    const uint32_t reserve_sz = std::min(usable_sz, max_data_sz);
     data.resize(reserve_sz);
 
     const uint32_t read_ok = read_extent(ext, data.data(), reserve_sz, start);
@@ -201,7 +200,7 @@ uint32_t Repository::write_extent(const Extent& ext, const std::vector<char>& da
         throw std::runtime_error("");
     }
 
-    return write_extent(ext, data.data(), uint32_t(MIN(data.size(), size_t(max_data_sz))), start);
+    return write_extent(ext, data.data(), uint32_t(std::min(data.size(), size_t(max_data_sz))), start);
 }
 
 uint32_t Repository::write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) {
