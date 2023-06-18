@@ -136,30 +136,32 @@ class Repository {
         const std::stringstream& expose_mem_fp() const;
 
         // Read / write <blk_cnt> consecutive blocks starting from the given
-        // <blk_nr>.
+        // <blk_nr> with <start> bytes offset (default 0)
         //
         // The data's buffer to read into / write from <blk_data> must be
         // allocated by the caller.
         //
-        // The physical space in-disk from which we are reading / writing must
+        // On reading, if a std::vector is given, the vector
+        // will be resized to reserve enough bytes to store the content
+        // read up to <max_data_sz> bytes.
+        //
+        // If <max_data_sz> is given, no more than <max_data_sz> bytes
+        // will be read/written.
+        //
+        // The space in-disk from which we are reading / writing must
         // be previously allocated.
         //
         // Reading / writing out of bounds may succeed *but* it is undefined
         // and it will probably lead to corruption.
         //
-        // Suballocation is not supported neither for reading nor writing.
-        void read_full_blks(const Extent& ext, char* blk_data) {
-            assert (not ext.is_suballoc()); // TODO, exception?
-            assert (ext.blk_nr() > 0); // TODO, exception?
-            if (ext.blk_cnt() == 0) // TODO, exception?
-                return;
+        // Returns the count of bytes effectively read/written.  A value of
+        // 0 means the end of the stream (it could happen if <start> is past
+        // the end of the extent or if <blk_cnt> is 0)
+        uint32_t read_extent(const Extent& ext, char* data, uint32_t  max_data_sz = uint32_t(-1), uint32_t start = 0);
+        uint32_t read_extent(const Extent& ext, std::vector<char>& data, uint32_t max_data_sz = uint32_t(-1), uint32_t start = 0);
 
-            // Check this invariant only after checking is_suballoc is false
-            assert (ext.blk_nr() + ext.blk_cnt() <= blk_total_cnt);
-
-            seek_read_blk(ext.blk_nr());
-            fp.read(blk_data, ext.blk_cnt() << gp.blk_sz_order);
-        }
+        uint32_t write_extent(const Extent& ext, const char* data, uint32_t  max_data_sz = uint32_t(-1), uint32_t start = 0);
+        uint32_t write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz = uint32_t(-1), uint32_t start = 0);
 
         void write_full_blks(const Extent& ext, const char* blk_data) {
             assert (not ext.is_suballoc()); // TODO, exception?
@@ -264,6 +266,13 @@ class Repository {
         // Open the given file *iff* the repository is disk based otherwise
         // reset the memory based file (and path can be any symbolic name)
         void open_internal(const char* fpath, uint64_t phy_repo_start_pos);
+
+        uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start);
+
+        // Read a fully alloc'd and suballoc'd extent.
+        // Called from read_extent()
+        uint32_t rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_read_sz, uint32_t start);
+        uint32_t rw_fully_allocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz, uint32_t start);
 
     private:
         friend class InconsistentXOZ;
