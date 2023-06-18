@@ -21,3 +21,6 @@ std::string testing_xoz::helpers::hexdump(const std::stringstream& fp, unsigned 
 
     return out.str();
 }
+
+void testing_xoz::zbreak() {
+}
