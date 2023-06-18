@@ -133,6 +133,7 @@ class Repository {
         // Pretty print stats
         std::ostream& print_stats(std::ostream& out) const;
 
+        const std::stringstream& expose_mem_fp() const;
 
         // Read / write <blk_cnt> consecutive blocks starting from the given
         // <blk_nr>.

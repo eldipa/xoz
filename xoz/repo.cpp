@@ -243,6 +243,14 @@ std::ostream& Repository::print_stats(std::ostream& out) const {
 
 }
 
+const std::stringstream& Repository::expose_mem_fp() const {
+    if (std::addressof(fp) == std::addressof(disk_fp)) {
+        throw std::runtime_error("The repository is not memory backed.");
+    }
+
+    return mem_fp;
+}
+
 // Create a new repository in the given physical file.
 //
 // If the file exists and fail_if_exists is False, try to open a
