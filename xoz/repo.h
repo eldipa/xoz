@@ -237,7 +237,7 @@ class Repository {
 
         inline void seek_write_blk(uint32_t blk_nr, uint32_t offset = 0) {
             assert(blk_nr);
-            seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos + offset);
+            seek_write_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos + offset);
         }
 
         // Initialize  a new repository in the specified file.
