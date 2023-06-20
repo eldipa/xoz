@@ -9,23 +9,26 @@ namespace testing_xoz {
         std::string hexdump(const std::stringstream& fp, unsigned at = 0, unsigned len = unsigned(-1));
 
         template<class T>
-        std::vector<T> subvec(const std::vector<T>& vec, signed begin, signed end =0) {
-            if (end == 0) {
-                end = (signed)vec.size();
-                if (end < 0) {
-                    throw "";
-                }
-            }
-
+        std::vector<T> subvec(const std::vector<T>& vec, signed begin, signed end = 0) {
+            auto itbegin = vec.begin();
+            auto itend = vec.end();
             if (end < 0) {
-                end = (signed)vec.size() + end;
+                itend += end;
+            } else if (end > 0) {
+                itend = itbegin + end;
+            } else {
+                // end == 0, itend == vec.end()
             }
 
             if (begin < 0) {
-                begin = (signed)vec.size() + begin;
+                itbegin = itend + begin;
+            } else if (begin > 0) {
+                itbegin += begin;
+            } else {
+                // begin == 0, itbegin == vec.begin()
             }
 
-            return std::vector<T>(&vec.at(begin), &vec.at(end));
+            return std::vector<T>(itbegin, itend);
         }
     }
 
