@@ -14,6 +14,7 @@ using ::testing::ThrowsMessage;
 using ::testing::AllOf;
 
 using ::testing_xoz::helpers::hexdump;
+using ::testing_xoz::helpers::subvec;
 
 // Check that the serialization of the extents in fp are of the
 // expected size (call calc_footprint_disk_size) and they match
@@ -188,6 +189,19 @@ namespace {
                 );
 
         EXPECT_EQ(repo.read_extent(ext, rdbuf, 64), (uint32_t)64);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+
+        // Call read_extent again but let read_extent to figure out how many bytes needs to read
+        // (the size of the extent in bytes)
+        rdbuf.clear();
+        EXPECT_EQ(repo.read_extent(ext, rdbuf), (uint32_t)64);
         XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
                 //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
                 //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -400,5 +414,195 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "454f 4600"
                 );
+    }
+
+    TEST(ReadWriteExtentTest, RWOneBlockButWriteLessBytes) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+
+        auto old_top_nr = repo.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+
+        Extent ext(
+                1, // blk_nr
+                1, // blk_cnt
+                false // is_suballoc
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D', 'E', 'F'};
+        std::vector<char> rdbuf;
+
+        // The buffer is 6 bytes long but we instruct write_extent()
+        // to write only 4
+        EXPECT_EQ(repo.write_extent(ext, wrbuf, 4), (uint32_t)4);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        EXPECT_EQ(repo.read_extent(ext, rdbuf, 4), (uint32_t)4);
+        EXPECT_EQ(subvec(wrbuf, 0, 4), rdbuf);
+
+        repo.close();
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "454f 4600"
+                );
+    }
+
+
+    TEST(ReadWriteExtentTest, RWOneBlockButWriteAtOffset) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+
+        auto old_top_nr = repo.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+
+        Extent ext(
+                1, // blk_nr
+                1, // blk_cnt
+                false // is_suballoc
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf;
+
+        // Write but by an offset of 1
+        EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 1), (uint32_t)4);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0041 4243 4400 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Read 6 bytes from offset 0 so we can capture what the write_extent
+        // wrote
+        EXPECT_EQ(repo.read_extent(ext, rdbuf, 6), (uint32_t)6);
+        EXPECT_EQ(wrbuf, subvec(rdbuf, 1, 6));
+
+        // Write close to the end of the block
+        EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 60), (uint32_t)4);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4541 4243 4400 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 4344"
+                );
+
+        // Read 4 bytes close at the end of the block
+        EXPECT_EQ(repo.read_extent(ext, rdbuf, 4, 60), (uint32_t)4);
+        EXPECT_EQ(wrbuf, rdbuf);
+
+        repo.close();
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "454f 4600"
+                );
+    }
+
+    // TODO the trailer should be cleared out to avoid leaving garbage
+    TEST(ReadWriteExtentTest, RWOneBlockBoundary) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+
+        // Alloc 2 blocks but we will create an extent of 1.
+        // The idea is to have room *after* the extent to detect
+        // writes/reads out of bounds
+        auto old_top_nr = repo.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+
+        Extent ext(
+                1, // blk_nr
+                1, // blk_cnt
+                false // is_suballoc
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf = {'.'};
+
+        // Write at a start offset *past* the end of the extent:
+        // nothing should be written
+        EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 65), (uint32_t)0);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                //First block (the extent)
+                "454f 4600 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                //Second block (past the extent)
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Try now write past the end of the file
+        EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 1024), (uint32_t)0);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                //First block (the extent)
+                "454f 4600 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                //Second block (past the extent)
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+
+        // Write at a start offset *before* the end of the extent
+        // *but* with a length the would go *past* the end of the extent:
+        // only the bytes that fall in the extent should be written
+        EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 62), (uint32_t)2);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                //First block (the extent)
+                "454f 4600 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 "
+                //Second block (past the extent)
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Read at a start offset *past* the end of the extent:
+        // nothing should be read
+        EXPECT_EQ(repo.read_extent(ext, rdbuf, 4, 65), (uint32_t)0);
+        EXPECT_EQ(rdbuf.size(), (unsigned)0);
+        rdbuf = {'.'};
+
+        // Try now read past the end of the file
+        EXPECT_EQ(repo.read_extent(ext, rdbuf, 4, 1024), (uint32_t)0);
+        EXPECT_EQ(rdbuf.size(), (unsigned)0);
+        rdbuf = {'.'};
+
+        // Read at a start offset *before* the end of the extent
+        // *but* with a length the would go *past* the end of the extent:
+        // only the bytes that fall in the extent should be read
+        EXPECT_EQ(repo.read_extent(ext, rdbuf, 4, 62), (uint32_t)2);
+        EXPECT_EQ(subvec(wrbuf, 0, 2), rdbuf);
+
     }
 }
