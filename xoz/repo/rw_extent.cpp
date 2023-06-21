@@ -51,7 +51,7 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
 }
 
 uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz, uint32_t start) {
-    const uint32_t subblk_sz = 1 << Extent::SUBBLK_SIZE_ORDER;
+    const uint32_t subblk_sz = gp.blk_sz >> Extent::SUBBLK_SIZE_ORDER;
     const uint32_t subblk_cnt_per_blk = Extent::SUBBLK_CNT_PER_BLK;
 
     // Seek to the single block of the extent
