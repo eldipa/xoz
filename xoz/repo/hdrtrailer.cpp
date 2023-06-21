@@ -134,7 +134,7 @@ void Repository::seek_read_and_check_header() {
     trailer_sz = u64_from_le(hdr.trailer_sz);
 }
 
-void Repository::seek_read_and_check_trailer() {
+void Repository::seek_read_and_check_trailer(bool clear_trailer) {
     assert (phy_repo_end_pos > 0);
     assert (phy_repo_end_pos > phy_repo_start_pos);
 
@@ -155,6 +155,12 @@ void Repository::seek_read_and_check_trailer() {
 
     if (strncmp((char*)&eof.magic, "EOF", 4) != 0) {
         throw InconsistentXOZ(*this, "magic string 'EOF' not found in the trailer.");
+    }
+
+    if (clear_trailer) {
+        memset(&eof, 0, sizeof(eof));
+        fp.seekp(phy_repo_start_pos + repo_sz);
+        fp.write((const char*)&eof, sizeof(eof));
     }
 }
 

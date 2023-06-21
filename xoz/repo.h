@@ -260,8 +260,11 @@ class Repository {
         // Read the header/trailer moving the file pointer
         // to the correct position and check that the header/trailer
         // is consistent
+        //
+        // clear_trailer, if true, will override the trailer with zeros
+        // after checking it
         void seek_read_and_check_header();
-        void seek_read_and_check_trailer();
+        void seek_read_and_check_trailer(bool clear_trailer);
 
         // Open the given file *iff* the repository is disk based otherwise
         // reset the memory based file (and path can be any symbolic name)

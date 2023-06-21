@@ -82,7 +82,7 @@ void Repository::open_internal(const char* fpath, uint64_t phy_repo_start_pos) {
     gp.phy_repo_start_pos = phy_repo_start_pos;
 
     seek_read_and_check_header();
-    seek_read_and_check_trailer();
+    seek_read_and_check_trailer(true /* clear_trailer */);
 
     closed = false;
 }
