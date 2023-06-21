@@ -525,7 +525,7 @@ namespace {
         // Alloc 2 blocks but we will create an extent of 1.
         // The idea is to have room *after* the extent to detect
         // writes/reads out of bounds
-        auto old_top_nr = repo.grow_by_blocks(1);
+        auto old_top_nr = repo.grow_by_blocks(2);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
         Extent ext(
