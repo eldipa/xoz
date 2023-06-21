@@ -24,7 +24,7 @@ using ::testing_xoz::helpers::subvec;
 } while (0)
 
 namespace {
-    TEST(ReadWriteExtentTest, RWOneBlock) {
+    TEST(RWExtentFullAllocTest, OneBlock) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
@@ -86,7 +86,7 @@ namespace {
                 );
     }
 
-    TEST(ReadWriteExtentTest, RWOneBlockTwice) {
+    TEST(RWExtentFullAllocTest, OneBlockTwice) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
@@ -144,7 +144,7 @@ namespace {
                 );
     }
 
-    TEST(ReadWriteExtentTest, RWOneBlockCompletely) {
+    TEST(RWExtentFullAllocTest, OneBlockCompletely) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
@@ -221,7 +221,7 @@ namespace {
                 );
     }
 
-    TEST(ReadWriteExtentTest, RWTwoBlocks) {
+    TEST(RWExtentFullAllocTest, TwoBlocks) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
@@ -270,7 +270,7 @@ namespace {
     }
 
 
-    TEST(ReadWriteExtentTest, RWMaxBlocks) {
+    TEST(RWExtentFullAllocTest, MaxBlocks) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
@@ -312,7 +312,7 @@ namespace {
     }
 
 
-    TEST(ReadWriteExtentTest, RWZeroBlocks) {
+    TEST(RWExtentFullAllocTest, ZeroBlocks) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
@@ -354,7 +354,7 @@ namespace {
     }
 
 
-    TEST(ReadWriteExtentTest, RWNullBlockAndFail) {
+    TEST(RWExtentFullAllocTest, NullBlockAndFail) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
@@ -416,7 +416,7 @@ namespace {
                 );
     }
 
-    TEST(ReadWriteExtentTest, RWOneBlockButWriteLessBytes) {
+    TEST(RWExtentFullAllocTest, OneBlockButWriteLessBytes) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
@@ -461,7 +461,7 @@ namespace {
     }
 
 
-    TEST(ReadWriteExtentTest, RWOneBlockButWriteAtOffset) {
+    TEST(RWExtentFullAllocTest, OneBlockButWriteAtOffset) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
@@ -520,7 +520,7 @@ namespace {
     }
 
     // TODO the trailer should be cleared out to avoid leaving garbage
-    TEST(ReadWriteExtentTest, RWOneBlockBoundary) {
+    TEST(RWExtentFullAllocTest, OneBlockBoundary) {
         const GlobalParameters gp = {
             .blk_sz = 64,
             .blk_sz_order = 6,
