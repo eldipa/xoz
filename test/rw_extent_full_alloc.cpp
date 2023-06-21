@@ -317,14 +317,45 @@ namespace {
                 false // is_suballoc
                 );
 
-        std::vector<char> wrbuf(64);
-        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
-
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
         std::vector<char> rdbuf;
 
-        // Nothing is either read nor written
+        // Nothing is written (explicit max_data_sz)
+        EXPECT_EQ(repo.write_extent(ext, wrbuf, 4), (uint32_t)0);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        wrbuf.resize(64);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
+
+        // neither this (implicit max_data_sz)
         EXPECT_EQ(repo.write_extent(ext, wrbuf), (uint32_t)0);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+
+        // And nothing is read (explicit max_data_sz)
+        EXPECT_EQ(repo.read_extent(ext, rdbuf, 4), (uint32_t)0);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        EXPECT_EQ(std::vector<char>(), rdbuf);
+
+        // neither is read in this way (implicit max_data_sz)
         EXPECT_EQ(repo.read_extent(ext, rdbuf), (uint32_t)0);
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
         EXPECT_EQ(std::vector<char>(), rdbuf);
 
         repo.close();
