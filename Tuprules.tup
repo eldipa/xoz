@@ -1,0 +1,15 @@
+CXXFLAGS += -std=c++20
+CXXFLAGS += -pedantic -Wall -Wextra -Werror
+CXXFLAGS += -Wzero-as-null-pointer-constant -Wconversion -Wno-sign-conversion
+CXXFLAGS += -ggdb -O0
+
+GTESTPATH = ../googletest/../out-googletest/usr/local
+
+GTESTFLAGS = -I$(GTESTPATH)/include/ -L$(GTESTPATH)/lib/
+GTESTLIBS = -lgtest -lpthread
+
+!compile = |> g++ -c $(CXXFLAGS) %f -o %o |> %B.o
+!build-lib = |> ar -rc %o %f |>
+
+!compile-test = |> g++ -c $(CXXFLAGS) $(GTESTFLAGS) %f -o %o |> %B.o
+!build-runtests = |> g++ $(CXXFLAGS) $(GTESTFLAGS) %f -o %o $(GTESTLIBS) |>

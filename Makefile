@@ -1,40 +1,17 @@
-.PHONY: all test prepare-scratch build build-test
+.PHONY: all test clean
 
-CXXFLAGS=-std=c++20 -pedantic -Wall -Wextra -Wzero-as-null-pointer-constant -Wconversion -Wno-sign-conversion -Werror -ggdb -O0
+all:
 
-GTESTPATH=../googletest/../out/usr/local
+test:
+	tup
+	./test/runtests
 
-GTESTFLAGS=-I${GTESTPATH}/include/ -L${GTESTPATH}/lib/
-GTESTLIBS=-lgtest -lpthread
-
-
-all: build
-
-obj_repo: xoz/repo/*.cpp xoz/repo/*.h
-	cd xoz/repo/ && g++ ${CXXFLAGS} -I../../ -c *.cpp
-
-obj_xoz: xoz/*.cpp xoz/*.h
-	cd xoz/ && g++ ${CXXFLAGS} -I../ -c *.cpp
-
-xoz/libxoz.a: obj_repo obj_xoz
-	cd xoz/ && ar -rc libxoz.a repo/*.o *.o
-
-build: xoz/libxoz.a
-
-test/alltests: build
-	cd test/ && g++ ${CXXFLAGS} ${GTESTFLAGS} -I../ -o alltests *.cpp ../xoz/libxoz.a ${GTESTLIBS}
-
-build-test: test/alltests
-
-test: build-test
-	./test/alltests
-
-mount-scratch:
-	sudo mount -t tmpfs -o size=10M tmpfs scratch/mem/
-	sudo chown user:user scratch/mem/
+#-ftime-report -ftime-report-details -H
 
 clean:
 	rm -f scratch/mem/*
 	rm -f xoz/libxoz.a
 	rm -f xoz/repo/*.o
 	rm -f xoz/*.o
+	rm -f test/*.o
+	rm -f test/alltests

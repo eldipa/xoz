@@ -1,6 +1,7 @@
 *.o
 .*.swp
 *.a
-out/
-test/alltests
+.tup
+out-googletest/
+test/runtests
 wiki/
