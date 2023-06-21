@@ -423,8 +423,6 @@ namespace {
                 "584f 5a00"
                 );
 
-        // Because we never written anything to the block 1, the "old trailer"
-        // is still there (as garbage data)
         XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
                 //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
                 //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
