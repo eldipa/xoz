@@ -377,6 +377,133 @@ namespace {
                 );
     }
 
+    TEST(RWExtentSubAllocTest, ExtentOutOfBoundsSoFail) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+
+        auto old_top_nr = repo.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+
+        std::vector<char> wrbuf(64);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..65
+        std::vector<char> rdbuf;
+
+        Extent extOK(
+                1, // blk_nr (ok)
+                1, // blk_cnt (ok)
+                false // is_suballoc
+                );
+
+        // write something in the block so we can detect if an invalid write
+        // or invalid read take place later when we use "out of bounds" extents
+        repo.write_extent(extOK, wrbuf);
+
+        // Try to write something obviously different: we shouldn't!
+        wrbuf = {'A', 'B', 'C'};
+
+        Extent extOOBCompl(
+                2, // blk_nr (out of bounds, the repo has only 1 block)
+                0b0100000100010001, // blk_bitmap
+                true // is_suballoc
+                );
+
+
+        // Nothing is either read nor written
+        EXPECT_THAT(
+            [&]() { repo.write_extent(extOOBCompl, wrbuf); },
+            ThrowsMessage<ExtentOutOfBounds>(
+                AllOf(
+                    HasSubstr("The extent for suballocation "
+                              "[bitmap: 0100000100010001] "
+                              "at block 2 "
+                              "completely falls out of bounds. "
+                              "The block 1 is the last valid before the end. "
+                              "Detected on a write operation.")
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { repo.read_extent(extOOBCompl, rdbuf); },
+            ThrowsMessage<ExtentOutOfBounds>(
+                AllOf(
+                    HasSubstr("The extent for suballocation "
+                              "[bitmap: 0100000100010001] "
+                              "at block 2 "
+                              "completely falls out of bounds. "
+                              "The block 1 is the last valid before the end. "
+                              "Detected on a read operation.")
+                    )
+                )
+        );
+
+        // On an out of bounds read, it is not specified the value of
+        // the read buffer. The may be empty and fill of zeros. Check both.
+        if (rdbuf.size() == 0) {
+            EXPECT_EQ(std::vector<char>(), rdbuf);
+        } else {
+            // extent bitmap with 4 bits set: 4 * (64/16) = 4 * 4 = 16 bytes
+            EXPECT_EQ((unsigned)16, rdbuf.size());
+            EXPECT_EQ(std::vector<char>(16), rdbuf);
+        }
+        rdbuf.clear();
+
+        Extent extOOBZero(
+                2, // blk_nr (out of bounds, the repo has only 1 block)
+                0b000000000000, // blk_bitmap (empty but still out of bounds)
+                true // is_suballoc
+                );
+
+
+        // Nothing is either read nor written
+        EXPECT_THAT(
+            [&]() { repo.write_extent(extOOBZero, wrbuf); },
+            ThrowsMessage<ExtentOutOfBounds>(
+                AllOf(
+                    HasSubstr("The extent for suballocation "
+                              "(empty) "
+                              "at block 2 "
+                              "completely falls out of bounds. "
+                              "The block 1 is the last valid before the end. "
+                              "Detected on a write operation.")
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { repo.read_extent(extOOBZero, rdbuf); },
+            ThrowsMessage<ExtentOutOfBounds>(
+                AllOf(
+                    HasSubstr("The extent for suballocation "
+                              "(empty) "
+                              "at block 2 "
+                              "completely falls out of bounds. "
+                              "The block 1 is the last valid before the end. "
+                              "Detected on a read operation.")
+                    )
+                )
+        );
+
+        // On an out of bounds read, it is not specified the value of
+        // the read buffer. However in this case we expect to have a 0 size.
+        EXPECT_EQ(std::vector<char>(), rdbuf);
+        rdbuf.clear();
+
+        repo.close();
+        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
+                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "454f 4600"
+                );
+    }
+
     TEST(RWExtentSubAllocTest, OneSubBlockButWriteLessBytes) {
         const GlobalParameters gp = {
             .blk_sz = 64,

@@ -6,6 +6,7 @@
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <bitset>
 
 OpenXOZError::OpenXOZError(const char* fpath, const std::string& msg) {
     std::stringstream ss;
@@ -59,9 +60,15 @@ ExtentOutOfBounds::ExtentOutOfBounds(const Repository& repo, const Extent& ext, 
     std::stringstream ss;
 
     if (ext.is_suballoc()) {
-        ss << "At block "
-           << ext.blk_nr()
-           << " the suballoc extent";
+        if (ext.blk_bitmap() != 0) {
+            ss << "The extent for suballocation [bitmap: "
+               << std::bitset<Extent::SUBBLK_CNT_PER_BLK>(ext.blk_bitmap())
+               << "] at block "
+               << ext.blk_nr();
+        } else {
+            ss << "The extent for suballocation (empty) at block "
+               << ext.blk_nr();
+        }
     } else {
         if (ext.blk_cnt() > 0) {
             ss << "The extent of "
