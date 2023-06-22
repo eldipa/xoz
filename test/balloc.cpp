@@ -9,7 +9,13 @@ using ::testing::AllOf;
 
 namespace {
     TEST(BlockAllocatorTest, EmptyThenAllocSoGrow) {
-        Repository repo = Repository::create_mem_based();
+        const GlobalParameters gp = {
+            .blk_sz = 4096,
+            .blk_sz_order = 12,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
 
         BlockAllocator balloc = BlockAllocator(repo);
 
@@ -78,7 +84,13 @@ namespace {
 
 
     TEST(BlockAllocatorTest, FreeButNotShrinkThenFreeAgainAndShrink) {
-        Repository repo = Repository::create_mem_based();
+        const GlobalParameters gp = {
+            .blk_sz = 4096,
+            .blk_sz_order = 12,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
 
         BlockAllocator balloc = BlockAllocator(repo);
 

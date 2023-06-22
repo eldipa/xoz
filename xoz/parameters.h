@@ -5,14 +5,14 @@
 
 struct GlobalParameters {
     // Block size in bytes. It will be a be a power of 2.
-    uint32_t blk_sz = 4096;
+    uint32_t blk_sz = 512;
 
     // Log base 2 of the block size in bytes.
     // Order of 10 are for block size of 1KB;
     // order of 11 are for block size of 2KB; and so on
     //
-    // It must be between 10 and 16 (block sizes of 1KB to 64KB)
-    uint8_t blk_sz_order = 12;
+    // It must be between 6 and 16 (block sizes of 64 to 64KB)
+    uint8_t blk_sz_order = 9;
 
     // In which position of the file the repository
     // begins (in bytes).
