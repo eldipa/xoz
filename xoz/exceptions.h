@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 class Repository;
+class Extent;
 
 struct F {
     std::stringstream ss;
@@ -68,3 +69,17 @@ class NullBlockAccess : public std::exception {
         virtual const char* what() const noexcept override;
 };
 
+// An extent (blk_nr + blk_cnt) that goes (partially
+// or totally) beyond the bounds of the repository and
+// it is *clear* that there is a bug or a corruption in the xoz
+// and not a user mistake
+class ExtentOutOfBounds : public std::exception {
+    private:
+        std::string msg;
+
+    public:
+        ExtentOutOfBounds(const Repository& repo, const Extent& ext, const std::string& msg);
+        ExtentOutOfBounds(const Repository& repo, const Extent& ext, const F& msg);
+
+        virtual const char* what() const noexcept override;
+};

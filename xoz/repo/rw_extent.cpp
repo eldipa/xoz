@@ -12,6 +12,21 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
                 );
     }
 
+    assert (ext.blk_nr() != 0x0);
+
+    // Checking for an OOB here *before* doing the calculate
+    // of the usable space allows us to capture OOB with extent
+    // of block count of 0 which otherwise would be silenced
+    // (because a count of 0 means 0 usable space and the method
+    // would return 0 (EOF) instead of detecting the bogus extent)
+    if (ext.blk_nr() >= blk_total_cnt) {
+        throw ExtentOutOfBounds(*this, ext, F()
+               << "Detected on a "
+               << (is_read_op ? "read" : "write")
+               << " operation."
+               );
+    }
+
     const uint32_t usable_sz = calc_usable_space_size(ext, gp.blk_sz_order);
 
     // If the caller wants to read/write beyond the usable space, return EOF
@@ -32,19 +47,6 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
         // We return EOF and the caller should distinguish this
         // from a real EOF (this is how POSIX read() and write() works)
         return 0;
-    }
-
-    assert (ext.blk_nr() != 0x0);
-    if (ext.blk_nr() > blk_total_cnt) {
-        // TODO
-        throw std::runtime_error((F()
-               << "The block number "
-               << ext.blk_nr()
-               << " is out of bounds. "
-               << "The repository only has "
-               << blk_total_cnt
-               << " blocks in total"
-               ).str());
     }
 
     return to_read_write_sz;
@@ -140,17 +142,11 @@ uint32_t Repository::rw_fully_allocated_extent(bool is_read_op, const Extent& ex
     assert (ext.blk_cnt() > 0);
 
     if (ext.blk_nr() + ext.blk_cnt() > blk_total_cnt) {
-        // TODO
-        throw std::runtime_error((F()
-               << "The extent of blocks from block number "
-               << ext.blk_nr()
-               << " to block number "
-               << ext.blk_nr() + ext.blk_cnt() - 1
-               << " (both inclusive) partially falls out of bounds. "
-               << "The repository only has "
-               << blk_total_cnt
-               << " blocks in total"
-               ).str());
+        throw ExtentOutOfBounds(*this, ext, F()
+               << "Detected on a "
+               << (is_read_op ? "read" : "write")
+               << " operation."
+               );
     }
 
     // Seek to the begin of the extent and advance as many

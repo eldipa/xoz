@@ -279,5 +279,6 @@ class Repository {
 
     private:
         friend class InconsistentXOZ;
+        friend class ExtentOutOfBounds;
 };
 
