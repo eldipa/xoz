@@ -9,7 +9,7 @@ GTESTFLAGS = -I$(GTESTPATH)/include/ -L$(GTESTPATH)/lib/
 GTESTLIBS = -lgtest -lpthread
 
 !compile = |> g++ -c $(CXXFLAGS) %f -o %o |> %B.o
-!build-lib = |> ar -rc %o %f |>
+!build-static-lib = |> ar -rc %o %f |>
 
 !compile-test = |> g++ -c $(CXXFLAGS) $(GTESTFLAGS) %f -o %o |> %B.o
 !build-runtests = |> g++ $(CXXFLAGS) $(GTESTFLAGS) %f -o %o $(GTESTLIBS) |>
