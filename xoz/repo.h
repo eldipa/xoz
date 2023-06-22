@@ -163,19 +163,6 @@ class Repository {
         uint32_t write_extent(const Extent& ext, const char* data, uint32_t  max_data_sz = uint32_t(-1), uint32_t start = 0);
         uint32_t write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz = uint32_t(-1), uint32_t start = 0);
 
-        void write_full_blks(const Extent& ext, const char* blk_data) {
-            assert (not ext.is_suballoc()); // TODO, exception?
-            assert (ext.blk_nr() > 0); // TODO, exception?
-            if (ext.blk_cnt() == 0) // TODO, exception?
-                return;
-
-            // Check this invariant only after checking is_suballoc is false
-            assert (ext.blk_nr() + ext.blk_cnt() <= blk_total_cnt);
-
-            seek_write_blk(ext.blk_nr());
-            fp.write(blk_data, ext.blk_cnt() << gp.blk_sz_order);
-        }
-
         Repository(const Repository&) = delete;
         Repository& operator=(const Repository&) = delete;
 
