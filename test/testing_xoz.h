@@ -30,6 +30,8 @@ namespace testing_xoz {
 
             return std::vector<T>(itbegin, itend);
         }
+
+        const std::stringstream file2mem(const char* path);
     }
 
     void zbreak();

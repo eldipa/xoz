@@ -1,5 +1,6 @@
 #include "test/testing_xoz.h"
 #include <iomanip>
+#include <fstream>
 
 std::string testing_xoz::helpers::hexdump(const std::stringstream& fp, unsigned at, unsigned len) {
     std::ostringstream out;
@@ -20,6 +21,14 @@ std::string testing_xoz::helpers::hexdump(const std::stringstream& fp, unsigned 
     }
 
     return out.str();
+}
+
+const std::stringstream testing_xoz::helpers::file2mem(const char* path) {
+    std::ifstream input(path);
+    std::stringstream ss;
+    ss << input.rdbuf();
+
+    return ss;
 }
 
 void testing_xoz::zbreak() {
