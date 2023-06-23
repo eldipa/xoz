@@ -19,7 +19,7 @@ using ::testing_xoz::helpers::subvec;
 // Check that the serialization of the extents in fp are of the
 // expected size (call calc_footprint_disk_size) and they match
 // byte-by-byte with the expected data (in hexdump)
-#define XOZ_EXPECT_SERIALIZATION(repo, at, len, data) do {           \
+#define XOZ_EXPECT_REPO_SERIALIZATION(repo, at, len, data) do {           \
     EXPECT_EQ(hexdump((repo).expose_mem_fp(), (at), (len)), (data));              \
 } while (0)
 
@@ -46,15 +46,13 @@ namespace {
         std::vector<char> rdbuf;
 
         EXPECT_EQ(repo.write_extent(ext, wrbuf), (uint32_t)4);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 4344"
                 );
 
         EXPECT_EQ(repo.read_extent(ext, rdbuf, 4), (uint32_t)4);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 4344"
                 );
@@ -62,9 +60,7 @@ namespace {
         EXPECT_EQ(wrbuf, rdbuf);
 
         repo.close();
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 4344 "
                 "454f 4600"
@@ -93,15 +89,13 @@ namespace {
         std::vector<char> rdbuf;
 
         EXPECT_EQ(repo.write_extent(ext, wrbuf), (uint32_t)8);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4546 4748"
                 );
 
         EXPECT_EQ(repo.read_extent(ext, rdbuf, 8), (uint32_t)8);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4546 4748"
                 );
@@ -109,9 +103,7 @@ namespace {
         EXPECT_EQ(wrbuf, rdbuf);
 
         repo.close();
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4546 4748 "
                 "454f 4600"
@@ -140,7 +132,7 @@ namespace {
         std::vector<char> rdbuf;
 
         EXPECT_EQ(repo.write_extent(ext, wrbuf), (uint32_t)8);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 5758 595a 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4546 4748"
                 );
@@ -148,15 +140,13 @@ namespace {
         std::vector<char> wrbuf2 = {'A', 'B'};
 
         EXPECT_EQ(repo.write_extent(ext, wrbuf2), (uint32_t)2);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 4142 595a 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4546 4748"
                 );
 
         EXPECT_EQ(repo.read_extent(ext, rdbuf, 8), (uint32_t)8);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 4142 595a 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4546 4748"
                 );
@@ -165,9 +155,7 @@ namespace {
         EXPECT_EQ(subvec(wrbuf, 2), subvec(rdbuf, 2));
 
         EXPECT_EQ(repo.read_extent(ext, rdbuf, 2), (uint32_t)2);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 4142 595a 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4546 4748"
                 );
@@ -175,9 +163,7 @@ namespace {
         EXPECT_EQ(wrbuf2, rdbuf);
 
         repo.close();
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 4142 595a 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4546 4748 "
                 "454f 4600"
@@ -208,15 +194,13 @@ namespace {
         std::vector<char> rdbuf;
 
         EXPECT_EQ(repo.write_extent(ext, wrbuf), (uint32_t)64);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
 
         EXPECT_EQ(repo.read_extent(ext, rdbuf, 64), (uint32_t)64);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
@@ -227,9 +211,7 @@ namespace {
         // (the size of the extent in bytes)
         rdbuf.clear();
         EXPECT_EQ(repo.read_extent(ext, rdbuf), (uint32_t)64);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
@@ -237,9 +219,7 @@ namespace {
         EXPECT_EQ(wrbuf, rdbuf);
 
         repo.close();
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
                 "454f 4600"
@@ -270,7 +250,7 @@ namespace {
 
         // Nothing is written (explicit max_data_sz)
         EXPECT_EQ(repo.write_extent(ext, wrbuf, 4), (uint32_t)0);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
@@ -280,7 +260,7 @@ namespace {
 
         // neither this (implicit max_data_sz)
         EXPECT_EQ(repo.write_extent(ext, wrbuf), (uint32_t)0);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
@@ -288,9 +268,7 @@ namespace {
 
         // And nothing is read (explicit max_data_sz)
         EXPECT_EQ(repo.read_extent(ext, rdbuf, 4), (uint32_t)0);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
@@ -298,18 +276,14 @@ namespace {
 
         // neither is read in this way (implicit max_data_sz)
         EXPECT_EQ(repo.read_extent(ext, rdbuf), (uint32_t)0);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
         EXPECT_EQ(std::vector<char>(), rdbuf);
 
         repo.close();
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "454f 4600"
@@ -364,13 +338,11 @@ namespace {
         repo.close();
 
         // Block 0 was untouched (the XOZ magic is still there)
-        XOZ_EXPECT_SERIALIZATION(repo, 0, 4,
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 0, 4,
                 "584f 5a00"
                 );
 
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "454f 4600"
@@ -495,9 +467,7 @@ namespace {
         rdbuf.clear();
 
         repo.close();
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
                 "454f 4600"
@@ -528,9 +498,7 @@ namespace {
         // The buffer is 4 bytes long but we instruct write_extent()
         // to write only 2
         EXPECT_EQ(repo.write_extent(ext, wrbuf, 2), (uint32_t)2);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 0000"
                 );
@@ -539,9 +507,7 @@ namespace {
         EXPECT_EQ(subvec(wrbuf, 0, 2), rdbuf);
 
         repo.close();
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 0000 "
                 "454f 4600"
@@ -572,9 +538,7 @@ namespace {
         // Write but by an offset of 1
         // Note how the 4 bytes are written in 2 subblocks
         EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 1), (uint32_t)4);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0041 4243 0000 0000 0000 0000 0000 0000 4400 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
@@ -586,9 +550,7 @@ namespace {
 
         // Write close to the end of the block
         EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 8), (uint32_t)4);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0041 4243 0000 0000 0000 0000 0000 0000 4400 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 4344"
                 );
@@ -598,9 +560,7 @@ namespace {
         EXPECT_EQ(wrbuf, rdbuf);
 
         repo.close();
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000 0000 0000 0041 4243 0000 0000 0000 0000 0000 0000 4400 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 4344 "
                 "454f 4600"
@@ -634,9 +594,7 @@ namespace {
         // Write at a start offset *past* the end of the extent:
         // nothing should be written
         EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 9), (uint32_t)0);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 //First block (the extent - suballoc'd)
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -647,9 +605,7 @@ namespace {
 
         // Try now write past the end of the file
         EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 1024), (uint32_t)0);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 //First block (the extent - suballoc'd)
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -663,9 +619,7 @@ namespace {
         // *but* with a length the would go *past* the end of the extent:
         // only the bytes that fall in the extent should be written
         EXPECT_EQ(repo.write_extent(ext, wrbuf, 4, 6), (uint32_t)2);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 //First block (the extent - suballoc'd)
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 4142 "
@@ -696,9 +650,7 @@ namespace {
 
         // Try again write and overflow, with start at 0 but a length too large
         EXPECT_EQ(repo.write_extent(ext, wrbuf, 128, 0), (uint32_t)8);
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 //First block (the extent - suballoc'd)
                 "0001 0203 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0405 0607 "
@@ -710,9 +662,7 @@ namespace {
         EXPECT_EQ(subvec(wrbuf, 0, 8), rdbuf);
 
         repo.close();
-        XOZ_EXPECT_SERIALIZATION(repo, 64, -1,
-                //"584f 5a00 0600 0000 4000 0000 0000 0000 0400 0000 0000 0000 0100 0000 0100 0000 "
-                //"0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 //First block (the extent - suballoc'd)
                 "0001 0203 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0405 0607 "
