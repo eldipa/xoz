@@ -94,14 +94,12 @@ class Extent {
     }
 };
 
-class Segment {
-    private:
+struct Segment {
     std::vector<Extent> arr;
 
     bool inline_present;
     std::vector<uint8_t> raw;
 
-    public:
     Segment() : inline_present(false) {}
 
     static Segment createEmpty() {
@@ -123,11 +121,12 @@ class Segment {
     void clear_extents() {
         arr.clear();
     }
+
+    static Segment load_segment(std::istream& fp, uint64_t endpos);
 };
 
 uint32_t calc_footprint_disk_size(const Segment& segm);
 uint32_t calc_usable_space_size(const Segment& segm, uint8_t blk_sz_order);
 uint32_t calc_usable_space_size(const Extent& ext, uint8_t blk_sz_order);
 
-void write_ext_arr(std::ostream& fp, uint64_t endpos, const Segment& segm);
-Segment load_ext_arr(std::istream& fp, uint64_t endpos);
+void write_segment(std::ostream& fp, uint64_t endpos, const Segment& segm);

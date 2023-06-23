@@ -36,7 +36,8 @@ using ::testing_xoz::helpers::hexdump;
     (fp).seekg(0);                                              \
     (fp).seekp(0);                                              \
                                                                 \
-    write_ext_arr(fp2, (endpos), load_ext_arr((fp), (endpos))); \
+    Segment segm = Segment::load_segment((fp), (endpos));       \
+    write_segment(fp2, (endpos), segm);                         \
     EXPECT_EQ((fp).str(), fp2.str());                           \
     (fp).seekg(curg);                                           \
     (fp).seekp(curp);                                           \
@@ -106,7 +107,7 @@ namespace {
         );
 
         EXPECT_THAT(
-            [&]() { write_ext_arr(fp, endpos, segm); },
+            [&]() { write_segment(fp, endpos, segm); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr("Segment is literally empty: no extents and no inline data.")
@@ -130,7 +131,7 @@ namespace {
                 );
 
         // Write and check the dump
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c0");
 
         // Load, write it back and check both byte-strings
@@ -150,7 +151,7 @@ namespace {
                 2 /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c2 4142");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -162,7 +163,7 @@ namespace {
                 4 /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c4 4142 4344");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -174,7 +175,7 @@ namespace {
                 3 /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "43c3 4142");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -186,7 +187,7 @@ namespace {
                 1 /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
     }
@@ -217,7 +218,7 @@ namespace {
                 )
         );
         EXPECT_THAT(
-            [&]() { write_ext_arr(fp, endpos, segm); },
+            [&]() { write_segment(fp, endpos, segm); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr("Inline data too large: it has 64 bytes but only up to 63 bytes are allowed.")
@@ -236,7 +237,7 @@ namespace {
                 63 /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         EXPECT_EQ(fp.str().size(), calc_footprint_disk_size(segm));
         EXPECT_EQ(hexdump(fp).substr(0, 14), "78ff 4100 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
@@ -253,7 +254,7 @@ namespace {
                 62 /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         EXPECT_EQ(fp.str().size(), calc_footprint_disk_size(segm));
         EXPECT_EQ(hexdump(fp).substr(0, 14), "00fe 4100 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
@@ -271,7 +272,7 @@ namespace {
                 0 << blk_sz_order /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -284,7 +285,7 @@ namespace {
                 0 << blk_sz_order /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "ab00 efcd 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -297,7 +298,7 @@ namespace {
                 1 << blk_sz_order /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ab00");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -310,7 +311,7 @@ namespace {
                 3 << blk_sz_order /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0018 0100");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -323,7 +324,7 @@ namespace {
                 16 << blk_sz_order /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 1000");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -336,7 +337,7 @@ namespace {
                 (1 << 15) << blk_sz_order /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 0080");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
     }
@@ -353,7 +354,7 @@ namespace {
                 0 /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab00 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -368,7 +369,7 @@ namespace {
                 2 << (blk_sz_order - 4)  /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab00 0900");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -381,7 +382,7 @@ namespace {
                 8 << (blk_sz_order - 4)  /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 0100 ff00");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -394,7 +395,7 @@ namespace {
                 16 << (blk_sz_order - 4)  /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 0100 ffff");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
     }
@@ -411,7 +412,7 @@ namespace {
                 16 << blk_sz_order   /* allocated size */
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 0100 1000"
                 );
@@ -426,7 +427,7 @@ namespace {
                 (0)
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 0100 1000 "
                 "0080 0200 0000"
@@ -443,7 +444,7 @@ namespace {
                 (1 << blk_sz_order)
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 0100 1000 "
                 "0084 0200 0000 "
@@ -462,7 +463,7 @@ namespace {
                 (2 << (blk_sz_order - 4))
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 0100 1000 "
                 "0084 0200 0000 "
@@ -483,7 +484,7 @@ namespace {
                 (0)
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 0100 1000 "
                 "0084 0200 0000 "
@@ -506,7 +507,7 @@ namespace {
                 (4)
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 0100 1000 "
                 "0084 0200 0000 "
@@ -531,7 +532,7 @@ namespace {
                 (8 << blk_sz_order)
                 );
 
-        write_ext_arr(fp, endpos, segm);
+        write_segment(fp, endpos, segm);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 0100 1000 "
                 "0084 0200 0000 "

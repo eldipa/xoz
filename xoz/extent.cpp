@@ -66,7 +66,7 @@ void fail_if_bad_inline_sz(const Segment& segm) {
     }
 }
 
-Segment load_ext_arr(std::istream& fp, uint64_t endpos) {
+Segment Segment::load_segment(std::istream& fp, uint64_t endpos) {
     assert(std::streampos(endpos) >= fp.tellg());
     bool is_more = true;
 
@@ -226,7 +226,7 @@ uint32_t calc_usable_space_size(const Segment& segm, uint8_t blk_sz_order) {
 }
 
 
-void write_ext_arr(std::ostream& fp, uint64_t endpos, const Segment& segm) {
+void write_segment(std::ostream& fp, uint64_t endpos, const Segment& segm) {
     assert(std::streampos(endpos) >= fp.tellp());
     fail_if_invalid_empty(segm);
 
