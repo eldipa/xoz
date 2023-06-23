@@ -94,18 +94,20 @@ class Extent {
     }
 };
 
-struct ExtentGroup {
+class Segment {
+    private:
     std::vector<Extent> arr;
 
     bool inline_present;
     std::vector<uint8_t> raw;
 
-    ExtentGroup() : inline_present(false) {}
+    public:
+    Segment() : inline_present(false) {}
 
-    static ExtentGroup createEmpty() {
-        ExtentGroup exts;
-        exts.inline_present = true;
-        return exts;
+    static Segment createEmpty() {
+        Segment segm;
+        segm.inline_present = true;
+        return segm;
     }
 
     // TODO offer a "borrow" variant
@@ -123,9 +125,9 @@ struct ExtentGroup {
     }
 };
 
-uint32_t calc_footprint_disk_size(const ExtentGroup& exts);
-uint32_t calc_usable_space_size(const ExtentGroup& exts, uint8_t blk_sz_order);
+uint32_t calc_footprint_disk_size(const Segment& segm);
+uint32_t calc_usable_space_size(const Segment& segm, uint8_t blk_sz_order);
 uint32_t calc_usable_space_size(const Extent& ext, uint8_t blk_sz_order);
 
-void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts);
-ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos);
+void write_ext_arr(std::ostream& fp, uint64_t endpos, const Segment& segm);
+Segment load_ext_arr(std::istream& fp, uint64_t endpos);

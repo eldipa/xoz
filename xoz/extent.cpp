@@ -44,16 +44,16 @@ do {                                        \
     }                                       \
 } while(0)
 
-// An ExtentGroup is "valid" empty if and only if it has no extent
+// An Segment is "valid" empty if and only if it has no extent
 // and it as an inline of 0 bytes.
 // Otherwise, it must have or at least 1 extent or inline data.
-void fail_if_invalid_empty(const ExtentGroup& exts) {
-    if (exts.arr.size() == 0 and not exts.inline_present)
-        throw WouldEndUpInconsistentXOZ("ExtentGroup is literally empty: no extents and no inline data. This is not allowed, an valid empty ExtentGroup can be made by a zero inline data.");
+void fail_if_invalid_empty(const Segment& segm) {
+    if (segm.arr.size() == 0 and not segm.inline_present)
+        throw WouldEndUpInconsistentXOZ("Segment is literally empty: no extents and no inline data. This is not allowed, an valid empty Segment can be made by a zero inline data.");
 }
 
-void fail_if_bad_inline_sz(const ExtentGroup& exts) {
-    size_t inline_sz = exts.raw.size();
+void fail_if_bad_inline_sz(const Segment& segm) {
+    size_t inline_sz = segm.raw.size();
 
     if (inline_sz > EXT_INLINE_SZ_MAX_u16) {
         throw WouldEndUpInconsistentXOZ(F()
@@ -66,11 +66,11 @@ void fail_if_bad_inline_sz(const ExtentGroup& exts) {
     }
 }
 
-ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos) {
+Segment load_ext_arr(std::istream& fp, uint64_t endpos) {
     assert(std::streampos(endpos) >= fp.tellg());
     bool is_more = true;
 
-    ExtentGroup exts;
+    Segment segm;
 
     while (is_more) {
         is_more = false;
@@ -85,23 +85,23 @@ ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos) {
         bool is_inline = READ_HiEXT_INLINE_FLAG(hi_ext);
 
         if (is_suballoc and is_inline) {
-            exts.inline_present = true;
+            segm.inline_present = true;
 
             uint16_t inline_sz = READ_HiEXT_INLINE_SZ(hi_ext);
             uint8_t last = READ_HiEXT_INLINE_LAST(hi_ext);
 
-            exts.raw.resize(inline_sz);
+            segm.raw.resize(inline_sz);
 
             // If the size is odd, reduce it by one as the last
             // byte was already loaded from hi_ext
             if (inline_sz % 2 == 1) {
-                exts.raw[inline_sz-1] = last;
+                segm.raw[inline_sz-1] = last;
                 inline_sz -= 1;
             }
 
             if (inline_sz > 0) {
                 CHK_READ_ROOM(fp, endpos, inline_sz);
-                fp.read((char*)exts.raw.data(), inline_sz);
+                fp.read((char*)segm.raw.data(), inline_sz);
             }
 
         } else {
@@ -128,7 +128,7 @@ ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos) {
                 blk_cnt = u16_from_le(blk_cnt);
             }
 
-            exts.arr.emplace_back(
+            segm.arr.emplace_back(
                 hi_blk_nr,
                 lo_blk_nr,
                 blk_cnt,
@@ -137,14 +137,14 @@ ExtentGroup load_ext_arr(std::istream& fp, uint64_t endpos) {
         }
     }
 
-    fail_if_invalid_empty(exts);
-    return exts;
+    fail_if_invalid_empty(segm);
+    return segm;
 }
 
-uint32_t calc_footprint_disk_size(const ExtentGroup& exts) {
-    fail_if_invalid_empty(exts);
+uint32_t calc_footprint_disk_size(const Segment& segm) {
+    fail_if_invalid_empty(segm);
     uint32_t sz = 0;
-    for (const auto& ext : exts.arr) {
+    for (const auto& ext : segm.arr) {
         // Ext header, always present
         sz += sizeof(uint16_t);
 
@@ -161,11 +161,11 @@ uint32_t calc_footprint_disk_size(const ExtentGroup& exts) {
         }
     }
 
-    if (exts.inline_present) {
+    if (segm.inline_present) {
         // Ext header, always present
         sz += sizeof(uint16_t);
 
-        fail_if_bad_inline_sz(exts);
+        fail_if_bad_inline_sz(segm);
 
         // No blk_nr or blk_cnt are present in an inline
         // After the header the uint8_t raw follows
@@ -174,7 +174,7 @@ uint32_t calc_footprint_disk_size(const ExtentGroup& exts) {
         // safe because if the size of the raw cannot be represented
         // by uint16_t, fail_if_bad_inline_sz() should had failed
         // before
-        uint16_t inline_sz = uint16_t(exts.raw.size());
+        uint16_t inline_sz = uint16_t(segm.raw.size());
 
         // If size is odd, raw's last byte was saved in the ext header
         // so the remaining data is size-1
@@ -200,21 +200,21 @@ uint32_t calc_usable_space_size(const Extent& ext, uint8_t blk_sz_order) {
     }
 }
 
-uint32_t calc_usable_space_size(const ExtentGroup& exts, uint8_t blk_sz_order) {
-    fail_if_invalid_empty(exts);
+uint32_t calc_usable_space_size(const Segment& segm, uint8_t blk_sz_order) {
+    fail_if_invalid_empty(segm);
     uint32_t sz = 0;
-    for (const auto& ext : exts.arr) {
+    for (const auto& ext : segm.arr) {
         sz += calc_usable_space_size(ext, blk_sz_order);
     }
 
-    if (exts.inline_present) {
-        fail_if_bad_inline_sz(exts);
+    if (segm.inline_present) {
+        fail_if_bad_inline_sz(segm);
 
         // Note: the cast from size_t to uint16_t should be
         // safe because if the size of the raw cannot be represented
         // by uint16_t, fail_if_bad_inline_sz() should had failed
         // before
-        uint16_t inline_sz = uint16_t(exts.raw.size());
+        uint16_t inline_sz = uint16_t(segm.raw.size());
 
         // Note: calc_usable_space_size means how many bytes are allocated
         // for user data so we register all the inline data as such
@@ -226,22 +226,22 @@ uint32_t calc_usable_space_size(const ExtentGroup& exts, uint8_t blk_sz_order) {
 }
 
 
-void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts) {
+void write_ext_arr(std::ostream& fp, uint64_t endpos, const Segment& segm) {
     assert(std::streampos(endpos) >= fp.tellp());
-    fail_if_invalid_empty(exts);
+    fail_if_invalid_empty(segm);
 
     // All the extent except the last one will have the 'more' bit set
     // We track how many extents remain in the list to know when
     // and when not we have to set the 'more' bit
-    size_t remain = exts.arr.size();
+    size_t remain = segm.arr.size();
 
     // If an inline follows the last extent, make it appear
     // and another remain item.
-    if (exts.inline_present) {
+    if (segm.inline_present) {
         ++remain;
     }
 
-    for (const auto& ext : exts.arr) {
+    for (const auto& ext : segm.arr) {
         assert (remain > 0);
 
         // The first (highest) 2 bytes
@@ -295,16 +295,16 @@ void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts) {
         }
     }
 
-    if (exts.inline_present) {
+    if (segm.inline_present) {
         assert (remain == 1);
         --remain;
 
         // TODO if we fail here we'll left the file corrupted:
         // the last extent has 'more' set but garbage follows.
         // We should write an empty inline-data extent at least.
-        fail_if_bad_inline_sz(exts);
+        fail_if_bad_inline_sz(segm);
 
-        uint16_t inline_sz = uint16_t(exts.raw.size());
+        uint16_t inline_sz = uint16_t(segm.raw.size());
 
         // The first (highest) 2 bytes
         uint16_t hi_ext = 0;
@@ -317,7 +317,7 @@ void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts) {
         // If the size is odd, store the last byte in `last`
         // and subtract 1 to the size
         if (inline_sz % 2 == 1) {
-            last = exts.raw[inline_sz-1];
+            last = segm.raw[inline_sz-1];
             inline_sz -= 1;
         }
 
@@ -331,7 +331,7 @@ void write_ext_arr(std::ostream& fp, uint64_t endpos, const ExtentGroup& exts) {
 
         // After the uint8_t raw follows, if any
         if (inline_sz > 0) {
-            fp.write((char*)exts.raw.data(), inline_sz);
+            fp.write((char*)segm.raw.data(), inline_sz);
         }
     }
 
