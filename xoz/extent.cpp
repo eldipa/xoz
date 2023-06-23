@@ -66,7 +66,7 @@ void fail_if_bad_inline_sz(const Segment& segm) {
     }
 }
 
-Segment Segment::load_segment(std::istream& fp, uint64_t endpos) {
+void Segment::load(std::istream& fp, uint64_t endpos) {
     assert(std::streampos(endpos) >= fp.tellg());
     bool is_more = true;
 
@@ -138,7 +138,11 @@ Segment Segment::load_segment(std::istream& fp, uint64_t endpos) {
     }
 
     fail_if_invalid_empty(segm);
-    return segm;
+
+    // Override this segment with the loaded one
+    this->arr = std::move(segm.arr);
+    this->raw = std::move(segm.raw);
+    this->inline_present = segm.inline_present;
 }
 
 uint32_t calc_footprint_disk_size(const Segment& segm) {

@@ -122,7 +122,13 @@ struct Segment {
         arr.clear();
     }
 
-    static Segment load_segment(std::istream& fp, uint64_t endpos);
+    static Segment load_segment(std::istream& fp, uint64_t endpos) {
+        Segment segm;
+        segm.load(fp, endpos);
+        return segm;
+    }
+
+    void load(std::istream& fp, uint64_t endpos);
 };
 
 uint32_t calc_footprint_disk_size(const Segment& segm);
