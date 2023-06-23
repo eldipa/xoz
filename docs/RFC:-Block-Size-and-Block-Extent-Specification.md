@@ -160,9 +160,11 @@ unallocated without removing it from the array.
 
 An *inline data* can be *unallocated* too:
 
- - the `raw` is fulfilled with *unallocated extents* (4 or 6 bytes)
-   and padded with a single *empty extent array* (2 bytes) at the end.
- - the bits `inline` is set to 0.
+ - the `suballoc` and `inline` bits are keep set to 1
+ - the `size` and `end` are set to 0
+ - the `raw`, which it has a size multiple of two is filled with
+   the 2 bytes pattern `c000 0000`. This is effectively
+   filling `raw` with *empty extent arrays* (2 bytes each).
 
 The library might reuse the space left by *unallocated extents* to
 allocate new *extents* without requiring a change in the layout.
@@ -174,7 +176,7 @@ may encode an *empty extent array* by setting the **first**
 `struct extent_t` as:
 
  - `suballoc` and `inline` set to 1
- - `size` set to 0
+ - `size` and `end` set to 0
 
 In this way the `struct extent_t` looks like an *inline data*
 of zero bytes, effectively, the *extent array* only occupies 2 bytes
