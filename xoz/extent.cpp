@@ -145,7 +145,9 @@ void Segment::load(std::istream& fp, uint64_t endpos) {
     this->inline_present = segm.inline_present;
 }
 
-uint32_t calc_footprint_disk_size(const Segment& segm) {
+uint32_t Segment::calc_footprint_disk_size() const {
+    const Segment& segm = *this;
+
     fail_if_invalid_empty(segm);
     uint32_t sz = 0;
     for (const auto& ext : segm.arr) {
@@ -204,11 +206,13 @@ uint32_t calc_usable_space_size(const Extent& ext, uint8_t blk_sz_order) {
     }
 }
 
-uint32_t calc_usable_space_size(const Segment& segm, uint8_t blk_sz_order) {
+uint32_t Segment::calc_usable_space_size(uint8_t blk_sz_order) const {
+    const Segment& segm = *this;
+
     fail_if_invalid_empty(segm);
     uint32_t sz = 0;
     for (const auto& ext : segm.arr) {
-        sz += calc_usable_space_size(ext, blk_sz_order);
+        sz += ::calc_usable_space_size(ext, blk_sz_order);
     }
 
     if (segm.inline_present) {

@@ -15,15 +15,15 @@ using ::testing_xoz::helpers::hexdump;
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
 #define XOZ_EXPECT_SIZES(segm, blk_sz_order, disk_sz, allocated_sz) do {                \
-    EXPECT_EQ(calc_footprint_disk_size((segm)), (unsigned)(disk_sz));                          \
-    EXPECT_EQ(calc_usable_space_size((segm), (blk_sz_order)), (unsigned)(allocated_sz));   \
+    EXPECT_EQ((segm).calc_footprint_disk_size(), (unsigned)(disk_sz));                          \
+    EXPECT_EQ((segm).calc_usable_space_size((blk_sz_order)), (unsigned)(allocated_sz));   \
 } while (0)
 
 // Check that the serialization of the extents in fp are of the
 // expected size (call calc_footprint_disk_size) and they match
 // byte-by-byte with the expected data (in hexdump)
 #define XOZ_EXPECT_SERIALIZATION(fp, segm, data) do {           \
-    EXPECT_EQ((fp).str().size(), calc_footprint_disk_size((segm)));    \
+    EXPECT_EQ((fp).str().size(), (segm).calc_footprint_disk_size());    \
     EXPECT_EQ(hexdump((fp)), (data));                           \
 } while (0)
 
@@ -89,7 +89,7 @@ namespace {
         // An "uninitialized/empty" Segment is *not* a valid
         // empty Segment.
         EXPECT_THAT(
-            [&]() { calc_footprint_disk_size(segm); },
+            [&]() { segm.calc_footprint_disk_size(); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr("Segment is literally empty: no extents and no inline data.")
@@ -98,7 +98,7 @@ namespace {
         );
 
         EXPECT_THAT(
-            [&]() { calc_usable_space_size(segm, blk_sz_order); },
+            [&]() { segm.calc_usable_space_size(blk_sz_order); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr("Segment is literally empty: no extents and no inline data.")
@@ -202,7 +202,7 @@ namespace {
 
         // Inline data size has a limit
         EXPECT_THAT(
-            [&]() { calc_footprint_disk_size(segm); },
+            [&]() { segm.calc_footprint_disk_size(); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr("Inline data too large: it has 64 bytes but only up to 63 bytes are allowed.")
@@ -210,7 +210,7 @@ namespace {
                 )
         );
         EXPECT_THAT(
-            [&]() { calc_usable_space_size(segm, blk_sz_order); },
+            [&]() { segm.calc_usable_space_size(blk_sz_order); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr("Inline data too large: it has 64 bytes but only up to 63 bytes are allowed.")
@@ -238,7 +238,7 @@ namespace {
                 );
 
         segm.write(fp, endpos);
-        EXPECT_EQ(fp.str().size(), calc_footprint_disk_size(segm));
+        EXPECT_EQ(fp.str().size(), segm.calc_footprint_disk_size());
         EXPECT_EQ(hexdump(fp).substr(0, 14), "78ff 4100 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
 
@@ -255,7 +255,7 @@ namespace {
                 );
 
         segm.write(fp, endpos);
-        EXPECT_EQ(fp.str().size(), calc_footprint_disk_size(segm));
+        EXPECT_EQ(fp.str().size(), segm.calc_footprint_disk_size());
         EXPECT_EQ(hexdump(fp).substr(0, 14), "00fe 4100 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, endpos);
     }
@@ -362,8 +362,8 @@ namespace {
         fp.str("");
 
         segm.add_extent(Extent(0xab, 0b00001001, true));    // 2 sub-alloc'd blocks
-        EXPECT_EQ(calc_footprint_disk_size(segm), (unsigned) 6);
-        EXPECT_EQ(calc_usable_space_size(segm, blk_sz_order), (unsigned) (2 << (blk_sz_order - 4)));
+        EXPECT_EQ(segm.calc_footprint_disk_size(), (unsigned) 6);
+        EXPECT_EQ(segm.calc_usable_space_size(blk_sz_order), (unsigned) (2 << (blk_sz_order - 4)));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
                 2 << (blk_sz_order - 4)  /* allocated size */
