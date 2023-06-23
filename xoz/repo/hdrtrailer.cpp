@@ -32,13 +32,13 @@ namespace {
         // order of 11 means block size of 2KB, and so on
         uint8_t blk_sz_order;
 
-    } __attribute__ ((aligned (1)));
+    } __attribute__ ((packed));
 
     // In-disk repository's trailer
     struct repo_trailer_t {
         // It should be "EOF" followed by a NUL
         uint8_t magic[4];
-    } __attribute__ ((aligned (1)));
+    } __attribute__ ((packed));
 
     static_assert(sizeof(struct repo_header_t) <= 64);
 }
