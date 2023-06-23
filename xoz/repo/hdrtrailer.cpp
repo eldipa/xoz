@@ -11,11 +11,6 @@ namespace {
         // It should be "XOZ" followed by a NUL
         uint8_t magic[4];
 
-        // Log base 2 of the block size in bytes
-        // Order of 10 means block size of 1KB,
-        // order of 11 means block size of 2KB, and so on
-        uint8_t blk_sz_order;
-
         // Size of the whole repository, including the header
         // but not the trailer, in bytes. It is a multiple
         // of the block total count
@@ -31,6 +26,11 @@ namespace {
         // Count of blocks in the repo at the moment of
         // its initialization (when it was created)
         uint32_t blk_init_cnt;
+
+        // Log base 2 of the block size in bytes
+        // Order of 10 means block size of 1KB,
+        // order of 11 means block size of 2KB, and so on
+        uint8_t blk_sz_order;
 
     } __attribute__ ((aligned (1)));
 
@@ -176,11 +176,11 @@ std::streampos Repository::_seek_and_write_header(std::ostream& fp, uint64_t phy
     may_grow_and_seek_write_phy(fp, phy_repo_start_pos);
     struct repo_header_t hdr = {
         .magic = {'X', 'O', 'Z', 0},
-        .blk_sz_order = u8_to_le(gp.blk_sz_order),
         .repo_sz = u64_to_le(blk_total_cnt << gp.blk_sz_order),
         .trailer_sz = u64_to_le(trailer_sz),
         .blk_total_cnt = u32_to_le(blk_total_cnt),
         .blk_init_cnt = u32_to_le(gp.blk_init_cnt),
+        .blk_sz_order = u8_to_le(gp.blk_sz_order),
     };
 
     fp.write((const char*)&hdr, sizeof(hdr));
