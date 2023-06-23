@@ -230,7 +230,9 @@ uint32_t calc_usable_space_size(const Segment& segm, uint8_t blk_sz_order) {
 }
 
 
-void write_segment(std::ostream& fp, uint64_t endpos, const Segment& segm) {
+void Segment::write(std::ostream& fp, uint64_t endpos) const {
+    const Segment& segm = *this;
+
     assert(std::streampos(endpos) >= fp.tellp());
     fail_if_invalid_empty(segm);
 

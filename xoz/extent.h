@@ -129,10 +129,10 @@ struct Segment {
     }
 
     void load(std::istream& fp, uint64_t endpos);
+    void write(std::ostream& fp, uint64_t endpos) const;
 };
 
 uint32_t calc_footprint_disk_size(const Segment& segm);
 uint32_t calc_usable_space_size(const Segment& segm, uint8_t blk_sz_order);
 uint32_t calc_usable_space_size(const Extent& ext, uint8_t blk_sz_order);
 
-void write_segment(std::ostream& fp, uint64_t endpos, const Segment& segm);
