@@ -1,5 +1,5 @@
 #include "xoz/repo.h"
-#include "xoz/extent.h"
+#include "xoz/ext/extent.h"
 #include "xoz/exceptions.h"
 
 #include "gtest/gtest.h"

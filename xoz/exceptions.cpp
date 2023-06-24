@@ -1,7 +1,7 @@
 
 #include "xoz/exceptions.h"
 #include "xoz/repo.h"
-#include "xoz/extent.h"
+#include "xoz/ext/extent.h"
 
 #include <string>
 #include <sstream>

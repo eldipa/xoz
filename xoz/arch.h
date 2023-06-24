@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <bit>
 
 constexpr uint16_t u16_byteswap(uint16_t x) noexcept {
