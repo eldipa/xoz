@@ -47,12 +47,14 @@ do {                                        \
 // An Segment is "valid" empty if and only if it has no extent
 // and it as an inline of 0 bytes.
 // Otherwise, it must have or at least 1 extent or inline data.
-void fail_if_invalid_empty(const Segment& segm) {
+void Segment::fail_if_invalid_empty() const {
+    const Segment& segm = *this;
     if (segm.arr.size() == 0 and not segm.inline_present)
         throw WouldEndUpInconsistentXOZ("Segment is literally empty: no extents and no inline data. This is not allowed, an valid empty Segment can be made by a zero inline data.");
 }
 
-void fail_if_bad_inline_sz(const Segment& segm) {
+void Segment::fail_if_bad_inline_sz() const {
+    const Segment& segm = *this;
     size_t inline_sz = segm.raw.size();
 
     if (inline_sz > EXT_INLINE_SZ_MAX_u16) {
@@ -137,7 +139,7 @@ void Segment::load(std::istream& fp, uint64_t endpos) {
         }
     }
 
-    fail_if_invalid_empty(segm);
+    segm.fail_if_invalid_empty();
 
     // Override this segment with the loaded one
     this->arr = std::move(segm.arr);
@@ -148,7 +150,7 @@ void Segment::load(std::istream& fp, uint64_t endpos) {
 uint32_t Segment::calc_footprint_disk_size() const {
     const Segment& segm = *this;
 
-    fail_if_invalid_empty(segm);
+    segm.fail_if_invalid_empty();
     uint32_t sz = 0;
     for (const auto& ext : segm.arr) {
         // Ext header, always present
@@ -171,7 +173,7 @@ uint32_t Segment::calc_footprint_disk_size() const {
         // Ext header, always present
         sz += sizeof(uint16_t);
 
-        fail_if_bad_inline_sz(segm);
+        segm.fail_if_bad_inline_sz();
 
         // No blk_nr or blk_cnt are present in an inline
         // After the header the uint8_t raw follows
@@ -210,14 +212,14 @@ uint32_t Extent::calc_usable_space_size(uint8_t blk_sz_order) const {
 uint32_t Segment::calc_usable_space_size(uint8_t blk_sz_order) const {
     const Segment& segm = *this;
 
-    fail_if_invalid_empty(segm);
+    segm.fail_if_invalid_empty();
     uint32_t sz = 0;
     for (const auto& ext : segm.arr) {
         sz += ext.calc_usable_space_size(blk_sz_order);
     }
 
     if (segm.inline_present) {
-        fail_if_bad_inline_sz(segm);
+        segm.fail_if_bad_inline_sz();
 
         // Note: the cast from size_t to uint16_t should be
         // safe because if the size of the raw cannot be represented
@@ -239,7 +241,7 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
     const Segment& segm = *this;
 
     assert(std::streampos(endpos) >= fp.tellp());
-    fail_if_invalid_empty(segm);
+    segm.fail_if_invalid_empty();
 
     // All the extent except the last one will have the 'more' bit set
     // We track how many extents remain in the list to know when
@@ -313,7 +315,7 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
         // TODO if we fail here we'll left the file corrupted:
         // the last extent has 'more' set but garbage follows.
         // We should write an empty inline-data extent at least.
-        fail_if_bad_inline_sz(segm);
+        segm.fail_if_bad_inline_sz();
 
         uint16_t inline_sz = uint16_t(segm.raw.size());
 

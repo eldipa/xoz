@@ -96,12 +96,14 @@ class Extent {
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
 };
 
-struct Segment {
+class Segment {
+    private:
     std::vector<Extent> arr;
 
     bool inline_present;
     std::vector<uint8_t> raw;
 
+    public:
     Segment() : inline_present(false) {}
 
     static Segment createEmpty() {
@@ -124,6 +126,10 @@ struct Segment {
         arr.clear();
     }
 
+    std::vector<uint8_t>& inline_data() {
+        return raw;
+    }
+
     static Segment load_segment(std::istream& fp, uint64_t endpos) {
         Segment segm;
         segm.load(fp, endpos);
@@ -135,5 +141,9 @@ struct Segment {
 
     uint32_t calc_footprint_disk_size() const;
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
+
+    private:
+    void fail_if_invalid_empty() const;
+    void fail_if_bad_inline_sz() const;
 };
 

@@ -229,8 +229,8 @@ namespace {
 
         // This check the maximum allowed
         segm.set_inline_data(std::vector<uint8_t>((1 << 6) - 1));
-        segm.raw[0] = 0x41;
-        segm.raw[segm.raw.size()-1] = 0x78;
+        segm.inline_data()[0] = 0x41;
+        segm.inline_data()[segm.inline_data().size()-1] = 0x78;
 
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 64, /* disc size */
@@ -246,8 +246,8 @@ namespace {
 
         // This check the maximum allowed minus 1
         segm.set_inline_data(std::vector<uint8_t>((1 << 6) - 2));
-        segm.raw[0] = 0x41;
-        segm.raw[segm.raw.size()-1] = 0x78;
+        segm.inline_data()[0] = 0x41;
+        segm.inline_data()[segm.inline_data().size()-1] = 0x78;
 
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 64, /* disc size */
