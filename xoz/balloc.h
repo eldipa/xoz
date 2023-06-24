@@ -1,7 +1,7 @@
 #pragma once
 
 #include "xoz/ext/extent.h"
-#include "xoz/repo.h"
+#include "xoz/repo/repo.h"
 #include <list>
 #include <cstdint>
 #include <iostream>
