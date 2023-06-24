@@ -194,7 +194,8 @@ uint32_t Segment::calc_footprint_disk_size() const {
     return sz;
 }
 
-uint32_t calc_usable_space_size(const Extent& ext, uint8_t blk_sz_order) {
+uint32_t Extent::calc_usable_space_size(uint8_t blk_sz_order) const {
+    const Extent& ext = *this;
     if (ext.is_unallocated()) {
         return 0;
     }
@@ -212,7 +213,7 @@ uint32_t Segment::calc_usable_space_size(uint8_t blk_sz_order) const {
     fail_if_invalid_empty(segm);
     uint32_t sz = 0;
     for (const auto& ext : segm.arr) {
-        sz += ::calc_usable_space_size(ext, blk_sz_order);
+        sz += ext.calc_usable_space_size(blk_sz_order);
     }
 
     if (segm.inline_present) {

@@ -27,7 +27,7 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
                );
     }
 
-    const uint32_t usable_sz = calc_usable_space_size(ext, gp.blk_sz_order);
+    const uint32_t usable_sz = ext.calc_usable_space_size(gp.blk_sz_order);
 
     // If the caller wants to read/write beyond the usable space, return EOF
     if (usable_sz <= start) {
@@ -168,7 +168,7 @@ uint32_t Repository::rw_fully_allocated_extent(bool is_read_op, const Extent& ex
 }
 
 uint32_t Repository::read_extent(const Extent& ext, std::vector<char>& data, uint32_t max_data_sz, uint32_t start) {
-    const uint32_t usable_sz = calc_usable_space_size(ext, gp.blk_sz_order);
+    const uint32_t usable_sz = ext.calc_usable_space_size(gp.blk_sz_order);
     const uint32_t reserve_sz = std::min(usable_sz, max_data_sz);
     data.resize(reserve_sz);
 

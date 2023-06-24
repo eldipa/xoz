@@ -92,6 +92,8 @@ class Extent {
     inline void shrink_by(uint16_t cnt) {
         _blk_cnt -= cnt;
     }
+
+    uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
 };
 
 struct Segment {
@@ -134,6 +136,4 @@ struct Segment {
     uint32_t calc_footprint_disk_size() const;
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
 };
-
-uint32_t calc_usable_space_size(const Extent& ext, uint8_t blk_sz_order);
 
