@@ -23,8 +23,9 @@ if __name__ == '__main__':
     fname = sys.argv[1]
     with open(fname, 'rt') as md:
         for line in md:
-            line = emph.sub(emph_repl, line)
-            line = code.sub(code_repl, line)
+            if not line.startswith('#'):
+                line = emph.sub(emph_repl, line)
+                line = code.sub(code_repl, line)
 
             print(line, end='')
 
