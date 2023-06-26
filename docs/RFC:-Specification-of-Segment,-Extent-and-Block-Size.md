@@ -1,13 +1,27 @@
-# RFC: Block Size and Block Extent Specification
+# RFC: Specification of Segment, Extent and Block Size
 
  - **Author:** Martin Di Paola
  - **Status:** Draft
- - **Version:** 2
+ - **Version:** 3
 
 ### Summary of changes
 
-Changed in version 2: reduced the maximum size of inline data
-from 512 bytes to 64 bytes. The data no longer must be a multiple
+Changed in version 3:
+
+ - the array of extents is named a *segment*
+ - bit `more` removed: the count of extents in the segment must be
+   found somewhere else (not specified in this RFC)
+ - bit `near` added: if 0, the `blk_nr` is built as in version 2; if 1,
+   the `blk_nr` is built as an offset with respect the previous extent in the
+   segment.
+ - `lo_blk_nr` and `hi_blk_nr` swapped places
+ - point to block 0 is reserved.
+ - removed *unallocated extents*
+
+Changed in version 2:
+
+ - reduced the maximum size of inline data from 512 bytes to 64 bytes.
+ - the inline data no longer must be a multiple
 of 2 and this saves 1 byte of metadata when the data size is an
 odd number.
 
@@ -16,12 +30,17 @@ odd number.
 The `.xoz` file is divided in blocks of a fixed size. In these blocks
 the data of *strokes*, *images* and other *objects* is stored.
 
+An *extent* is a sequence of contiguous blocks belonging to the same object.
+
+A *segment* is a sequence of *extents* belonging to the same object.
+
 An *object descriptor* then points to one or more blocks which may
 or may not be contiguous indexed by one or more *extents*.
 
 This RFC specifies the `struct extent_t`, how blocks are
-indexed by an *extent*, how the data is stored in the blocks
-and the possible size that the blocks should have.
+indexed by an *extent*, how they assemble a *segment*
+and the possible sizes that the blocks and *extent*
+should/may have.
 
 # Extents
 
@@ -32,22 +51,22 @@ struct extent_t {
     uint16_t {
         uint suballoc   : 1;    // mask 0x8000
         uint smallcnt   : 4:    // mask 0x7800
-        uint more       : 1;    // mask 0x0400
-        uint hi_blk_nr  : 10;   // mask 0x03ff
+        uint near       : 1;    // mask 0x0400
+        uint lo_blk_nr  : 10;   // mask 0x03ff
     };
 
-    /* present if !(suballoc == 1 && inline == 1) */
+    /* present if:
+        - not (suballoc == 1 && inline == 1)
+        - and near == 0
+    */
     uint16_t {
-        uint lo_blk_nr  : 16;   // mask 0xffff
+        uint hi_blk_nr  : 16;   // mask 0xffff
     }
 
     /* present if smallcnt == 0 */
     uint16_t blk_cnt;
 };
 ```
-
-The block number `blk_nr` is composed by two parts: the high bits
-`hi_blk_nr` and the low bits `lo_blk_nr`.
 
 `suballoc` and `smallcnt` control how the rest of the fields
 may be interpreted:
@@ -66,12 +85,88 @@ subdivided into 16 sub-blocks: `blk_cnt` acts as a *bitmap* that
 indicates which sub-blocks are allocated.
 The structure's size is 6 bytes.
 
-In all the above cases, `more` indicates if another
-`struct extent_t` follows the current.
-
-The last case with `suballoc = 1` and `smallcnt > 0` is special:
+The case with `suballoc = 1` and `smallcnt > 0` is special:
 it turns the `struct extent_t` into an *inline data buffer*
-and no `more` flag exists in that case.
+and the extent does **not** point to any block.
+
+In all of other cases, the extent points either to a single block
+or to the first block of the extent.
+
+`blk_nr` is this 26 bits block pointer constructed from `lo_blk_nr`
+and, if `near = 0`, from `hi_blk_nr` as explained below.
+
+## Block number
+
+If `near = 0`, the `hi_blk_nr` **is** present and the `blk_nr` is formed
+by `lo_blk_nr` (10 LSB) and `hi_blk_nr` (16 MSB), both as
+unsigned numbers.
+
+If `near = 1`, the `hi_blk_nr` is **not** present and `lo_blk_nr`
+is interpreted as *2-complement signed offset* respect the previous extent
+in the *segment*.
+
+Let `prev` and `cur` be the previous and current extents
+and let `len` be the length
+in blocks of the given extent (implicit 1 if the extent is
+suballoc'd).
+
+Then `cur.blk_nr` is defined as:
+
+ - if `cur.lo_blk_nr > 0` (strictly positive), the `cur.blk_nr` is
+   `prev.blk_nr + prev.len + cur.lo_blk_nr - 1`
+
+   In other words, `cur.lo_blk_nr` counts *forward* how many blocks
+   *after the end* of the previous `prev` extent (minus 1)
+   the current `cur` extent *begins* (and `cur.len` blocks follows).
+
+   `cur.lo_blk_nr = 1` means the current extent immediately follows
+   the previous.
+
+ - if `cur.lo_blk_nr < 0` (strictly negative), the `cur.blk_nr` is
+   `prev.blk_nr + cur.lo_blk_nr - cur.len + 1`
+
+   In other words, `cur.lo_blk_nr` counts *backward* how many blocks
+   *from the begin* of the previous `prev` extent the current `cur`
+   extents *ends* (and `cur.lo_blk_nr - cur.len` marks the begin).
+
+   `cur.lo_blk_nr = -1` means the current extent immediately precedes
+   the previous.
+
+In either case computing `cur.blk_nr` must not wraparound, neither overflow
+nor underflow. If such happen it should be considered a corruption or
+a bad state.
+
+If the current extent is the first in the segment, `prev.blk_nr` and
+`prev.len` should be assumed to be zero.
+
+The `blk_nr = 0` is **not** valid block numbers and it is reserved.
+In other words, no extent can point to the block 0.
+
+### Rationale - `near` bit
+
+With 26 bits long, `blk_nr` requires at least 4 bytes.
+
+But most of the extents are close each other to improve locality so it
+is expected to find extents with very similar `blk_nr`.
+
+Encoding a *relative* `blk_nr` for extents that are *near* each other
+should require less bits.
+
+Taking into a count the direction (forward / backward), the 10 bits
+*signed* number `lo_blk_nr` allows to encode `blk_nr` within
+the range of +/- 2^9 = 512 blocks using only 2 bytes.
+
+The expected most common case is of an object which data size is
+larger than a block size and not multiple of it.
+
+In this scenario 2 extents (at least) will be allocated: the first to
+store an integer number of blocks, the second to point to a single block
+for suballocation.
+
+Without the `near` bit, the second extent would require 6 bytes. But if
+the block for suballocation is near, with `near = 1` it would require 4
+bytes.
+
 
 # Extent as Inline Data
 
@@ -79,8 +174,8 @@ The combination `suballoc = 1` and `smallcnt > 0` turns
 the *extent* into a plain array of 2-bytes words
 for *inline data*.
 
-This applies **only** to the **last** `struct extent_t` of the array
-as the `more` flag is **not** defined in this mode.
+This applies **only** to the **last** `struct extent_t` of the
+*segment*.
 
 The `struct extent_t` can then be seen as:
 
@@ -139,56 +234,17 @@ to keep much less and larger data should be stored in
 a fully dedicated *data block* to keep the *object descriptor*
 small.
 
-While *inline data* reduces the internal fragmentation avoiding
-using a *block* or *subblocks*, it may increases the external
-fragmentation.
-
-This is because the *object descriptor* will increase in size,
-the *descriptors* in a *stream* must be stored such they don't
-span more than one *block* of the *stream*.
-
-![stream_ext_frag](https://github.com/eldipa/xoz/assets/2665522/e3601aa5-6011-4bba-bfc1-b58adef18541)
-
-# Unallocated Extents
-
-An *extent* may be marked as *unallocated*. This can be achieved
-setting the `blk_nr` to zero in-place without modifying the
-`struct` layout.
-
-In this way any `struct extent_t` in the *extent array* can be
-unallocated without removing it from the array.
-
-An *inline data* can be *unallocated* too:
-
- - the `suballoc` and `inline` bits are keep set to 1
- - the `size` and `end` are set to 0
- - the `raw`, which it has a size multiple of two is filled with
-   the 2 bytes pattern `c000 0000`. This is effectively
-   filling `raw` with *empty extent arrays* (2 bytes each).
-
-The library might reuse the space left by *unallocated extents* to
-allocate new *extents* without requiring a change in the layout.
-
-# Empty Extent Array
-
-If an *object* does not require any *data blocks* or *inline data*
-may encode an *empty extent array* by setting the **first**
-`struct extent_t` as:
-
- - `suballoc` and `inline` set to 1
- - `size` and `end` set to 0
-
-In this way the `struct extent_t` looks like an *inline data*
-of zero bytes, effectively, the *extent array* only occupies 2 bytes
-(2 for the header).
+<!--![stream_ext_frag](https://github.com/eldipa/xoz/assets/2665522/e3601aa5-6011-4bba-bfc1-b58adef18541)-->
 
 # Invariants of the `struct extent_t`
 
-The `struct extent_t` has 3 invariants:
+The `struct extent_t` has some invariants:
 
- - it has always a size multiple of 2.
+ - it has always a size multiple of 2:
+    - if it is not *inline data* then its size can be 2, 4 or 6 bytes
+    - otherwise its size is 2, 4 or any multiple of 2.
  - the first 2 bytes (`uint16_t`) are always enough to decode the rest
-   of the structure and if more `struct extent_t` follows.
+   of the structure.
  - `blk_nr` are 26 bits long.
 
 # Sub-Block Allocation
@@ -240,6 +296,32 @@ are used.
 But the trade off between *internal* and *external fragmentation*
 exists.
 
+# Segment
+
+A *segment* is an ordered sequence of *extents* belonging to the same
+object.
+
+```cpp
+struct segment_t {
+    struct extent_t exts[/* specified somewhere else */];
+}
+```
+
+The count of *extents* is specified somewhere else and it can be zero
+( *empty segment* ).
+
+If for some reason the *segment* cannot be empty but
+there is not block allocated, then the *segment* should
+have a single *inline data* with `size` and `end` set
+to 0.
+
+This effectively makes the *segment* "no" empty.
+
+If the length of the *segment* cannot be specified somewhere else,
+an *inline data* with `size` and `end` set to 0 can be used
+as end-of-segment marker as an inline is always the last element
+of a *segment*.
+
 # Proposed block size and inline data limit
 
 The author proposes a *block size* of 512 or 1024 bytes with
@@ -258,6 +340,10 @@ With 1024 bytes blocks:
    (using `smallcnt` - 4 bits) and 64MB (using `blk_cnt` - 16 bits).
  - a single *sub-block* (1/16 th of a block) can store up to 64 bytes.
  - the `.xoz` has a theoretical limit of 2^26 = 64M blocks, *64GB in total*.
+
+It is expected that most of the objects' data can be stored in two
+*extents*: one for storing a integer number of blocks, the other storing
+the fractional part in an extent for suballocation.
 
 The (soft) limit for the *inline data* is between 32 and 64 bytes.
 Probably a limit larger than the 1/16 th of a block is not worth.
