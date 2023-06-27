@@ -94,4 +94,13 @@ class Extent {
     }
 
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
+
+    struct blk_distance_t {
+        const uint32_t blk_cnt;
+        const bool is_backwards;
+        const bool is_near;
+    };
+
+    static blk_distance_t distance_in_blks(const Extent& ref, const Extent& target);
 };
+

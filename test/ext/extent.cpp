@@ -2,6 +2,11 @@
 #include "gmock/gmock.h"
 
 #include "xoz/ext/extent.h"
+#include "xoz/exceptions.h"
+
+using ::testing::HasSubstr;
+using ::testing::ThrowsMessage;
+using ::testing::AllOf;
 
 namespace {
     TEST(ExtentTest, BlockNumberBits) {
@@ -37,5 +42,275 @@ namespace {
         Extent ext1(1, 0x8142, true);
         EXPECT_EQ(ext1.blk_bitmap(), (uint16_t)(0x8142));
         EXPECT_EQ(ext1.is_suballoc(), true);
+    }
+
+    TEST(ExtentTest, BlockDistanceForward) {
+        Extent ref(500, 100, false);
+        Extent::blk_distance_t d1 = Extent::distance_in_blks(
+                ref,
+                Extent(600, 10, false) /* target */
+                );
+
+        EXPECT_EQ(d1.blk_cnt, (unsigned)0);
+        EXPECT_EQ(d1.is_backwards, false);
+        EXPECT_EQ(d1.is_near, true);
+
+        Extent::blk_distance_t d2 = Extent::distance_in_blks(
+                ref,
+                Extent(610, 10, false) /* target */
+                );
+
+        EXPECT_EQ(d2.blk_cnt, (unsigned)10);
+        EXPECT_EQ(d2.is_backwards, false);
+        EXPECT_EQ(d2.is_near, true);
+
+        Extent::blk_distance_t d3 = Extent::distance_in_blks(
+                ref,
+                Extent(600+511, 10, false) /* target */
+                );
+
+        EXPECT_EQ(d3.blk_cnt, (unsigned)511);
+        EXPECT_EQ(d3.is_backwards, false);
+        EXPECT_EQ(d3.is_near, true);
+
+        Extent::blk_distance_t d4 = Extent::distance_in_blks(
+                ref,
+                Extent(600+512, 10, false) /* target */
+                );
+
+        EXPECT_EQ(d4.blk_cnt, (unsigned)512);
+        EXPECT_EQ(d4.is_backwards, false);
+        EXPECT_EQ(d4.is_near, false);
+    }
+
+    TEST(ExtentTest, BlockDistanceBackwards) {
+        Extent ref(700, 100, false);
+        Extent::blk_distance_t d1 = Extent::distance_in_blks(
+                ref,
+                Extent(600, 100, false) /* target */
+                );
+
+        EXPECT_EQ(d1.blk_cnt, (unsigned)0);
+        EXPECT_EQ(d1.is_backwards, true);
+        EXPECT_EQ(d1.is_near, true);
+
+        Extent::blk_distance_t d2 = Extent::distance_in_blks(
+                ref,
+                Extent(590, 100, false) /* target */
+                );
+
+        EXPECT_EQ(d2.blk_cnt, (unsigned)10);
+        EXPECT_EQ(d2.is_backwards, true);
+        EXPECT_EQ(d2.is_near, true);
+
+        Extent::blk_distance_t d3 = Extent::distance_in_blks(
+                ref,
+                Extent(600-511, 100, false) /* target */
+                );
+
+        EXPECT_EQ(d3.blk_cnt, (unsigned)511);
+        EXPECT_EQ(d3.is_backwards, true);
+        EXPECT_EQ(d3.is_near, true);
+
+        Extent::blk_distance_t d4 = Extent::distance_in_blks(
+                ref,
+                Extent(600-512, 100, false) /* target */
+                );
+
+        EXPECT_EQ(d4.blk_cnt, (unsigned)512);
+        EXPECT_EQ(d4.is_backwards, true);
+        EXPECT_EQ(d4.is_near, false);
+    }
+
+    TEST(ExtentTest, BlockDistanceOverlapFailBothFullBlock) {
+        Extent ref(500, 100, false);
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(500, 100, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [500 to 600) "
+                        "overlaps with the reference extent of "
+                        "blocks [500 to 600). (at same start)"
+                        )
+                    )
+                )
+            );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(500, 20, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [500 to 520) "
+                        "overlaps with the reference extent of "
+                        "blocks [500 to 600). (at same start)"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(500, 0, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [500 to 500) "
+                        "overlaps with the reference extent of "
+                        "blocks [500 to 600). (at same start)"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(550, 10, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [550 to 560) "
+                        "overlaps with the reference extent of "
+                        "blocks [500 to 600). (ext start is ahead ref)"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(550, 100, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [550 to 650) "
+                        "overlaps with the reference extent of "
+                        "blocks [500 to 600). (ext start is ahead ref)"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(450, 100, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [450 to 550) "
+                        "overlaps with the reference extent of "
+                        "blocks [500 to 600). (ext start is behind ref)"
+                        )
+                    )
+                )
+        );
+    }
+
+    TEST(ExtentTest, BlockDistanceOverlapFailRefIsSuballoc) {
+        Extent ref(500, 100, true);
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(500, 100, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [500 to 600) "
+                        "overlaps with the reference suballoc'd block "
+                        "500. (at same start)"
+                        )
+                    )
+                )
+            );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(500, 20, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [500 to 520) "
+                        "overlaps with the reference suballoc'd block "
+                        "500. (at same start)"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(500, 0, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [500 to 500) "
+                        "overlaps with the reference suballoc'd block "
+                        "500. (at same start)"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(450, 100, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [450 to 550) "
+                        "overlaps with the reference suballoc'd block "
+                        "500. (ext start is behind ref)"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(450, 51, false)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of blocks [450 to 501) "
+                        "overlaps with the reference suballoc'd block "
+                        "500. (ext start is behind ref)"
+                        )
+                    )
+                )
+        );
+    }
+
+    TEST(ExtentTest, BlockDistanceOverlapFailTargetIsSuballoc) {
+        Extent ref(500, 100, false);
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(500, 100, true)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The suballoc'd block 500 "
+                        "overlaps with the reference extent of "
+                        "blocks [500 to 600). (at same start)"
+                        )
+                    )
+                )
+            );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(500, 0, true)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The suballoc'd block 500 "
+                        "overlaps with the reference extent of "
+                        "blocks [500 to 600). (at same start)"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { Extent::distance_in_blks(ref, Extent(550, 100, true)); },
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The suballoc'd block 550 "
+                        "overlaps with the reference extent of "
+                        "blocks [500 to 600). (ext start is ahead ref)"
+                        )
+                    )
+                )
+        );
+
     }
 }

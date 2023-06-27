@@ -83,3 +83,14 @@ class ExtentOutOfBounds : public std::exception {
 
         virtual const char* what() const noexcept override;
 };
+
+class ExtentOverlapError: public std::exception {
+    private:
+        std::string msg;
+
+    public:
+        ExtentOverlapError(const Extent& ref, const Extent& ext, const std::string& msg);
+        ExtentOverlapError(const Extent& ref, const Extent& ext, const F& msg);
+
+        virtual const char* what() const noexcept override;
+};

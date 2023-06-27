@@ -105,3 +105,46 @@ ExtentOutOfBounds::ExtentOutOfBounds(const Repository& repo, const Extent& ext, 
 const char* ExtentOutOfBounds::what() const noexcept {
     return msg.data();
 }
+
+ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const std::string& msg) {
+    const uint16_t ref_blk_cnt = ref.is_suballoc() ? 1 : ref.blk_cnt();
+    const uint16_t ext_blk_cnt = ext.is_suballoc() ? 1 : ext.blk_cnt();
+
+    std::stringstream ss;
+
+    if (ext.is_suballoc()) {
+        ss << "The suballoc'd block "
+           << ext.blk_nr()
+           << " ";
+    } else {
+        ss << "The extent of blocks ["
+           << ext.blk_nr()
+           << " to "
+           << ext.blk_nr() + ext_blk_cnt
+           << ") ";
+    }
+
+    ss << "overlaps with the reference ";
+    if (ref.is_suballoc()) {
+        ss << "suballoc'd block "
+           << ref.blk_nr()
+           << ". ";
+    } else {
+       ss << "extent of blocks ["
+       << ref.blk_nr()
+       << " to "
+       << ref.blk_nr() + ref_blk_cnt
+       << "). ";
+    }
+
+
+    ss << msg;
+
+    this->msg = ss.str();
+}
+
+ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const F& msg) : ExtentOverlapError(ref, ext, msg.ss.str()) {}
+
+const char* ExtentOverlapError::what() const noexcept {
+    return msg.data();
+}
