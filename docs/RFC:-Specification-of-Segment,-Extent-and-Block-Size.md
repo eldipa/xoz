@@ -102,8 +102,11 @@ by `lo_blk_nr` (10 LSB) and `hi_blk_nr` (16 MSB), both as
 unsigned numbers.
 
 If `near = 1`, the `hi_blk_nr` is **not** present and `lo_blk_nr`
-is interpreted as *2-complement signed offset* respect the previous extent
-in the *segment*.
+is interpreted as *signed offset* respect the previous extent
+in the *segment*:
+
+ - MSB of `lo_blk_nr` is the sign: `0` positive, `1` negative.
+ - the 9 remaining bits are the magnitude.
 
 Let `prev` and `cur` be the previous and current extents
 and let `len` be the length
@@ -113,14 +116,14 @@ suballoc'd).
 Then `cur.blk_nr` is defined as:
 
  - if `cur.lo_blk_nr > 0` (strictly positive), the `cur.blk_nr` is
-   `prev.blk_nr + prev.len + cur.lo_blk_nr - 1`
+   `prev.blk_nr + prev.len + cur.lo_blk_nr`
 
    In other words, `cur.lo_blk_nr` counts *forward* how many blocks
-   *after the end* of the previous `prev` extent (minus 1)
+   *after the end* of the previous `prev` extent
    the current `cur` extent *begins* (and `cur.len` blocks follows).
 
-   `cur.lo_blk_nr = 1` means the current extent immediately follows
-   the previous.
+   `cur.lo_blk_nr = (+)0` means the current extent immediately follows
+   the previous. (bits: `0 000000000`)
 
  - if `cur.lo_blk_nr < 0` (strictly negative), the `cur.blk_nr` is
    `prev.blk_nr + cur.lo_blk_nr - cur.len + 1`
@@ -129,8 +132,8 @@ Then `cur.blk_nr` is defined as:
    *from the begin* of the previous `prev` extent the current `cur`
    extents *ends* (and `cur.lo_blk_nr - cur.len` marks the begin).
 
-   `cur.lo_blk_nr = -1` means the current extent immediately precedes
-   the previous.
+   `cur.lo_blk_nr = (-)0` means the current extent immediately precedes
+   the previous. (bits: `1 000000000`)
 
 In either case computing `cur.blk_nr` must not wraparound, neither overflow
 nor underflow. If such happen it should be considered a corruption or
