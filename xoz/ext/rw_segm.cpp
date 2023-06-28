@@ -123,12 +123,35 @@ void Segment::load(std::istream& fp, uint64_t max_rw_sz, uint64_t endpos) {
     assert(remain_sz == 0);
 }
 
+static
+void fail_if_no_room_in_file(std::ostream& fp, uint64_t requested_sz, uint64_t endpos = uint64_t(-1)) {
+    auto curp = fp.tellp();
+
+    if (endpos == uint64_t(-1)) {
+        // Save the end position
+        fp.seekp(0, std::ios_base::end);
+        endpos = fp.tellp();
+
+        // Rollback
+        fp.seekp(curp);
+    }
+
+    assert(std::streampos(endpos) >= curp);
+
+    auto available_sz = endpos - curp;
+    if (requested_sz > available_sz) {
+        throw "";
+    }
+}
+
 
 void Segment::write(std::ostream& fp, uint64_t endpos) const {
     const Segment& segm = *this;
 
     assert(std::streampos(endpos) >= fp.tellp());
     segm.fail_if_invalid_empty();
+
+    fail_if_no_room_in_file(fp, segm.calc_footprint_disk_size(), endpos);
 
     // We track how many extents remain in the list
     size_t remain = segm.arr.size();
