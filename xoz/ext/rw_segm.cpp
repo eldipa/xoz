@@ -34,19 +34,26 @@ void Segment::fail_if_bad_inline_sz() const {
     }
 }
 
-void Segment::load(std::istream& fp, uint64_t endpos) {
+void Segment::load(std::istream& fp, uint64_t max_rw_sz, uint64_t endpos) {
     assert(std::streampos(endpos) >= fp.tellg());
-    bool is_more = true;
+
+    // Check that the segment size to read (aka remain_sz)
+    // is smaller than the available size in the file.
+    uint64_t remain_sz = max_rw_sz;
+    assert(remain_sz <= (endpos - fp.tellg()));
+    assert(remain_sz % 2 == 0);
 
     Segment segm;
 
-    while (is_more) {
-        is_more = false;
+    while (remain_sz >= 2) {
+        assert(remain_sz % 2 == 0);
 
         uint16_t hdr_ext;
-        CHK_READ_ROOM(fp, endpos, sizeof(hdr_ext));
+        //CHK_READ_ROOM(fp, endpos, sizeof(hdr_ext));
 
         fp.read((char*)&hdr_ext, sizeof(hdr_ext));
+        remain_sz -= sizeof(hdr_ext);
+
         hdr_ext = u16_from_le(hdr_ext);
 
         bool is_suballoc = READ_HdrEXT_SUBALLOC_FLAG(hdr_ext);
@@ -68,20 +75,20 @@ void Segment::load(std::istream& fp, uint64_t endpos) {
             }
 
             if (inline_sz > 0) {
-                CHK_READ_ROOM(fp, endpos, inline_sz);
+                CHK_READ_ROOM(remain_sz, inline_sz);
                 fp.read((char*)segm.raw.data(), inline_sz);
+                remain_sz -= inline_sz;
             }
 
         } else {
-            is_more = READ_HdrEXT_MORE_FLAG(hdr_ext);
-
             uint8_t smallcnt = READ_HdrEXT_SMALLCNT(hdr_ext);
             uint16_t hi_blk_nr = READ_HdrEXT_HI_BLK_NR(hdr_ext);
 
             uint16_t lo_blk_nr;
-            CHK_READ_ROOM(fp, endpos, sizeof(lo_blk_nr));
+            CHK_READ_ROOM(remain_sz, sizeof(lo_blk_nr));
 
             fp.read((char*)&lo_blk_nr, sizeof(lo_blk_nr));
+            remain_sz -= sizeof(lo_blk_nr);
             lo_blk_nr = u16_from_le(lo_blk_nr);
 
             uint16_t blk_cnt = 0;
@@ -91,8 +98,9 @@ void Segment::load(std::istream& fp, uint64_t endpos) {
             } else {
                 assert (smallcnt == 0);
 
-                CHK_READ_ROOM(fp, endpos, sizeof(blk_cnt));
+                CHK_READ_ROOM(remain_sz, sizeof(blk_cnt));
                 fp.read((char*)&blk_cnt, sizeof(blk_cnt));
+                remain_sz -= sizeof(blk_cnt);
                 blk_cnt = u16_from_le(blk_cnt);
             }
 
@@ -111,6 +119,8 @@ void Segment::load(std::istream& fp, uint64_t endpos) {
     this->arr = std::move(segm.arr);
     this->raw = std::move(segm.raw);
     this->inline_present = segm.inline_present;
+
+    assert(remain_sz == 0);
 }
 
 
@@ -120,9 +130,7 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
     assert(std::streampos(endpos) >= fp.tellp());
     segm.fail_if_invalid_empty();
 
-    // All the extent except the last one will have the 'more' bit set
-    // We track how many extents remain in the list to know when
-    // and when not we have to set the 'more' bit
+    // We track how many extents remain in the list
     size_t remain = segm.arr.size();
 
     // If an inline follows the last extent, make it appear
@@ -136,13 +144,7 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
 
         // The first (highest) 2 bytes
         uint16_t hdr_ext = 0;
-
-        bool is_more = (remain > 1);
         --remain;
-
-        // Save the 'more' bit
-        if (is_more)
-            hdr_ext = WRITE_HdrEXT_MORE_FLAG(hdr_ext);
 
         // ext.blk_nr encodes in its highest bits meta-information
         // in this case, if the block is for sub-block allaction

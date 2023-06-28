@@ -40,13 +40,13 @@ class Segment {
         return raw;
     }
 
-    static Segment load_segment(std::istream& fp, uint64_t endpos) {
+    static Segment load_segment(std::istream& fp, uint64_t segm_sz, uint64_t endpos) {
         Segment segm;
-        segm.load(fp, endpos);
+        segm.load(fp, segm_sz, endpos);
         return segm;
     }
 
-    void load(std::istream& fp, uint64_t endpos);
+    void load(std::istream& fp, uint64_t segm_sz, uint64_t endpos);
     void write(std::ostream& fp, uint64_t endpos) const;
 
     uint32_t calc_footprint_disk_size() const;

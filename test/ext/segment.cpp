@@ -30,19 +30,20 @@ using ::testing_xoz::helpers::hexdump;
 
 // Load from fp the extents and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
-#define XOZ_EXPECT_DESERIALIZATION(fp, endpos) do {             \
-    std::stringstream fp2;                                      \
-    auto curg = (fp).tellg();                                   \
-    auto curp = (fp).tellp();                                   \
-    (fp).seekg(0);                                              \
-    (fp).seekp(0);                                              \
-                                                                \
-    Segment segm = Segment::load_segment((fp), (endpos));       \
-    segm.write(fp2, (endpos));                                  \
-    EXPECT_EQ((fp).str(), fp2.str());                           \
-    (fp).seekg(curg);                                           \
-    (fp).seekp(curp);                                           \
-    (fp).clear(); /* clear the flags */                         \
+#define XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos) do {            \
+    std::stringstream fp2;                                              \
+    auto curg = (fp).tellg();                                           \
+    auto curp = (fp).tellp();                                           \
+    (fp).seekg(0);                                                      \
+    (fp).seekp(0);                                                      \
+    auto segm_sz = (segm).calc_footprint_disk_size();                   \
+                                                                        \
+    Segment segm = Segment::load_segment((fp), segm_sz, (endpos));      \
+    segm.write(fp2, (endpos));                                          \
+    EXPECT_EQ((fp).str(), fp2.str());                                   \
+    (fp).seekg(curg);                                                   \
+    (fp).seekp(curp);                                                   \
+    (fp).clear(); /* clear the flags */                                 \
 } while (0)
 
 namespace {
@@ -102,7 +103,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
     }
 
     TEST(SegmentTest, InlineDataOnly) {
@@ -119,7 +120,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c2 4142");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         fp.str(""); // reset
 
@@ -129,9 +130,11 @@ namespace {
                 4 /* allocated size */
                 );
 
+        testing_xoz::zbreak();
+
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c4 4142 4344");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         fp.str(""); // reset
 
@@ -143,7 +146,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "43c3 4142");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         fp.str(""); // reset
 
@@ -155,7 +158,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
     }
 
     TEST(SegmentTest, InlineDataBadSize) {
@@ -206,7 +209,7 @@ namespace {
         segm.write(fp, endpos);
         EXPECT_EQ(fp.str().size(), segm.calc_footprint_disk_size());
         EXPECT_EQ(hexdump(fp).substr(0, 14), "78ff 4100 0000");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         fp.str("");
 
@@ -223,7 +226,7 @@ namespace {
         segm.write(fp, endpos);
         EXPECT_EQ(fp.str().size(), segm.calc_footprint_disk_size());
         EXPECT_EQ(hexdump(fp).substr(0, 14), "00fe 4100 0000");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
     }
 
     TEST(SegmentTest, OneExtentFullBlockOnly) {
@@ -240,7 +243,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 0000");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
         fp.str("");
@@ -253,7 +256,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "ab00 efcd 0000");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
         fp.str("");
@@ -266,7 +269,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ab00");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
         fp.str("");
@@ -279,7 +282,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0018 0100");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
         fp.str("");
@@ -292,7 +295,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 1000");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
         fp.str("");
@@ -305,7 +308,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 0080");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
     }
 
     TEST(SegmentTest, OneExtentSubAllocOnly) {
@@ -322,7 +325,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab00 0000");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
         fp.str("");
@@ -337,7 +340,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab00 0900");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
         fp.str("");
@@ -350,7 +353,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 0100 ff00");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
         fp.str("");
@@ -363,7 +366,7 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 0100 ffff");
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
     }
 
     TEST(SegmentTest, SeveralExtentsAndInline) {
@@ -382,7 +385,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 0100 1000"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
         fp.str("");
 
         segm.add_extent(Extent(2, 0, true));    // 0 sub-alloc'd blocks
@@ -395,10 +398,10 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0004 0100 1000 "
+                "0000 0100 1000 "
                 "0080 0200 0000"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
         fp.str("");
 
         segm.add_extent(Extent(3, 1, false)); // 1 full block (small extent)
@@ -412,11 +415,11 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0004 0100 1000 "
-                "0084 0200 0000 "
+                "0000 0100 1000 "
+                "0080 0200 0000 "
                 "0008 0300"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
         fp.str("");
 
         segm.add_extent(Extent(4, 0b00001001, true));    // 2 sub-alloc'd blocks
@@ -431,12 +434,12 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0004 0100 1000 "
-                "0084 0200 0000 "
-                "000c 0300 "
+                "0000 0100 1000 "
+                "0080 0200 0000 "
+                "0008 0300 "
                 "0080 0400 0900"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
         fp.str("");
 
         segm.add_extent(Extent(5, 0, false)); // 0 full block (large extent)
@@ -452,13 +455,13 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0004 0100 1000 "
-                "0084 0200 0000 "
-                "000c 0300 "
-                "0084 0400 0900 "
+                "0000 0100 1000 "
+                "0080 0200 0000 "
+                "0008 0300 "
+                "0080 0400 0900 "
                 "0000 0500 0000"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
         fp.str("");
 
         segm.set_inline_data({0xaa, 0xbb, 0xcc, 0xdd}); // 4 bytes of inline data
@@ -475,14 +478,14 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0004 0100 1000 "
-                "0084 0200 0000 "
-                "000c 0300 "
-                "0084 0400 0900 "
-                "0004 0500 0000 "
+                "0000 0100 1000 "
+                "0080 0200 0000 "
+                "0008 0300 "
+                "0080 0400 0900 "
+                "0000 0500 0000 "
                 "00c4 aabb ccdd"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
         fp.str("");
 
         segm.add_extent(Extent(6, 8, false)); // 8 full blocks (small extent)
@@ -500,14 +503,14 @@ namespace {
 
         segm.write(fp, endpos);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0004 0100 1000 "
-                "0084 0200 0000 "
-                "000c 0300 "
-                "0084 0400 0900 "
-                "0004 0500 0000 "
-                "0044 0600 "
+                "0000 0100 1000 "
+                "0080 0200 0000 "
+                "0008 0300 "
+                "0080 0400 0900 "
+                "0000 0500 0000 "
+                "0040 0600 "
                 "00c4 aabb ccdd"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
     }
 }
