@@ -43,25 +43,25 @@ void Segment::load(std::istream& fp, uint64_t endpos) {
     while (is_more) {
         is_more = false;
 
-        uint16_t hi_ext;
-        CHK_READ_ROOM(fp, endpos, sizeof(hi_ext));
+        uint16_t hdr_ext;
+        CHK_READ_ROOM(fp, endpos, sizeof(hdr_ext));
 
-        fp.read((char*)&hi_ext, sizeof(hi_ext));
-        hi_ext = u16_from_le(hi_ext);
+        fp.read((char*)&hdr_ext, sizeof(hdr_ext));
+        hdr_ext = u16_from_le(hdr_ext);
 
-        bool is_suballoc = READ_HiEXT_SUBALLOC_FLAG(hi_ext);
-        bool is_inline = READ_HiEXT_INLINE_FLAG(hi_ext);
+        bool is_suballoc = READ_HdrEXT_SUBALLOC_FLAG(hdr_ext);
+        bool is_inline = READ_HdrEXT_INLINE_FLAG(hdr_ext);
 
         if (is_suballoc and is_inline) {
             segm.inline_present = true;
 
-            uint16_t inline_sz = READ_HiEXT_INLINE_SZ(hi_ext);
-            uint8_t last = READ_HiEXT_INLINE_LAST(hi_ext);
+            uint16_t inline_sz = READ_HdrEXT_INLINE_SZ(hdr_ext);
+            uint8_t last = READ_HdrEXT_INLINE_LAST(hdr_ext);
 
             segm.raw.resize(inline_sz);
 
             // If the size is odd, reduce it by one as the last
-            // byte was already loaded from hi_ext
+            // byte was already loaded from hdr_ext
             if (inline_sz % 2 == 1) {
                 segm.raw[inline_sz-1] = last;
                 inline_sz -= 1;
@@ -73,10 +73,10 @@ void Segment::load(std::istream& fp, uint64_t endpos) {
             }
 
         } else {
-            is_more = READ_HiEXT_MORE_FLAG(hi_ext);
+            is_more = READ_HdrEXT_MORE_FLAG(hdr_ext);
 
-            uint8_t smallcnt = READ_HiEXT_SMALLCNT(hi_ext);
-            uint16_t hi_blk_nr = READ_HiEXT_HI_BLK_NR(hi_ext);
+            uint8_t smallcnt = READ_HdrEXT_SMALLCNT(hdr_ext);
+            uint16_t hi_blk_nr = READ_HdrEXT_HI_BLK_NR(hdr_ext);
 
             uint16_t lo_blk_nr;
             CHK_READ_ROOM(fp, endpos, sizeof(lo_blk_nr));
@@ -135,20 +135,20 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
         assert (remain > 0);
 
         // The first (highest) 2 bytes
-        uint16_t hi_ext = 0;
+        uint16_t hdr_ext = 0;
 
         bool is_more = (remain > 1);
         --remain;
 
         // Save the 'more' bit
         if (is_more)
-            hi_ext = WRITE_HiEXT_MORE_FLAG(hi_ext);
+            hdr_ext = WRITE_HdrEXT_MORE_FLAG(hdr_ext);
 
         // ext.blk_nr encodes in its highest bits meta-information
         // in this case, if the block is for sub-block allaction
         bool is_suballoc = ext.is_suballoc();
         if (is_suballoc)
-            hi_ext = WRITE_HiEXT_SUBALLOC_FLAG(hi_ext);
+            hdr_ext = WRITE_HdrEXT_SUBALLOC_FLAG(hdr_ext);
 
         uint8_t smallcnt = 0;
         if (not is_suballoc and ext.blk_cnt() <= EXT_SMALLCNT_MAX and ext.blk_cnt() > 0) {
@@ -158,20 +158,20 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
         // This may set the smallcnt *iff* not suballoc and the
         // count can be represented in the smallcnt bitfield
         // otherwise this will set zeros in there (no-op)
-        hi_ext = WRITE_HiEXT_SMALLCNT(hi_ext, smallcnt);
+        hdr_ext = WRITE_HdrEXT_SMALLCNT(hdr_ext, smallcnt);
 
         // Split the block number in two parts
         uint16_t hi_blk_nr = ext.hi_blk_nr();
         uint16_t lo_blk_nr = ext.lo_blk_nr();
 
         // Save the highest bits
-        hi_ext = WRITE_HiEXT_HI_BLK_NR(hi_ext, hi_blk_nr);
+        hdr_ext = WRITE_HdrEXT_HI_BLK_NR(hdr_ext, hi_blk_nr);
 
-        // Now hi_ext and lo_blk_nr are complete: write both to disk
-        CHK_WRITE_ROOM(fp, endpos, sizeof(hi_ext) + sizeof(lo_blk_nr));
+        // Now hdr_ext and lo_blk_nr are complete: write both to disk
+        CHK_WRITE_ROOM(fp, endpos, sizeof(hdr_ext) + sizeof(lo_blk_nr));
 
-        hi_ext = u16_to_le(hi_ext);
-        fp.write((char*)&hi_ext, sizeof(hi_ext));
+        hdr_ext = u16_to_le(hdr_ext);
+        fp.write((char*)&hdr_ext, sizeof(hdr_ext));
 
         lo_blk_nr = u16_to_le(lo_blk_nr);
         fp.write((char*)&lo_blk_nr, sizeof(lo_blk_nr));
@@ -197,10 +197,10 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
         uint16_t inline_sz = uint16_t(segm.raw.size());
 
         // The first (highest) 2 bytes
-        uint16_t hi_ext = 0;
-        hi_ext = WRITE_HiEXT_SUBALLOC_FLAG(hi_ext);
-        hi_ext = WRITE_HiEXT_INLINE_FLAG(hi_ext);
-        hi_ext = WRITE_HiEXT_INLINE_SZ(hi_ext, inline_sz);
+        uint16_t hdr_ext = 0;
+        hdr_ext = WRITE_HdrEXT_SUBALLOC_FLAG(hdr_ext);
+        hdr_ext = WRITE_HdrEXT_INLINE_FLAG(hdr_ext);
+        hdr_ext = WRITE_HdrEXT_INLINE_SZ(hdr_ext, inline_sz);
 
         uint8_t last = 0x00;
 
@@ -212,12 +212,12 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
         }
 
         // the last byte of raw or 0x00 as padding
-        hi_ext = WRITE_HiEXT_INLINE_LAST(hi_ext, last);
+        hdr_ext = WRITE_HdrEXT_INLINE_LAST(hdr_ext, last);
 
-        // Now hi_ext is complete: write it to disk
-        CHK_WRITE_ROOM(fp, endpos, sizeof(hi_ext) + inline_sz);
-        hi_ext = u16_to_le(hi_ext);
-        fp.write((char*)&hi_ext, sizeof(hi_ext));
+        // Now hdr_ext is complete: write it to disk
+        CHK_WRITE_ROOM(fp, endpos, sizeof(hdr_ext) + inline_sz);
+        hdr_ext = u16_to_le(hdr_ext);
+        fp.write((char*)&hdr_ext, sizeof(hdr_ext));
 
         // After the uint8_t raw follows, if any
         if (inline_sz > 0) {
