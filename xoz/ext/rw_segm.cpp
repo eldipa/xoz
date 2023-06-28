@@ -151,23 +151,25 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
     assert(std::streampos(endpos) >= fp.tellp());
     segm.fail_if_invalid_empty();
 
-    fail_if_no_room_in_file(fp, segm.calc_footprint_disk_size(), endpos);
+    // Track how many bytes we written so far
+    uint64_t remain_sz = segm.calc_footprint_disk_size();
+    fail_if_no_room_in_file(fp, remain_sz, endpos);
 
-    // We track how many extents remain in the list
-    size_t remain = segm.arr.size();
+    // We track how many extents remain_cnt in the list
+    size_t remain_cnt = segm.arr.size();
 
     // If an inline follows the last extent, make it appear
-    // and another remain item.
+    // and another remain_cnt item.
     if (segm.inline_present) {
-        ++remain;
+        ++remain_cnt;
     }
 
     for (const auto& ext : segm.arr) {
-        assert (remain > 0);
+        assert (remain_cnt > 0);
 
         // The first (highest) 2 bytes
         uint16_t hdr_ext = 0;
-        --remain;
+        --remain_cnt;
 
         // ext.blk_nr encodes in its highest bits meta-information
         // in this case, if the block is for sub-block allaction
@@ -211,8 +213,8 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
     }
 
     if (segm.inline_present) {
-        assert (remain == 1);
-        --remain;
+        assert (remain_cnt == 1);
+        --remain_cnt;
 
         // TODO if we fail here we'll left the file corrupted:
         // the last extent has 'more' set but garbage follows.
@@ -250,6 +252,6 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
         }
     }
 
-    assert (remain == 0);
+    assert (remain_cnt == 0);
 }
 
