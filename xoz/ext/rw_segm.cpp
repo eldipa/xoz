@@ -166,6 +166,7 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
 
     for (const auto& ext : segm.arr) {
         assert (remain_cnt > 0);
+        assert (remain_sz >= 2);
 
         // The first (highest) 2 bytes
         uint16_t hdr_ext = 0;
@@ -199,9 +200,11 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
 
         hdr_ext = u16_to_le(hdr_ext);
         fp.write((char*)&hdr_ext, sizeof(hdr_ext));
+        remain_sz -= sizeof(hdr_ext);
 
         lo_blk_nr = u16_to_le(lo_blk_nr);
         fp.write((char*)&lo_blk_nr, sizeof(lo_blk_nr));
+        remain_sz -= sizeof(lo_blk_nr);
 
         assert (not (is_suballoc and smallcnt));
         if (is_suballoc or smallcnt == 0) {
@@ -209,6 +212,7 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
             uint16_t blk_cnt = u16_to_le(ext.blk_cnt());
             CHK_WRITE_ROOM(fp, endpos, sizeof(blk_cnt));
             fp.write((char*)&blk_cnt, sizeof(blk_cnt));
+            remain_sz -= sizeof(blk_cnt);
         }
     }
 
@@ -245,13 +249,16 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
         CHK_WRITE_ROOM(fp, endpos, sizeof(hdr_ext) + inline_sz);
         hdr_ext = u16_to_le(hdr_ext);
         fp.write((char*)&hdr_ext, sizeof(hdr_ext));
+        remain_sz -= sizeof(hdr_ext);
 
         // After the uint8_t raw follows, if any
         if (inline_sz > 0) {
             fp.write((char*)segm.raw.data(), inline_sz);
+            remain_sz -= inline_sz;
         }
     }
 
     assert (remain_cnt == 0);
+    assert (remain_sz == 0);
 }
 
