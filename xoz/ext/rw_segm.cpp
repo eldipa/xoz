@@ -144,6 +144,13 @@ void fail_if_no_room_in_file(std::ostream& fp, uint64_t requested_sz, uint64_t e
     }
 }
 
+constexpr
+void assert_write_room_and_consume(uint64_t requested_sz, uint64_t* available_sz) {
+    // hard failure as failing this is considered a bug
+    assert(requested_sz <= *available_sz);
+    *available_sz -= requested_sz;
+}
+
 
 void Segment::write(std::ostream& fp, uint64_t endpos) const {
     const Segment& segm = *this;
@@ -196,23 +203,20 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
         hdr_ext = WRITE_HdrEXT_HI_BLK_NR(hdr_ext, hi_blk_nr);
 
         // Now hdr_ext and lo_blk_nr are complete: write both to disk
-        CHK_WRITE_ROOM(fp, endpos, sizeof(hdr_ext) + sizeof(lo_blk_nr));
+        assert_write_room_and_consume(sizeof(hdr_ext) + sizeof(lo_blk_nr), &remain_sz);
 
         hdr_ext = u16_to_le(hdr_ext);
         fp.write((char*)&hdr_ext, sizeof(hdr_ext));
-        remain_sz -= sizeof(hdr_ext);
 
         lo_blk_nr = u16_to_le(lo_blk_nr);
         fp.write((char*)&lo_blk_nr, sizeof(lo_blk_nr));
-        remain_sz -= sizeof(lo_blk_nr);
 
         assert (not (is_suballoc and smallcnt));
         if (is_suballoc or smallcnt == 0) {
             // write blk_cnt/bitmap
             uint16_t blk_cnt = u16_to_le(ext.blk_cnt());
-            CHK_WRITE_ROOM(fp, endpos, sizeof(blk_cnt));
+            assert_write_room_and_consume(sizeof(blk_cnt), &remain_sz);
             fp.write((char*)&blk_cnt, sizeof(blk_cnt));
-            remain_sz -= sizeof(blk_cnt);
         }
     }
 
@@ -246,15 +250,13 @@ void Segment::write(std::ostream& fp, uint64_t endpos) const {
         hdr_ext = WRITE_HdrEXT_INLINE_LAST(hdr_ext, last);
 
         // Now hdr_ext is complete: write it to disk
-        CHK_WRITE_ROOM(fp, endpos, sizeof(hdr_ext) + inline_sz);
+        assert_write_room_and_consume(sizeof(hdr_ext) + inline_sz, &remain_sz);
         hdr_ext = u16_to_le(hdr_ext);
         fp.write((char*)&hdr_ext, sizeof(hdr_ext));
-        remain_sz -= sizeof(hdr_ext);
 
         // After the uint8_t raw follows, if any
         if (inline_sz > 0) {
             fp.write((char*)segm.raw.data(), inline_sz);
-            remain_sz -= inline_sz;
         }
     }
 

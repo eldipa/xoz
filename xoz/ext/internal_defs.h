@@ -31,10 +31,3 @@ do {                                        \
     }                                       \
 } while(0)
 
-#define CHK_WRITE_ROOM(fp, endpos, sz)       \
-do {                                        \
-    if ((endpos) - (fp).tellp() < (sz)) {   \
-        throw "1";                          \
-    }                                       \
-} while(0)
-
