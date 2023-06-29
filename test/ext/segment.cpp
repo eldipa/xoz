@@ -706,4 +706,22 @@ namespace {
         // Nothing was written (except the dummy values)
         EXPECT_EQ(are_all_zeros(fp, 4), (bool)true);
     }
+
+    TEST(SegmentTest, ReadSegmSizeNotMultipleOfTwo) {
+        std::stringstream fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        Segment segm;
+
+        // Read size must be a multiple of 2
+        EXPECT_THAT(
+            [&]() { Segment::load_segment(fp, 3); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "the size to read 3 must be a multiple of 2."
+                        )
+                    )
+                )
+        );
+    }
 }

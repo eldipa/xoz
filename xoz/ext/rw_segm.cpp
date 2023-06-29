@@ -97,7 +97,11 @@ void Segment::load(std::istream& fp, uint64_t max_rw_sz) {
     // is smaller than the available size in the file.
     uint64_t remain_sz = max_rw_sz;
     if (remain_sz % 2 != 0) {
-        throw "";
+        throw std::runtime_error((F()
+               << "the size to read "
+               << max_rw_sz
+               << " must be a multiple of 2."
+               ).str());
     }
 
     fail_if_no_room_in_file_for_read(fp, remain_sz);
