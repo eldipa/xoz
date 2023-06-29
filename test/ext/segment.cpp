@@ -208,8 +208,8 @@ namespace {
                 );
 
         segm.write(fp);
-        EXPECT_EQ(fp.str().size(), segm.calc_footprint_disk_size());
-        EXPECT_EQ(hexdump(fp).substr(0, 14), "78ff 4100 0000");
+        EXPECT_EQ(hexdump(fp, 0, 6), "78ff 4100 0000");
+        EXPECT_EQ(are_all_zeros(fp, 6), true); // all zeros to the end
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         fp.str(std::string(FP_SZ, '\0')); // reset
@@ -225,8 +225,9 @@ namespace {
                 );
 
         segm.write(fp);
-        EXPECT_EQ(fp.str().size(), segm.calc_footprint_disk_size());
-        EXPECT_EQ(hexdump(fp).substr(0, 14), "00fe 4100 0000");
+        EXPECT_EQ(hexdump(fp, 0, 6), "00fe 4100 0000");
+        EXPECT_EQ(are_all_zeros(fp, 6, 57), true); // all zeros to the end except the last byte
+        EXPECT_EQ(hexdump(fp, 6+57), "78"); // chk last byte
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
     }
 
