@@ -23,6 +23,21 @@ std::string testing_xoz::helpers::hexdump(const std::stringstream& fp, unsigned 
     return out.str();
 }
 
+bool testing_xoz::helpers::are_all_zeros(const std::stringstream& fp, unsigned at, unsigned len) {
+    if (at + len < at) {
+        len = unsigned(-1) - at;
+    }
+
+    std::string bytes = fp.str();
+    for (unsigned i = at; i < bytes.size() and i < at + len; ++i) {
+        if (bytes[i] != 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 const std::stringstream testing_xoz::helpers::file2mem(const char* path) {
     std::ifstream input(path);
     std::stringstream ss;

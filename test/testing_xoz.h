@@ -7,6 +7,7 @@
 namespace testing_xoz {
     namespace helpers {
         std::string hexdump(const std::stringstream& fp, unsigned at = 0, unsigned len = unsigned(-1));
+        bool are_all_zeros(const std::stringstream& fp, unsigned at = 0, unsigned len = unsigned(-1));
 
         template<class T>
         std::vector<T> subvec(const std::vector<T>& vec, signed begin, signed end = 0) {
