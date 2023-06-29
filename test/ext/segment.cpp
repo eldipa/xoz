@@ -13,6 +13,9 @@ using ::testing::AllOf;
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::are_all_zeros;
 
+namespace {
+const size_t FP_SZ = 64;
+}
 
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
@@ -32,7 +35,7 @@ using ::testing_xoz::helpers::are_all_zeros;
 // Load from fp the extents and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
 #define XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos) do {            \
-    std::stringstream fp2(std::string(64, '\0'));                       \
+    std::stringstream fp2(std::string(FP_SZ, '\0'));                       \
     auto curg = (fp).tellg();                                           \
     auto curp = (fp).tellp();                                           \
     (fp).seekg(0);                                                      \
@@ -50,7 +53,7 @@ using ::testing_xoz::helpers::are_all_zeros;
 namespace {
     TEST(SegmentTest, InvalidEmpty) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp(std::string(64, '\0'));
+        std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
         // An "uninitialized/empty" Segment is *not* a valid
@@ -88,7 +91,7 @@ namespace {
     TEST(SegmentTest, ValidEmpty) {
         const uint8_t blk_sz_order = 10;
         const uint64_t endpos = (1 << 20);
-        std::stringstream fp(std::string(64, '\0'));
+        std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm = Segment::createEmpty();
 
         // Check sizes
@@ -109,7 +112,7 @@ namespace {
     TEST(SegmentTest, InlineDataOnly) {
         const uint8_t blk_sz_order = 10;
         const uint64_t endpos = (1 << 20);
-        std::stringstream fp(std::string(64, '\0'));
+        std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
         segm.set_inline_data({0x41, 0x42});
@@ -122,7 +125,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c2 4142");
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.set_inline_data({0x41, 0x42, 0x43, 0x44});
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -134,7 +137,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c4 4142 4344");
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.set_inline_data({0x41, 0x42, 0x43});
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -146,7 +149,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, segm, "43c3 4142");
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.set_inline_data({0x41});
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -162,7 +165,7 @@ namespace {
     TEST(SegmentTest, InlineDataBadSize) {
         const uint8_t blk_sz_order = 10;
         const uint64_t endpos = (1 << 20);
-        std::stringstream fp(std::string(64, '\0'));
+        std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
         segm.set_inline_data(std::vector<uint8_t>(1 << 6));
@@ -209,7 +212,7 @@ namespace {
         EXPECT_EQ(hexdump(fp).substr(0, 14), "78ff 4100 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         // This check the maximum allowed minus 1
         segm.set_inline_data(std::vector<uint8_t>((1 << 6) - 2));
@@ -230,7 +233,7 @@ namespace {
     TEST(SegmentTest, OneExtentFullBlockOnly) {
         const uint8_t blk_sz_order = 10;
         const uint64_t endpos = (1 << 20);
-        std::stringstream fp(std::string(64, '\0'));
+        std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
         segm.add_extent(Extent(0xab, 0, false)); // 0 full block (large extent)
@@ -244,7 +247,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(0x00abcdef, 0, false)); // 0 full block (large extent) (diff addr)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -257,7 +260,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(0xab, 1, false)); // 1 full block (small extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -270,7 +273,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(1, 3, false)); // 3 full blocks (small extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -283,7 +286,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(0xab, 16, false)); // 16 full blocks (large extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -296,7 +299,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(0xab, (1 << 15), false)); // 32k full blocks (large extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -312,7 +315,7 @@ namespace {
     TEST(SegmentTest, OneExtentSubAllocOnly) {
         const uint8_t blk_sz_order = 10;
         const uint64_t endpos = (1 << 20);
-        std::stringstream fp(std::string(64, '\0'));
+        std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
         segm.add_extent(Extent(0xab, 0, true));    // 0 sub-alloc'd blocks
@@ -326,7 +329,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(0xab, 0b00001001, true));    // 2 sub-alloc'd blocks
         EXPECT_EQ(segm.calc_footprint_disk_size(), (unsigned) 6);
@@ -341,7 +344,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(1, 0b11111111, true));    // 8 sub-alloc'd blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -354,7 +357,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
 
         segm.clear_extents();
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(1, 0b1111111111111111, true));    // 16 sub-alloc'd blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -370,7 +373,7 @@ namespace {
     TEST(SegmentTest, SeveralExtentsAndInline) {
         const uint8_t blk_sz_order = 10;
         const uint64_t endpos = (1 << 20);
-        std::stringstream fp(std::string(64, '\0'));
+        std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
         segm.add_extent(Extent(1, 16, false)); // 16 full blocks (large extent)
@@ -384,7 +387,7 @@ namespace {
                 "0000 0100 1000"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(2, 0, true));    // 0 sub-alloc'd blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -400,7 +403,7 @@ namespace {
                 "0080 0200 0000"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(3, 1, false)); // 1 full block (small extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -418,7 +421,7 @@ namespace {
                 "0008 0300"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(4, 0b00001001, true));    // 2 sub-alloc'd blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -438,7 +441,7 @@ namespace {
                 "0080 0400 0900"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(5, 0, false)); // 0 full block (large extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -460,7 +463,7 @@ namespace {
                 "0000 0500 0000"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.set_inline_data({0xaa, 0xbb, 0xcc, 0xdd}); // 4 bytes of inline data
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -484,7 +487,7 @@ namespace {
                 "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
-        fp.str(std::string(64, '\0')); // reset
+        fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(6, 8, false)); // 8 full blocks (small extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
