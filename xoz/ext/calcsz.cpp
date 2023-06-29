@@ -69,7 +69,6 @@ uint32_t Segment::calc_footprint_disk_size() const {
 
     Extent prev(0, 0, false);
 
-    segm.fail_if_invalid_empty();
     uint32_t sz = 0;
     for (const auto& ext : segm.arr) {
         // Ext header, always present
@@ -132,7 +131,6 @@ uint32_t Extent::calc_usable_space_size(uint8_t blk_sz_order) const {
 uint32_t Segment::calc_usable_space_size(uint8_t blk_sz_order) const {
     const Segment& segm = *this;
 
-    segm.fail_if_invalid_empty();
     uint32_t sz = 0;
     for (const auto& ext : segm.arr) {
         sz += ext.calc_usable_space_size(blk_sz_order);

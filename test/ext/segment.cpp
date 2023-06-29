@@ -51,47 +51,31 @@ const size_t FP_SZ = 64;
 } while (0)
 
 namespace {
-    TEST(SegmentTest, InvalidEmpty) {
+    TEST(SegmentTest, ValidEmptyZeroBytes) {
         const uint8_t blk_sz_order = 10;
         std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
-        // An "uninitialized/empty" Segment is *not* a valid
-        // empty Segment.
-        EXPECT_THAT(
-            [&]() { segm.calc_footprint_disk_size(); },
-            ThrowsMessage<WouldEndUpInconsistentXOZ>(
-                AllOf(
-                    HasSubstr("Segment is literally empty: no extents and no inline data.")
-                    )
-                )
-        );
+        // Check sizes
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                0, /* disc size */
+                0 /* allocated size */
+                );
 
-        EXPECT_THAT(
-            [&]() { segm.calc_usable_space_size(blk_sz_order); },
-            ThrowsMessage<WouldEndUpInconsistentXOZ>(
-                AllOf(
-                    HasSubstr("Segment is literally empty: no extents and no inline data.")
-                    )
-                )
-        );
-
-        EXPECT_THAT(
-            [&]() { segm.write(fp); },
-            ThrowsMessage<WouldEndUpInconsistentXOZ>(
-                AllOf(
-                    HasSubstr("Segment is literally empty: no extents and no inline data.")
-                    )
-                )
-        );
-
+        // Write and check the dump
+        segm.write(fp);
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "");
         EXPECT_EQ(are_all_zeros(fp), (bool)true);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
-    TEST(SegmentTest, ValidEmpty) {
+    TEST(SegmentTest, ValidEmptyZeroInline) {
         const uint8_t blk_sz_order = 10;
         std::stringstream fp(std::string(FP_SZ, '\0'));
-        Segment segm = Segment::createEmpty();
+        Segment segm = Segment::create_empty_zero_inline();
 
         // Check sizes
         XOZ_EXPECT_SIZES(segm, blk_sz_order,

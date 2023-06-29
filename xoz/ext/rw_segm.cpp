@@ -10,15 +10,6 @@
 #include <iostream>
 #include <cassert>
 
-// An Segment is "valid" empty if and only if it has no extent
-// and it as an inline of 0 bytes.
-// Otherwise, it must have or at least 1 extent or inline data.
-void Segment::fail_if_invalid_empty() const {
-    const Segment& segm = *this;
-    if (segm.arr.size() == 0 and not segm.inline_present)
-        throw WouldEndUpInconsistentXOZ("Segment is literally empty: no extents and no inline data. This is not allowed, an valid empty Segment can be made by a zero inline data.");
-}
-
 void Segment::fail_if_bad_inline_sz() const {
     const Segment& segm = *this;
     size_t inline_sz = segm.raw.size();
@@ -163,8 +154,6 @@ void Segment::load(std::istream& fp, uint64_t max_rw_sz) {
         }
     }
 
-    segm.fail_if_invalid_empty();
-
     // Override this segment with the loaded one
     this->arr = std::move(segm.arr);
     this->raw = std::move(segm.raw);
@@ -175,8 +164,6 @@ void Segment::load(std::istream& fp, uint64_t max_rw_sz) {
 
 void Segment::write(std::ostream& fp) const {
     const Segment& segm = *this;
-
-    segm.fail_if_invalid_empty();
 
     // Track how many bytes we written so far
     uint64_t remain_sz = segm.calc_footprint_disk_size();

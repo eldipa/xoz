@@ -16,7 +16,7 @@ class Segment {
     public:
     Segment() : inline_present(false) {}
 
-    static Segment createEmpty() {
+    static Segment create_empty_zero_inline() {
         Segment segm;
         segm.inline_present = true;
         return segm;
@@ -53,7 +53,6 @@ class Segment {
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
 
     private:
-    void fail_if_invalid_empty() const;
     void fail_if_bad_inline_sz() const;
 };
 
