@@ -148,3 +148,22 @@ ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, con
 const char* ExtentOverlapError::what() const noexcept {
     return msg.data();
 }
+
+NotEnoughRoom::NotEnoughRoom(uint64_t requested_sz, uint64_t available_sz, const std::string& msg) {
+    std::stringstream ss;
+    ss << "Requested "
+        << requested_sz
+        << " bytes but only "
+        << available_sz
+        << " bytes are available. ";
+
+    ss << msg;
+
+    this->msg = ss.str();
+}
+
+NotEnoughRoom::NotEnoughRoom(uint64_t requested_sz, uint64_t available_sz, const F& msg) : NotEnoughRoom(requested_sz, available_sz, msg.ss.str()) {}
+
+const char* NotEnoughRoom::what() const noexcept {
+    return msg.data();
+}

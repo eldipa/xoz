@@ -94,3 +94,14 @@ class ExtentOverlapError: public std::exception {
 
         virtual const char* what() const noexcept override;
 };
+
+class NotEnoughRoom : public std::exception {
+    private:
+        std::string msg;
+
+    public:
+        NotEnoughRoom(uint64_t requested_sz, uint64_t available_sz, const std::string& msg);
+        NotEnoughRoom(uint64_t requested_sz, uint64_t available_sz, const F& msg);
+
+        virtual const char* what() const noexcept override;
+};

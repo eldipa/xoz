@@ -42,7 +42,15 @@ void fail_if_no_room_in_file_for_write(std::ostream& fp, uint64_t requested_sz, 
 
     auto available_sz = endpos - cur;
     if (requested_sz > available_sz) {
-        throw "";
+        throw NotEnoughRoom(
+                requested_sz,
+                available_sz,
+                F() << "Write operation at position "
+                    << cur
+                    << " failed (end position is at "
+                    << endpos
+                    << ")"
+                );
     }
 }
 
@@ -63,7 +71,15 @@ void fail_if_no_room_in_file_for_read(std::istream& fp, uint64_t requested_sz, u
 
     auto available_sz = endpos - cur;
     if (requested_sz > available_sz) {
-        throw "";
+        throw NotEnoughRoom(
+                requested_sz,
+                available_sz,
+                F() << "Read operation at position "
+                    << cur
+                    << " failed (end position is at "
+                    << endpos
+                    << ")"
+                );
     }
 }
 
@@ -80,7 +96,9 @@ void Segment::load(std::istream& fp, uint64_t max_rw_sz) {
     // Check that the segment size to read (aka remain_sz)
     // is smaller than the available size in the file.
     uint64_t remain_sz = max_rw_sz;
-    assert(remain_sz % 2 == 0);
+    if (remain_sz % 2 != 0) {
+        throw "";
+    }
 
     fail_if_no_room_in_file_for_read(fp, remain_sz);
 

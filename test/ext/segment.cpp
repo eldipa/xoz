@@ -6,6 +6,8 @@
 #include "gmock/gmock.h"
 #include "test/testing_xoz.h"
 
+#include <numeric>
+
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 using ::testing::AllOf;
@@ -577,5 +579,131 @@ namespace {
                 "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
+    }
+
+    TEST(SegmentTest, FileOverflowNotEnoughRoom) {
+        const uint8_t blk_sz_order = 10;
+        std::stringstream fp;
+        XOZ_RESET_FP(fp, FP_SZ / 2); // half file size, easier to test TODO test FP_SZ only
+        Segment segm;
+
+        // Large but perfectly valid inline data
+        segm.set_inline_data(std::vector<uint8_t>(FP_SZ / 2));
+        std::iota (std::begin(segm.inline_data()), std::end(segm.inline_data()), 0); // fill with numbers
+
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                34, /* disc size */
+                32 /* allocated size */
+                );
+
+        // The read/write however exceeds the file size
+        EXPECT_THAT(
+            [&]() { Segment::load_segment(fp, segm.calc_footprint_disk_size()); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 34 bytes but only 32 bytes are available. "
+                        "Read operation at position 0 failed (end position is at 32)"
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            [&]() { segm.write(fp); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 34 bytes but only 32 bytes are available. "
+                        "Write operation at position 0 failed (end position is at 32)"
+                        )
+                    )
+                )
+        );
+
+        // Nothing was written
+        EXPECT_EQ(are_all_zeros(fp), (bool)true);
+
+        XOZ_RESET_FP(fp, FP_SZ / 2);
+        segm.remove_inline_data();
+
+
+        // Very long but perfectly valid segment of 6 suballoc blocks
+        for (int i = 0; i < 6; ++i) {
+            // each extent should have a footprint of 6 bytes
+            segm.add_extent(Extent(0x2ff + (0x2ff * i), 0xffff, true));
+        }
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                36, /* 6 extents times 6 bytes each -- disc size */
+                6 << blk_sz_order /* allocated size */
+                );
+
+        // The read/write however exceeds the file size
+        EXPECT_THAT(
+            [&]() { Segment::load_segment(fp, segm.calc_footprint_disk_size()); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 36 bytes but only 32 bytes are available. "
+                        "Read operation at position 0 failed (end position is at 32)"
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            [&]() { segm.write(fp); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 36 bytes but only 32 bytes are available. "
+                        "Write operation at position 0 failed (end position is at 32)"
+                        )
+                    )
+                )
+        );
+
+        // Nothing was written
+        EXPECT_EQ(are_all_zeros(fp), (bool)true);
+
+        XOZ_RESET_FP(fp, FP_SZ / 2);
+
+        // The same but this time write some dummy bytes in the file
+        // to generate an offset on the writes and a different offset
+        // on the read
+        char buf[1];
+        fp.write("ABCD", 4); // a 4 bytes offset for writing
+        fp.read(buf, 1); // a 1 byte offset for readings
+        EXPECT_EQ(buf[0], (char)'A');
+
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                36, /* 6 extents times 6 bytes each -- disc size */
+                6 << blk_sz_order /* allocated size */
+                );
+
+        // The read/write however exceeds the file size
+        EXPECT_THAT(
+            [&]() { Segment::load_segment(fp, segm.calc_footprint_disk_size()); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 36 bytes but only 31 bytes are available. "
+                        "Read operation at position 1 failed (end position is at 32)"
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            [&]() { segm.write(fp); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 36 bytes but only 28 bytes are available. "
+                        "Write operation at position 4 failed (end position is at 32)"
+                        )
+                    )
+                )
+        );
+
+        // Nothing was written (except the dummy values)
+        EXPECT_EQ(are_all_zeros(fp, 4), (bool)true);
     }
 }
