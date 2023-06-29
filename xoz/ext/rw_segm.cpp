@@ -34,14 +34,64 @@ void Segment::fail_if_bad_inline_sz() const {
     }
 }
 
-void Segment::load(std::istream& fp, uint64_t max_rw_sz, uint64_t endpos) {
-    assert(std::streampos(endpos) >= fp.tellg());
+static
+void fail_if_no_room_in_file_for_write(std::ostream& fp, uint64_t requested_sz, uint64_t endpos = uint64_t(-1)) {
+    auto cur = fp.tellp();
 
+    if (endpos == uint64_t(-1)) {
+        // Save the end position
+        fp.seekp(0, std::ios_base::end);
+        endpos = fp.tellp();
+
+        // Rollback
+        fp.seekp(cur);
+    }
+
+    assert(std::streampos(endpos) >= cur);
+
+    auto available_sz = endpos - cur;
+    if (requested_sz > available_sz) {
+        throw "";
+    }
+}
+
+static
+void fail_if_no_room_in_file_for_read(std::istream& fp, uint64_t requested_sz, uint64_t endpos = uint64_t(-1)) {
+    auto cur = fp.tellg();
+
+    if (endpos == uint64_t(-1)) {
+        // Save the end position
+        fp.seekg(0, std::ios_base::end);
+        endpos = fp.tellg();
+
+        // Rollback
+        fp.seekg(cur);
+    }
+
+    assert(std::streampos(endpos) >= cur);
+
+    auto available_sz = endpos - cur;
+    if (requested_sz > available_sz) {
+        throw "";
+    }
+}
+
+constexpr
+void assert_write_room_and_consume(uint64_t requested_sz, uint64_t* available_sz) {
+    // hard failure as failing this is considered a bug
+    assert(requested_sz <= *available_sz);
+    *available_sz -= requested_sz;
+}
+
+
+
+void Segment::load(std::istream& fp, uint64_t max_rw_sz) {
     // Check that the segment size to read (aka remain_sz)
     // is smaller than the available size in the file.
     uint64_t remain_sz = max_rw_sz;
-    assert(remain_sz <= (endpos - fp.tellg()));
     assert(remain_sz % 2 == 0);
+
+    fail_if_no_room_in_file_for_read(fp, remain_sz);
 
     Segment segm;
 
@@ -123,35 +173,6 @@ void Segment::load(std::istream& fp, uint64_t max_rw_sz, uint64_t endpos) {
     assert(remain_sz == 0);
 }
 
-static
-void fail_if_no_room_in_file(std::ostream& fp, uint64_t requested_sz, uint64_t endpos = uint64_t(-1)) {
-    auto curp = fp.tellp();
-
-    if (endpos == uint64_t(-1)) {
-        // Save the end position
-        fp.seekp(0, std::ios_base::end);
-        endpos = fp.tellp();
-
-        // Rollback
-        fp.seekp(curp);
-    }
-
-    assert(std::streampos(endpos) >= curp);
-
-    auto available_sz = endpos - curp;
-    if (requested_sz > available_sz) {
-        throw "";
-    }
-}
-
-constexpr
-void assert_write_room_and_consume(uint64_t requested_sz, uint64_t* available_sz) {
-    // hard failure as failing this is considered a bug
-    assert(requested_sz <= *available_sz);
-    *available_sz -= requested_sz;
-}
-
-
 void Segment::write(std::ostream& fp) const {
     const Segment& segm = *this;
 
@@ -159,7 +180,7 @@ void Segment::write(std::ostream& fp) const {
 
     // Track how many bytes we written so far
     uint64_t remain_sz = segm.calc_footprint_disk_size();
-    fail_if_no_room_in_file(fp, remain_sz);
+    fail_if_no_room_in_file_for_write(fp, remain_sz);
 
     // We track how many extents remain_cnt in the list
     size_t remain_cnt = segm.arr.size();

@@ -34,15 +34,15 @@ const size_t FP_SZ = 64;
 
 // Load from fp the extents and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
-#define XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos) do {            \
-    std::stringstream fp2(std::string(FP_SZ, '\0'));                       \
+#define XOZ_EXPECT_DESERIALIZATION(fp, segm) do {                       \
+    std::stringstream fp2(std::string(FP_SZ, '\0'));                    \
     auto curg = (fp).tellg();                                           \
     auto curp = (fp).tellp();                                           \
     (fp).seekg(0);                                                      \
     (fp).seekp(0);                                                      \
     auto segm_sz = (segm).calc_footprint_disk_size();                   \
                                                                         \
-    Segment segm = Segment::load_segment((fp), segm_sz, (endpos));      \
+    Segment segm = Segment::load_segment((fp), segm_sz);                \
     segm.write(fp2);                                                    \
     EXPECT_EQ((fp).str(), fp2.str());                                   \
     (fp).seekg(curg);                                                   \
@@ -90,7 +90,6 @@ namespace {
 
     TEST(SegmentTest, ValidEmpty) {
         const uint8_t blk_sz_order = 10;
-        const uint64_t endpos = (1 << 20);
         std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm = Segment::createEmpty();
 
@@ -106,12 +105,11 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
     TEST(SegmentTest, InlineDataOnly) {
         const uint8_t blk_sz_order = 10;
-        const uint64_t endpos = (1 << 20);
         std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
@@ -123,7 +121,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c2 4142");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         fp.str(std::string(FP_SZ, '\0')); // reset
 
@@ -135,7 +133,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c4 4142 4344");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         fp.str(std::string(FP_SZ, '\0')); // reset
 
@@ -147,7 +145,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "43c3 4142");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         fp.str(std::string(FP_SZ, '\0')); // reset
 
@@ -159,12 +157,11 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
     TEST(SegmentTest, InlineDataBadSize) {
         const uint8_t blk_sz_order = 10;
-        const uint64_t endpos = (1 << 20);
         std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
@@ -210,7 +207,7 @@ namespace {
         segm.write(fp);
         EXPECT_EQ(hexdump(fp, 0, 6), "78ff 4100 0000");
         EXPECT_EQ(are_all_zeros(fp, 6), true); // all zeros to the end
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         fp.str(std::string(FP_SZ, '\0')); // reset
 
@@ -228,12 +225,11 @@ namespace {
         EXPECT_EQ(hexdump(fp, 0, 6), "00fe 4100 0000");
         EXPECT_EQ(are_all_zeros(fp, 6, 57), true); // all zeros to the end except the last byte
         EXPECT_EQ(hexdump(fp, 6+57), "78"); // chk last byte
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
     TEST(SegmentTest, OneExtentFullBlockOnly) {
         const uint8_t blk_sz_order = 10;
-        const uint64_t endpos = (1 << 20);
         std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
@@ -245,7 +241,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 0000");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         fp.str(std::string(FP_SZ, '\0')); // reset
@@ -258,7 +254,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "ab00 efcd 0000");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         fp.str(std::string(FP_SZ, '\0')); // reset
@@ -271,7 +267,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ab00");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         fp.str(std::string(FP_SZ, '\0')); // reset
@@ -284,7 +280,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0018 0100");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         fp.str(std::string(FP_SZ, '\0')); // reset
@@ -297,7 +293,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 1000");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         fp.str(std::string(FP_SZ, '\0')); // reset
@@ -310,12 +306,11 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 0080");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
     TEST(SegmentTest, OneExtentSubAllocOnly) {
         const uint8_t blk_sz_order = 10;
-        const uint64_t endpos = (1 << 20);
         std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
@@ -327,7 +322,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab00 0000");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         fp.str(std::string(FP_SZ, '\0')); // reset
@@ -342,7 +337,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab00 0900");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         fp.str(std::string(FP_SZ, '\0')); // reset
@@ -355,7 +350,7 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 0100 ff00");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         fp.str(std::string(FP_SZ, '\0')); // reset
@@ -368,12 +363,11 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 0100 ffff");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
     TEST(SegmentTest, SeveralExtentsAndInline) {
         const uint8_t blk_sz_order = 10;
-        const uint64_t endpos = (1 << 20);
         std::stringstream fp(std::string(FP_SZ, '\0'));
         Segment segm;
 
@@ -387,7 +381,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 0100 1000"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
         fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(2, 0, true));    // 0 sub-alloc'd blocks
@@ -403,7 +397,7 @@ namespace {
                 "0000 0100 1000 "
                 "0080 0200 0000"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
         fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(3, 1, false)); // 1 full block (small extent)
@@ -421,7 +415,7 @@ namespace {
                 "0080 0200 0000 "
                 "0008 0300"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
         fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(4, 0b00001001, true));    // 2 sub-alloc'd blocks
@@ -441,7 +435,7 @@ namespace {
                 "0008 0300 "
                 "0080 0400 0900"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
         fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(5, 0, false)); // 0 full block (large extent)
@@ -463,7 +457,7 @@ namespace {
                 "0080 0400 0900 "
                 "0000 0500 0000"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
         fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.set_inline_data({0xaa, 0xbb, 0xcc, 0xdd}); // 4 bytes of inline data
@@ -487,7 +481,7 @@ namespace {
                 "0000 0500 0000 "
                 "00c4 aabb ccdd"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
         fp.str(std::string(FP_SZ, '\0')); // reset
 
         segm.add_extent(Extent(6, 8, false)); // 8 full blocks (small extent)
@@ -513,6 +507,6 @@ namespace {
                 "0040 0600 "
                 "00c4 aabb ccdd"
                 );
-        XOZ_EXPECT_DESERIALIZATION(fp, segm, endpos);
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 }
