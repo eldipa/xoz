@@ -152,15 +152,14 @@ void assert_write_room_and_consume(uint64_t requested_sz, uint64_t* available_sz
 }
 
 
-void Segment::write(std::ostream& fp, uint64_t endpos) const {
+void Segment::write(std::ostream& fp) const {
     const Segment& segm = *this;
 
-    assert(std::streampos(endpos) >= fp.tellp());
     segm.fail_if_invalid_empty();
 
     // Track how many bytes we written so far
     uint64_t remain_sz = segm.calc_footprint_disk_size();
-    fail_if_no_room_in_file(fp, remain_sz, endpos);
+    fail_if_no_room_in_file(fp, remain_sz);
 
     // We track how many extents remain_cnt in the list
     size_t remain_cnt = segm.arr.size();

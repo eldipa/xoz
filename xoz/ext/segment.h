@@ -47,7 +47,7 @@ class Segment {
     }
 
     void load(std::istream& fp, uint64_t segm_sz, uint64_t endpos);
-    void write(std::ostream& fp, uint64_t endpos) const;
+    void write(std::ostream& fp) const;
 
     uint32_t calc_footprint_disk_size() const;
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
