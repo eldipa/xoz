@@ -51,7 +51,7 @@ const size_t FP_SZ = 64;
     (fp).seekp(0);                                                      \
     auto segm_sz = (segm).calc_footprint_disk_size();                   \
                                                                         \
-    Segment segm = Segment::load_segment((fp), segm_sz);                \
+    Segment segm = Segment::read_segment((fp), segm_sz);                \
     segm.write(fp2);                                                    \
     EXPECT_EQ((fp).str(), fp2.str());                                   \
     (fp).seekg(curg);                                                   \
@@ -598,7 +598,7 @@ namespace {
 
         // The read/write however exceeds the file size
         EXPECT_THAT(
-            [&]() { Segment::load_segment(fp, segm.calc_footprint_disk_size()); },
+            [&]() { Segment::read_segment(fp, segm.calc_footprint_disk_size()); },
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -639,7 +639,7 @@ namespace {
 
         // The read/write however exceeds the file size
         EXPECT_THAT(
-            [&]() { Segment::load_segment(fp, segm.calc_footprint_disk_size()); },
+            [&]() { Segment::read_segment(fp, segm.calc_footprint_disk_size()); },
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -681,7 +681,7 @@ namespace {
 
         // The read/write however exceeds the file size
         EXPECT_THAT(
-            [&]() { Segment::load_segment(fp, segm.calc_footprint_disk_size()); },
+            [&]() { Segment::read_segment(fp, segm.calc_footprint_disk_size()); },
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -714,7 +714,7 @@ namespace {
 
         // Read size must be a multiple of 2
         EXPECT_THAT(
-            [&]() { Segment::load_segment(fp, 3); },
+            [&]() { Segment::read_segment(fp, 3); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(

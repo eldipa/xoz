@@ -92,18 +92,22 @@ void assert_write_room_and_consume(uint64_t requested_sz, uint64_t* available_sz
 
 
 
-void Segment::load(std::istream& fp, uint64_t max_rw_sz) {
+void Segment::read(std::istream& fp, uint64_t segm_sz) {
     // Check that the segment size to read (aka remain_sz)
-    // is smaller than the available size in the file.
-    uint64_t remain_sz = max_rw_sz;
+    // is multiple of the segment size
+    // NOTE: in a future version we may accept segm_sz == (uint64_t)(-1)
+    // to signal "read until the end-of-segment marker"
+    uint64_t remain_sz = segm_sz;
     if (remain_sz % 2 != 0) {
         throw std::runtime_error((F()
                << "the size to read "
-               << max_rw_sz
+               << segm_sz
                << " must be a multiple of 2."
                ).str());
     }
 
+    // Check that the segment size to read (aka remain_sz)
+    // is smaller than the available size in the file.
     fail_if_no_room_in_file_for_read(fp, remain_sz);
 
     Segment segm;
@@ -181,6 +185,10 @@ void Segment::load(std::istream& fp, uint64_t max_rw_sz) {
     this->raw = std::move(segm.raw);
     this->inline_present = segm.inline_present;
 
+    // NOTE: for now we expect a perfect read but in a future
+    // we may tolerate a caller to say "read until end-of-segment marker"
+    // so remain_sz may not be zero in that case as it will work
+    // as an upper limit
     assert(remain_sz == 0);
 }
 
