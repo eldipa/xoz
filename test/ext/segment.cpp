@@ -154,6 +154,77 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
+    TEST(SegmentTest, InlineDataAsEndOfSegment) {
+        const uint8_t blk_sz_order = 10;
+        std::stringstream fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Empty segment, add "end of segment"
+        Segment segm;
+        segm.add_end_of_segment();
+
+        // Expect the same as an empty segment with 0-bytes inline data
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                2, /* disc size */
+                0 /* allocated size */
+                );
+
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
+
+        segm.write(fp);
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "00c0");
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Remove the inline data, add an extent
+        // and add "end of segment" again
+        segm.remove_inline_data();
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)false);
+
+        segm.add_extent(Extent(1, 1, false)); // 1-block extent
+        segm.add_end_of_segment();
+
+        // Expect the same as a segment with one extent + 0-bytes inline data
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                6, /* disc size */
+                1 << blk_sz_order /* allocated size */
+                );
+
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
+
+        segm.write(fp);
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 0100 00c0");
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Remove the extent and inline data, add a non-zero length inline data
+        // Check that that is enough to consider the segment ended
+        segm.clear_extents();
+        segm.remove_inline_data();
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)false);
+
+        segm.set_inline_data({0x41});
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
+
+        // Now let's try to add the end of segment explicitly
+        // Because there was a previous inline data already there
+        // nothing changes
+        segm.add_end_of_segment();
+
+        // Expect the same as a segment with 1-byte inline data
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                2, /* disc size */
+                1 /* allocated size */
+                );
+
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
+
+        segm.write(fp);
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+    }
+
     TEST(SegmentTest, InlineDataBadSize) {
         const uint8_t blk_sz_order = 10;
         std::stringstream fp;

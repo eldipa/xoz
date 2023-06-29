@@ -28,6 +28,19 @@ class Segment {
         raw = data;
     }
 
+    void remove_inline_data() {
+        inline_present = false;
+        raw.clear();
+    }
+
+    bool has_end_of_segment() {
+        return inline_present;
+    }
+
+    void add_end_of_segment() {
+        inline_present = true;
+    }
+
     void add_extent(const Extent& ext) {
         arr.push_back(ext);
     }
