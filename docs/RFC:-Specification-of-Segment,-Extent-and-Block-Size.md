@@ -14,7 +14,7 @@ Changed in version 3:
  - bit `near` added: if 0, the `blk_nr` is built as in version 2; if 1,
    the `blk_nr` is built as an offset with respect the previous extent in the
    segment.
- - `lo_blk_nr` and `hi_blk_nr` swapped places
+ - `hi_blk_nr` renamed to `jmp_blk_nr`
  - point to block 0 is reserved.
  - removed *unallocated extents*
 
@@ -49,10 +49,10 @@ An *extent* defines a contiguous range of blocks:
 ```cpp
 struct extent_t {
     uint16_t {
-        uint suballoc   : 1;    // mask 0x8000
-        uint smallcnt   : 4:    // mask 0x7800
-        uint near       : 1;    // mask 0x0400
-        uint lo_blk_nr  : 10;   // mask 0x03ff
+        uint suballoc    : 1;    // mask 0x8000
+        uint smallcnt    : 4:    // mask 0x7800
+        uint near        : 1;    // mask 0x0400
+        uint jmp_blk_nr  : 10;   // mask 0x03ff
     };
 
     /* present if:
@@ -60,7 +60,7 @@ struct extent_t {
         - and near == 0
     */
     uint16_t {
-        uint hi_blk_nr  : 16;   // mask 0xffff
+        uint lo_blk_nr  : 16;   // mask 0xffff
     }
 
     /* present if smallcnt == 0 */
@@ -92,47 +92,50 @@ and the extent does **not** point to any block.
 In all of other cases, the extent points either to a single block
 or to the first block of the extent.
 
-`blk_nr` is this 26 bits block pointer constructed from `lo_blk_nr`
-and, if `near = 0`, from `hi_blk_nr` as explained below.
+`blk_nr` is this 26 bits block pointer constructed from `jmp_blk_nr`
+and, if `near = 0`, from `lo_blk_nr` as explained below.
 
 ## Block number
 
-If `near = 0`, the `hi_blk_nr` **is** present and the `blk_nr` is formed
-by `lo_blk_nr` (10 LSB) and `hi_blk_nr` (16 MSB), both as
-unsigned numbers.
+If `near = 0`, the `lo_blk_nr` **is** present and the `blk_nr` is formed
+as:
 
-If `near = 1`, the `hi_blk_nr` is **not** present and `lo_blk_nr`
-is interpreted as *signed offset* respect the previous extent
+ - `jmp_blk_nr` (unsigned) are the 10 MSB of `blk_nr`
+ - `lo_blk_nr` (unsigned)  are the 16 LSB of `blk_nr`
+
+If `near = 1`, the `lo_blk_nr` is **not** present and `jmp_blk_nr`
+is interpreted as *offset with direction* respect the previous extent
 in the *segment*:
 
- - MSB of `lo_blk_nr` is the sign: `0` positive, `1` negative.
- - the 9 remaining bits are the magnitude.
+ - the MSB of `jmp_blk_nr` is the direction `jmp_dir`: `0` means *forward*,
+   `1` means *backward*.
+ - the 9 remaining bits are the unsigned offset `jmp_offset`.
 
 Let `prev` and `cur` be the previous and current extents
 and let `len` be the length
-in blocks of the given extent (implicit 1 if the extent is
+in blocks of the given extent (length of 1 if the extent is
 suballoc'd).
 
 Then `cur.blk_nr` is defined as:
 
- - if `cur.lo_blk_nr > 0` (strictly positive), the `cur.blk_nr` is
-   `prev.blk_nr + prev.len + cur.lo_blk_nr`
+ - if `cur.jmp_dir` is `0`, the `cur.blk_nr` is
+   `prev.blk_nr + prev.len + cur.jmp_offset`
 
-   In other words, `cur.lo_blk_nr` counts *forward* how many blocks
+   In other words, `jmp_offset` counts *forward* how many blocks
    *after the end* of the previous `prev` extent
    the current `cur` extent *begins* (and `cur.len` blocks follows).
 
-   `cur.lo_blk_nr = (+)0` means the current extent immediately follows
+   `jmp_dir = 0 and jmp_offset = 0` means the current extent immediately follows
    the previous. (bits: `0 000000000`)
 
- - if `cur.lo_blk_nr < 0` (strictly negative), the `cur.blk_nr` is
-   `prev.blk_nr + cur.lo_blk_nr - cur.len + 1`
+ - if `cur.jmp_dir` is `1`, the `cur.blk_nr` is
+   `prev.blk_nr - cur.jmp_offset - cur.len`
 
-   In other words, `cur.lo_blk_nr` counts *backward* how many blocks
+   In other words, `jmp_offset` counts *backward* how many blocks
    *from the begin* of the previous `prev` extent the current `cur`
-   extents *ends* (and `cur.lo_blk_nr - cur.len` marks the begin).
+   extents *ends* (and `-cur.len` marks the begin).
 
-   `cur.lo_blk_nr = (-)0` means the current extent immediately precedes
+   `jmp_dir = 1 and jmp_offset = 0` means the current extent immediately precedes
    the previous. (bits: `1 000000000`)
 
 In either case computing `cur.blk_nr` must not wraparound, neither overflow
@@ -155,8 +158,8 @@ is expected to find extents with very similar `blk_nr`.
 Encoding a *relative* `blk_nr` for extents that are *near* each other
 should require less bits.
 
-Taking into a count the direction (forward / backward), the 10 bits
-*signed* number `lo_blk_nr` allows to encode `blk_nr` within
+Taking into a count the direction (forward / backward), the 9 LSB of
+`jmp_blk_nr` allows to encode `blk_nr` within
 the range of +/- 2^9 = 512 blocks using only 2 bytes.
 
 The expected most common case is of an object which data size is
