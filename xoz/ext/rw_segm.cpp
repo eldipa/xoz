@@ -91,8 +91,30 @@ void assert_write_room_and_consume(uint64_t requested_sz, uint64_t* available_sz
 }
 
 
+constexpr
+void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, uint64_t* available_sz, uint64_t segm_sz, const char* reason) {
+    // This is an error in the data during the read:
+    //  - may be the caller gave us the incorrect size to read
+    //  - may be the XOZ file is corrupted with an invalid size
+    if (requested_sz > *available_sz) {
+        throw NotEnoughRoom(
+                requested_sz,
+                *available_sz,
+                F() << "The read operation set an initial size of "
+                    << segm_sz
+                    << " bytes but they were consumed leaving only "
+                    << *available_sz
+                    << " bytes available. This is not enough to proceed "
+                    << "reading (segment reading is incomplete: "
+                    << reason
+                    << ")."
+                );
+    }
+    *available_sz -= requested_sz;
+}
 
-void Segment::read(std::istream& fp, uint64_t segm_sz) {
+
+void Segment::read(std::istream& fp, const uint64_t segm_sz) {
     // Check that the segment size to read (aka remain_sz)
     // is multiple of the segment size
     // NOTE: in a future version we may accept segm_sz == (uint64_t)(-1)
@@ -116,10 +138,9 @@ void Segment::read(std::istream& fp, uint64_t segm_sz) {
         assert(remain_sz % 2 == 0);
 
         uint16_t hdr_ext;
-        //CHK_READ_ROOM(fp, endpos, sizeof(hdr_ext));
 
+        fail_remain_exhausted_during_partial_read(sizeof(hdr_ext), &remain_sz, segm_sz, "stop before reading extent header");
         fp.read((char*)&hdr_ext, sizeof(hdr_ext));
-        remain_sz -= sizeof(hdr_ext);
 
         hdr_ext = u16_from_le(hdr_ext);
 
@@ -142,20 +163,22 @@ void Segment::read(std::istream& fp, uint64_t segm_sz) {
             }
 
             if (inline_sz > 0) {
-                CHK_READ_ROOM(remain_sz, inline_sz);
+                fail_remain_exhausted_during_partial_read(inline_sz, &remain_sz, segm_sz, "inline data is partially read");
                 fp.read((char*)segm.raw.data(), inline_sz);
-                remain_sz -= inline_sz;
             }
+
+            // inline data *is* the last element of a segment
+            // regardless of the caller's provided segm_sz
+            break;
 
         } else {
             uint8_t smallcnt = READ_HdrEXT_SMALLCNT(hdr_ext);
             uint16_t hi_blk_nr = READ_HdrEXT_HI_BLK_NR(hdr_ext);
 
             uint16_t lo_blk_nr;
-            CHK_READ_ROOM(remain_sz, sizeof(lo_blk_nr));
 
+            fail_remain_exhausted_during_partial_read(sizeof(lo_blk_nr), &remain_sz, segm_sz, "cannot read LSB block number");
             fp.read((char*)&lo_blk_nr, sizeof(lo_blk_nr));
-            remain_sz -= sizeof(lo_blk_nr);
             lo_blk_nr = u16_from_le(lo_blk_nr);
 
             uint16_t blk_cnt = 0;
@@ -165,9 +188,8 @@ void Segment::read(std::istream& fp, uint64_t segm_sz) {
             } else {
                 assert (smallcnt == 0);
 
-                CHK_READ_ROOM(remain_sz, sizeof(blk_cnt));
+                fail_remain_exhausted_during_partial_read(sizeof(blk_cnt), &remain_sz, segm_sz, "cannot read block count");
                 fp.read((char*)&blk_cnt, sizeof(blk_cnt));
-                remain_sz -= sizeof(blk_cnt);
                 blk_cnt = u16_from_le(blk_cnt);
             }
 
@@ -185,11 +207,9 @@ void Segment::read(std::istream& fp, uint64_t segm_sz) {
     this->raw = std::move(segm.raw);
     this->inline_present = segm.inline_present;
 
-    // NOTE: for now we expect a perfect read but in a future
-    // we may tolerate a caller to say "read until end-of-segment marker"
-    // so remain_sz may not be zero in that case as it will work
-    // as an upper limit
-    assert(remain_sz == 0);
+    // Or consumed everything *or* we stop earlier because
+    // we found an inline data
+    assert(remain_sz == 0 or segm.inline_present);
 }
 
 void Segment::write(std::ostream& fp) const {
