@@ -22,6 +22,15 @@ const size_t FP_SZ = 64;
 #define XOZ_RESET_FP(fp, sz) do {                                           \
     (fp).clear();                                                           \
     (fp).str(std::string((sz), '\0'));                                      \
+    (fp).seekp(0);                                                          \
+    (fp).seekg(0);                                                          \
+    (fp).exceptions(std::ios_base::failbit | std::ios_base::badbit);        \
+} while (0)
+
+#define XOZ_RESET_FP_POSITIONS(fp) do {                                           \
+    (fp).clear();                                                           \
+    (fp).seekp(0);                                                          \
+    (fp).seekg(0);                                                          \
     (fp).exceptions(std::ios_base::failbit | std::ios_base::badbit);        \
 } while (0)
 
