@@ -32,6 +32,14 @@ InconsistentXOZ::InconsistentXOZ(const Repository& repo, const std::string& msg)
 
 InconsistentXOZ::InconsistentXOZ(const Repository& repo, const F& msg) : InconsistentXOZ(repo, msg.ss.str()) {}
 
+InconsistentXOZ::InconsistentXOZ(const std::string& msg) {
+    std::stringstream ss;
+    ss << "Repository seems inconsistent/corrupt. "
+       << msg;
+
+    this->msg = ss.str();
+}
+
 const char* InconsistentXOZ::what() const noexcept {
     return msg.data();
 }

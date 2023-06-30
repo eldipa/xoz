@@ -40,6 +40,7 @@ class InconsistentXOZ : public std::exception {
     public:
         InconsistentXOZ(const Repository& repo, const std::string& msg);
         InconsistentXOZ(const Repository& repo, const F& msg);
+        InconsistentXOZ(const std::string& msg);
 
         virtual const char* what() const noexcept override;
 };
