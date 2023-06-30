@@ -24,10 +24,3 @@
 
 #define EXT_INLINE_SZ_MAX_u16                (uint16_t)(63)
 
-#define CHK_READ_ROOM(remain_sz, sz)        \
-do {                                        \
-    if ((remain_sz) < (sz)) {               \
-        throw "1";                          \
-    }                                       \
-} while(0)
-
