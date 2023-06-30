@@ -14,6 +14,7 @@ using ::testing::AllOf;
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::are_all_zeros;
+using ::testing_xoz::helpers::ensure_called_once;
 
 namespace {
 const size_t FP_SZ = 64;
@@ -728,6 +729,123 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "the size to read 3 must be a multiple of 2."
+                        )
+                    )
+                )
+        );
+    }
+
+    TEST(SegmentTest, PartialReadError) {
+        std::stringstream fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Write a 6-bytes single-extent segment
+        Segment segm;
+        segm.add_extent(Extent(0x2ff, 0x1fff, false)); // size: 6 bytes
+        segm.write(fp);
+
+        // Try to read only 2 bytes: this should fail
+        // because Segment::read_segment will know that
+        // more bytes are needed to complete the extent
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::read_segment(fp, 2); }),
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 2 bytes but only 0 bytes are available. "
+                        "The read operation set an initial size of 2 bytes "
+                        "but they were consumed leaving only 0 bytes available. "
+                        "This is not enough to proceed reading "
+                        "(segment reading is incomplete: "
+                        "cannot read LSB block number"
+                        ")."
+                        )
+                    )
+                )
+        );
+
+        XOZ_RESET_FP_POSITIONS(fp);
+
+        // The same but with 4 bytes
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::read_segment(fp, 4); }),
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 2 bytes but only 0 bytes are available. "
+                        "The read operation set an initial size of 4 bytes "
+                        "but they were consumed leaving only 0 bytes available. "
+                        "This is not enough to proceed reading "
+                        "(segment reading is incomplete: "
+                        "cannot read block count"
+                        ")."
+                        )
+                    )
+                )
+        );
+
+        // Let's add an another 4-bytes extent
+        segm.add_extent(Extent(0x4ff, 1, false)); // size: 10 bytes
+        XOZ_RESET_FP(fp, FP_SZ);
+        segm.write(fp);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::read_segment(fp, 8); }),
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 2 bytes but only 0 bytes are available. "
+                        "The read operation set an initial size of 8 bytes "
+                        "but they were consumed leaving only 0 bytes available. "
+                        "This is not enough to proceed reading "
+                        "(segment reading is incomplete: "
+                        "cannot read LSB block number"
+                        ")."
+                        )
+                    )
+                )
+        );
+
+        // Let's add inline of 4 bytes (+2 header)
+        segm.set_inline_data({0xaa, 0xbb, 0xcc, 0xdd}); // size: 16 bytes
+        XOZ_RESET_FP(fp, FP_SZ);
+        segm.write(fp);
+
+        // Segment::read_segment will read the inline header and it will
+        // try to read 4 bytes *but* no available bytes exists
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::read_segment(fp, 12); }),
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 4 bytes but only 0 bytes are available. "
+                        "The read operation set an initial size of 12 bytes "
+                        "but they were consumed leaving only 0 bytes available. "
+                        "This is not enough to proceed reading "
+                        "(segment reading is incomplete: "
+                        "inline data is partially read"
+                        ")."
+                        )
+                    )
+                )
+        );
+
+        XOZ_RESET_FP_POSITIONS(fp);
+
+        // The same but only 2 bytes are available, not enough for
+        // completing the 4 bytes inline payload
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::read_segment(fp, 14); }),
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 4 bytes but only 2 bytes are available. "
+                        "The read operation set an initial size of 14 bytes "
+                        "but they were consumed leaving only 2 bytes available. "
+                        "This is not enough to proceed reading "
+                        "(segment reading is incomplete: "
+                        "inline data is partially read"
+                        ")."
                         )
                     )
                 )
