@@ -851,4 +851,23 @@ namespace {
                 )
         );
     }
+
+    TEST(SegmentTest, CorruptedData) {
+        std::stringstream fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        fp.write("\x00\x90\x00\x00", 4);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::read_segment(fp, 4); }),
+            ThrowsMessage<InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "Repository seems inconsistent/corrupt. "
+                        "Extent with non-zero smallcnt block. Is inline flag missing?"
+                        )
+                    )
+                )
+        );
+    }
 }

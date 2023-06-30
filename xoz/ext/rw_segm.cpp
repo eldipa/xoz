@@ -186,7 +186,9 @@ void Segment::read(std::istream& fp, const uint64_t segm_sz) {
                 blk_cnt = smallcnt;
 
             } else {
-                assert (smallcnt == 0);
+                if (smallcnt != 0) {
+                    throw InconsistentXOZ("Extent with non-zero smallcnt block. Is inline flag missing?");
+                }
 
                 fail_remain_exhausted_during_partial_read(sizeof(blk_cnt), &remain_sz, segm_sz, "cannot read block count");
                 fp.read((char*)&blk_cnt, sizeof(blk_cnt));
