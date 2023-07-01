@@ -193,7 +193,7 @@ namespace {
         segm.remove_inline_data();
         EXPECT_EQ(segm.has_end_of_segment(), (bool)false);
 
-        segm.add_extent(Extent(1, 1, false)); // 1-block extent
+        segm.add_extent(Extent(0x2ff, 1, false)); // 1-block extent
         segm.add_end_of_segment();
 
         // Expect the same as a segment with one extent + 0-bytes inline data
@@ -205,7 +205,7 @@ namespace {
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 0100 00c0");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ff02 00c0");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
@@ -312,79 +312,105 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
-        segm.add_extent(Extent(0xab, 0, false)); // 0 full block (large extent)
+
+        // Extent that it is neither near (far from prev extent) nor
+        // it cannot use smallcnt (blk_cnt == 0)
+        // so it will require 6 bytes in total
+        segm.add_extent(Extent(0x2ab, 0, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
                 0 << blk_sz_order /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 0000");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab02 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(0x00abcdef, 0, false)); // 0 full block (large extent) (diff addr)
+        // Extent that it is near enough to the previous extent (at blk_nr = 0)
+        // but still without using smallcnt so it requires 4 bytes
+        segm.add_extent(Extent(0x01, 0, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                6, /* disc size */
+                4, /* disc size */
                 0 << blk_sz_order /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "ab00 efcd 0000");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0104 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(0xab, 1, false)); // 1 full block (small extent)
+        // Go back to a "not near enough" extent but this time with
+        // a block count that fits in smallcnt hence requiring 4 bytes
+        segm.add_extent(Extent(0xfab, 1, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
                 1 << blk_sz_order /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ab00");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ab0f");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(1, 3, false)); // 3 full blocks (small extent)
+        // Extent near to previous extent and using a smallcnt of 3: 2 bytes only
+        segm.add_extent(Extent(1, 3, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                4, /* disc size */
+                2, /* disc size */
                 3 << blk_sz_order /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0018 0100");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "011c");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(0xab, 16, false)); // 16 full blocks (large extent)
+        // Extent (not near) with "just" enough blocks to fit a smallcnt
+        segm.add_extent(Extent(0xfab, 15, false));
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                4, /* disc size */
+                15 << blk_sz_order /* allocated size */
+                );
+
+        segm.write(fp);
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0078 ab0f");
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+
+        segm.clear_extents();
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Extent (not near) with "just" enough blocks to *not* fit a smallcnt
+        // (block count is above the maximum for smallcnt)
+        segm.add_extent(Extent(0xfab, 16, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
                 16 << blk_sz_order /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 1000");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab0f 1000");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(0xab, (1 << 15), false)); // 32k full blocks (large extent)
+        // Extent (not near) with the maximum block count possible
+        segm.add_extent(Extent(0xfab, (1 << 15), false)); // 32k full blocks (large extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
                 (1 << 15) << blk_sz_order /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab00 0080");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab0f 0080");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
@@ -394,55 +420,79 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
-        segm.add_extent(Extent(0xab, 0, true));    // 0 sub-alloc'd blocks
+        // An extent near to the prev extent (blk_nr = 0) so it does not
+        // require 2 bytes for storing the full blk nr *but* because
+        // it is a suballoc it required 2 bytes for the bitmask
+        // raising a total of 4 bytes
+        // (the bitmask is empty so the suballoc is not allocating anything)
+        segm.add_extent(Extent(0xab, 0, true));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                6, /* disc size */
+                4, /* disc size */
                 0 /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab00 0000");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "ab84 0000");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(0xab, 0b00001001, true));    // 2 sub-alloc'd blocks
-        EXPECT_EQ(segm.calc_footprint_disk_size(), (unsigned) 6);
-        EXPECT_EQ(segm.calc_usable_space_size(blk_sz_order), (unsigned) (2 << (blk_sz_order - 4)));
+        // An extent not-near (far from prev extent) so it requires +2
+        // bytes for the blk_nr with a total of 6 bytes (+2 hdr, +2 blk nr +2 bitmask)
+        //
+        // In this case the bitmask has 2 bits set: 2 subblocks alloc'd
+        segm.add_extent(Extent(0xdab, 0b00001001, true));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
                 2 << (blk_sz_order - 4)  /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab00 0900");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab0d 0900");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(1, 0b11111111, true));    // 8 sub-alloc'd blocks
+        // The same but with its bitmask half full: 8 subblocks alloc'd
+        segm.add_extent(Extent(0xdab, 0b11111111, true));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
                 8 << (blk_sz_order - 4)  /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 0100 ff00");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab0d ff00");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(1, 0b1111111111111111, true));    // 16 sub-alloc'd blocks
+        // The same but with its bitmask totally full: 16 subblocks alloc'd
+        segm.add_extent(Extent(0xdab, 0b1111111111111111, true));    // 16 sub-alloc'd blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
                 16 << (blk_sz_order - 4)  /* allocated size */
                 );
 
         segm.write(fp);
-        XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 0100 ffff");
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab0d ffff");
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+
+        segm.clear_extents();
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // The same full set Extent but near enough to not require a blk nr
+        // (so 4 bytes only)
+        segm.add_extent(Extent(0x6, 0b1111111111111111, true));    // 16 sub-alloc'd blocks
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                4, /* disc size */
+                16 << (blk_sz_order - 4)  /* allocated size */
+                );
+
+        segm.write(fp);
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "0684 ffff");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
@@ -452,7 +502,13 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
-        segm.add_extent(Extent(1, 16, false)); // 16 full blocks (large extent)
+        // Extent not-near the prev extent (+2 bytes) with a blk count
+        // that does not fit in smallcnt (+2 bytes) so raising a total
+        // of 6 bytes
+        //
+        // [                e00      e10        ] addr
+        // [                 XX...XX            ] blks
+        segm.add_extent(Extent(0xe00, 16, false)); // 16 blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
                 16 << blk_sz_order   /* allocated size */
@@ -460,14 +516,21 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0000 0100 1000"
+                "0000 000e 1000"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(2, 0, true));    // 0 sub-alloc'd blocks
+        // Append a extent near to the prev extent (blk_nr 0xe00).
+        // It is immediately after the prev extent so the offset is 0
+        // The extent is for suballoc so it requires the bitmask (+2 bytes)
+        // despite alloc'ing 0 subblocks
+        //
+        // [                e00     e10        ] addr
+        // [                 XX...XX|Y         ] blks
+        segm.add_extent(Extent(0xe10, 0, true));    // 0 subblocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                12, /* disc size */
+                6+4, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
                 (0)
@@ -475,15 +538,23 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0000 0100 1000 "
-                "0080 0200 0000"
+                "0000 000e 1000 "
+                "0084 0000"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(3, 1, false)); // 1 full block (small extent)
+        // Append an extent near the prev extent (blk_nr 0xe10) which was
+        // 1 block length (for suballocation). It is immediately after the
+        // previous extent (offset = 0)
+        // The current extent has also 1 block so it fits in a smallcnt
+        // with a total of 2 bytes only
+        //
+        // [                e00    e10 e11        ] addr
+        // [                 XX...XX|Y|Z|         ] blks
+        segm.add_extent(Extent(0xe11, 1, false)); // 1 block count, fits in smallcnt
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                16, /* disc size */
+                6+4+2, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
                 (0) +
@@ -492,16 +563,22 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0000 0100 1000 "
-                "0080 0200 0000 "
-                "0008 0300"
+                "0000 000e 1000 "
+                "0084 0000 "
+                "000c"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(4, 0b00001001, true));    // 2 sub-alloc'd blocks
+        // Append an extent far from prev extent. This extent
+        // is 1 block length for suballocation (with 2 subblocks set)
+        // This gives a total of 6 bytes
+        //
+        // [     4           e00    e10 e11        ] addr
+        // [     X           XX...XX|Y|Z|         ] blks
+        segm.add_extent(Extent(4, 0b00001001, true));    // 2 subblocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                22, /* disc size */
+                6+4+2+6, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
                 (0) +
@@ -511,17 +588,27 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0000 0100 1000 "
-                "0080 0200 0000 "
-                "0008 0300 "
+                "0000 000e 1000 "
+                "0084 0000 "
+                "000c "
                 "0080 0400 0900"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(5, 0, false)); // 0 full block (large extent)
+        // Append another extent, this has 0 block length
+        // (smallcnt cannot be used so, +2)
+        // and it is near the previous *but* backwards
+        //
+        // It is 1 block behind the previous extent: this is because
+        // the current extent is 0-blocks length so between blk nr 3
+        // and blk nr 4 there are 1 block "of gap" between the two extents
+        //
+        // [    34          e00    e10 e11        ] addr
+        // [    0X           XX...XX|Y|Z|         ] blks
+        segm.add_extent(Extent(3, 0, false)); // 0 full block (large extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                28, /* disc size */
+                6+4+2+6+4, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
                 (0) +
@@ -532,18 +619,19 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0000 0100 1000 "
-                "0080 0200 0000 "
-                "0008 0300 "
+                "0000 000e 1000 "
+                "0084 0000 "
+                "000c "
                 "0080 0400 0900 "
-                "0000 0500 0000"
+                "0106 0000"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
+        // Add inline: 2 for the header and +4 of the data (6 in total)
         segm.set_inline_data({0xaa, 0xbb, 0xcc, 0xdd}); // 4 bytes of inline data
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                34, /* disc size */
+                6+4+2+6+4+6, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
                 (0) +
@@ -555,19 +643,27 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0000 0100 1000 "
-                "0080 0200 0000 "
-                "0008 0300 "
+                "0000 000e 1000 "
+                "0084 0000 "
+                "000c "
                 "0080 0400 0900 "
-                "0000 0500 0000 "
+                "0106 0000 "
                 "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
-        segm.add_extent(Extent(6, 8, false)); // 8 full blocks (small extent)
+        // Add an extent that it is near of the previous extent
+        // (note how it does matter that the last thing added
+        // to the segment was an inline-data, it does not count)
+        //
+        // The offset is 3 blocks (from blk nr 3 to blk nr 6).
+        // The extent is 8 blocks length that fits in a smallcnt
+        //
+        // Total: 2 bytes
+        segm.add_extent(Extent(6, 8, false)); // 8 full blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                38, /* disc size */
+                6+4+2+6+4+6+2, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
                 (0) +
@@ -580,12 +676,12 @@ namespace {
 
         segm.write(fp);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
-                "0000 0100 1000 "
-                "0080 0200 0000 "
-                "0008 0300 "
+                "0000 000e 1000 "
+                "0084 0000 "
+                "000c "
                 "0080 0400 0900 "
-                "0000 0500 0000 "
-                "0040 0600 "
+                "0106 0000 "
+                "0344 "
                 "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
@@ -736,12 +832,19 @@ namespace {
     }
 
     TEST(SegmentTest, PartialReadError) {
+        const uint8_t blk_sz_order = 10;
         std::stringstream fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Write a 6-bytes single-extent segment
         Segment segm;
-        segm.add_extent(Extent(0x2ff, 0x1fff, false)); // size: 6 bytes
+        segm.add_extent(Extent(0x2ff, 0x1f, false)); // size: 6 bytes
+
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                6, /* disc size */
+                0x1f << blk_sz_order /* allocated size */
+                );
+
         segm.write(fp);
 
         // Try to read only 2 bytes: this should fail
@@ -785,7 +888,16 @@ namespace {
         );
 
         // Let's add an another 4-bytes extent
-        segm.add_extent(Extent(0x4ff, 1, false)); // size: 10 bytes
+        segm.add_extent(Extent(0x5ff, 1, false)); // size: 10 bytes
+
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                6 + 4, /* disc size */
+
+                /* allocated size */
+                (0x1f << blk_sz_order) +
+                (1 << blk_sz_order)
+                );
+
         XOZ_RESET_FP(fp, FP_SZ);
         segm.write(fp);
 
@@ -808,6 +920,16 @@ namespace {
 
         // Let's add inline of 4 bytes (+2 header)
         segm.set_inline_data({0xaa, 0xbb, 0xcc, 0xdd}); // size: 16 bytes
+
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                6 + 4 + 6, /* disc size */
+
+                /* allocated size */
+                (0x1f << blk_sz_order) +
+                (1 << blk_sz_order) +
+                (4)
+                );
+
         XOZ_RESET_FP(fp, FP_SZ);
         segm.write(fp);
 
@@ -856,7 +978,9 @@ namespace {
         std::stringstream fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        fp.write("\x00\x90\x00\x00", 4);
+        // Because is_suballoc is set and smallcnt > 0, it is expected
+        // that the is_inline bi set bit it is not, hence the error
+        fp.write("\x00\x90\x01\x00", 4);
 
         EXPECT_THAT(
             ensure_called_once([&]() { Segment::read_segment(fp, 4); }),
@@ -865,6 +989,23 @@ namespace {
                     HasSubstr(
                         "Repository seems inconsistent/corrupt. "
                         "Extent with non-zero smallcnt block. Is inline flag missing?"
+                        )
+                    )
+                )
+        );
+
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Because blk_nr is 0, hence the error.
+        fp.write("\x00\x10\x00\x00", 4);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::read_segment(fp, 4); }),
+            ThrowsMessage<InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "Repository seems inconsistent/corrupt. "
+                        "Extent with block number 0 is unexpected."
                         )
                     )
                 )

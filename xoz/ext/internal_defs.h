@@ -6,6 +6,9 @@
 #define READ_HdrEXT_INLINE_FLAG(hdr_ext)       (bool)((hdr_ext) & 0x4000)
 #define WRITE_HdrEXT_INLINE_FLAG(hdr_ext)      (uint16_t)((hdr_ext) | 0x4000)
 
+#define READ_HdrEXT_NEAR_FLAG(hdr_ext)       (bool)((hdr_ext) & 0x0400)
+#define WRITE_HdrEXT_NEAR_FLAG(hdr_ext)      (uint16_t)((hdr_ext) | 0x0400)
+
 #define READ_HdrEXT_INLINE_SZ(hdr_ext)         (uint8_t)(((hdr_ext) & 0x3f00) >> 8)
 #define WRITE_HdrEXT_INLINE_SZ(hdr_ext, sz)    (uint16_t)((hdr_ext) | (((sz) & 0x3f) << 8))
 
@@ -21,6 +24,12 @@
 
 #define READ_HdrEXT_HI_BLK_NR(hdr_ext)              ((hdr_ext) & 0x03ff)
 #define WRITE_HdrEXT_HI_BLK_NR(hdr_ext, hi_blk_nr)  (uint16_t)((hdr_ext) | (hi_blk_nr))
+
+#define READ_HdrEXT_JMP_OFFSET(hdr_ext)             ((hdr_ext) & 0x01ff)
+#define WRITE_HdrEXT_JMP_OFFSET(hdr_ext, offset)    (uint16_t)((hdr_ext) | ((offset) & 0x01ff))
+
+#define READ_HdrEXT_BACKWARD_DIR(hdr_ext)         (bool)((hdr_ext) & 0x0200)
+#define WRITE_HdrEXT_BACKWARD_DIR(hdr_ext)        (uint16_t)((hdr_ext) | 0x0200)
 
 #define EXT_INLINE_SZ_MAX_u16                (uint16_t)(63)
 

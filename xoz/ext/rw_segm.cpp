@@ -132,6 +132,7 @@ void Segment::read(std::istream& fp, const uint64_t segm_sz) {
     // is smaller than the available size in the file.
     fail_if_no_room_in_file_for_read(fp, remain_sz);
 
+    Extent prev(0, 0, false);
     Segment segm;
 
     while (remain_sz >= 2) {
@@ -146,6 +147,7 @@ void Segment::read(std::istream& fp, const uint64_t segm_sz) {
 
         bool is_suballoc = READ_HdrEXT_SUBALLOC_FLAG(hdr_ext);
         bool is_inline = READ_HdrEXT_INLINE_FLAG(hdr_ext);
+        bool is_near = READ_HdrEXT_NEAR_FLAG(hdr_ext);
 
         if (is_suballoc and is_inline) {
             segm.inline_present = true;
@@ -172,14 +174,29 @@ void Segment::read(std::istream& fp, const uint64_t segm_sz) {
             break;
 
         } else {
+            // We cannot keep reading another extent *after* reading inline
+            // data, it is not allowed by RFC-v3
+            assert(not segm.inline_present);
+
             uint8_t smallcnt = READ_HdrEXT_SMALLCNT(hdr_ext);
-            uint16_t hi_blk_nr = READ_HdrEXT_HI_BLK_NR(hdr_ext);
+            uint32_t blk_nr = 0;
 
-            uint16_t lo_blk_nr;
+            // If not a near extent, we need to read the full block number
+            if (not is_near) {
+                uint16_t hi_blk_nr = READ_HdrEXT_HI_BLK_NR(hdr_ext);
+                uint16_t lo_blk_nr;
 
-            fail_remain_exhausted_during_partial_read(sizeof(lo_blk_nr), &remain_sz, segm_sz, "cannot read LSB block number");
-            fp.read((char*)&lo_blk_nr, sizeof(lo_blk_nr));
-            lo_blk_nr = u16_from_le(lo_blk_nr);
+                fail_remain_exhausted_during_partial_read(sizeof(lo_blk_nr), &remain_sz, segm_sz, "cannot read LSB block number");
+                fp.read((char*)&lo_blk_nr, sizeof(lo_blk_nr));
+                lo_blk_nr = u16_from_le(lo_blk_nr);
+
+                blk_nr = ((uint32_t(hi_blk_nr & 0x03ff) << 16) | lo_blk_nr);
+
+                if (blk_nr == 0) {
+                    // TODO add is_near comment and lo+hi
+                    throw InconsistentXOZ("Extent with block number 0 is unexpected.");
+                }
+            }
 
             uint16_t blk_cnt = 0;
             if (not is_suballoc and smallcnt) {
@@ -195,12 +212,46 @@ void Segment::read(std::istream& fp, const uint64_t segm_sz) {
                 blk_cnt = u16_from_le(blk_cnt);
             }
 
+            // If it is a near extent, we know now its block count so we can
+            // compute the jump/gap
+            if (is_near) {
+                assert(blk_nr == 0);
+                bool is_backward_dir = READ_HdrEXT_BACKWARD_DIR(hdr_ext);
+                uint16_t jmp_offset = READ_HdrEXT_JMP_OFFSET(hdr_ext);
+
+                // Reference at prev extent's block number
+                uint32_t ref_nr = blk_nr = prev.blk_nr();
+
+                if (is_backward_dir) {
+                    blk_nr -= jmp_offset;
+                    blk_nr -= blk_cnt;
+
+                    if (ref_nr < blk_nr) {
+                        throw 1; // TODO wrap
+                    }
+                } else {
+                    blk_nr += (prev.is_suballoc() ? 1 : prev.blk_cnt());
+                    blk_nr += jmp_offset;
+
+                    if (ref_nr > blk_nr) {
+                        throw 1; // TODO warp
+                    }
+                }
+
+                if (blk_nr == 0) {
+                    // TODO add is_near comment and offset+blk+prev
+                    throw InconsistentXOZ("Extent with block number 0 is unexpected.");
+                }
+            }
+
+            assert(blk_nr != 0);
             segm.arr.emplace_back(
-                hi_blk_nr,
-                lo_blk_nr,
+                blk_nr,
                 blk_cnt,
                 is_suballoc
             );
+
+            prev = segm.arr.back();
         }
     }
 
@@ -216,6 +267,7 @@ void Segment::read(std::istream& fp, const uint64_t segm_sz) {
 
 void Segment::write(std::ostream& fp) const {
     const Segment& segm = *this;
+    Extent prev(0, 0, false);
 
     // Track how many bytes we written so far
     uint64_t remain_sz = segm.calc_footprint_disk_size();
@@ -254,21 +306,40 @@ void Segment::write(std::ostream& fp) const {
         // otherwise this will set zeros in there (no-op)
         hdr_ext = WRITE_HdrEXT_SMALLCNT(hdr_ext, smallcnt);
 
-        // Split the block number in two parts
-        uint16_t hi_blk_nr = ext.hi_blk_nr();
-        uint16_t lo_blk_nr = ext.lo_blk_nr();
+        // Calculate the distance from the previous extent the current
+        // so we can know if it is a near extent or not
+        Extent::blk_distance_t dist = Extent::distance_in_blks(prev, ext);
 
-        // Save the highest bits
-        hdr_ext = WRITE_HdrEXT_HI_BLK_NR(hdr_ext, hi_blk_nr);
+        if (dist.is_near) {
+            hdr_ext = WRITE_HdrEXT_NEAR_FLAG(hdr_ext);
+            hdr_ext = WRITE_HdrEXT_JMP_OFFSET(hdr_ext, dist.blk_cnt);
+            if (dist.is_backwards) {
+                hdr_ext = WRITE_HdrEXT_BACKWARD_DIR(hdr_ext);
+            }
 
-        // Now hdr_ext and lo_blk_nr are complete: write both to disk
-        assert_write_room_and_consume(sizeof(hdr_ext) + sizeof(lo_blk_nr), &remain_sz);
+            // Now hdr_ext is complete: write it to disk
+            assert_write_room_and_consume(sizeof(hdr_ext), &remain_sz);
 
-        hdr_ext = u16_to_le(hdr_ext);
-        fp.write((char*)&hdr_ext, sizeof(hdr_ext));
+            hdr_ext = u16_to_le(hdr_ext);
+            fp.write((char*)&hdr_ext, sizeof(hdr_ext));
 
-        lo_blk_nr = u16_to_le(lo_blk_nr);
-        fp.write((char*)&lo_blk_nr, sizeof(lo_blk_nr));
+        } else {
+            // Split the block number in two parts
+            uint16_t hi_blk_nr = ext.hi_blk_nr();
+            uint16_t lo_blk_nr = ext.lo_blk_nr();
+
+            // Save the highest bits in the header
+            hdr_ext = WRITE_HdrEXT_HI_BLK_NR(hdr_ext, hi_blk_nr);
+
+            // Now hdr_ext and lo_blk_nr are complete: write both to disk
+            assert_write_room_and_consume(sizeof(hdr_ext) + sizeof(lo_blk_nr), &remain_sz);
+
+            hdr_ext = u16_to_le(hdr_ext);
+            fp.write((char*)&hdr_ext, sizeof(hdr_ext));
+
+            lo_blk_nr = u16_to_le(lo_blk_nr);
+            fp.write((char*)&lo_blk_nr, sizeof(lo_blk_nr));
+        }
 
         assert (not (is_suballoc and smallcnt));
         if (is_suballoc or smallcnt == 0) {
@@ -277,6 +348,8 @@ void Segment::write(std::ostream& fp) const {
             assert_write_room_and_consume(sizeof(blk_cnt), &remain_sz);
             fp.write((char*)&blk_cnt, sizeof(blk_cnt));
         }
+
+        prev = ext;
     }
 
     if (segm.inline_present) {
@@ -319,7 +392,13 @@ void Segment::write(std::ostream& fp) const {
         }
     }
 
+    // It must be hold remain_cnt == 0 because we counted at the begin
+    // of the Segment::write how many extents+inline there were so
+    // if everything worked as planned, we should have 0 elements remaining
     assert (remain_cnt == 0);
+
+    // The same goes for the remaining size: we calculated the footprint
+    // of the segment and we expect to write all of it
     assert (remain_sz == 0);
 }
 

@@ -74,10 +74,12 @@ uint32_t Segment::calc_footprint_disk_size() const {
         // Ext header, always present
         sz += sizeof(uint16_t);
 
-
-        // Ext low blk nr bits, always present
-        // (ext is not an inline)
-        sz += sizeof(uint16_t);
+        Extent::blk_distance_t dist = Extent::distance_in_blks(prev, ext);
+        if (not dist.is_near) {
+            // Ext low blk nr bits, always present
+            // (ext is not an inline and it is not near)
+            sz += sizeof(uint16_t);
+        }
 
         // blk_cnt is present only if
         //   - OR is_suballoc (blk_cnt is a bitmap)
@@ -86,6 +88,8 @@ uint32_t Segment::calc_footprint_disk_size() const {
         if (ext.is_suballoc() or ext.blk_cnt() > EXT_SMALLCNT_MAX or ext.blk_cnt() == 0) {
             sz += sizeof(uint16_t);
         }
+
+        prev = ext;
     }
 
     if (segm.inline_present) {
