@@ -193,8 +193,14 @@ void Segment::read(std::istream& fp, const uint64_t segm_sz) {
                 blk_nr = ((uint32_t(hi_blk_nr & 0x03ff) << 16) | lo_blk_nr);
 
                 if (blk_nr == 0) {
-                    // TODO add is_near comment and lo+hi
-                    throw InconsistentXOZ("Extent with block number 0 is unexpected.");
+                    throw InconsistentXOZ(
+                            F() << "Extent with block number 0 is unexpected "
+                                << "from composing hi_blk_nr:"
+                                << (hi_blk_nr & 0x03ff)
+                                << " (10 highest bits) and lo_blk_nr:"
+                                << lo_blk_nr
+                                << " (16 lowest bits)."
+                                );
                 }
             }
 
@@ -221,26 +227,58 @@ void Segment::read(std::istream& fp, const uint64_t segm_sz) {
 
                 // Reference at prev extent's block number
                 uint32_t ref_nr = blk_nr = prev.blk_nr();
+                uint32_t prev_blk_cnt = (prev.is_suballoc() ? 1 : prev.blk_cnt());
+
+                bool blk_nr_wraparound = false;
 
                 if (is_backward_dir) {
                     blk_nr -= jmp_offset;
                     blk_nr -= blk_cnt;
 
                     if (ref_nr < blk_nr) {
-                        throw 1; // TODO wrap
+                        blk_nr_wraparound = true;
                     }
                 } else {
-                    blk_nr += (prev.is_suballoc() ? 1 : prev.blk_cnt());
                     blk_nr += jmp_offset;
+                    blk_nr += prev_blk_cnt;
 
                     if (ref_nr > blk_nr) {
-                        throw 1; // TODO warp
+                        blk_nr_wraparound = true;
                     }
                 }
 
+                if (blk_nr_wraparound) {
+                    throw InconsistentXOZ(
+                            F() << "Near extent block number wraparound: "
+                                << "current extent offset "
+                                << jmp_offset
+                                << " and blk cnt "
+                                << blk_cnt
+                                << " in the "
+                                << (is_backward_dir ? "backward" : "forward")
+                                << " direction and previous extent at blk nr "
+                                << prev.blk_nr()
+                                << " and blk cnt "
+                                << prev_blk_cnt
+                                << "."
+                            );
+                }
+
                 if (blk_nr == 0) {
-                    // TODO add is_near comment and offset+blk+prev
-                    throw InconsistentXOZ("Extent with block number 0 is unexpected.");
+                    throw InconsistentXOZ(
+                            F() << "Extent with block number 0 is unexpected "
+                                << "for "
+                                << blk_cnt
+                                << " blocks length extent from relative offset "
+                                << jmp_offset
+                                << " in the "
+                                << (is_backward_dir ? "backward" : "forward")
+                                << " direction with respect previous blk nr "
+                                << prev.blk_nr()
+                                << " ("
+                                << prev_blk_cnt
+                                << " blocks length)."
+                            );
                 }
             }
 

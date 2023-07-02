@@ -1005,7 +1005,28 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Repository seems inconsistent/corrupt. "
-                        "Extent with block number 0 is unexpected."
+                        "Extent with block number 0 is unexpected "
+                        "from composing hi_blk_nr:0 (10 highest bits) "
+                        "and lo_blk_nr:0 (16 lowest bits)."
+                        )
+                    )
+                )
+        );
+
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        fp.write("\x01\x24\x01\x26", 4);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::read_segment(fp, 4); }),
+            ThrowsMessage<InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "Repository seems inconsistent/corrupt. "
+                        "Near extent block number wraparound: "
+                        "current extent offset 1 and blk cnt 4 "
+                        "in the backward direction and "
+                        "previous extent at blk nr 1 and blk cnt 4."
                         )
                     )
                 )
