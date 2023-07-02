@@ -40,6 +40,8 @@ InconsistentXOZ::InconsistentXOZ(const std::string& msg) {
     this->msg = ss.str();
 }
 
+InconsistentXOZ::InconsistentXOZ(const F& msg) : InconsistentXOZ(msg.ss.str()) {}
+
 const char* InconsistentXOZ::what() const noexcept {
     return msg.data();
 }
