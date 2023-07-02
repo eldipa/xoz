@@ -126,7 +126,7 @@ uint32_t Extent::calc_usable_space_size(uint8_t blk_sz_order) const {
     }
 
     if (ext.is_suballoc()) {
-        return std::popcount(ext.blk_cnt()) << (blk_sz_order - 4);
+        return std::popcount(ext.blk_bitmap()) << (blk_sz_order - 4);
     } else {
         return ext.blk_cnt() << blk_sz_order;
     }

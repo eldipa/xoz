@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include <iostream>
+#include <cassert>
 
 // An extent defines a contiguous array of <blk_cnt> full  blocks
 // starting from <blk_nr>
@@ -44,7 +45,7 @@ class Extent {
         _blk_cnt(blk_cnt)
     {
         if (blk_nr & (~0x03ffffff)) {
-            // TODO raise warning?
+            // TODO? throw std::runtime_error("bad blk nr (more than 26 bits)");
         }
 
         if (is_suballoc) {
@@ -52,32 +53,17 @@ class Extent {
         }
     }
 
-    // Create an extent with blk_nr of 26 bits formed from the 10 high bits (hi_blk_nr)
-    // and the 16 low bits (lo_blk_nr)
-    Extent(uint16_t hi_blk_nr, uint16_t lo_blk_nr, uint16_t blk_cnt, bool is_suballoc) :
-        Extent(
-                ((uint32_t(hi_blk_nr & 0x03ff) << 16) | lo_blk_nr),
-                blk_cnt,
-                is_suballoc
-              ) {}
-
     inline uint32_t blk_nr() const {
         return _blk_nr & 0x03ffffff;
     }
 
-    inline uint16_t hi_blk_nr() const {
-        return (_blk_nr & 0x03ff0000) >> 16;
-    }
-
-    inline uint16_t lo_blk_nr() const {
-        return _blk_nr & 0x0000ffff;
-    }
-
     inline uint16_t blk_cnt() const {
+        assert(not is_suballoc());
         return _blk_cnt;
     }
 
     inline uint16_t blk_bitmap() const {
+        assert(is_suballoc());
         return _blk_cnt; // on purpose, an alias of blk_cnt()
     }
 
@@ -90,6 +76,8 @@ class Extent {
     }
 
     inline void shrink_by(uint16_t cnt) {
+        assert(not is_suballoc());
+        assert(cnt <= _blk_cnt);
         _blk_cnt -= cnt;
     }
 

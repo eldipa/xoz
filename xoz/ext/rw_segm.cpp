@@ -363,8 +363,8 @@ void Segment::write(std::ostream& fp) const {
 
         } else {
             // Split the block number in two parts
-            uint16_t hi_blk_nr = ext.hi_blk_nr();
-            uint16_t lo_blk_nr = ext.lo_blk_nr();
+            uint16_t hi_blk_nr = (ext.blk_nr() >> 16) & 0x3ff; // 10 bits
+            uint16_t lo_blk_nr = ext.blk_nr() & 0xffff; // 16 bits
 
             // Save the highest bits in the header
             hdr_ext = WRITE_HdrEXT_HI_BLK_NR(hdr_ext, hi_blk_nr);
@@ -382,9 +382,9 @@ void Segment::write(std::ostream& fp) const {
         assert (not (is_suballoc and smallcnt));
         if (is_suballoc or smallcnt == 0) {
             // write blk_cnt/bitmap
-            uint16_t blk_cnt = u16_to_le(ext.blk_cnt());
-            assert_write_room_and_consume(sizeof(blk_cnt), &remain_sz);
-            fp.write((char*)&blk_cnt, sizeof(blk_cnt));
+            uint16_t blk_cnt_bitmap = is_suballoc ? u16_to_le(ext.blk_bitmap()) : u16_to_le(ext.blk_cnt());
+            assert_write_room_and_consume(sizeof(blk_cnt_bitmap), &remain_sz);
+            fp.write((char*)&blk_cnt_bitmap, sizeof(blk_cnt_bitmap));
         }
 
         prev = ext;
