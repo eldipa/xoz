@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 BLK_SZ = 512
 
-import collections, copy, random
+import collections, copy, random, itertools
 from dataclasses import dataclass
 
 @dataclass
@@ -149,14 +149,14 @@ class Allocator:
         return obj
 
     def trace(self, alloc, obj, tag=''):
-        print(
-            "A" if alloc else "D",
-            f"cnt: {obj.segm.blk_cnt: 6}",
-            f"start: {obj.segm.blk_nr:06x}",
-            f"end: {obj.segm.blk_nr + obj.segm.blk_cnt:06x}",
-            "tag:", tag
-            )
-        pass
+        if self.trace_enabled:
+            print(
+                "A" if alloc else "D",
+                f"cnt: {obj.segm.blk_cnt: 6}",
+                f"start: {obj.segm.blk_nr:06x}",
+                f"end: {obj.segm.blk_nr + obj.segm.blk_cnt:06x}",
+                "tag:", tag
+                )
 
 class MonotonicAllocator(Allocator):
     def __init__(self, space, free_list, obj_by_id):
@@ -202,6 +202,8 @@ class MonotonicAllocator(Allocator):
         self.chk_subspace(obj, segm, self.space, is_already_allocd=False)
         assert len(self.space) == S
 
+    def shrink(self):
+        pass
 
 class KRAllocator(Allocator):
     def __init__(self, space, free_list, obj_by_id):
@@ -210,6 +212,7 @@ class KRAllocator(Allocator):
         self.free_list = free_list
         self.obj_by_id = obj_by_id
         self.internal_frag = 0
+        self.global_endix = 0
 
     def alloc(self, act):
         S = len(self.space)
@@ -260,6 +263,7 @@ class KRAllocator(Allocator):
         # no fit at all, alloc more space
         segm.blk_nr = len(self.space)
         obj.segm = segm
+        self.global_endix = max(segm.blk_nr + segm.blk_cnt, self.global_endix)
         self.space.extend(blks)
         self.trace(alloc=True, obj=obj, tag='extend')
 
@@ -329,6 +333,27 @@ class KRAllocator(Allocator):
         self.chk_subspace(obj, segm, self.space, is_already_allocd=False)
         assert len(self.space) == S
 
+    def shrink(self):
+        global_endix = self.global_endix
+        to_be_released_fr_cnt = 0
+        to_be_released_blk_cnt = 0
+        for fr in reversed(self.free_list):
+            if fr[0] + fr[1] == global_endix:
+                to_be_released_fr_cnt += 1
+                to_be_released_blk_cnt += fr[1]
+                global_endix = fr[0]
+            else:
+                assert fr[0] + fr[1] < global_endix
+                break
+
+        assert(b == 0 for b in self.space[global_endix:])
+        assert(len(self.space[global_endix:]) == to_be_released_blk_cnt)
+
+        if to_be_released_fr_cnt:
+            del self.free_list[-to_be_released_fr_cnt:]
+            del self.space[global_endix:]
+
+
 class BuddyAllocator:
     pass
 
@@ -381,14 +406,17 @@ def show_space_stats(space, obj_by_id, allocator):
     free_blk_cnt = sum(1 if b == 0 else 0 for b in space)
     total_blk_cnt = len(space)
 
+    free_blk_at_end_cnt = sum(1 for _ in itertools.takewhile(lambda b: b == 0, reversed(space)))
+
     print("Total blk cnt:", total_blk_cnt)
     print("Total file size:", (total_blk_cnt * BLK_SZ) / 1024, "kb")
     print()
 
     print("Free blk cnt:", free_blk_cnt)
+    print("Free blk (at the end) cnt:", free_blk_at_end_cnt)
     print("Free size:", (free_blk_cnt * BLK_SZ) / 1024, "kb")
-    print("External frag:", round((free_blk_cnt / total_blk_cnt) * 100, 2), "%")
     print()
+    print("External frag:", round((free_blk_cnt / total_blk_cnt) * 100, 2), "%")
     print("Internal frag:", round((allocator.internal_frag / ((total_blk_cnt-free_blk_cnt) * BLK_SZ)) * 100, 2), "%")
     print()
 
@@ -425,7 +453,9 @@ _destacated_samples = {
 @click.option('--coalescing', is_flag=True, default=False)
 @click.option('-m', '--writer-model', type=click.Choice(['copier', 'notetaker', 'editor']), default='editor')
 @click.option('--no-reinsert', is_flag=True, default=False)
-def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, writer_model, no_reinsert):
+@click.option('--shrink/--no-shrink', default=True)
+@click.option('--trace/--no-trace', default=False)
+def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, writer_model, no_reinsert, shrink, trace):
     SEED = seed
     NOTE_TAKER_BACK_W = max(4, note_taker_back_w)
     DEL_PROB = min(0.9, max(0, dp))
@@ -436,6 +466,8 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
     COALESCING = coalescing
     WRITER_MODEL = writer_model
     REINSERT = not no_reinsert
+    SHRINK = shrink
+    TRACE = trace
 
     df = pd.read_csv('01-results/xopp-dataset-2023.csv')
 
@@ -490,7 +522,9 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
                 ALLOCATOR = ALLOCATOR,
                 COALESCING = COALESCING,
                 WRITER_MODEL = WRITER_MODEL,
-                REINSERT = REINSERT
+                REINSERT = REINSERT,
+                SHRINK = SHRINK,
+                TRACE = TRACE
             )
 
         if rerun_until_bug:
@@ -510,7 +544,9 @@ def simulate(
         ALLOCATOR,
         COALESCING,
         WRITER_MODEL,
-        REINSERT
+        REINSERT,
+        SHRINK,
+        TRACE
     ):
 
     def should_be_deleted(obj, rnd):
@@ -641,12 +677,16 @@ def simulate(
             assert False
 
         allocator.coalescing = COALESCING
+        allocator.trace_enabled = TRACE
 
         for act in tqdm.tqdm(actions, total=len(actions)):
             if act.is_delete_action:
                 allocator.dealloc(act)
             else:
                 allocator.alloc(act)
+
+        if SHRINK:
+            allocator.shrink()
 
         show_space_pages(space, obj_by_id, allocator)
         show_space_stats(space, obj_by_id, allocator)
