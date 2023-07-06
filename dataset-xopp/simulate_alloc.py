@@ -32,11 +32,11 @@ class Obj:
     obj_id : int
     obj_type : str
     page_no : int
-    blk_nr : int
-    is_allocd : bool
+    segm : None
 
 @dataclass
 class Segment:
+    blk_nr : int
     blk_cnt: int
     internal_frag : int
 
@@ -56,42 +56,63 @@ class Allocator:
             blk_cnt += 1 # partially filled blk
 
         assert blk_cnt >= 0
-        return Segment(blk_cnt, internal_frag)
+        return Segment(None, blk_cnt, internal_frag)
 
-    def chk_subspace(self, obj, segm, space, is_allocd):
-        assert obj.is_allocd == is_allocd
+    def chk_subspace(self, obj, segm, space, is_already_allocd):
+        ''' Check that the segment associated with the object
+            is within the boundaries of the space.
 
-        value = obj.obj_id if obj.is_allocd else 0
+            If is_already_allocd, the object is expected to be alloc'd
+            and the data in the space filled with its obj id.
 
-        startix = obj.blk_nr
+            Otherwise, the object is expected to be not-alloc'd
+            and the data in the space filled with zeros
+            meaning that the space is not alloc'd by anyone.
+        '''
+        if is_already_allocd:
+            value = obj.obj_id
+
+            # Expected to have a segment because it is already
+            # allocated
+            assert obj.segm is not None
+            assert segm.blk_nr is None or obj.segm.blk_nr == segm.blk_nr
+            assert obj.segm.blk_nr >= 0
+            assert obj.segm.blk_cnt == segm.blk_cnt
+        else:
+            value = 0
+            assert obj.segm is None
+
+        startix = segm.blk_nr
         endix = startix + segm.blk_cnt
 
-        if not all(b == value for b in space[startix:endix]):
-            import pudb; pudb.set_trace();
-        assert all(b == value for b in space[startix:endix])
+        # Ensure that the blks are within the space boundaries
         assert len(space[startix:endix]) == segm.blk_cnt
+
+        # Ensure that the blks in the space selected are
+        # either full with the obj_id (is_already_allocd = True)
+        # or with zeros (is_already_allocd = False)
+        assert all(b == value for b in space[startix:endix])
+
+        # As a sanity check the previous blk and the next blk
+        # outside the selected blocks should *not* be written
+        # with the object id (otherwise it would mean that there
+        # was an overflow/underflow)
         assert all(b != obj.obj_id for b in space[endix:endix+1])
         assert all(b != obj.obj_id for b in space[startix-1:startix])
 
-    def chk_obj_act_consistency_before_alloc(self, obj, act):
-        # sanity check: object not alloc'd yet, same id and data size
-        # that the action
-        assert not obj.is_allocd
-        assert obj.obj_id == act.obj_id
-        assert not act.is_delete_action
-
     def chk_obj_and_act_consistency(self, obj, act, is_delete_action):
-        # sanity check: object already alloc'd, same id and data size
+        # sanity check: object already alloc'd and same id
         # that the action
         assert obj.obj_id == act.obj_id
 
         if is_delete_action:
             assert act.is_delete_action
-            assert obj.is_allocd
-            assert obj.blk_nr >= 0
+            assert obj.segm is not None
+            assert obj.segm.blk_cnt > 0
+            assert obj.segm.blk_nr >= 0
         else:
             assert not act.is_delete_action
-            assert not obj.is_allocd
+            assert obj.segm is None
 
     def create_full_data_blks(self, segm, obj_id):
         # create data blocks with the object id as payload
@@ -106,7 +127,7 @@ class Allocator:
         return segm, blks
 
     def predealloc_and_track(self, obj):
-        segm = self.segment_construction(obj.data_sz)
+        segm = obj.segm
         self.internal_frag -= segm.internal_frag
 
         blks = self.create_full_data_blks(segm, 0)
@@ -116,9 +137,26 @@ class Allocator:
     def object_lookup(self, act, is_delete_action):
         obj = self.obj_by_id[act.obj_id]
         assert obj.obj_id == act.obj_id
-        assert act.is_delete_action == is_delete_action
-        assert (obj.is_allocd and act.is_delete_action) or (not obj.is_allocd and not act.is_delete_action)
+
+        if is_delete_action:
+            assert act.is_delete_action
+            assert obj.segm is not None
+            assert obj.segm.blk_cnt > 0
+        else:
+            assert not act.is_delete_action
+            assert obj.segm is None
+
         return obj
+
+    def trace(self, alloc, obj, tag=''):
+        print(
+            "A" if alloc else "D",
+            f"cnt: {obj.segm.blk_cnt: 6}",
+            f"start: {obj.segm.blk_nr:06x}",
+            f"end: {obj.segm.blk_nr + obj.segm.blk_cnt:06x}",
+            "tag:", tag
+            )
+        pass
 
 class MonotonicAllocator(Allocator):
     def __init__(self, space, free_list, obj_by_id):
@@ -136,11 +174,12 @@ class MonotonicAllocator(Allocator):
         # just "append" new blocks, the monotonic allocator
         # always grows
 
-        obj.blk_nr = len(self.space)
-        obj.is_allocd = True
+        segm.blk_nr = len(self.space)
+        obj.segm = segm
         self.space.extend(blks)
+        self.trace(alloc=True, obj=obj, tag='extend')
 
-        self.chk_subspace(obj, segm, self.space, True)
+        self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
         assert len(self.space) == S + len(blks)
 
     def dealloc(self, act):
@@ -148,17 +187,19 @@ class MonotonicAllocator(Allocator):
         obj = self.object_lookup(act, is_delete_action=True)
 
         segm, zeroed_blks = self.predealloc_and_track(obj)
-        self.chk_subspace(obj, segm, self.space, True)
+        self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
 
-        ix = obj.blk_nr
+        ix = obj.segm.blk_nr
         endix = ix+segm.blk_cnt
 
         # dealloc actually does not do anything but for simulation purposes
         # we find the object's block and mark them as freed
         self.space[ix:endix] = zeroed_blks
-        obj.is_allocd = False
+        self.trace(alloc=False, obj=obj)
 
-        self.chk_subspace(obj, segm, self.space, False)
+        obj.segm = None
+
+        self.chk_subspace(obj, segm, self.space, is_already_allocd=False)
         assert len(self.space) == S
 
 
@@ -179,40 +220,50 @@ class KRAllocator(Allocator):
         # Optimizations: order the list by size so we can
         # discard too-small entries quickly
         for i in range(len(self.free_list)):
-            b, cnt = self.free_list[i]
-            assert b >= 0 and cnt >=0
-            assert len(self.space) >= b+cnt
+            fr_ix, fr_cnt = self.free_list[i]
 
-            if cnt == segm.blk_cnt:
+            # Sanity check: the free blocks are within
+            # the space boundaries
+            assert fr_ix >= 0 and fr_cnt > 0
+            assert len(self.space) >= fr_ix+fr_cnt
+
+            if fr_cnt == segm.blk_cnt:
                 # best fit, unlink from the free list
                 del self.free_list[i]
 
-                self.space[b:b+segm.blk_cnt] = blks
+                # store the data
+                self.space[fr_ix : fr_ix+segm.blk_cnt] = blks
                 assert len(self.space) == S
-                obj.blk_nr = b
-                obj.is_allocd = True
 
-                self.chk_subspace(obj, segm, self.space, True)
+                # Track where it was alloc'd
+                segm.blk_nr = fr_ix
+                obj.segm = segm
+                self.trace(alloc=True, obj=obj, tag='perfect')
+
+                self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
                 return
 
-            elif cnt > segm.blk_cnt:
+            elif fr_cnt > segm.blk_cnt:
                 # good enough fit, update in place the free list
-                self.free_list[i] = (b+segm.blk_cnt, cnt-segm.blk_cnt)
+                self.free_list[i] = (fr_ix + segm.blk_cnt, fr_cnt - segm.blk_cnt)
 
-                self.space[b:b+segm.blk_cnt] = blks
+                self.space[fr_ix : fr_ix+segm.blk_cnt] = blks
                 assert len(self.space) == S
-                obj.blk_nr = b
-                obj.is_allocd = True
 
-                self.chk_subspace(obj, segm, self.space, True)
+                segm.blk_nr = fr_ix
+                obj.segm = segm
+                self.trace(alloc=True, obj=obj, tag=f'split -> new free cnt:{self.free_list[i][1]: 6} start: {self.free_list[i][0]:06x} end: {self.free_list[i][0]+self.free_list[i][1]:06x}')
+
+                self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
                 return
 
         # no fit at all, alloc more space
-        obj.blk_nr = len(self.space)
+        segm.blk_nr = len(self.space)
+        obj.segm = segm
         self.space.extend(blks)
-        obj.is_allocd = True
+        self.trace(alloc=True, obj=obj, tag='extend')
 
-        self.chk_subspace(obj, segm, self.space, True)
+        self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
         assert len(self.space) == S + len(blks)
 
     def dealloc(self, act):
@@ -220,38 +271,62 @@ class KRAllocator(Allocator):
         obj = self.object_lookup(act, is_delete_action=True)
 
         segm, zeroed_blks = self.predealloc_and_track(obj)
-        self.chk_subspace(obj, segm, self.space, True)
+        self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
 
-        ix = obj.blk_nr
-        endix = ix+segm.blk_cnt
+        startix = obj.segm.blk_nr
+        endix = startix+segm.blk_cnt
 
-        self.space[ix:endix] = zeroed_blks
-        obj.is_allocd = False
+        self.space[startix:endix] = zeroed_blks
 
         if self.coalescing:
-            found = 0
+            found = []
+            coalesced = None
+
+            self.free_list = list(sorted(self.free_list))
             for i in range(len(self.free_list)):
                 fr_ix, fr_blk_cnt = self.free_list[i]
-                if endix == fr_ix:
-                    # <current><next free>
-                    self.free_list[i] = (ix, segm.blk_cnt+fr_blk_cnt)
-                    found += 1
 
-                elif fr_ix + fr_blk_cnt == ix:
-                    # <prev free><current>
-                    self.free_list[i] = (fr_ix, fr_blk_cnt+segm.blk_cnt)
-                    found += 1
+                if fr_ix + fr_blk_cnt == startix:
+                    # fr_ix   startix
+                    # v       v
+                    # ^.......^....
+                    #  fr_cnt   segm.blk_cnt
+                    found.append((fr_ix, fr_blk_cnt))
+                    coalesced = self.free_list[i] = (fr_ix, fr_blk_cnt+segm.blk_cnt)
 
-                if found == 2:
+                elif endix == fr_ix:
+                    #         startix    fr_ix
+                    #         v          v
+                    #         ^..........^.....
+                    #       segm.blk_cnt |   fr_cnt
+                    #                  endix
+                    found.append((fr_ix, fr_blk_cnt))
+                    if coalesced:
+                        prev_fr_ix, prev_fr_blk_cnt = self.free_list[i-1]
+                        coalesced = self.free_list[i-1] = (prev_fr_ix, prev_fr_blk_cnt+fr_blk_cnt)
+                        del self.free_list[i]
+                    else:
+                        coalesced = self.free_list[i] = (startix, segm.blk_cnt+fr_blk_cnt)
+
                     break
 
-            if found == 0:
-                self.free_list.append((ix, segm.blk_cnt))
+                elif fr_ix > endix:
+                    break
+
+            if not coalesced:
+                self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{segm.blk_cnt: 6} start: {startix:06x} end: {startix+segm.blk_cnt:06x}')
+                self.free_list.append((startix, segm.blk_cnt))
+            else:
+                msg1 = f'cnt:{coalesced[1]: 6} start: {coalesced[0]:06x} end: {coalesced[0]+coalesced[1]:06x}'
+                msg2 = '; '.join(f'cnt:{f[1]: 6} start: {f[0]:06x} end: {f[0]+f[1]:06x}' for f in found)
+                self.trace(alloc=False, obj=obj, tag=f'coalesced -> {msg1} -> used {msg2}')
         else:
             # naively append, we are not doing "coalescing"
-            self.free_list.append((ix, segm.blk_cnt))
+            self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{segm.blk_cnt: 6} start: {startix:06x} end: {startix+segm.blk_cnt:06x}')
+            self.free_list.append((startix, segm.blk_cnt))
 
-        self.chk_subspace(obj, segm, self.space, False)
+        obj.segm = None
+        self.chk_subspace(obj, segm, self.space, is_already_allocd=False)
         assert len(self.space) == S
 
 class BuddyAllocator:
@@ -331,23 +406,26 @@ _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
     'in-03', 'in-04', 'in-05', 'in-06', 'in-07', 'in-08', 'in-09',
     'in-10', 'in-11', 'in-12', 'in-13', 'in-14', 'ph-01', 'ph-03',
     'ph-05', 'ph-06', 'pi-01', 'pi-02', 'pi-03', 'pi-04', 'pi-05',
-    'pi-06', 'uk-01', 'uk-02', 'L']
+    'pi-06', 'uk-01', 'uk-02', 'L', 'S']
 
 _destacated_samples = {
         'L': 'uk-02', # large
+        'S': 'dc-01', # small
         }
 
 @click.command()
 @click.option('--seed', default=31416)
+@click.option('--rerun-until-bug', is_flag=True, default=False)
 @click.option('-w', '--note-taker-back-w', default=12, help='cnt elements to shuffle')
 @click.option('--dp', default=0.1*8, help='probability to delete a draw')
 @click.option('--idp', default=0.01*8, help='probability to delete an "image" draw')
 @click.option('--rf', default=0.25, help='scale blksz to add on reinserts, a random from [-blksz * rf, blksz * rf]')
 @click.option('-a', '--alloc', type=click.Choice(['mono', 'kr']), required=True)
 @click.option('-s', '--sample', type=click.Choice(_samples), default='ph-01')
-@click.option('--coalescing/--no-coalescing', default=False)
+@click.option('--coalescing', is_flag=True, default=False)
 @click.option('-m', '--writer-model', type=click.Choice(['copier', 'notetaker', 'editor']), default='editor')
-def simulate(seed, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, writer_model):
+@click.option('--no-reinsert', is_flag=True, default=False)
+def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, writer_model, no_reinsert):
     SEED = seed
     NOTE_TAKER_BACK_W = max(4, note_taker_back_w)
     DEL_PROB = min(0.9, max(0, dp))
@@ -357,6 +435,83 @@ def simulate(seed, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, wr
     SAMPLE_TARGET = _destacated_samples.get(sample, sample)
     COALESCING = coalescing
     WRITER_MODEL = writer_model
+    REINSERT = not no_reinsert
+
+    df = pd.read_csv('01-results/xopp-dataset-2023.csv')
+
+    df2 = df[df['sample'] == SAMPLE_TARGET]
+    sample_df = df2[['sample', 'type', 'char_length', 'widths_cnt', 'coords_cnt', 'text', 'page']]
+
+    # Collect all the "draw" actions and objects
+    _main_actions = []
+    _main_obj_by_id = {}
+    obj_id = 0
+    for _, row in tqdm.tqdm(sample_df.iterrows()):
+        obj_id += 1
+
+        if row['type'] == 's':
+            # strokes: coord and w count * 4 (assuming float)
+            sz = (row['coords_cnt'] + row['widths_cnt']) * 4
+            desc_sz = 22
+        elif row['type'] == 'x':
+            # teximage: img decoded + latex source code
+            sz = (row['char_length'] / 1.33) + len(row['text'])
+            desc_sz = 18
+        elif row['type'] == 't':
+            # text: text length
+            sz = row['char_length']
+            desc_sz = 26
+        elif row['type'] == 'i':
+            # image: img decoded
+            sz = (row['char_length'] / 1.33)
+            desc_sz = 18
+
+        sz = int(round(sz))
+        if sz <= 0:
+            continue
+
+        obj = Obj(sz, desc_sz, obj_id, row['type'], int(row['page']), None)
+        act = Action(False, obj.obj_id)
+        _main_obj_by_id[obj_id] = obj
+        _main_actions.append(act)
+
+    do_simulations = True
+    while do_simulations:
+        do_simulations = False
+        simulate(
+                _main_actions = copy.deepcopy(_main_actions),
+                _main_obj_by_id = copy.deepcopy(_main_obj_by_id),
+                obj_id = obj_id,
+                SEED = SEED,
+                NOTE_TAKER_BACK_W = NOTE_TAKER_BACK_W,
+                DEL_PROB = DEL_PROB,
+                DEL_IMG_PROB = DEL_IMG_PROB,
+                REINSERT_CHG_SZ_FACTOR = REINSERT_CHG_SZ_FACTOR,
+                ALLOCATOR = ALLOCATOR,
+                COALESCING = COALESCING,
+                WRITER_MODEL = WRITER_MODEL,
+                REINSERT = REINSERT
+            )
+
+        if rerun_until_bug:
+            do_simulations = True
+            rnd = random.Random(SEED)
+            SEED = random.randint(0, 2**32)
+
+def simulate(
+        _main_actions,
+        _main_obj_by_id,
+        obj_id,
+        SEED,
+        NOTE_TAKER_BACK_W,
+        DEL_PROB,
+        DEL_IMG_PROB,
+        REINSERT_CHG_SZ_FACTOR,
+        ALLOCATOR,
+        COALESCING,
+        WRITER_MODEL,
+        REINSERT
+    ):
 
     def should_be_deleted(obj, rnd):
         pr = rnd.random()
@@ -369,101 +524,61 @@ def simulate(seed, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, wr
         assert 0 <= th <= 0.9
         return pr < th
 
+    print("-----------")
+    # The draw _main_actions are in file-order so they simulate
+    # an user that made those draws in that order without deleting
+    # anything.
+    rnd = random.Random(SEED)
+    copier_actions = copy.deepcopy(_main_actions)
 
-    df = pd.read_csv('01-results/xopp-dataset-2023.csv')
+    # Let's shuffle the order of the draws
+    # Shuffle within an overlapping range to simulate "locality"
+    # of the editions
+    # This simulates an user that takes notes on a document from the begin
+    # to the end but going back and forward in time to time
+    rnd = random.Random(SEED)
+    notes_taker_actions = copy.deepcopy(_main_actions)
+    W = NOTE_TAKER_BACK_W
+    for b in range(0, len(_main_actions), W//2):
+        e = b + W
+        window = notes_taker_actions[b:e]
+        rnd.shuffle(window)
+        notes_taker_actions[b:e] = window
 
-    df2 = df[['sample', 'type', 'char_length', 'widths_cnt', 'coords_cnt', 'text', 'page']]
-    grouped = df2.groupby('sample')
+    # Delete some draws at random.
+    # This simulates an user that edits a document adding things
+    # in random order (like notes_taker_actions) but also deleting them
+    # and readding them (an object may be deleted and readded more than once)
+    # on each readding, its size is changed based on its current size and
+    # the blk size such the readding may/may not require more/less blocks
+    rnd = random.Random(SEED)
+    editor_actions = copy.deepcopy(notes_taker_actions)
+    L = len(editor_actions)
+    i = 0
+    while i < L:
+        act = editor_actions[i]
 
-    max_inline_allowed = 0
-    for sample, group in grouped:
-        if SAMPLE_TARGET and sample != SAMPLE_TARGET:
+        # skip if it is already deleted
+        if act.is_delete_action:
+            i += 1
             continue
 
-        # Collect all the "draw" actions and objects
-        _main_actions = []
-        _main_obj_by_id = {}
-        obj_id = 0
-        for _, row in tqdm.tqdm(group.iterrows()):
-            obj_id += 1
+        obj = _main_obj_by_id[act.obj_id]
+        if i < L-2 and should_be_deleted(obj, rnd):
+            # Choose 2 indexes *after* the current object index i
+            delix = i + rnd.randint(1, L-1-i-1)
+            reinsertix = delix + rnd.randint(1, L-1-delix)
 
-            if row['type'] == 's':
-                # strokes: coord and w count * 4 (assuming float)
-                sz = (row['coords_cnt'] + row['widths_cnt']) * 4
-                desc_sz = 22
-            elif row['type'] == 'x':
-                # teximage: img decoded + latex source code
-                sz = (row['char_length'] / 1.33) + len(row['text'])
-                desc_sz = 18
-            elif row['type'] == 't':
-                # text: text length
-                sz = row['char_length']
-                desc_sz = 26
-            elif row['type'] == 'i':
-                # image: img decoded
-                sz = (row['char_length'] / 1.33)
-                desc_sz = 18
+            assert i < delix < reinsertix < L
 
-            sz = round(sz)
-            obj = Obj(sz, desc_sz, obj_id, row['type'], int(row['page']), -1, False)
-            act = Action(False, obj.obj_id)
-            _main_obj_by_id[obj_id] = obj
-            _main_actions.append(act)
+            # Copy the draw and mark it to be deleted
+            act = copy.deepcopy(act)
+            act.is_delete_action = True
 
-        print("-----------")
-        # The draw _main_actions are in file-order so they simulate
-        # an user that made those draws in that order without deleting
-        # anything.
-        rnd = random.Random(SEED)
-        copier_actions = copy.deepcopy(_main_actions)
+            # Insert the deleted draw *after* the original draw
+            editor_actions.insert(delix, act)
 
-        # Let's shuffle the order of the draws
-        # Shuffle within an overlapping range to simulate "locality"
-        # of the editions
-        # This simulates an user that takes notes on a document from the begin
-        # to the end but going back and forward in time to time
-        rnd = random.Random(SEED)
-        notes_taker_actions = copy.deepcopy(_main_actions)
-        W = NOTE_TAKER_BACK_W
-        for b in range(0, len(_main_actions), W//2):
-            e = b + W
-            window = notes_taker_actions[b:e]
-            rnd.shuffle(window)
-            notes_taker_actions[b:e] = window
-
-        # Delete some draws at random.
-        # This simulates an user that edits a document adding things
-        # in random order (like notes_taker_actions) but also deleting them
-        # and readding them (an object may be deleted and readded more than once)
-        # on each readding, its size is changed based on its current size and
-        # the blk size such the readding may/may not require more/less blocks
-        rnd = random.Random(SEED)
-        editor_actions = copy.deepcopy(notes_taker_actions)
-        L = len(editor_actions)
-        i = 0
-        while i < L:
-            act = editor_actions[i]
-
-            # skip if it is already deleted
-            if act.is_delete_action:
-                i += 1
-                continue
-
-            obj = _main_obj_by_id[act.obj_id]
-            if i < L-2 and should_be_deleted(obj, rnd):
-                # Choose 2 indexes *after* the current object index i
-                delix = i + rnd.randint(1, L-1-i-1)
-                reinsertix = delix + rnd.randint(1, L-1-delix)
-
-                assert i < delix < reinsertix < L
-
-                # Copy the draw and mark it to be deleted
-                act = copy.deepcopy(act)
-                act.is_delete_action = True
-
-                # Insert the deleted draw *after* the original draw
-                editor_actions.insert(delix, act)
-
+            if REINSERT:
                 # Take the "deleted" object...
                 del_obj = _main_obj_by_id[act.obj_id]
 
@@ -498,44 +613,44 @@ def simulate(seed, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, wr
                         )
                 assert (editor_actions[i].obj_id == editor_actions[delix].obj_id != editor_actions[reinsertix].obj_id)
 
-                # Update L so we process the new actions added too
-                L = len(editor_actions)
+            # Update L so we process the new actions added too
+            L = len(editor_actions)
 
-            i += 1
+        i += 1
 
-        print("-----------")
-        if WRITER_MODEL == 'copier':
-            models_actions = [copier_actions]
-        elif WRITER_MODEL == 'notetaker':
-            models_actions = [notes_taker_actions]
-        elif WRITER_MODEL == 'editor':
-            models_actions = [editor_actions]
+    print("-----------")
+    if WRITER_MODEL == 'copier':
+        models_actions = [copier_actions]
+    elif WRITER_MODEL == 'notetaker':
+        models_actions = [notes_taker_actions]
+    elif WRITER_MODEL == 'editor':
+        models_actions = [editor_actions]
+    else:
+        assert False
+
+    for actions in models_actions:
+        space = []
+        free_list = []
+        obj_by_id = copy.deepcopy(_main_obj_by_id)
+
+        if ALLOCATOR == 'mono':
+            allocator = MonotonicAllocator(space, free_list, obj_by_id)
+        elif ALLOCATOR == 'kr':
+            allocator = KRAllocator(space, free_list, obj_by_id)
         else:
             assert False
 
-        for actions in models_actions:
-            space = []
-            free_list = []
-            obj_by_id = copy.deepcopy(_main_obj_by_id)
+        allocator.coalescing = COALESCING
 
-            if ALLOCATOR == 'mono':
-                allocator = MonotonicAllocator(space, free_list, obj_by_id)
-            elif ALLOCATOR == 'kr':
-                allocator = KRAllocator(space, free_list, obj_by_id)
+        for act in tqdm.tqdm(actions, total=len(actions)):
+            if act.is_delete_action:
+                allocator.dealloc(act)
             else:
-                assert False
+                allocator.alloc(act)
 
-            allocator.coalescing = COALESCING
-
-            for act in tqdm.tqdm(actions, total=len(actions)):
-                if act.is_delete_action:
-                    allocator.dealloc(act)
-                else:
-                    allocator.alloc(act)
-
-            show_space_pages(space, obj_by_id, allocator)
-            show_space_stats(space, obj_by_id, allocator)
+        show_space_pages(space, obj_by_id, allocator)
+        show_space_stats(space, obj_by_id, allocator)
 
 if __name__ == '__main__':
     import sys
-    simulate()
+    main()
