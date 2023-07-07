@@ -37,17 +37,20 @@ class Obj:
 
     def as_obj_id_str(self):
         return f"obj: {self.obj_id: 5} (pg: {self.page_no: 3})"
+@dataclass
+class Extent:
+    blk_nr : int
+    blk_cnt: int
 
 @dataclass
 class Segment:
-    blk_nr : int
-    blk_cnt: int
-    internal_frag : int
+    extents : list
 
     def as_indexes_str(self):
-        return (f"cnt: {self.blk_cnt: 5} "
-                f"start: {self.blk_nr:05x} "
-                f"end: {self.blk_nr + self.blk_cnt:05x}"
+        ext = self.extents[0]
+        return (f"cnt: {ext.blk_cnt: 5} "
+                f"start: {ext.blk_nr:05x} "
+                f"end: {ext.blk_nr + ext.blk_cnt:05x}"
                 )
 
 @dataclass
@@ -76,35 +79,32 @@ class Allocator:
         raise NotImplementedError()
 
 class SimulatedAllocatorMixin:
-    def segment_for(self, data_sz, blk_nr=None):
+    def single_extent_segment_for(self, data_sz, blk_nr=None):
         assert data_sz > 0
         subblock_data_sz = data_sz % BLK_SZ
         blk_cnt = (data_sz // BLK_SZ)
-        internal_frag = 0
 
         if subblock_data_sz:
-            internal_frag = BLK_SZ - subblock_data_sz
             blk_cnt += 1 # partially filled blk
 
         assert blk_cnt >= 0
-        return Segment(blk_nr, blk_cnt, internal_frag)
+        extent = Extent(blk_nr, blk_cnt)
+        return Segment(extents=[extent])
 
 class MonotonicAllocator(Allocator, SimulatedAllocatorMixin):
     def __init__(self):
         Allocator.__init__(self)
         self.global_endix = 0
 
-        self.internal_frag = 0 # TODO
-
     def alloc(self, req):
         # Always alloc on the top of the space
         blk_nr = self.global_endix
-        segm = self.segment_for(data_sz=req.data_sz, blk_nr=blk_nr)
+        segm = self.single_extent_segment_for(data_sz=req.data_sz, blk_nr=blk_nr)
 
         # A monotonic allocator always grow and expand
         # the space
-        expand_blk_space = segm.blk_cnt
-        self.global_endix += segm.blk_cnt
+        expand_blk_space = segm.extents[0].blk_cnt
+        self.global_endix += segm.extents[0].blk_cnt
 
         return Response(
                 segm=segm,
@@ -144,10 +144,9 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
 
         self.free_list = []
 
-        self.internal_frag = 0 # TODO
-
     def alloc(self, req):
-        segm = self.segment_for(data_sz=req.data_sz)
+        segm = self.single_extent_segment_for(data_sz=req.data_sz)
+        ext = segm.extents[0]
 
         # Optimizations: order the list by size so we can
         # discard too-small entries quickly
@@ -159,10 +158,10 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
             assert fr_ix >= 0 and fr_cnt > 0
             assert self.global_endix >= fr_ix+fr_cnt
 
-            if fr_cnt == segm.blk_cnt:
+            if fr_cnt == ext.blk_cnt:
                 # best fit, unlink from the free list
                 del self.free_list[i]
-                segm.blk_nr = fr_ix
+                ext.blk_nr = fr_ix
 
                 return Response(
                         segm=segm,
@@ -172,10 +171,10 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                         abort=False
                         ) # TODO tag 'perfect'
 
-            elif fr_cnt > segm.blk_cnt:
+            elif fr_cnt > ext.blk_cnt:
                 # good enough fit, update in place the free list
-                self.free_list[i] = (fr_ix + segm.blk_cnt, fr_cnt - segm.blk_cnt)
-                segm.blk_nr = fr_ix
+                self.free_list[i] = (fr_ix + ext.blk_cnt, fr_cnt - ext.blk_cnt)
+                ext.blk_nr = fr_ix
 
                 #self.trace(alloc=True, obj=obj, tag=f'split -> new free cnt:{self.free_list[i][1]: 6} start: {self.free_list[i][0]:06x} end: {self.free_list[i][0]+self.free_list[i][1]:06x}')
 
@@ -189,12 +188,12 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
 
 
         # no fit at all, alloc more space
-        segm.blk_nr = self.global_endix
-        self.global_endix += segm.blk_cnt
+        ext.blk_nr = self.global_endix
+        self.global_endix += ext.blk_cnt
 
         return Response(
                 segm=segm,
-                expand_blk_space=segm.blk_cnt,
+                expand_blk_space=ext.blk_cnt,
                 contract_blk_space=0,
                 expected_global_endix=self.global_endix,
                 abort=False
@@ -204,56 +203,57 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
     def dealloc(self, req):
         segm = req.segm
 
-        startix = segm.blk_nr
-        endix = startix+segm.blk_cnt
+        for ext in segm.extents:
+            startix = ext.blk_nr
+            endix = startix+ext.blk_cnt
 
-        if self.coalescing:
-            found = []
-            coalesced = None
+            if self.coalescing:
+                found = []
+                coalesced = None
 
-            self.free_list = list(sorted(self.free_list))
-            for i in range(len(self.free_list)):
-                fr_ix, fr_blk_cnt = self.free_list[i]
+                self.free_list = list(sorted(self.free_list))
+                for i in range(len(self.free_list)):
+                    fr_ix, fr_blk_cnt = self.free_list[i]
 
-                if fr_ix + fr_blk_cnt == startix:
-                    # fr_ix   startix
-                    # v       v
-                    # ^.......^....
-                    #  fr_cnt   segm.blk_cnt
-                    found.append((fr_ix, fr_blk_cnt))
-                    coalesced = self.free_list[i] = (fr_ix, fr_blk_cnt+segm.blk_cnt)
+                    if fr_ix + fr_blk_cnt == startix:
+                        # fr_ix   startix
+                        # v       v
+                        # ^.......^....
+                        #  fr_cnt   ext.blk_cnt
+                        found.append((fr_ix, fr_blk_cnt))
+                        coalesced = self.free_list[i] = (fr_ix, fr_blk_cnt+ext.blk_cnt)
 
-                elif endix == fr_ix:
-                    #         startix    fr_ix
-                    #         v          v
-                    #         ^..........^.....
-                    #       segm.blk_cnt |   fr_cnt
-                    #                  endix
-                    found.append((fr_ix, fr_blk_cnt))
-                    if coalesced:
-                        prev_fr_ix, prev_fr_blk_cnt = self.free_list[i-1]
-                        coalesced = self.free_list[i-1] = (prev_fr_ix, prev_fr_blk_cnt+fr_blk_cnt)
-                        del self.free_list[i]
-                    else:
-                        coalesced = self.free_list[i] = (startix, segm.blk_cnt+fr_blk_cnt)
+                    elif endix == fr_ix:
+                        #         startix    fr_ix
+                        #         v          v
+                        #         ^..........^.....
+                        #       ext.blk_cnt |   fr_cnt
+                        #                  endix
+                        found.append((fr_ix, fr_blk_cnt))
+                        if coalesced:
+                            prev_fr_ix, prev_fr_blk_cnt = self.free_list[i-1]
+                            coalesced = self.free_list[i-1] = (prev_fr_ix, prev_fr_blk_cnt+fr_blk_cnt)
+                            del self.free_list[i]
+                        else:
+                            coalesced = self.free_list[i] = (startix, ext.blk_cnt+fr_blk_cnt)
 
-                    break
+                        break
 
-                elif fr_ix > endix:
-                    break
+                    elif fr_ix > endix:
+                        break
 
-            if not coalesced:
-                #self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{segm.blk_cnt: 6} start: {startix:06x} end: {startix+segm.blk_cnt:06x}')
-                self.free_list.append((startix, segm.blk_cnt))
+                if not coalesced:
+                    #self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{ext.blk_cnt: 6} start: {startix:06x} end: {startix+ext.blk_cnt:06x}')
+                    self.free_list.append((startix, ext.blk_cnt))
+                else:
+                    #msg1 = f'cnt:{coalesced[1]: 6} start: {coalesced[0]:06x} end: {coalesced[0]+coalesced[1]:06x}'
+                    #msg2 = '; '.join(f'cnt:{f[1]: 6} start: {f[0]:06x} end: {f[0]+f[1]:06x}' for f in found)
+                    #self.trace(alloc=False, obj=obj, tag=f'coalesced -> {msg1} -> used {msg2}')
+                    pass
             else:
-                #msg1 = f'cnt:{coalesced[1]: 6} start: {coalesced[0]:06x} end: {coalesced[0]+coalesced[1]:06x}'
-                #msg2 = '; '.join(f'cnt:{f[1]: 6} start: {f[0]:06x} end: {f[0]+f[1]:06x}' for f in found)
-                #self.trace(alloc=False, obj=obj, tag=f'coalesced -> {msg1} -> used {msg2}')
-                pass
-        else:
-            # naively append, we are not doing "coalescing"
-            #self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{segm.blk_cnt: 6} start: {startix:06x} end: {startix+segm.blk_cnt:06x}')
-            self.free_list.append((startix, segm.blk_cnt))
+                # naively append, we are not doing "coalescing"
+                #self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{ext.blk_cnt: 6} start: {startix:06x} end: {startix+ext.blk_cnt:06x}')
+                self.free_list.append((startix, ext.blk_cnt))
 
         return Response(
                 segm=segm,
@@ -382,10 +382,11 @@ class Simulator:
         # but before calling chk_subspace with is_already_allocd=True
         obj.segm = segm
 
-        startix = obj.segm.blk_nr
-        endix = startix + obj.segm.blk_cnt
+        for ext in obj.segm.extents:
+            startix = ext.blk_nr
+            endix = startix + ext.blk_cnt
 
-        self.space[startix:endix] = [obj.obj_id] * obj.segm.blk_cnt
+            self.space[startix:endix] = [obj.obj_id] * ext.blk_cnt
 
         self.chk_subspace(obj, obj.segm, self.space, is_already_allocd=True)
 
@@ -402,10 +403,11 @@ class Simulator:
         '''
         self.chk_subspace(obj, obj.segm, self.space, is_already_allocd=True)
 
-        startix = obj.segm.blk_nr
-        endix = startix + obj.segm.blk_cnt
+        for ext in obj.segm.extents:
+            startix = ext.blk_nr
+            endix = startix + ext.blk_cnt
 
-        self.space[startix:endix] = [0] * obj.segm.blk_cnt
+            self.space[startix:endix] = [0] * ext.blk_cnt
 
         # unlink the segment from the object so it is officially freed
         # before checking the subspace with is_already_allocd=False
@@ -434,30 +436,46 @@ class Simulator:
             # Expected to have a segment because it is already
             # allocated
             assert obj.segm is not None
-            assert segm.blk_nr is None or obj.segm.blk_nr == segm.blk_nr
-            assert obj.segm.blk_nr >= 0
-            assert obj.segm.blk_cnt == segm.blk_cnt
+            assert obj.segm.extents
+
+            # Sanity checks on extents
+            assert segm is not None
+            assert segm.extents
+            assert len(obj.segm.extents) == len(segm.extents)
+
+            # Check both obj.segm and segm are the "same"
+            for oext, ext in zip(obj.segm.extents, segm.extents):
+                assert ext.blk_nr is None or oext.blk_nr == ext.blk_nr
+                assert oext.blk_cnt == ext.blk_cnt
+
+                assert oext.blk_nr >= 0
+                assert oext.blk_cnt > 0
+
         else:
             value = 0
             assert obj.segm is None
 
-        startix = segm.blk_nr
-        endix = startix + segm.blk_cnt
+        # The extents cannot overlap each other
+        # TODO
 
-        # Ensure that the blks are within the space boundaries
-        assert len(space[startix:endix]) == segm.blk_cnt
+        for ext in segm.extents:
+            startix = ext.blk_nr
+            endix = startix + ext.blk_cnt
 
-        # Ensure that the blks in the space selected are
-        # either full with the obj_id (is_already_allocd = True)
-        # or with zeros (is_already_allocd = False)
-        assert all(b == value for b in space[startix:endix])
+            # Ensure that the blks are within the space boundaries
+            assert len(space[startix:endix]) == ext.blk_cnt
 
-        # As a sanity check the previous blk and the next blk
-        # outside the selected blocks should *not* be written
-        # with the object id (otherwise it would mean that there
-        # was an overflow/underflow)
-        assert all(b != obj.obj_id for b in space[endix:endix+1])
-        assert all(b != obj.obj_id for b in space[startix-1:startix])
+            # Ensure that the blks in the space selected are
+            # either full with the obj_id (is_already_allocd = True)
+            # or with zeros (is_already_allocd = False)
+            assert all(b == value for b in space[startix:endix])
+
+            # As a sanity check the previous blk and the next blk
+            # outside the selected blocks should *not* be written
+            # with the object id (otherwise it would mean that there
+            # was an overflow/underflow)
+            assert all(b != obj.obj_id for b in space[endix:endix+1])
+            assert all(b != obj.obj_id for b in space[startix-1:startix])
 
     def object_lookup(self, act, is_delete_action):
         ''' Lookup the object referenced by the action and perform
@@ -470,8 +488,10 @@ class Simulator:
         if is_delete_action:
             assert act.is_delete_action
             assert obj.segm is not None
-            assert obj.segm.blk_nr >= 0
-            assert obj.segm.blk_cnt > 0
+            assert obj.segm.extents
+            for ext in obj.segm.extents:
+                assert ext.blk_nr >= 0
+                assert ext.blk_cnt > 0
         else:
             assert not act.is_delete_action
             assert obj.segm is None
