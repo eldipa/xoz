@@ -24,6 +24,7 @@ from dataclasses import dataclass
 class Action:
     is_delete_action : bool
     obj_id : int
+    insert_generation : int
 
 @dataclass
 class Obj:
@@ -266,7 +267,7 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
         global_endix = self.global_endix
         to_be_released_fr_cnt = 0
         to_be_released_blk_cnt = 0
-        for fr in reversed(self.free_list):
+        for fr in sorted(self.free_list, reverse=True):
             if fr[0] + fr[1] == global_endix:
                 to_be_released_fr_cnt += 1
                 to_be_released_blk_cnt += fr[1]
@@ -593,13 +594,19 @@ def show_space_stats(space, obj_by_id, allocator):
     print("Internal frag:", round((internal_frag_sz / total_data_sz) * 100, 2), "% of data is reserved but wasted (doesn't contain useful data)")
     print()
 
-    print("Minimum theoretical total blk cnt:", total_blk_cnt - free_blk_cnt)
-    print("Minimum theoretical file size:", ((total_blk_cnt - free_blk_cnt) * BLK_SZ) / 1024, "kb")
+    print("Minimum theoretical total blk cnt:", non_free_blk_cnt)
+    print("Minimum theoretical file size:", (non_free_blk_cnt * BLK_SZ) / 1024, "kb")
     print()
 
 SAMPLE_TARGET = 'ph-01'
 #SAMPLE_TARGET = 'dc-03'
 #SAMPLE_TARGET = 'uk-02'
+
+_destacated_samples = {
+        'lot':   'uk-02', # a lot of draws, random size
+        'few':   'dc-01', # very few draws some really small in size, other really large
+        'small': 'fo-03', # ~2k draws most really small in size (p77 < 1.5k), very few are large (14k)
+        }
 
 _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
     'dc-07', 'dw-01', 'et-01', 'et-02', 'et-03', 'et-04', 'fo-01',
@@ -607,12 +614,7 @@ _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
     'in-03', 'in-04', 'in-05', 'in-06', 'in-07', 'in-08', 'in-09',
     'in-10', 'in-11', 'in-12', 'in-13', 'in-14', 'ph-01', 'ph-03',
     'ph-05', 'ph-06', 'pi-01', 'pi-02', 'pi-03', 'pi-04', 'pi-05',
-    'pi-06', 'uk-01', 'uk-02', 'L', 'S']
-
-_destacated_samples = {
-        'L': 'uk-02', # large
-        'S': 'dc-01', # small
-        }
+    'pi-06', 'uk-01', 'uk-02'] + list(_destacated_samples.keys())
 
 @click.command()
 @click.option('--seed', default=31416)
@@ -628,7 +630,8 @@ _destacated_samples = {
 @click.option('--no-reinsert', is_flag=True, default=False)
 @click.option('--contract/--no-contract', default=True)
 @click.option('--trace/--no-trace', default=False)
-def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, writer_model, no_reinsert, contract, trace):
+@click.option('--show-pages/--no-show-pages', default=False)
+def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, writer_model, no_reinsert, contract, trace, show_pages):
     SEED = seed
     NOTE_TAKER_BACK_W = max(4, note_taker_back_w)
     DEL_PROB = min(0.9, max(0, dp))
@@ -641,6 +644,7 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
     REINSERT = not no_reinsert
     CONTRACT = contract
     TRACE = trace
+    SHOW_PAGES = show_pages
 
     df = pd.read_csv('01-results/xopp-dataset-2023.csv')
 
@@ -651,7 +655,7 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
     _main_actions = []
     _main_obj_by_id = {}
     obj_id = 0
-    for _, row in tqdm.tqdm(sample_df.iterrows()):
+    for _, row in tqdm.tqdm(sample_df.iterrows(), total=len(sample_df)):
         obj_id += 1
 
         if row['type'] == 's':
@@ -676,7 +680,7 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
             continue
 
         obj = Obj(sz, desc_sz, obj_id, row['type'], int(row['page']), None)
-        act = Action(False, obj.obj_id)
+        act = Action(False, obj.obj_id, 0)
         _main_obj_by_id[obj_id] = obj
         _main_actions.append(act)
 
@@ -697,7 +701,8 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
                 WRITER_MODEL = WRITER_MODEL,
                 REINSERT = REINSERT,
                 CONTRACT = CONTRACT,
-                TRACE = TRACE
+                TRACE = TRACE,
+                SHOW_PAGES = SHOW_PAGES
             )
 
         if rerun_until_bug:
@@ -719,7 +724,8 @@ def simulate(
         WRITER_MODEL,
         REINSERT,
         CONTRACT,
-        TRACE
+        TRACE,
+        SHOW_PAGES
     ):
 
     def should_be_deleted(obj, rnd):
@@ -764,8 +770,10 @@ def simulate(
     editor_actions = copy.deepcopy(notes_taker_actions)
     L = len(editor_actions)
     i = 0
+    T = tqdm.tqdm()
     while i < L:
         act = editor_actions[i]
+        T.update()
 
         # skip if it is already deleted
         if act.is_delete_action:
@@ -810,6 +818,7 @@ def simulate(
                 # of scenarios without deletions
                 act = copy.deepcopy(act)
                 act.is_delete_action = False
+                act.insert_generation += 1
                 act.obj_id = reins_obj.obj_id
 
                 # insert the "readding" action in some future moment
@@ -826,6 +835,7 @@ def simulate(
             L = len(editor_actions)
 
         i += 1
+    T.close()
 
     print("-----------")
     if WRITER_MODEL == 'copier':
@@ -851,16 +861,25 @@ def simulate(
 
         sim = Simulator(allocator, space, obj_by_id, trace_enabled=TRACE)
 
-        for act in tqdm.tqdm(actions, total=len(actions)):
+        TA = tqdm.tqdm(total=sum(1 for act in actions if not act.is_delete_action), position=1, disable=TRACE)
+        TD = tqdm.tqdm(total=sum(1 for act in actions if act.is_delete_action), position=2, disable=TRACE)
+        for act in tqdm.tqdm(actions, total=len(actions), position=0, disable=TRACE):
             if act.is_delete_action:
                 sim.dealloc(act)
+                TD.update()
             else:
                 sim.alloc(act)
+                TA.update()
+
+        TD.close()
+        TA.close()
 
         if CONTRACT:
             sim.contract()
 
-        show_space_pages(space, obj_by_id, allocator)
+        print()
+        if SHOW_PAGES:
+            show_space_pages(space, obj_by_id, allocator)
         show_space_stats(space, obj_by_id, allocator)
 
 if __name__ == '__main__':
