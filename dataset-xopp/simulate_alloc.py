@@ -34,18 +34,48 @@ class Obj:
     page_no : int
     segm : None
 
+    def as_obj_id_str(self):
+        return f"obj: {self.obj_id: 5} (pg: {self.page_no: 3})"
+
 @dataclass
 class Segment:
     blk_nr : int
     blk_cnt: int
     internal_frag : int
 
+    def as_indexes_str(self):
+        return (f"cnt: {self.blk_cnt: 5} "
+                f"start: {self.blk_nr:05x} "
+                f"end: {self.blk_nr + self.blk_cnt:05x}"
+                )
+
+@dataclass
+class AllocRequest:
+    data_sz : int
+
+@dataclass
+class DeallocRequest:
+    segm : Segment
+
+@dataclass
+class Response:
+    segm : Segment
+    expand_blk_space : int
+    contract_blk_space : int
+    expected_global_endix : int
+    abort : bool
 
 class Allocator:
-    def __init__(self, *args, **kargs):
-        self.internal_frag = 0
+    def alloc(self, req):
+        # shall return a Response
+        raise NotImplementedError()
 
-    def segment_construction(self, data_sz):
+    def dealloc(self, obj):
+        # shall return a Response
+        raise NotImplementedError()
+
+class SimulatedAllocatorMixin:
+    def segment_for(self, data_sz, blk_nr=None):
         assert data_sz > 0
         subblock_data_sz = data_sz % BLK_SZ
         blk_cnt = (data_sz // BLK_SZ)
@@ -56,169 +86,67 @@ class Allocator:
             blk_cnt += 1 # partially filled blk
 
         assert blk_cnt >= 0
-        return Segment(None, blk_cnt, internal_frag)
+        return Segment(blk_nr, blk_cnt, internal_frag)
 
-    def chk_subspace(self, obj, segm, space, is_already_allocd):
-        ''' Check that the segment associated with the object
-            is within the boundaries of the space.
-
-            If is_already_allocd, the object is expected to be alloc'd
-            and the data in the space filled with its obj id.
-
-            Otherwise, the object is expected to be not-alloc'd
-            and the data in the space filled with zeros
-            meaning that the space is not alloc'd by anyone.
-        '''
-        if is_already_allocd:
-            value = obj.obj_id
-
-            # Expected to have a segment because it is already
-            # allocated
-            assert obj.segm is not None
-            assert segm.blk_nr is None or obj.segm.blk_nr == segm.blk_nr
-            assert obj.segm.blk_nr >= 0
-            assert obj.segm.blk_cnt == segm.blk_cnt
-        else:
-            value = 0
-            assert obj.segm is None
-
-        startix = segm.blk_nr
-        endix = startix + segm.blk_cnt
-
-        # Ensure that the blks are within the space boundaries
-        assert len(space[startix:endix]) == segm.blk_cnt
-
-        # Ensure that the blks in the space selected are
-        # either full with the obj_id (is_already_allocd = True)
-        # or with zeros (is_already_allocd = False)
-        assert all(b == value for b in space[startix:endix])
-
-        # As a sanity check the previous blk and the next blk
-        # outside the selected blocks should *not* be written
-        # with the object id (otherwise it would mean that there
-        # was an overflow/underflow)
-        assert all(b != obj.obj_id for b in space[endix:endix+1])
-        assert all(b != obj.obj_id for b in space[startix-1:startix])
-
-    def chk_obj_and_act_consistency(self, obj, act, is_delete_action):
-        # sanity check: object already alloc'd and same id
-        # that the action
-        assert obj.obj_id == act.obj_id
-
-        if is_delete_action:
-            assert act.is_delete_action
-            assert obj.segm is not None
-            assert obj.segm.blk_cnt > 0
-            assert obj.segm.blk_nr >= 0
-        else:
-            assert not act.is_delete_action
-            assert obj.segm is None
-
-    def create_full_data_blks(self, segm, obj_id):
-        # create data blocks with the object id as payload
-        # for easy introspection
-        return [obj_id] * segm.blk_cnt
-
-    def prealloc_and_track(self, obj):
-        segm = self.segment_construction(obj.data_sz)
-        self.internal_frag += segm.internal_frag
-
-        blks = self.create_full_data_blks(segm, obj.obj_id)
-        return segm, blks
-
-    def predealloc_and_track(self, obj):
-        segm = obj.segm
-        self.internal_frag -= segm.internal_frag
-
-        blks = self.create_full_data_blks(segm, 0)
-        assert all(b == 0 for b in blks)
-        return segm, blks
-
-    def object_lookup(self, act, is_delete_action):
-        obj = self.obj_by_id[act.obj_id]
-        assert obj.obj_id == act.obj_id
-
-        if is_delete_action:
-            assert act.is_delete_action
-            assert obj.segm is not None
-            assert obj.segm.blk_cnt > 0
-        else:
-            assert not act.is_delete_action
-            assert obj.segm is None
-
-        return obj
-
-    def trace(self, alloc, obj, tag=''):
-        if self.trace_enabled:
-            print(
-                "A" if alloc else "D",
-                f"cnt: {obj.segm.blk_cnt: 6}",
-                f"start: {obj.segm.blk_nr:06x}",
-                f"end: {obj.segm.blk_nr + obj.segm.blk_cnt:06x}",
-                "tag:", tag
-                )
-
-class MonotonicAllocator(Allocator):
-    def __init__(self, space, free_list, obj_by_id):
+class MonotonicAllocator(Allocator, SimulatedAllocatorMixin):
+    def __init__(self):
         Allocator.__init__(self)
-        self.space = space
-        self.obj_by_id = obj_by_id
-        self.internal_frag = 0
-
-    def alloc(self, act):
-        S = len(self.space)
-        obj = self.object_lookup(act, is_delete_action=False)
-
-        segm, blks = self.prealloc_and_track(obj)
-
-        # just "append" new blocks, the monotonic allocator
-        # always grows
-
-        segm.blk_nr = len(self.space)
-        obj.segm = segm
-        self.space.extend(blks)
-        self.trace(alloc=True, obj=obj, tag='extend')
-
-        self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
-        assert len(self.space) == S + len(blks)
-
-    def dealloc(self, act):
-        S = len(self.space)
-        obj = self.object_lookup(act, is_delete_action=True)
-
-        segm, zeroed_blks = self.predealloc_and_track(obj)
-        self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
-
-        ix = obj.segm.blk_nr
-        endix = ix+segm.blk_cnt
-
-        # dealloc actually does not do anything but for simulation purposes
-        # we find the object's block and mark them as freed
-        self.space[ix:endix] = zeroed_blks
-        self.trace(alloc=False, obj=obj)
-
-        obj.segm = None
-
-        self.chk_subspace(obj, segm, self.space, is_already_allocd=False)
-        assert len(self.space) == S
-
-    def shrink(self):
-        pass
-
-class KRAllocator(Allocator):
-    def __init__(self, space, free_list, obj_by_id):
-        Allocator.__init__(self)
-        self.space = space
-        self.free_list = free_list
-        self.obj_by_id = obj_by_id
-        self.internal_frag = 0
         self.global_endix = 0
 
-    def alloc(self, act):
-        S = len(self.space)
-        obj = self.object_lookup(act, is_delete_action=False)
+        self.internal_frag = 0 # TODO
 
-        segm, blks = self.prealloc_and_track(obj)
+    def alloc(self, req):
+        # Always alloc on the top of the space
+        blk_nr = self.global_endix
+        segm = self.segment_for(data_sz=req.data_sz, blk_nr=blk_nr)
+
+        # A monotonic allocator always grow and expand
+        # the space
+        expand_blk_space = segm.blk_cnt
+        self.global_endix += segm.blk_cnt
+
+        return Response(
+                segm=segm,
+                expand_blk_space=expand_blk_space,
+                contract_blk_space=0,
+                expected_global_endix=self.global_endix,
+                abort=False
+                )
+
+    def dealloc(self, req):
+        segm = req.segm
+
+        # A monotonic allocator does not dealloc nothing
+        # which it is pretty fast
+        return Response(
+                segm=segm,
+                expand_blk_space=0,
+                contract_blk_space=0,
+                expected_global_endix=self.global_endix,
+                abort=False
+                )
+
+    def contract(self):
+        return Response(
+                segm=None,
+                expand_blk_space=0,
+                contract_blk_space=0,
+                expected_global_endix=self.global_endix,
+                abort=False
+                )
+
+class KRAllocator(Allocator, SimulatedAllocatorMixin):
+    def __init__(self, coalescing):
+        Allocator.__init__(self)
+        self.global_endix = 0
+        self.coalescing = coalescing
+
+        self.free_list = []
+
+        self.internal_frag = 0 # TODO
+
+    def alloc(self, req):
+        segm = self.segment_for(data_sz=req.data_sz)
 
         # Optimizations: order the list by size so we can
         # discard too-small entries quickly
@@ -228,59 +156,55 @@ class KRAllocator(Allocator):
             # Sanity check: the free blocks are within
             # the space boundaries
             assert fr_ix >= 0 and fr_cnt > 0
-            assert len(self.space) >= fr_ix+fr_cnt
+            assert self.global_endix >= fr_ix+fr_cnt
 
             if fr_cnt == segm.blk_cnt:
                 # best fit, unlink from the free list
                 del self.free_list[i]
-
-                # store the data
-                self.space[fr_ix : fr_ix+segm.blk_cnt] = blks
-                assert len(self.space) == S
-
-                # Track where it was alloc'd
                 segm.blk_nr = fr_ix
-                obj.segm = segm
-                self.trace(alloc=True, obj=obj, tag='perfect')
 
-                self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
-                return
+                return Response(
+                        segm=segm,
+                        expand_blk_space=0,
+                        contract_blk_space=0,
+                        expected_global_endix=self.global_endix,
+                        abort=False
+                        ) # TODO tag 'perfect'
 
             elif fr_cnt > segm.blk_cnt:
                 # good enough fit, update in place the free list
                 self.free_list[i] = (fr_ix + segm.blk_cnt, fr_cnt - segm.blk_cnt)
-
-                self.space[fr_ix : fr_ix+segm.blk_cnt] = blks
-                assert len(self.space) == S
-
                 segm.blk_nr = fr_ix
-                obj.segm = segm
-                self.trace(alloc=True, obj=obj, tag=f'split -> new free cnt:{self.free_list[i][1]: 6} start: {self.free_list[i][0]:06x} end: {self.free_list[i][0]+self.free_list[i][1]:06x}')
 
-                self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
-                return
+                #self.trace(alloc=True, obj=obj, tag=f'split -> new free cnt:{self.free_list[i][1]: 6} start: {self.free_list[i][0]:06x} end: {self.free_list[i][0]+self.free_list[i][1]:06x}')
+
+                return Response(
+                        segm=segm,
+                        expand_blk_space=0,
+                        contract_blk_space=0,
+                        expected_global_endix=self.global_endix,
+                        abort=False
+                        ) # TODO tag
+
 
         # no fit at all, alloc more space
-        segm.blk_nr = len(self.space)
-        obj.segm = segm
-        self.global_endix = max(segm.blk_nr + segm.blk_cnt, self.global_endix)
-        self.space.extend(blks)
-        self.trace(alloc=True, obj=obj, tag='extend')
+        segm.blk_nr = self.global_endix
+        self.global_endix += segm.blk_cnt
 
-        self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
-        assert len(self.space) == S + len(blks)
+        return Response(
+                segm=segm,
+                expand_blk_space=segm.blk_cnt,
+                contract_blk_space=0,
+                expected_global_endix=self.global_endix,
+                abort=False
+                )
 
-    def dealloc(self, act):
-        S = len(self.space)
-        obj = self.object_lookup(act, is_delete_action=True)
 
-        segm, zeroed_blks = self.predealloc_and_track(obj)
-        self.chk_subspace(obj, segm, self.space, is_already_allocd=True)
+    def dealloc(self, req):
+        segm = req.segm
 
-        startix = obj.segm.blk_nr
+        startix = segm.blk_nr
         endix = startix+segm.blk_cnt
-
-        self.space[startix:endix] = zeroed_blks
 
         if self.coalescing:
             found = []
@@ -318,22 +242,27 @@ class KRAllocator(Allocator):
                     break
 
             if not coalesced:
-                self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{segm.blk_cnt: 6} start: {startix:06x} end: {startix+segm.blk_cnt:06x}')
+                #self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{segm.blk_cnt: 6} start: {startix:06x} end: {startix+segm.blk_cnt:06x}')
                 self.free_list.append((startix, segm.blk_cnt))
             else:
-                msg1 = f'cnt:{coalesced[1]: 6} start: {coalesced[0]:06x} end: {coalesced[0]+coalesced[1]:06x}'
-                msg2 = '; '.join(f'cnt:{f[1]: 6} start: {f[0]:06x} end: {f[0]+f[1]:06x}' for f in found)
-                self.trace(alloc=False, obj=obj, tag=f'coalesced -> {msg1} -> used {msg2}')
+                #msg1 = f'cnt:{coalesced[1]: 6} start: {coalesced[0]:06x} end: {coalesced[0]+coalesced[1]:06x}'
+                #msg2 = '; '.join(f'cnt:{f[1]: 6} start: {f[0]:06x} end: {f[0]+f[1]:06x}' for f in found)
+                #self.trace(alloc=False, obj=obj, tag=f'coalesced -> {msg1} -> used {msg2}')
+                pass
         else:
             # naively append, we are not doing "coalescing"
-            self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{segm.blk_cnt: 6} start: {startix:06x} end: {startix+segm.blk_cnt:06x}')
+            #self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{segm.blk_cnt: 6} start: {startix:06x} end: {startix+segm.blk_cnt:06x}')
             self.free_list.append((startix, segm.blk_cnt))
 
-        obj.segm = None
-        self.chk_subspace(obj, segm, self.space, is_already_allocd=False)
-        assert len(self.space) == S
+        return Response(
+                segm=segm,
+                expand_blk_space=0,
+                contract_blk_space=0,
+                expected_global_endix=self.global_endix,
+                abort=False
+                )
 
-    def shrink(self):
+    def contract(self):
         global_endix = self.global_endix
         to_be_released_fr_cnt = 0
         to_be_released_blk_cnt = 0
@@ -346,12 +275,246 @@ class KRAllocator(Allocator):
                 assert fr[0] + fr[1] < global_endix
                 break
 
-        assert(b == 0 for b in self.space[global_endix:])
-        assert(len(self.space[global_endix:]) == to_be_released_blk_cnt)
 
         if to_be_released_fr_cnt:
             del self.free_list[-to_be_released_fr_cnt:]
-            del self.space[global_endix:]
+            self.global_endix = global_endix
+
+        return Response(
+                segm=None,
+                expand_blk_space=0,
+                contract_blk_space=to_be_released_blk_cnt,
+                expected_global_endix=self.global_endix,
+                abort=False
+                )
+
+
+class Simulator:
+    def __init__(self, allocator, space, obj_by_id, trace_enabled):
+        self.allocator = allocator
+        self.space = space
+        self.obj_by_id = obj_by_id
+        self.trace_enabled = trace_enabled
+
+    def alloc(self, act):
+        S = len(self.space)
+        obj = self.object_lookup(act, is_delete_action=False)
+
+        resp = self.allocator.alloc(AllocRequest(obj.data_sz))
+        self.trace(type='alloc', obj=obj, segm=resp.segm)
+
+        assert not resp.abort
+        assert resp.expand_blk_space >= 0
+        assert resp.contract_blk_space == 0
+
+        if resp.expand_blk_space:
+            self.trace(type='expand', amount=resp.expand_blk_space)
+            self.space.extend([0] * resp.expand_blk_space)
+
+        assert resp.expected_global_endix == len(self.space)
+
+        # Store the object in the space and check
+        # that the obj's segment makes sense and that the
+        # space allocated is freed *before* the store and
+        # not-freed *after* the store
+        self.store(obj, resp.segm)
+
+        # Sanity check: the space may grow only by the amount
+        # expand_blk_space (if any)
+        assert len(self.space) == S + resp.expand_blk_space
+
+    def dealloc(self, act):
+        S = len(self.space)
+        obj = self.object_lookup(act, is_delete_action=True)
+
+        resp = self.allocator.dealloc(DeallocRequest(obj.segm))
+        self.trace(type='dealloc', obj=obj, segm=resp.segm)
+
+        assert not resp.abort
+        assert resp.expand_blk_space == 0
+        assert resp.contract_blk_space >= 0
+
+        self.remove(obj)
+
+        if resp.contract_blk_space:
+            self.trace(type='contract', amount=resp.contract_blk_space)
+            assert len(self.space) >= resp.contract_blk_space
+            assert all(b == 0 for b in self.space[-resp.contract_blk_space:])
+            del self.space[-resp.contract_blk_space:]
+
+        assert resp.expected_global_endix == len(self.space)
+        assert len(self.space) == S - resp.contract_blk_space
+
+    def contract(self):
+        S = len(self.space)
+
+        resp = self.allocator.contract()
+
+        assert not resp.abort
+        assert resp.expand_blk_space == 0
+        assert resp.contract_blk_space >= 0
+
+        if resp.contract_blk_space:
+            self.trace(type='contract', amount=resp.contract_blk_space)
+            assert len(self.space) >= resp.contract_blk_space
+            assert all(b == 0 for b in self.space[-resp.contract_blk_space:])
+            del self.space[-resp.contract_blk_space:]
+
+        assert resp.expected_global_endix == len(self.space)
+        assert len(self.space) == S - resp.contract_blk_space
+
+    def store(self, obj, segm):
+        ''' Store the object in the space using the blocks allocated
+            for it in segm segment.
+
+            It is expected that the space be freed (zeroed) *before*
+            the store and filled (non-zeroed) *after* the store.
+
+            This method check both expectations.
+
+            After calling this method, obj.segm is set to the passed segm.
+        '''
+        self.chk_subspace(obj, segm, self.space, is_already_allocd=False)
+
+        # Assign the allocated segment to the object
+        # after checking the subspace is_already_allocd=False
+        # but before calling chk_subspace with is_already_allocd=True
+        obj.segm = segm
+
+        startix = obj.segm.blk_nr
+        endix = startix + obj.segm.blk_cnt
+
+        self.space[startix:endix] = [obj.obj_id] * obj.segm.blk_cnt
+
+        self.chk_subspace(obj, obj.segm, self.space, is_already_allocd=True)
+
+    def remove(self, obj):
+        ''' Remove the object in the space in the assigned blocks allocated
+            for it in obj.segm segment.
+
+            It is expected that the space be freed (zeroed) *after*
+            the remove and filled (non-zeroed) *before* the remove.
+
+            This method check both expectations.
+
+            After calling this method, obj.segm is set to None
+        '''
+        self.chk_subspace(obj, obj.segm, self.space, is_already_allocd=True)
+
+        startix = obj.segm.blk_nr
+        endix = startix + obj.segm.blk_cnt
+
+        self.space[startix:endix] = [0] * obj.segm.blk_cnt
+
+        # unlink the segment from the object so it is officially freed
+        # before checking the subspace with is_already_allocd=False
+        # but after calling chk_subspace with is_already_allocd=True
+        segm = obj.segm
+        obj.segm = None
+
+        self.chk_subspace(obj, segm, self.space, is_already_allocd=False)
+
+
+    def chk_subspace(self, obj, segm, space, is_already_allocd):
+        ''' Check that the segment associated with the object
+            is within the boundaries of the space.
+
+            If is_already_allocd, the object is expected to be alloc'd
+            and the data in the space filled with its obj id.
+
+            Otherwise, the object is expected to be not-alloc'd
+            and the data in the space filled with zeros
+            meaning that the space is not alloc'd by anyone.
+        '''
+        if is_already_allocd:
+            value = obj.obj_id
+            assert value != 0
+
+            # Expected to have a segment because it is already
+            # allocated
+            assert obj.segm is not None
+            assert segm.blk_nr is None or obj.segm.blk_nr == segm.blk_nr
+            assert obj.segm.blk_nr >= 0
+            assert obj.segm.blk_cnt == segm.blk_cnt
+        else:
+            value = 0
+            assert obj.segm is None
+
+        startix = segm.blk_nr
+        endix = startix + segm.blk_cnt
+
+        # Ensure that the blks are within the space boundaries
+        assert len(space[startix:endix]) == segm.blk_cnt
+
+        # Ensure that the blks in the space selected are
+        # either full with the obj_id (is_already_allocd = True)
+        # or with zeros (is_already_allocd = False)
+        assert all(b == value for b in space[startix:endix])
+
+        # As a sanity check the previous blk and the next blk
+        # outside the selected blocks should *not* be written
+        # with the object id (otherwise it would mean that there
+        # was an overflow/underflow)
+        assert all(b != obj.obj_id for b in space[endix:endix+1])
+        assert all(b != obj.obj_id for b in space[startix-1:startix])
+
+    def object_lookup(self, act, is_delete_action):
+        ''' Lookup the object referenced by the action and perform
+            some sanity checks
+        '''
+        obj = self.obj_by_id[act.obj_id]
+        assert obj.obj_id == act.obj_id
+        assert obj.obj_id != 0
+
+        if is_delete_action:
+            assert act.is_delete_action
+            assert obj.segm is not None
+            assert obj.segm.blk_nr >= 0
+            assert obj.segm.blk_cnt > 0
+        else:
+            assert not act.is_delete_action
+            assert obj.segm is None
+
+        return obj
+
+    def trace(self, type, obj=None, segm=None, amount=None):
+        if not self.trace_enabled:
+            return
+
+        if type == 'alloc':
+            print(
+                "A ",
+                obj.as_obj_id_str(),
+                segm.as_indexes_str(),
+                )
+        elif type == 'dealloc':
+            print(
+                " D",
+                obj.as_obj_id_str(),
+                segm.as_indexes_str(),
+                )
+        elif type == 'expand':
+            print(
+                "E ",
+                amount,
+                "expand",
+                len(self.space),
+                "->",
+                len(self.space)+amount
+                )
+        elif type == 'contract':
+            print(
+                " R",
+                amount,
+                "contract",
+                len(self.space),
+                "->",
+                len(self.space)-amount
+                )
+        else:
+            assert False
+
+
 
 
 class BuddyAllocator:
@@ -403,21 +566,31 @@ def show_space_pages(space, obj_by_id, allocator):
     print()
 
 def show_space_stats(space, obj_by_id, allocator):
-    free_blk_cnt = sum(1 if b == 0 else 0 for b in space)
-    total_blk_cnt = len(space)
+    total_data_sz = sum(obj.data_sz for obj in obj_by_id.values() if obj.segm is not None)
 
+    total_blk_cnt = len(space)
+    non_free_blk_cnt = sum(1 if b != 0 else 0 for b in space)
+
+    free_blk_cnt = total_blk_cnt - non_free_blk_cnt
     free_blk_at_end_cnt = sum(1 for _ in itertools.takewhile(lambda b: b == 0, reversed(space)))
 
-    print("Total blk cnt:", total_blk_cnt)
-    print("Total file size:", (total_blk_cnt * BLK_SZ) / 1024, "kb")
+    total_file_sz = total_blk_cnt * BLK_SZ
+
+    internal_frag_sz = (non_free_blk_cnt * BLK_SZ) - total_data_sz
+    assert internal_frag_sz >= 0
+
+
+    print("Block cnt:", total_blk_cnt)
+    print("File size:", total_file_sz / 1024, "kb")
+    print("Useful data size:", total_data_sz / 1024, "kb")
     print()
 
-    print("Free blk cnt:", free_blk_cnt)
-    print("Free blk (at the end) cnt:", free_blk_at_end_cnt)
+    print("Free block cnt:", free_blk_cnt)
+    print("Free block (at the end) cnt:", free_blk_at_end_cnt)
     print("Free size:", (free_blk_cnt * BLK_SZ) / 1024, "kb")
     print()
-    print("External frag:", round((free_blk_cnt / total_blk_cnt) * 100, 2), "%")
-    print("Internal frag:", round((allocator.internal_frag / ((total_blk_cnt-free_blk_cnt) * BLK_SZ)) * 100, 2), "%")
+    print("External frag:", round((free_blk_cnt / total_blk_cnt) * 100, 2), "% of blocks are freed/unused")
+    print("Internal frag:", round((internal_frag_sz / total_data_sz) * 100, 2), "% of data is reserved but wasted (doesn't contain useful data)")
     print()
 
     print("Minimum theoretical total blk cnt:", total_blk_cnt - free_blk_cnt)
@@ -453,9 +626,9 @@ _destacated_samples = {
 @click.option('--coalescing', is_flag=True, default=False)
 @click.option('-m', '--writer-model', type=click.Choice(['copier', 'notetaker', 'editor']), default='editor')
 @click.option('--no-reinsert', is_flag=True, default=False)
-@click.option('--shrink/--no-shrink', default=True)
+@click.option('--contract/--no-contract', default=True)
 @click.option('--trace/--no-trace', default=False)
-def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, writer_model, no_reinsert, shrink, trace):
+def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, writer_model, no_reinsert, contract, trace):
     SEED = seed
     NOTE_TAKER_BACK_W = max(4, note_taker_back_w)
     DEL_PROB = min(0.9, max(0, dp))
@@ -466,7 +639,7 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
     COALESCING = coalescing
     WRITER_MODEL = writer_model
     REINSERT = not no_reinsert
-    SHRINK = shrink
+    CONTRACT = contract
     TRACE = trace
 
     df = pd.read_csv('01-results/xopp-dataset-2023.csv')
@@ -523,7 +696,7 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
                 COALESCING = COALESCING,
                 WRITER_MODEL = WRITER_MODEL,
                 REINSERT = REINSERT,
-                SHRINK = SHRINK,
+                CONTRACT = CONTRACT,
                 TRACE = TRACE
             )
 
@@ -545,7 +718,7 @@ def simulate(
         COALESCING,
         WRITER_MODEL,
         REINSERT,
-        SHRINK,
+        CONTRACT,
         TRACE
     ):
 
@@ -670,23 +843,22 @@ def simulate(
         obj_by_id = copy.deepcopy(_main_obj_by_id)
 
         if ALLOCATOR == 'mono':
-            allocator = MonotonicAllocator(space, free_list, obj_by_id)
+            allocator = MonotonicAllocator()
         elif ALLOCATOR == 'kr':
-            allocator = KRAllocator(space, free_list, obj_by_id)
+            allocator = KRAllocator(coalescing=COALESCING)
         else:
             assert False
 
-        allocator.coalescing = COALESCING
-        allocator.trace_enabled = TRACE
+        sim = Simulator(allocator, space, obj_by_id, trace_enabled=TRACE)
 
         for act in tqdm.tqdm(actions, total=len(actions)):
             if act.is_delete_action:
-                allocator.dealloc(act)
+                sim.dealloc(act)
             else:
-                allocator.alloc(act)
+                sim.alloc(act)
 
-        if SHRINK:
-            allocator.shrink()
+        if CONTRACT:
+            sim.contract()
 
         show_space_pages(space, obj_by_id, allocator)
         show_space_stats(space, obj_by_id, allocator)
