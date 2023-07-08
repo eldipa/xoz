@@ -36,26 +36,33 @@ class Obj:
     segm : None
 
     def as_obj_id_str(self):
-        return f"obj: {self.obj_id: 5} (pg: {self.page_no: 3})"
-@dataclass
+        return f"obj:{self.obj_id: 4} (pg:{self.page_no: 3})"
+
+@dataclass(order=True)
 class Extent:
     blk_nr : int
     blk_cnt: int
+
+    def as_indexes_str(self):
+        return f"{self.blk_nr:05x} {self.blk_nr+self.blk_cnt:05x} [{self.blk_cnt: 4}]"
+
+    def as_tuple(self):
+        return (self.blk_nr, self.blk_cnt)
+
+    def as_endpoints(self):
+        return (self.blk_nr, self.blk_nr + self.blk_cnt)
 
 @dataclass
 class Segment:
     extents : list
 
     def as_indexes_str(self):
-        ext = self.extents[0]
-        return (f"cnt: {ext.blk_cnt: 5} "
-                f"start: {ext.blk_nr:05x} "
-                f"end: {ext.blk_nr + ext.blk_cnt:05x}"
-                )
+        return f'exts: {len(self.extents): 2}' + ' {' + ", ".join(ext.as_indexes_str() for ext in self.extents) + '}'
 
 @dataclass
 class AllocRequest:
     data_sz : int
+    allow_expand : bool
 
 @dataclass
 class DeallocRequest:
@@ -67,7 +74,37 @@ class Response:
     expand_blk_space : int
     contract_blk_space : int
     expected_global_endix : int
-    abort : bool
+    not_enough_space : bool
+    traces : list
+
+    def add(self, resp):
+        self.segm.extents.extend(resp.segm.extents)
+
+        self.expand_blk_space = max(self.expand_blk_space, resp.expand_blk_space)
+        self.contract_blk_space = max(self.contract_blk_space, resp.contract_blk_space)
+        self.expected_global_endix = max(self.expected_global_endix, resp.expected_global_endix)
+
+        self.not_enough_space = self.not_enough_space or resp.not_enough_space
+        self.traces.extend(resp.traces)
+
+    def trace(self, *args):
+        if not args:
+            return
+        self.traces.append(tuple(args))
+
+    def update(self, **kargs):
+        params = dict(
+                segm=Segment([]),
+                expand_blk_space=0,
+                contract_blk_space=0,
+               expected_global_endix=0,
+                not_enough_space=False,
+                traces=[]
+                )
+
+        params.update(**kargs)
+        self.add(Response(**params))
+
 
 class Allocator:
     def alloc(self, req):
@@ -75,6 +112,10 @@ class Allocator:
         raise NotImplementedError()
 
     def dealloc(self, obj):
+        # shall return a Response
+        raise NotImplementedError()
+
+    def contract(self):
         # shall return a Response
         raise NotImplementedError()
 
@@ -91,12 +132,24 @@ class SimulatedAllocatorMixin:
         extent = Extent(blk_nr, blk_cnt)
         return Segment(extents=[extent])
 
+
 class MonotonicAllocator(Allocator, SimulatedAllocatorMixin):
     def __init__(self):
         Allocator.__init__(self)
         self.global_endix = 0
 
     def alloc(self, req):
+        if not req.allow_expand:
+            # This makes little sense for a MonotonicAllocator !!
+            return Response(
+                    segm=None,
+                    expand_blk_space=0,
+                    contract_blk_space=0,
+                    expected_global_endix=self.global_endix,
+                    not_enough_space=True,
+                    traces=[]
+                    )
+
         # Always alloc on the top of the space
         blk_nr = self.global_endix
         segm = self.single_extent_segment_for(data_sz=req.data_sz, blk_nr=blk_nr)
@@ -111,7 +164,8 @@ class MonotonicAllocator(Allocator, SimulatedAllocatorMixin):
                 expand_blk_space=expand_blk_space,
                 contract_blk_space=0,
                 expected_global_endix=self.global_endix,
-                abort=False
+                not_enough_space=False,
+                traces=[]
                 )
 
     def dealloc(self, req):
@@ -124,7 +178,8 @@ class MonotonicAllocator(Allocator, SimulatedAllocatorMixin):
                 expand_blk_space=0,
                 contract_blk_space=0,
                 expected_global_endix=self.global_endix,
-                abort=False
+                not_enough_space=False,
+                traces=[]
                 )
 
     def contract(self):
@@ -133,7 +188,8 @@ class MonotonicAllocator(Allocator, SimulatedAllocatorMixin):
                 expand_blk_space=0,
                 contract_blk_space=0,
                 expected_global_endix=self.global_endix,
-                abort=False
+                not_enough_space=False,
+                traces=[]
                 )
 
 class KRAllocator(Allocator, SimulatedAllocatorMixin):
@@ -148,10 +204,19 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
         segm = self.single_extent_segment_for(data_sz=req.data_sz)
         ext = segm.extents[0]
 
+        main_resp = Response(
+                        segm=segm,
+                        expand_blk_space=0,
+                        contract_blk_space=0,
+                        expected_global_endix=self.global_endix,
+                        not_enough_space=False,
+                        traces=[]
+                        )
+
         # Optimizations: order the list by size so we can
         # discard too-small entries quickly
         for i in range(len(self.free_list)):
-            fr_ix, fr_cnt = self.free_list[i]
+            fr_ix, fr_cnt = self.free_list[i].as_tuple()
 
             # Sanity check: the free blocks are within
             # the space boundaries
@@ -160,48 +225,52 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
 
             if fr_cnt == ext.blk_cnt:
                 # best fit, unlink from the free list
+                fr = self.free_list[i]
                 del self.free_list[i]
                 ext.blk_nr = fr_ix
 
-                return Response(
-                        segm=segm,
-                        expand_blk_space=0,
-                        contract_blk_space=0,
-                        expected_global_endix=self.global_endix,
-                        abort=False
-                        ) # TODO tag 'perfect'
+                main_resp.trace('perfect free used:', fr)
+                return main_resp
 
             elif fr_cnt > ext.blk_cnt:
                 # good enough fit, update in place the free list
-                self.free_list[i] = (fr_ix + ext.blk_cnt, fr_cnt - ext.blk_cnt)
+                self.free_list[i] = Extent(fr_ix + ext.blk_cnt, fr_cnt - ext.blk_cnt)
                 ext.blk_nr = fr_ix
 
-                #self.trace(alloc=True, obj=obj, tag=f'split -> new free cnt:{self.free_list[i][1]: 6} start: {self.free_list[i][0]:06x} end: {self.free_list[i][0]+self.free_list[i][1]:06x}')
+                main_resp.trace('split free, remain:', self.free_list[i])
+                return main_resp
 
-                return Response(
-                        segm=segm,
-                        expand_blk_space=0,
-                        contract_blk_space=0,
-                        expected_global_endix=self.global_endix,
-                        abort=False
-                        ) # TODO tag
+        if req.allow_expand:
+            # no fit at all, alloc more space
+            ext.blk_nr = self.global_endix
+            self.global_endix += ext.blk_cnt
 
+            main_resp.update(
+                    expand_blk_space=ext.blk_cnt,
+                    expected_global_endix=self.global_endix
+                    )
+            return main_resp
 
-        # no fit at all, alloc more space
-        ext.blk_nr = self.global_endix
-        self.global_endix += ext.blk_cnt
-
-        return Response(
-                segm=segm,
-                expand_blk_space=ext.blk_cnt,
-                contract_blk_space=0,
-                expected_global_endix=self.global_endix,
-                abort=False
-                )
+        else:
+            # we are not allow to expand the space (request more)
+            # so we fail
+            main_resp.update(
+                    not_enough_space=True
+                    )
+            return main_resp
 
 
     def dealloc(self, req):
         segm = req.segm
+
+        main_resp = Response(
+                segm=segm,
+                expand_blk_space=0,
+                contract_blk_space=0,
+                expected_global_endix=self.global_endix,
+                not_enough_space=False,
+                traces=[]
+                )
 
         for ext in segm.extents:
             startix = ext.blk_nr
@@ -213,7 +282,7 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
 
                 self.free_list = list(sorted(self.free_list))
                 for i in range(len(self.free_list)):
-                    fr_ix, fr_blk_cnt = self.free_list[i]
+                    fr_ix, fr_blk_cnt = self.free_list[i].as_tuple()
 
                     if fr_ix + fr_blk_cnt == startix:
                         # fr_ix   startix
@@ -221,7 +290,7 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                         # ^.......^....
                         #  fr_cnt   ext.blk_cnt
                         found.append((fr_ix, fr_blk_cnt))
-                        coalesced = self.free_list[i] = (fr_ix, fr_blk_cnt+ext.blk_cnt)
+                        coalesced = self.free_list[i] = Extent(fr_ix, fr_blk_cnt+ext.blk_cnt)
 
                     elif endix == fr_ix:
                         #         startix    fr_ix
@@ -231,11 +300,11 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                         #                  endix
                         found.append((fr_ix, fr_blk_cnt))
                         if coalesced:
-                            prev_fr_ix, prev_fr_blk_cnt = self.free_list[i-1]
-                            coalesced = self.free_list[i-1] = (prev_fr_ix, prev_fr_blk_cnt+fr_blk_cnt)
+                            prev_fr_ix, prev_fr_blk_cnt = self.free_list[i-1].as_tuple()
+                            coalesced = self.free_list[i-1] = Extent(prev_fr_ix, prev_fr_blk_cnt+fr_blk_cnt)
                             del self.free_list[i]
                         else:
-                            coalesced = self.free_list[i] = (startix, ext.blk_cnt+fr_blk_cnt)
+                            coalesced = self.free_list[i] = Extent(startix, ext.blk_cnt+fr_blk_cnt)
 
                         break
 
@@ -243,37 +312,31 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                         break
 
                 if not coalesced:
-                    #self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{ext.blk_cnt: 6} start: {startix:06x} end: {startix+ext.blk_cnt:06x}')
-                    self.free_list.append((startix, ext.blk_cnt))
+                    fr = Extent(startix, ext.blk_cnt)
+                    main_resp.trace("free added:", fr)
+                    self.free_list.append(fr)
                 else:
-                    #msg1 = f'cnt:{coalesced[1]: 6} start: {coalesced[0]:06x} end: {coalesced[0]+coalesced[1]:06x}'
-                    #msg2 = '; '.join(f'cnt:{f[1]: 6} start: {f[0]:06x} end: {f[0]+f[1]:06x}' for f in found)
-                    #self.trace(alloc=False, obj=obj, tag=f'coalesced -> {msg1} -> used {msg2}')
-                    pass
+                    main_resp.trace("free coalesced:", *found)
+                    main_resp.trace("coalesced into:", coalesced)
             else:
                 # naively append, we are not doing "coalescing"
-                #self.trace(alloc=False, obj=obj, tag=f'new free -> cnt:{ext.blk_cnt: 6} start: {startix:06x} end: {startix+ext.blk_cnt:06x}')
-                self.free_list.append((startix, ext.blk_cnt))
+                fr = Extent(startix, ext.blk_cnt)
+                main_resp.trace("free added:", fr)
+                self.free_list.append(fr)
 
-        return Response(
-                segm=segm,
-                expand_blk_space=0,
-                contract_blk_space=0,
-                expected_global_endix=self.global_endix,
-                abort=False
-                )
+        return main_resp
 
     def contract(self):
         global_endix = self.global_endix
         to_be_released_fr_cnt = 0
         to_be_released_blk_cnt = 0
         for fr in sorted(self.free_list, reverse=True):
-            if fr[0] + fr[1] == global_endix:
+            if fr.blk_nr + fr.blk_cnt == global_endix:
                 to_be_released_fr_cnt += 1
-                to_be_released_blk_cnt += fr[1]
-                global_endix = fr[0]
+                to_be_released_blk_cnt += fr.blk_cnt
+                global_endix = fr.blk_nr
             else:
-                assert fr[0] + fr[1] < global_endix
+                assert fr.blk_nr + fr.blk_cnt < global_endix
                 break
 
 
@@ -286,8 +349,136 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                 expand_blk_space=0,
                 contract_blk_space=to_be_released_blk_cnt,
                 expected_global_endix=self.global_endix,
-                abort=False
+                not_enough_space=False,
+                traces=[]
                 )
+
+class SplitAllocator(Allocator):
+    def __init__(self, backend_allocator):
+        Allocator.__init__(self)
+        self.backend_allocator = backend_allocator
+
+    def alloc(self, req):
+        main_resp = Response(
+                segm=Segment([]),
+                expand_blk_space=0,
+                contract_blk_space=0,
+                expected_global_endix=0,
+                not_enough_space=False,
+                traces=[]
+                )
+
+        # never split if it is too small
+        if req.data_sz <= BLK_SZ:
+            main_resp.trace("too small, no split")
+            main_resp.add(self.backend_allocator.alloc(req))
+            return main_resp
+
+        # the data is much larger than what a single extent
+        # can manage: we are forced to do a split
+        chunks = self.chunkinize(req.data_sz, (BLK_SZ << 16) - 1)
+        if len(chunks) > 1:
+            main_resp.trace(f"too large, forcibly split into {len(chunks)} chks")
+
+        halving_order = 1
+        for chk in chunks:
+            main_resp, halving_order = self.try_alloc_without_expand(
+                    main_resp=main_resp,
+                    data_sz=chk,
+                    too_small_threshold=BLK_SZ,
+                    req_allow_expand=req.allow_expand,
+                    halving_order=halving_order
+                    )
+
+            if main_resp.not_enough_space:
+                return main_resp
+
+        return main_resp
+
+    def try_alloc_without_expand(self, main_resp, data_sz, too_small_threshold, req_allow_expand, halving_order):
+        ''' Allocate the given size (data_sz) splitting it into smaller chunks
+            and allocating them individually trying always to not expand/grow
+            the space.
+
+            The method will try to allocate data_sz in one try first, splitting
+            it into chunks of half size if the allocation failed and trying to
+            allocate them instead.
+
+            On each failure the chunk is halved again until too_small_threshold
+            is reached. In that case the remaining unallocated chunks are
+            allocated in one shot expanding the space.
+
+            If req_allow_expand is False it means that the space cannot
+            be expanded in any case so a not_enough_space is returned.
+
+            The last halving order used is returned. Next calls
+            to try_alloc_without_expand within the same alloc() call
+            should use the same order as it makes sense because
+            smaller orders would imply bigger chks and those would
+            not be allocated (we already tried)
+        '''
+        remain = data_sz
+
+        if (remain >> halving_order) < too_small_threshold:
+            chunks = [remain]
+            last_try = True
+        else:
+            chunks = self.chunkinize(remain, remain >> halving_order)
+            last_try = False
+
+        while remain > 0:
+            main_resp.trace(f"halved {halving_order} times: {len(chunks)} chks remains")
+
+            for chk in chunks:
+                resp = self.backend_allocator.alloc(AllocRequest(
+                    data_sz = chk,
+                    allow_expand = last_try and req_allow_expand
+                    ))
+
+                if resp.not_enough_space and not last_try and req_allow_expand:
+                    # If the next chunks' size is too small, do not chunkinize
+                    # and instead try to allocate all in one shot
+                    # but allowing expand the space in a "last try"
+                    if (remain >> halving_order) < too_small_threshold:
+                        chunks = [remain]
+                        last_try = True
+                        break
+
+                    # Because the current chk couldn't be allocated
+                    # without expanding the space, we take all the
+                    # remaining sz to be allocated and (re)chunkinize
+                    # it in chunks of half the previous chk size.
+                    chunks = self.chunkinize(remain, remain >> halving_order)
+                    halving_order += 1
+                    break
+                else:
+                    main_resp.add(resp)
+
+                    # If not not_enough_space it is because we really couldn't
+                    # allocate and will never do. Return not_enough_space.
+                    if resp.not_enough_space:
+                        main_resp.not_enough_space = True
+                        return main_resp, halving_order
+
+                    # Nice, one chk allocated, one chk less to be allocated
+                    remain -= chk
+
+        return main_resp, halving_order
+
+    def chunkinize(self, orig_sz, chk_sz):
+        chunks = [chk_sz for n in range(orig_sz // chk_sz)]
+        remain = orig_sz % chk_sz
+        if remain:
+            chunks.append(remain)
+
+        return chunks
+
+
+    def dealloc(self, req):
+        return self.backend_allocator.dealloc(req)
+
+    def contract(self):
+        return self.backend_allocator.contract()
 
 
 class Simulator:
@@ -301,10 +492,10 @@ class Simulator:
         S = len(self.space)
         obj = self.object_lookup(act, is_delete_action=False)
 
-        resp = self.allocator.alloc(AllocRequest(obj.data_sz))
-        self.trace(type='alloc', obj=obj, segm=resp.segm)
+        resp = self.allocator.alloc(AllocRequest(obj.data_sz, True))
+        self.trace(type='alloc', obj=obj, segm=resp.segm, subtraces=resp.traces)
 
-        assert not resp.abort
+        assert not resp.not_enough_space
         assert resp.expand_blk_space >= 0
         assert resp.contract_blk_space == 0
 
@@ -329,9 +520,9 @@ class Simulator:
         obj = self.object_lookup(act, is_delete_action=True)
 
         resp = self.allocator.dealloc(DeallocRequest(obj.segm))
-        self.trace(type='dealloc', obj=obj, segm=resp.segm)
+        self.trace(type='dealloc', obj=obj, segm=resp.segm, subtraces=resp.traces)
 
-        assert not resp.abort
+        assert not resp.not_enough_space
         assert resp.expand_blk_space == 0
         assert resp.contract_blk_space >= 0
 
@@ -350,13 +541,13 @@ class Simulator:
         S = len(self.space)
 
         resp = self.allocator.contract()
+        self.trace(type='contract', amount=resp.contract_blk_space, subtraces=resp.traces)
 
-        assert not resp.abort
+        assert not resp.not_enough_space
         assert resp.expand_blk_space == 0
         assert resp.contract_blk_space >= 0
 
         if resp.contract_blk_space:
-            self.trace(type='contract', amount=resp.contract_blk_space)
             assert len(self.space) >= resp.contract_blk_space
             assert all(b == 0 for b in self.space[-resp.contract_blk_space:])
             del self.space[-resp.contract_blk_space:]
@@ -455,8 +646,33 @@ class Simulator:
             value = 0
             assert obj.segm is None
 
+        # Return a flatten (start, end, start, end, start, end, ....) of the sorted
+        # extents
+        endpoints = sum((ext.as_endpoints() for ext in sorted(segm.extents)), ())
+        all_startixs = endpoints[0::2]
+        all_endixs = endpoints[1::2]
+        assert len(all_startixs) == len(all_endixs) == len(segm.extents)
+
         # The extents cannot overlap each other
-        # TODO
+        # We check this verifying that the startix of the next (right) extent
+        # is greater or equal to the endix of the previous (left) extent
+        # Requires that the extents are ordered from lower to higher startix.
+        #
+        #           /- endix1 == startix2  (no overlap, just contiguous)
+        #           V
+        #   s1    e1s2       e2
+        #   |.......|-------|
+        #
+        #           /----/-  endix1 < startix2  (no overlap, gap between)
+        #           V   V
+        #   s1     e1  s2       e2
+        #   |.......|   |-------|
+        #
+        #           /----/-  endix1 > startix2  (overlap, bad)
+        #           V   V
+        #   s1     s2   e1      e2
+        #   |.......|:::|-------|
+        assert all(prev_endix <= next_startix for prev_endix, next_startix in zip(all_endixs[:-1], all_startixs[1:]))
 
         for ext in segm.extents:
             startix = ext.blk_nr
@@ -474,8 +690,16 @@ class Simulator:
             # outside the selected blocks should *not* be written
             # with the object id (otherwise it would mean that there
             # was an overflow/underflow)
-            assert all(b != obj.obj_id for b in space[endix:endix+1])
-            assert all(b != obj.obj_id for b in space[startix-1:startix])
+            #
+            # These check may be skipped if the extent that follows
+            # the current one or that presides is from the same segment
+            # object so both will have the same object id not because
+            # and overflow but because the data is stored contiguously.
+            if endix not in all_startixs:
+                assert all(b != obj.obj_id for b in space[endix:endix+1])
+
+            if startix not in all_endixs:
+                assert all(b != obj.obj_id for b in space[startix-1:startix])
 
     def object_lookup(self, act, is_delete_action):
         ''' Lookup the object referenced by the action and perform
@@ -498,7 +722,7 @@ class Simulator:
 
         return obj
 
-    def trace(self, type, obj=None, segm=None, amount=None):
+    def trace(self, type, obj=None, segm=None, amount=None, subtraces=None):
         if not self.trace_enabled:
             return
 
@@ -535,7 +759,27 @@ class Simulator:
         else:
             assert False
 
+        self._trace_subtraces(
+            prefix = " " * 48,
+            subtraces = subtraces
+            )
 
+    def _trace_subtraces(self, prefix, subtraces):
+        if not subtraces:
+            return
+        else:
+            for subtrace in subtraces:
+                ret = []
+                for tag in subtrace:
+                    if isinstance(tag, Segment):
+                        ret.append(tag.as_indexes_str())
+                    elif isinstance(tag, Extent):
+                        ret.append(tag.as_indexes_str())
+                    elif isinstance(tag, str):
+                        ret.append(tag)
+                    else:
+                        ret.append(str(tag))
+                print(prefix, *ret)
 
 
 class BuddyAllocator:
@@ -643,27 +887,29 @@ _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
 @click.option('--dp', default=0.1*8, help='probability to delete a draw')
 @click.option('--idp', default=0.01*8, help='probability to delete an "image" draw')
 @click.option('--rf', default=0.25, help='scale blksz to add on reinserts, a random from [-blksz * rf, blksz * rf]')
-@click.option('-a', '--alloc', type=click.Choice(['mono', 'kr']), required=True)
+@click.option('-a', '--allocator', type=click.Choice(['mono', 'kr', 'split-mono', 'split-kr']), required=True)
 @click.option('-s', '--sample', type=click.Choice(_samples), default='ph-01')
 @click.option('--coalescing', is_flag=True, default=False)
 @click.option('-m', '--writer-model', type=click.Choice(['copier', 'notetaker', 'editor']), default='editor')
 @click.option('--no-reinsert', is_flag=True, default=False)
 @click.option('--contract/--no-contract', default=True)
 @click.option('--trace/--no-trace', default=False)
+@click.option('--show-progress/--no-show-progress', default=True)
 @click.option('--show-pages/--no-show-pages', default=False)
-def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, coalescing, writer_model, no_reinsert, contract, trace, show_pages):
+def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sample, coalescing, writer_model, no_reinsert, contract, trace, show_progress, show_pages):
     SEED = seed
     NOTE_TAKER_BACK_W = max(4, note_taker_back_w)
     DEL_PROB = min(0.9, max(0, dp))
     DEL_IMG_PROB = min(0.9, max(0, idp))
     REINSERT_CHG_SZ_FACTOR = max(0.001, rf)
-    ALLOCATOR = alloc
+    ALLOCATOR = allocator
     SAMPLE_TARGET = _destacated_samples.get(sample, sample)
     COALESCING = coalescing
     WRITER_MODEL = writer_model
     REINSERT = not no_reinsert
     CONTRACT = contract
     TRACE = trace
+    NOT_SHOW_PROGRESS = not show_progress
     SHOW_PAGES = show_pages
 
     df = pd.read_csv('01-results/xopp-dataset-2023.csv')
@@ -675,7 +921,7 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
     _main_actions = []
     _main_obj_by_id = {}
     obj_id = 0
-    for _, row in tqdm.tqdm(sample_df.iterrows(), total=len(sample_df)):
+    for _, row in tqdm.tqdm(sample_df.iterrows(), total=len(sample_df), disable=NOT_SHOW_PROGRESS):
         obj_id += 1
 
         if row['type'] == 's':
@@ -722,6 +968,7 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, alloc, sample, c
                 REINSERT = REINSERT,
                 CONTRACT = CONTRACT,
                 TRACE = TRACE,
+                NOT_SHOW_PROGRESS = NOT_SHOW_PROGRESS,
                 SHOW_PAGES = SHOW_PAGES
             )
 
@@ -745,6 +992,7 @@ def simulate(
         REINSERT,
         CONTRACT,
         TRACE,
+        NOT_SHOW_PROGRESS,
         SHOW_PAGES
     ):
 
@@ -790,7 +1038,7 @@ def simulate(
     editor_actions = copy.deepcopy(notes_taker_actions)
     L = len(editor_actions)
     i = 0
-    T = tqdm.tqdm()
+    T = tqdm.tqdm(disable=NOT_SHOW_PROGRESS)
     while i < L:
         act = editor_actions[i]
         T.update()
@@ -869,21 +1117,24 @@ def simulate(
 
     for actions in models_actions:
         space = []
-        free_list = []
         obj_by_id = copy.deepcopy(_main_obj_by_id)
 
         if ALLOCATOR == 'mono':
             allocator = MonotonicAllocator()
         elif ALLOCATOR == 'kr':
             allocator = KRAllocator(coalescing=COALESCING)
+        elif ALLOCATOR == 'split-mono':
+            allocator = SplitAllocator(MonotonicAllocator())
+        elif ALLOCATOR == 'split-kr':
+            allocator = SplitAllocator(KRAllocator(coalescing=COALESCING))
         else:
             assert False
 
         sim = Simulator(allocator, space, obj_by_id, trace_enabled=TRACE)
 
-        TA = tqdm.tqdm(total=sum(1 for act in actions if not act.is_delete_action), position=1, disable=TRACE)
-        TD = tqdm.tqdm(total=sum(1 for act in actions if act.is_delete_action), position=2, disable=TRACE)
-        for act in tqdm.tqdm(actions, total=len(actions), position=0, disable=TRACE):
+        TA = tqdm.tqdm(total=sum(1 for act in actions if not act.is_delete_action), position=1, disable=TRACE or NOT_SHOW_PROGRESS)
+        TD = tqdm.tqdm(total=sum(1 for act in actions if act.is_delete_action), position=2, disable=TRACE or NOT_SHOW_PROGRESS)
+        for act in tqdm.tqdm(actions, total=len(actions), position=0, disable=TRACE or NOT_SHOW_PROGRESS):
             if act.is_delete_action:
                 sim.dealloc(act)
                 TD.update()
