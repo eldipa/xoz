@@ -20,6 +20,16 @@ BLK_SZ = 512
 import collections, copy, random, itertools
 from dataclasses import dataclass
 
+def kb(bytes_sz):
+    if bytes_sz > 1024**2:
+        return round(bytes_sz / 1024)
+
+    n = round(bytes_sz / 1024, 2)
+    if n < 0 and bytes_sz > 0:
+        n = round(bytes_sz / 1024, 4)
+
+    return n
+
 @dataclass
 class Action:
     is_delete_action : bool
@@ -380,7 +390,7 @@ class SplitAllocator(Allocator):
         if len(chunks) > 1:
             main_resp.trace(f"too large, forcibly split into {len(chunks)} chks")
 
-        halving_order = 1
+        halving_order = 0
         for chk in chunks:
             main_resp, halving_order = self.try_alloc_without_expand(
                     main_resp=main_resp,
@@ -417,6 +427,7 @@ class SplitAllocator(Allocator):
             smaller orders would imply bigger chks and those would
             not be allocated (we already tried)
         '''
+        MAX_HALVING_ORDER = 31
         remain = data_sz
 
         if (remain >> halving_order) < too_small_threshold:
@@ -427,7 +438,7 @@ class SplitAllocator(Allocator):
             last_try = False
 
         while remain > 0:
-            main_resp.trace(f"halved {halving_order} times: {len(chunks)} chks remains")
+            main_resp.trace(f"halved {halving_order} times: {len(chunks)} chks remains, sizes {kb(chunks[0])} kb & {kb(chunks[-1])} kb")
 
             for chk in chunks:
                 resp = self.backend_allocator.alloc(AllocRequest(
@@ -439,7 +450,11 @@ class SplitAllocator(Allocator):
                     # If the next chunks' size is too small, do not chunkinize
                     # and instead try to allocate all in one shot
                     # but allowing expand the space in a "last try"
-                    if (remain >> halving_order) < too_small_threshold:
+                    #
+                    # Another case to stop splitting and do a last try is when
+                    # halving_order is the maximum which means that if allow another
+                    # halving round the order will be too large.
+                    if (remain >> halving_order) < too_small_threshold or halving_order == MAX_HALVING_ORDER:
                         chunks = [remain]
                         last_try = True
                         break
@@ -448,8 +463,8 @@ class SplitAllocator(Allocator):
                     # without expanding the space, we take all the
                     # remaining sz to be allocated and (re)chunkinize
                     # it in chunks of half the previous chk size.
-                    chunks = self.chunkinize(remain, remain >> halving_order)
                     halving_order += 1
+                    chunks = self.chunkinize(remain, remain >> halving_order)
                     break
                 else:
                     main_resp.add(resp)
@@ -730,12 +745,14 @@ class Simulator:
             print(
                 "A ",
                 obj.as_obj_id_str(),
+                f"{kb(obj.data_sz): 3} kb",
                 segm.as_indexes_str(),
                 )
         elif type == 'dealloc':
             print(
                 " D",
                 obj.as_obj_id_str(),
+                f"{kb(obj.data_sz): 3} kb",
                 segm.as_indexes_str(),
                 )
         elif type == 'expand':
@@ -795,7 +812,10 @@ def show_space_obj_ids(space, obj_by_id, allocator):
     print("Object IDs map:")
     W = 30
     for i, b in enumerate(space, 1):
-        char = f'{b:04x} '
+        if b == 0:
+            char = f'.... '
+        else:
+            char = f'{b:04x} '
         print(char, end='')
         if (i % W) == 0:
             print() # newline
@@ -807,7 +827,7 @@ def show_space_obj_types(space, obj_by_id, allocator):
     for i, b in enumerate(space, 1):
         if b:
             obj = obj_by_id[b]
-            char = obj.obj_type * 2
+            char = obj.obj_type.upper() * 2
         else:
             char = '..'
         print(char + ' ', end='')
@@ -846,20 +866,20 @@ def show_space_stats(space, obj_by_id, allocator):
 
 
     print("Block cnt:", total_blk_cnt)
-    print("File size:", total_file_sz / 1024, "kb")
-    print("Useful data size:", total_data_sz / 1024, "kb")
+    print("File size:", kb(total_file_sz), "kb")
+    print("Useful data size:", kb(total_data_sz), "kb")
     print()
 
     print("Free block cnt:", free_blk_cnt)
     print("Free block (at the end) cnt:", free_blk_at_end_cnt)
-    print("Free size:", (free_blk_cnt * BLK_SZ) / 1024, "kb")
+    print("Free size:", kb(free_blk_cnt * BLK_SZ), "kb")
     print()
     print("External frag:", round((free_blk_cnt / total_blk_cnt) * 100, 2), "% of blocks are freed/unused")
     print("Internal frag:", round((internal_frag_sz / total_data_sz) * 100, 2), "% of data is reserved but wasted (doesn't contain useful data)")
     print()
 
     print("Minimum theoretical total blk cnt:", non_free_blk_cnt)
-    print("Minimum theoretical file size:", (non_free_blk_cnt * BLK_SZ) / 1024, "kb")
+    print("Minimum theoretical file size:", kb(non_free_blk_cnt * BLK_SZ), "kb")
     print()
 
 SAMPLE_TARGET = 'ph-01'
@@ -895,8 +915,8 @@ _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
 @click.option('--contract/--no-contract', default=True)
 @click.option('--trace/--no-trace', default=False)
 @click.option('--show-progress/--no-show-progress', default=True)
-@click.option('--show-pages/--no-show-pages', default=False)
-def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sample, coalescing, writer_model, no_reinsert, contract, trace, show_progress, show_pages):
+@click.option('--show-map', type=click.Choice(['pages', 'types', 'objs']), multiple=True, default=[])
+def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sample, coalescing, writer_model, no_reinsert, contract, trace, show_progress, show_map):
     SEED = seed
     NOTE_TAKER_BACK_W = max(4, note_taker_back_w)
     DEL_PROB = min(0.9, max(0, dp))
@@ -910,7 +930,7 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sampl
     CONTRACT = contract
     TRACE = trace
     NOT_SHOW_PROGRESS = not show_progress
-    SHOW_PAGES = show_pages
+    SHOW_MAPS = show_map
 
     df = pd.read_csv('01-results/xopp-dataset-2023.csv')
 
@@ -969,7 +989,7 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sampl
                 CONTRACT = CONTRACT,
                 TRACE = TRACE,
                 NOT_SHOW_PROGRESS = NOT_SHOW_PROGRESS,
-                SHOW_PAGES = SHOW_PAGES
+                SHOW_MAPS = SHOW_MAPS
             )
 
         if rerun_until_bug:
@@ -993,7 +1013,7 @@ def simulate(
         CONTRACT,
         TRACE,
         NOT_SHOW_PROGRESS,
-        SHOW_PAGES
+        SHOW_MAPS
     ):
 
     def should_be_deleted(obj, rnd):
@@ -1149,8 +1169,16 @@ def simulate(
             sim.contract()
 
         print()
-        if SHOW_PAGES:
-            show_space_pages(space, obj_by_id, allocator)
+        for show_map_name in sorted(set(SHOW_MAPS)):
+            if show_map_name == 'pages':
+                show_space_pages(space, obj_by_id, allocator)
+            elif show_map_name == 'objs':
+                show_space_obj_ids(space, obj_by_id, allocator)
+            elif show_map_name == 'types':
+                show_space_obj_types(space, obj_by_id, allocator)
+            else:
+                assert False
+
         show_space_stats(space, obj_by_id, allocator)
 
 if __name__ == '__main__':
