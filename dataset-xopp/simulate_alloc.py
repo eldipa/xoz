@@ -10,6 +10,8 @@ def simulate_desc_alloc(desc_sz, blk_sz, free_streams_space):
         free_streams_space.append(blk_sz - desc_sz)
         return 1
 
+import PIL
+from PIL import ImageDraw
 import tqdm
 import pandas as pd
 import seaborn as sns
@@ -390,7 +392,7 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                 hint_closest_free_blk_cnt=None
                 )
 
-class SplitAllocator(Allocator):
+class HalvingAllocator(Allocator):
     def __init__(self, backend_allocator, max_extent_cnt):
         Allocator.__init__(self)
         self.backend_allocator = backend_allocator
@@ -577,6 +579,7 @@ class LinearAllocator(Allocator):
         while remain > 0:
             probe_sz = min(probe_sz, remain)
             if ext_cnt >= self.max_extent_cnt:
+                main_resp.trace(f"probe give up: too frag")
                 probe_sz = remain
                 last_try = True
 
@@ -592,8 +595,17 @@ class LinearAllocator(Allocator):
                     probe_sz -= BLK_SZ//2 # TODO
 
                 if probe_sz < too_small_threshold:
+                    main_resp.trace(f"probe give up: probe {kb(probe_sz)} kb smaller than threshold {kb(too_small_threshold)} kb")
+
                     probe_sz = remain
                     last_try = True
+
+                elif (remain // probe_sz) + ext_cnt >= self.max_extent_cnt:
+                    main_resp.trace(f"probe give up: probe {kb(probe_sz)} kb would generate too frag ({(remain // probe_sz) + ext_cnt} exts at best)")
+
+                    probe_sz = remain
+                    last_try = True
+
                 else:
                     hint_msg = "hint None" if resp.hint_closest_free_blk_cnt is None else f"hint [{resp.hint_closest_free_blk_cnt: 3}]"
                     main_resp.trace(f"probe {kb(probe_sz)} kb, remain {kb(remain)} kb, {hint_msg}")
@@ -966,6 +978,274 @@ def show_space_obj_types(space, obj_by_id, allocator):
             print() # newline
     print()
 
+def img_space_obj_types(space, obj_by_id, allocator):
+    L = 8
+
+    S = len(space)
+    if (S**0.5) < 80:
+        COLS = 40
+    else:
+        COLS = 80
+
+    width = L * COLS
+    height = L * (len(space) // COLS)
+    if len(space) % COLS != 0:
+        height += L
+
+    img = PIL.Image.new(
+            size=(width, height),
+            mode="RGB"
+            )
+
+    def to_color_ints(color_floats):
+        return tuple(round(c * 255) for c in color_floats)
+
+    sns_colors = [to_color_ints(c) for c in sns.color_palette('deep')]
+    color_by_obj_type = {
+            's': sns_colors[0],  # blue
+            't': sns_colors[1],  # orange
+            'i': sns_colors[2],  # green
+            'x': sns_colors[3],  # red
+            }
+
+    sns_colors = [to_color_ints(c) for c in sns.color_palette('pastel')]
+    color_for_empty_blk = sns_colors[7]  # grey
+
+    row, col = 0, 0
+    for b in space:
+        if b:
+            obj = obj_by_id[b]
+            color = color_by_obj_type[obj.obj_type]
+        else:
+            color = color_for_empty_blk
+
+        for x in range(col*L, (col+1)*L):
+            for y in range(row*L, (row+1)*L):
+                img.putpixel((x, y), color)
+
+        col += 1
+        if col % COLS == 0:
+            col = 0
+            row += 1
+
+    img.save("types.png")
+
+def old_img_space_obj_frag(space, obj_by_id, allocator):
+    L = 8
+
+    S = len(space)
+    if (S**0.5) < 80:
+        COLS = 40
+    else:
+        COLS = 80
+
+    width = L * COLS
+    height = L * (len(space) // COLS)
+    if len(space) % COLS != 0:
+        height += L
+
+    img = PIL.Image.new(
+            size=(width, height),
+            mode="RGB"
+            )
+
+    sns_colors = sns.color_palette('flare', n_colors=12)
+    sns_colors_alt = sns.color_palette('crest', n_colors=12)
+    def to_color(obj):
+        if obj is None:
+            # not alloc
+            color = sns_colors[-1]  # blackish
+        else:
+            ext_cnt = len(obj.segm.extents)
+            assert ext_cnt >= 0
+            if ext_cnt <= 4:
+                color = sns_colors[ext_cnt-1]  # very-light to redish
+            else:
+                color = sns_colors_alt[4]  # greenish
+
+        return tuple(round(c * 255) for c in color)
+
+
+    row, col = 0, 0
+    for b in space:
+        if b:
+            obj = obj_by_id[b]
+        else:
+            obj = None
+
+
+        color = to_color(obj)
+
+        for x in range(col*L, (col+1)*L):
+            for y in range(row*L, (row+1)*L):
+                img.putpixel((x, y), color)
+
+        col += 1
+        if col % COLS == 0:
+            col = 0
+            row += 1
+
+    img.save("objfrag.png")
+
+import itertools
+
+def run_length_encode(seq):
+    return ((grp, sum(1 for _ in vals_iter)) for grp, vals_iter in itertools.groupby(seq))
+
+def img_space_frag(space, obj_by_id, allocator, SAMPLE_TARGET, SEED, WRITER_MODEL):
+    sns_colors = sns.color_palette("flare_r")
+
+    color_map_fn = create_alternating_color_map({
+        True:  [sns_colors[0], sns_colors[1]],  # for not alloc
+        False: [sns_colors[-3], sns_colors[-2]], # for alloc
+        })
+
+    plot_run_lengths(
+            runs=[(b == 0, runlength) for b, runlength in run_length_encode(space)],
+            color_map=color_map_fn,
+            out_fname=f"space_frag_fn_{SAMPLE_TARGET}_model_{WRITER_MODEL}_seed_{SEED}.png",
+            vpad=4,
+
+            )
+
+def plot_alloc_patterns(space, obj_by_id, allocator, actions, SAMPLE_TARGET, SEED, WRITER_MODEL):
+    def to_blk_cnt(sz):
+        return (sz // BLK_SZ) + (1 if sz % BLK_SZ else 0)
+
+    sns_colors = sns.color_palette("mako")
+
+    color_map_fn = create_alternating_color_map({
+        True:  [sns_colors[0], sns_colors[1]],  # for is_delete_action
+        False: [sns_colors[-3], sns_colors[-2]], # for not is_delete_action
+        })
+
+    plot_run_lengths(
+            runs=[(act.is_delete_action, to_blk_cnt(obj_by_id[act.obj_id].data_sz)) for act in actions],
+            color_map=color_map_fn,
+            out_fname=f"alloc_pattern_fn_{SAMPLE_TARGET}_model_{WRITER_MODEL}_seed_{SEED}.png",
+            vpad=4,
+            )
+
+def create_alternating_color_map(multi_color_map):
+    if not isinstance(multi_color_map, dict):
+        raise TypeError()
+
+    last_seen = None
+    ix = 0
+    def color_map_fn(key):
+        nonlocal ix
+        nonlocal last_seen
+        if key == last_seen:
+            ix += 1
+        else:
+            ix = 0
+
+        # so the next call knows that what was the previous
+        # action
+        last_seen = key
+        colors = multi_color_map[key]
+
+        # iterate over the colors for that key
+        #
+        # multi_color_map *must* be a dict of lists of (rgb) colors
+        return colors[ix % len(colors)]
+
+    return color_map_fn
+
+def ensure_uint8_color(color):
+    # If [0 1) color coordinates are used, transform them
+    # to range [0 256)
+    if any(isinstance(c, float) for c in color):
+        return tuple(round(c * 255) for c in color)
+    return color
+
+def plot_run_lengths(runs, color_map, pad_color=(0,0,0), height_line=16, width_line=4, vpad=1.0, total_length=None, out_fname=None):
+    pad_color = ensure_uint8_color(pad_color)
+
+    H = height_line
+    W = width_line
+
+    if isinstance(vpad, float):
+        VPAD = round(vpad * H)
+    else:
+        VPAD = vpad
+
+    if total_length is None:
+        total_length = sum(runlength for _, runlength in runs)
+
+    cols_data = round( ((total_length / 1.61)**0.5) * H/W )
+    rows_data = (total_length // cols_data) + (1 if total_length % cols_data else 0)
+
+    img_width = cols_data * W
+    img_height = rows_data * H + (rows_data - 1) * VPAD
+
+
+    img = PIL.Image.new(
+            size=(img_width, img_height),
+            mode="RGB"
+            )
+    draw = ImageDraw.Draw(img)
+
+    color_map_is_a_dict = isinstance(color_map, dict)
+
+    col = x = y = 0
+    for code, runlength in runs:
+        if color_map_is_a_dict:
+            color = color_map[code]
+        else:
+            color = color_map(code)
+
+        color = ensure_uint8_color(color)
+
+        while runlength > 0:
+            # If the runlength is too large, we will have to
+            # draw it into multiple lines.
+            #
+            # For now, focus on the first line.
+            longest_run_within_line = min(runlength, cols_data - col)
+            L = longest_run_within_line # alias
+
+            draw.rectangle([
+                (x,     y),         # (x0, y0) inclusive
+                (x+(W*L)-1, y+H-1)  # (x1, y1) inclusive
+                ],
+                fill=color,
+                outline=color
+                )
+
+            x += L * W
+            col += L
+
+            # If more lines are required we need to draw the padding
+            # line before continuing
+            if longest_run_within_line < runlength:
+                assert x >= img_width
+                assert col >= cols_data
+
+                # padding line
+                col = 0
+                x = 0
+                y += H
+
+                # draw only if padding was requested
+                if VPAD > 0:
+                    draw.rectangle([
+                        (0,           y),        # (x0, y0) inclusive
+                        (img_width-1, y+VPAD-1)  # (x1, y1) inclusive
+                        ],
+                        fill=pad_color,
+                        outline=pad_color
+                        )
+
+                y += VPAD
+
+            # update current runlength
+            runlength -= longest_run_within_line
+
+    if out_fname is not None:
+        img.save(out_fname)
+    return img
+
 def show_space_pages(space, obj_by_id, allocator):
     print("Pages map:")
     W = 30
@@ -999,6 +1279,7 @@ def show_space_stats(space, obj_by_id, allocator):
     print("Block cnt:", total_blk_cnt)
     print("File size:", kb(total_file_sz), "kb")
     print("Useful data size:", kb(total_data_sz), "kb")
+    print("Minimum blk required (theoretical perfect case):", (total_data_sz // BLK_SZ) + 1)
     print()
 
     print("Free block cnt:", free_blk_cnt)
@@ -1017,11 +1298,7 @@ def show_space_stats(space, obj_by_id, allocator):
     print(obj_ext_counts_df.quantile([.5, .9, .99, 1]))
     print()
 
-    print("Minimum theoretical total blk cnt:", non_free_blk_cnt)
-    print("Minimum theoretical file size:", kb(non_free_blk_cnt * BLK_SZ), "kb")
-    print()
-
-SAMPLE_TARGET = 'ph-01'
+#SAMPLE_TARGET = 'ph-01'
 #SAMPLE_TARGET = 'dc-03'
 #SAMPLE_TARGET = 'uk-02'
 
@@ -1046,7 +1323,7 @@ _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
 @click.option('--dp', default=0.1*8, help='probability to delete a draw')
 @click.option('--idp', default=0.01*8, help='probability to delete an "image" draw')
 @click.option('--rf', default=0.25, help='scale blksz to add on reinserts, a random from [-blksz * rf, blksz * rf]')
-@click.option('-a', '--allocator', type=click.Choice(['mono', 'kr', 'split-mono', 'split-kr', 'linear-kr']), required=True)
+@click.option('-a', '--allocator', type=click.Choice(['mono', 'kr', 'halving-kr', 'linear-kr']), required=True)
 @click.option('-s', '--sample', type=click.Choice(_samples), default='ph-01')
 @click.option('--coalescing', is_flag=True, default=False)
 @click.option('-m', '--writer-model', type=click.Choice(['copier', 'notetaker', 'editor']), default='editor')
@@ -1054,7 +1331,7 @@ _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
 @click.option('--contract/--no-contract', default=True)
 @click.option('--trace/--no-trace', default=False)
 @click.option('--show-progress/--no-show-progress', default=True)
-@click.option('--show-map', type=click.Choice(['pages', 'types', 'objs']), multiple=True, default=[])
+@click.option('--show-map', type=click.Choice(['pages', 'types', 'objs', 'img-types', 'img-frag', 'img-alloc']), multiple=True, default=[])
 @click.option('--max-ext-cnt', default=8)
 def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sample, coalescing, writer_model, no_reinsert, contract, trace, show_progress, show_map, max_ext_cnt):
     SEED = seed
@@ -1131,7 +1408,8 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sampl
                 TRACE = TRACE,
                 NOT_SHOW_PROGRESS = NOT_SHOW_PROGRESS,
                 SHOW_MAPS = SHOW_MAPS,
-                MAX_EXTENT_CNT = MAX_EXTENT_CNT
+                MAX_EXTENT_CNT = MAX_EXTENT_CNT,
+                SAMPLE_TARGET = SAMPLE_TARGET
             )
 
         if rerun_until_bug:
@@ -1156,7 +1434,8 @@ def simulate(
         TRACE,
         NOT_SHOW_PROGRESS,
         SHOW_MAPS,
-        MAX_EXTENT_CNT
+        MAX_EXTENT_CNT,
+        SAMPLE_TARGET
     ):
 
     def should_be_deleted(obj, rnd):
@@ -1286,16 +1565,16 @@ def simulate(
             allocator = MonotonicAllocator()
         elif ALLOCATOR == 'kr':
             allocator = KRAllocator(coalescing=COALESCING)
-        elif ALLOCATOR == 'split-mono':
-            allocator = SplitAllocator(MonotonicAllocator(), None)
-        elif ALLOCATOR == 'split-kr':
-            allocator = SplitAllocator(KRAllocator(coalescing=COALESCING), None)
+        elif ALLOCATOR == 'halving-kr':
+            allocator = HalvingAllocator(KRAllocator(coalescing=COALESCING), None)
         elif ALLOCATOR == 'linear-kr':
             allocator = LinearAllocator(KRAllocator(coalescing=COALESCING), MAX_EXTENT_CNT)
         else:
             assert False
 
         sim = Simulator(allocator, space, obj_by_id, trace_enabled=TRACE)
+        #plot_alloc_patterns(space, obj_by_id, allocator, actions, SAMPLE_TARGET, SEED, WRITER_MODEL)
+        #return
 
         TA = tqdm.tqdm(total=sum(1 for act in actions if not act.is_delete_action), position=1, disable=TRACE or NOT_SHOW_PROGRESS)
         TD = tqdm.tqdm(total=sum(1 for act in actions if act.is_delete_action), position=2, disable=TRACE or NOT_SHOW_PROGRESS)
@@ -1321,6 +1600,12 @@ def simulate(
                 show_space_obj_ids(space, obj_by_id, allocator)
             elif show_map_name == 'types':
                 show_space_obj_types(space, obj_by_id, allocator)
+            elif show_map_name == 'img-types':
+                img_space_obj_types(space, obj_by_id, allocator)
+            elif show_map_name == 'img-frag':
+                img_space_frag(space, obj_by_id, allocator, SAMPLE_TARGET, SEED, WRITER_MODEL)
+            elif show_map_name == 'img-alloc':
+                plot_alloc_patterns(space, obj_by_id, allocator, actions, SAMPLE_TARGET, SEED, WRITER_MODEL)
             else:
                 assert False
 
