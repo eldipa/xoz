@@ -224,10 +224,11 @@ class MonotonicAllocator(Allocator, SimulatedAllocatorMixin):
                 )
 
 class KRAllocator(Allocator, SimulatedAllocatorMixin):
-    def __init__(self, coalescing):
+    def __init__(self, coalescing, min_fr_split_remain):
         Allocator.__init__(self)
         self.global_endix = 0
         self.coalescing = coalescing
+        self.min_fr_split_remain = min_fr_split_remain
 
         self.free_list = []
 
@@ -267,6 +268,9 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                 return main_resp
 
             elif fr_cnt > ext.blk_cnt:
+                if fr_cnt - ext.blk_cnt < self.min_fr_split_remain:
+                    continue
+
                 # good enough fit, update in place the free list
                 self.free_list[i] = Extent(fr_ix + ext.blk_cnt, fr_cnt - ext.blk_cnt)
                 ext.blk_nr = fr_ix
@@ -951,7 +955,7 @@ class SegAllocator:
 class PageAllocator:
     pass
 
-def show_space_obj_ids(space, obj_by_id, allocator):
+def show_space_obj_ids(space, obj_by_id, allocator, fname_postfix):
     print("Object IDs map:")
     W = 30
     for i, b in enumerate(space, 1):
@@ -964,7 +968,7 @@ def show_space_obj_ids(space, obj_by_id, allocator):
             print() # newline
     print()
 
-def show_space_obj_types(space, obj_by_id, allocator):
+def show_space_obj_types(space, obj_by_id, allocator, fname_postfix):
     print("Object types map:")
     W = 60
     for i, b in enumerate(space, 1):
@@ -978,7 +982,7 @@ def show_space_obj_types(space, obj_by_id, allocator):
             print() # newline
     print()
 
-def img_space_obj_types(space, obj_by_id, allocator):
+def img_space_obj_types(space, obj_by_id, allocator, fname_postfix):
     L = 8
 
     S = len(space)
@@ -1028,71 +1032,14 @@ def img_space_obj_types(space, obj_by_id, allocator):
             col = 0
             row += 1
 
-    img.save("types.png")
-
-def old_img_space_obj_frag(space, obj_by_id, allocator):
-    L = 8
-
-    S = len(space)
-    if (S**0.5) < 80:
-        COLS = 40
-    else:
-        COLS = 80
-
-    width = L * COLS
-    height = L * (len(space) // COLS)
-    if len(space) % COLS != 0:
-        height += L
-
-    img = PIL.Image.new(
-            size=(width, height),
-            mode="RGB"
-            )
-
-    sns_colors = sns.color_palette('flare', n_colors=12)
-    sns_colors_alt = sns.color_palette('crest', n_colors=12)
-    def to_color(obj):
-        if obj is None:
-            # not alloc
-            color = sns_colors[-1]  # blackish
-        else:
-            ext_cnt = len(obj.segm.extents)
-            assert ext_cnt >= 0
-            if ext_cnt <= 4:
-                color = sns_colors[ext_cnt-1]  # very-light to redish
-            else:
-                color = sns_colors_alt[4]  # greenish
-
-        return tuple(round(c * 255) for c in color)
-
-
-    row, col = 0, 0
-    for b in space:
-        if b:
-            obj = obj_by_id[b]
-        else:
-            obj = None
-
-
-        color = to_color(obj)
-
-        for x in range(col*L, (col+1)*L):
-            for y in range(row*L, (row+1)*L):
-                img.putpixel((x, y), color)
-
-        col += 1
-        if col % COLS == 0:
-            col = 0
-            row += 1
-
-    img.save("objfrag.png")
+    img.save(f"types_{fname_postfix}.png")
 
 import itertools
 
 def run_length_encode(seq):
     return ((grp, sum(1 for _ in vals_iter)) for grp, vals_iter in itertools.groupby(seq))
 
-def img_space_frag(space, obj_by_id, allocator, SAMPLE_TARGET, SEED, WRITER_MODEL):
+def img_space_frag(space, obj_by_id, allocator, fname_postfix):
     sns_colors = sns.color_palette("flare_r")
 
     color_map_fn = create_alternating_color_map({
@@ -1103,12 +1050,12 @@ def img_space_frag(space, obj_by_id, allocator, SAMPLE_TARGET, SEED, WRITER_MODE
     plot_run_lengths(
             runs=[(b == 0, runlength) for b, runlength in run_length_encode(space)],
             color_map=color_map_fn,
-            out_fname=f"space_frag_fn_{SAMPLE_TARGET}_model_{WRITER_MODEL}_seed_{SEED}.png",
+            out_fname=f"frag_{fname_postfix}.png",
             vpad=4,
 
             )
 
-def plot_alloc_patterns(space, obj_by_id, allocator, actions, SAMPLE_TARGET, SEED, WRITER_MODEL):
+def plot_alloc_patterns(space, obj_by_id, allocator, actions, fname_postfix):
     def to_blk_cnt(sz):
         return (sz // BLK_SZ) + (1 if sz % BLK_SZ else 0)
 
@@ -1122,7 +1069,7 @@ def plot_alloc_patterns(space, obj_by_id, allocator, actions, SAMPLE_TARGET, SEE
     plot_run_lengths(
             runs=[(act.is_delete_action, to_blk_cnt(obj_by_id[act.obj_id].data_sz)) for act in actions],
             color_map=color_map_fn,
-            out_fname=f"alloc_pattern_fn_{SAMPLE_TARGET}_model_{WRITER_MODEL}_seed_{SEED}.png",
+            out_fname=f"alloc_{fname_postfix}.png",
             vpad=4,
             )
 
@@ -1246,7 +1193,7 @@ def plot_run_lengths(runs, color_map, pad_color=(0,0,0), height_line=16, width_l
         img.save(out_fname)
     return img
 
-def show_space_pages(space, obj_by_id, allocator):
+def show_space_pages(space, obj_by_id, allocator, fname_postfix):
     print("Pages map:")
     W = 30
     for i, b in enumerate(space, 1):
@@ -1261,7 +1208,7 @@ def show_space_pages(space, obj_by_id, allocator):
 
     print()
 
-def show_space_stats(space, obj_by_id, allocator):
+def show_space_stats(space, obj_by_id, allocator, fname_postfix):
     total_data_sz = sum(obj.data_sz for obj in obj_by_id.values() if obj.segm is not None)
 
     total_blk_cnt = len(space)
@@ -1333,7 +1280,9 @@ _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
 @click.option('--show-progress/--no-show-progress', default=True)
 @click.option('--show-map', type=click.Choice(['pages', 'types', 'objs', 'img-types', 'img-frag', 'img-alloc']), multiple=True, default=[])
 @click.option('--max-ext-cnt', default=8)
-def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sample, coalescing, writer_model, no_reinsert, contract, trace, show_progress, show_map, max_ext_cnt):
+@click.option('--min-fr-split-remain', default=1)
+@click.option('--fname-tag', default="")
+def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sample, coalescing, writer_model, no_reinsert, contract, trace, show_progress, show_map, max_ext_cnt, min_fr_split_remain, fname_tag):
     SEED = seed
     NOTE_TAKER_BACK_W = max(4, note_taker_back_w)
     DEL_PROB = min(0.9, max(0, dp))
@@ -1349,6 +1298,8 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sampl
     NOT_SHOW_PROGRESS = not show_progress
     SHOW_MAPS = show_map
     MAX_EXTENT_CNT = max_ext_cnt
+    MIN_FR_SPLIT_REMAIN = min_fr_split_remain
+    FNAME_TAG = fname_tag
 
     df = pd.read_csv('01-results/xopp-dataset-2023.csv')
 
@@ -1409,7 +1360,9 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sampl
                 NOT_SHOW_PROGRESS = NOT_SHOW_PROGRESS,
                 SHOW_MAPS = SHOW_MAPS,
                 MAX_EXTENT_CNT = MAX_EXTENT_CNT,
-                SAMPLE_TARGET = SAMPLE_TARGET
+                SAMPLE_TARGET = SAMPLE_TARGET,
+                MIN_FR_SPLIT_REMAIN = MIN_FR_SPLIT_REMAIN,
+                FNAME_TAG = FNAME_TAG
             )
 
         if rerun_until_bug:
@@ -1435,8 +1388,17 @@ def simulate(
         NOT_SHOW_PROGRESS,
         SHOW_MAPS,
         MAX_EXTENT_CNT,
-        SAMPLE_TARGET
+        SAMPLE_TARGET,
+        MIN_FR_SPLIT_REMAIN,
+        FNAME_TAG
     ):
+
+    def bool2short(b):
+        return "yes" if b else "no"
+
+    fname_postfix = f"sample:{SAMPLE_TARGET}_alloc:{ALLOCATOR}_coal:{bool2short(COALESCING)}_contr:{bool2short(CONTRACT)}_maxext:{MAX_EXTENT_CNT}_minsplit:{MIN_FR_SPLIT_REMAIN}_model:{WRITER_MODEL}_back:{NOTE_TAKER_BACK_W}_rmprobs:{DEL_PROB}_{DEL_IMG_PROB}_reins:{bool2short(REINSERT)}_{REINSERT_CHG_SZ_FACTOR}_seed:{SEED}"
+    if FNAME_TAG:
+        fname_postfix += f"_tag:{FNAME_TAG}"
 
     def should_be_deleted(obj, rnd):
         pr = rnd.random()
@@ -1564,16 +1526,16 @@ def simulate(
         if ALLOCATOR == 'mono':
             allocator = MonotonicAllocator()
         elif ALLOCATOR == 'kr':
-            allocator = KRAllocator(coalescing=COALESCING)
+            allocator = KRAllocator(coalescing=COALESCING, min_fr_split_remain=MIN_FR_SPLIT_REMAIN)
         elif ALLOCATOR == 'halving-kr':
-            allocator = HalvingAllocator(KRAllocator(coalescing=COALESCING), None)
+            allocator = HalvingAllocator(KRAllocator(coalescing=COALESCING, min_fr_split_remain=MIN_FR_SPLIT_REMAIN), None)
         elif ALLOCATOR == 'linear-kr':
-            allocator = LinearAllocator(KRAllocator(coalescing=COALESCING), MAX_EXTENT_CNT)
+            allocator = LinearAllocator(KRAllocator(coalescing=COALESCING, min_fr_split_remain=MIN_FR_SPLIT_REMAIN), MAX_EXTENT_CNT)
         else:
             assert False
 
         sim = Simulator(allocator, space, obj_by_id, trace_enabled=TRACE)
-        #plot_alloc_patterns(space, obj_by_id, allocator, actions, SAMPLE_TARGET, SEED, WRITER_MODEL)
+        #plot_alloc_patterns(space, obj_by_id, allocator, actions, fname_postfix)
         #return
 
         TA = tqdm.tqdm(total=sum(1 for act in actions if not act.is_delete_action), position=1, disable=TRACE or NOT_SHOW_PROGRESS)
@@ -1595,21 +1557,21 @@ def simulate(
         print()
         for show_map_name in sorted(set(SHOW_MAPS)):
             if show_map_name == 'pages':
-                show_space_pages(space, obj_by_id, allocator)
+                show_space_pages(space, obj_by_id, allocator, fname_postfix)
             elif show_map_name == 'objs':
-                show_space_obj_ids(space, obj_by_id, allocator)
+                show_space_obj_ids(space, obj_by_id, allocator, fname_postfix)
             elif show_map_name == 'types':
-                show_space_obj_types(space, obj_by_id, allocator)
+                show_space_obj_types(space, obj_by_id, allocator, fname_postfix)
             elif show_map_name == 'img-types':
-                img_space_obj_types(space, obj_by_id, allocator)
+                img_space_obj_types(space, obj_by_id, allocator, fname_postfix)
             elif show_map_name == 'img-frag':
-                img_space_frag(space, obj_by_id, allocator, SAMPLE_TARGET, SEED, WRITER_MODEL)
+                img_space_frag(space, obj_by_id, allocator, fname_postfix)
             elif show_map_name == 'img-alloc':
-                plot_alloc_patterns(space, obj_by_id, allocator, actions, SAMPLE_TARGET, SEED, WRITER_MODEL)
+                plot_alloc_patterns(space, obj_by_id, allocator, actions, fname_postfix)
             else:
                 assert False
 
-        show_space_stats(space, obj_by_id, allocator)
+        show_space_stats(space, obj_by_id, allocator, fname_postfix)
 
 if __name__ == '__main__':
     import sys
