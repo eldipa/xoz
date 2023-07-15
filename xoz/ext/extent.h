@@ -62,6 +62,11 @@ class Extent {
         return _blk_cnt;
     }
 
+    // Block number of the past-the-end block
+    inline uint32_t blk_end_nr() const {
+        return blk_nr() + blk_cnt();
+    }
+
     inline uint16_t blk_bitmap() const {
         assert(is_suballoc());
         return _blk_cnt; // on purpose, an alias of blk_cnt()
@@ -79,6 +84,16 @@ class Extent {
         assert(not is_suballoc());
         assert(cnt <= _blk_cnt);
         _blk_cnt -= cnt;
+    }
+
+    inline void expand_by(uint16_t cnt) {
+        assert(not is_suballoc());
+        assert((_blk_cnt + cnt) < _blk_cnt); // overflow
+        _blk_cnt += cnt;
+    }
+
+    inline void move_to(uint32_t blk_nr) {
+        _blk_nr = (blk_nr & 0x03ffffff) | (_blk_nr & 0xfc000000);
     }
 
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
