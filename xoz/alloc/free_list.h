@@ -59,17 +59,30 @@ class FreeList {
             private:
                 typename M::const_iterator it;
 
+                // To avoid creating an Extent object every time that
+                // the operators * and -> are called, we cache the
+                // Extent created from the current iterator value once
+                // and we yield then const references and const pointer to.
+                //
+                // On each iterator movement (aka ++it) the cache becomes
+                // invalid and is_cache_synced will be false until another
+                // call to operator * and -> is made.
+                mutable Extent cached;
+                mutable bool is_cache_synced;
+
             public:
-                _ConstExtentIterator(typename M::const_iterator const& it) : it(it) {}
+                _ConstExtentIterator(typename M::const_iterator const& it) : it(it), cached(0,0,false), is_cache_synced(false) {}
 
                 _ConstExtentIterator& operator++() {
                     ++it;
+                    is_cache_synced = false;
                     return *this;
                 }
 
                 _ConstExtentIterator operator++(int) {
                     _ConstExtentIterator copy(*this);
                     it++;
+                    is_cache_synced = false;
                     return copy;
                 }
 
@@ -81,8 +94,22 @@ class FreeList {
                     return it != other.it;
                 }
 
-                inline Extent operator*() const {
-                    return Extent(blk_nr_of(it), blk_cnt_of(it), false);
+                inline const Extent& operator*() const {
+                    update_current_extent();
+                    return cached;
+                }
+
+                inline const Extent* operator->() const {
+                    update_current_extent();
+                    return &cached;
+                }
+
+            private:
+                inline void update_current_extent() const {
+                    if (not is_cache_synced) {
+                        cached = Extent(blk_nr_of(it), blk_cnt_of(it), false);
+                        is_cache_synced = true;
+                    }
                 }
         };
 
