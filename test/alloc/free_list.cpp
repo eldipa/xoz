@@ -271,4 +271,155 @@ namespace {
                     Extent(18, 10, false)
                     ));
     }
+
+    TEST(FreeListTest, DeallocCoalescedWithNone) {
+        // This test uses a free list with coalescing enabled but
+        // the deallocated extents don't coalesce as they are not
+        // one near the other (on purpose)
+        //
+        // This test cover the deallocation and addition of the
+        // new freed extent at the begin of, at the end of and
+        // when the free list was empty.
+        FreeList fr_list(true, 0);
+
+        // Testing when the free list is empty
+        fr_list.dealloc(Extent(10, 4, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(10, 4, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(10, 4, false)
+                    ));
+
+        // this deallocated extent is "before" the previously deallocated
+        // and with a block count different
+        fr_list.dealloc(Extent(1, 2, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        // this deallocated extent is "between" the other two
+        // and with the same block count than Extent(1, 2)
+        fr_list.dealloc(Extent(5, 2, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        // this deallocated extent is "after" the others
+        // and with the same block count than Extent(1, 2)
+        fr_list.dealloc(Extent(16, 2, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(10, 4, false),
+                    Extent(16, 2, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(16, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+    }
+
+    TEST(FreeListTest, DeallocCoalescedWithPrev) {
+        // We test a new freed extent coalescing with another
+        // "at its left" (or better, the previous extent
+        // with a block number lower than the one being freed)
+        //
+        // This kind of coalescing does *not* change the block
+        // number of the extents but it *does* change their
+        // block count
+        std::list<Extent> initial_extents = {
+            Extent(1, 2, false),
+            Extent(10, 2, false),
+        };
+
+        FreeList fr_list(true, 0);
+        fr_list.initialize_from_extents(initial_extents);
+
+        fr_list.dealloc(Extent(3, 4, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 6, false),
+                    Extent(10, 2, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(10, 2, false),
+                    Extent(1, 6, false)
+                    ));
+
+        fr_list.dealloc(Extent(12, 4, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 6, false),
+                    Extent(10, 6, false)
+                    ));
+
+        // note: in the fr_by_cnt, the extent are ordered by block count
+        // only. In this case we also got an order by block number but
+        // it is only an illusion.
+        // This is because the coalesced extent Extent(10, 6, false)
+        // was removed and readded to fr_by_cnt and as a side effect
+        // it was put on front of the rest.
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 6, false),
+                    Extent(10, 6, false)
+                    ));
+    }
+
+    TEST(FreeListTest, DeallocCoalescedWithNext) {
+        // Like in DeallocCoalescedWithPrev but we test when
+        // the new freed extent is "before" the already freed
+        // (aka the new is coalescing with the "next" free chunk)
+        //
+        // This kind of coalescing does *not* change the block
+        // count of the extents but it *does* change their
+        // block number
+        std::list<Extent> initial_extents = {
+            Extent(3, 4, false),
+            Extent(12, 4, false),
+        };
+
+        FreeList fr_list(true, 0);
+        fr_list.initialize_from_extents(initial_extents);
+
+        fr_list.dealloc(Extent(1, 2, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 6, false),
+                    Extent(12, 4, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(12, 4, false),
+                    Extent(1, 6, false)
+                    ));
+
+        fr_list.dealloc(Extent(10, 2, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 6, false),
+                    Extent(10, 6, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 6, false),
+                    Extent(10, 6, false)
+                    ));
+    }
 }
