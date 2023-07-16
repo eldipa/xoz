@@ -71,6 +71,24 @@ class FreeList {
                 mutable bool is_cache_synced;
 
             public:
+                // Public traits interface saying
+                //
+                // - which values the iterator
+                // points to (Extent, const Extent& and const Extent*);
+                //
+                // - which type can represent the difference between iterators
+                // (the same that the original container's iterators use);
+                //
+                // - and in which category this iterator falls (Input Iterator).
+                using value_type = Extent;
+
+                using reference = Extent const&;
+                using pointer   = Extent const*;
+
+                using difference_type = typename M::const_iterator::difference_type;
+
+                using iterator_category = std::input_iterator_tag;
+
                 _ConstExtentIterator(typename M::const_iterator const& it) : it(it), cached(0,0,false), is_cache_synced(false) {}
 
                 _ConstExtentIterator& operator++() {
