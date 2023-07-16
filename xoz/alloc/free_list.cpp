@@ -1,8 +1,6 @@
 #include "xoz/alloc/free_list.h"
 #include <cassert>
 
-namespace {
-}
 
 FreeList::FreeList(bool coalescing_enabled, uint16_t dont_split_fr_threshold) :
     coalescing_enabled(coalescing_enabled),
@@ -18,6 +16,11 @@ void FreeList::initialize_from_extents(const std::list<Extent>& exts) {
         fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
         fr_by_cnt.insert({ext.blk_cnt(), ext.blk_nr()});
     }
+}
+
+void FreeList::clear() {
+    fr_by_nr.clear();
+    fr_by_cnt.clear();
 }
 
 

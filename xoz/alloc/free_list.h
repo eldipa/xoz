@@ -28,7 +28,9 @@ class FreeList {
             bool success;
         };
 
+
         void initialize_from_extents(const std::list<Extent>& exts);
+        void clear();
 
         // Finds the best free chunk that can hold at least
         // <blk_cnt> blocks
