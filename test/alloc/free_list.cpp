@@ -148,4 +148,127 @@ namespace {
                     Extent(3, 4, false)
                     ));
     }
+
+    TEST(FreeListTest, NonCoalescingDealloc) {
+        // Deallocating extents in a non-coalescing free list is kind
+        // of boring.
+        // The test focus on the order of the extents returned by
+        // the two iterators.
+        FreeList fr_list(false, 0);
+
+        fr_list.dealloc(Extent(10, 4, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(10, 4, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(10, 4, false)
+                    ));
+
+        // this deallocated extent is "before" the previously deallocated
+        // and with a block count different
+        fr_list.dealloc(Extent(1, 2, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        // this deallocated extent is "between" the other two
+        // and with the same block count than Extent(1, 2)
+        fr_list.dealloc(Extent(5, 2, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        // another with the same block count of 2
+        fr_list.dealloc(Extent(7, 2, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(7, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(7, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        // this deallocated extent is "after" the others
+        // and with the same block count than Extent(1, 2)
+        fr_list.dealloc(Extent(16, 2, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(7, 2, false),
+                    Extent(10, 4, false),
+                    Extent(16, 2, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(7, 2, false),
+                    Extent(16, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        // this deallocated extent is "after" the others
+        // and with the smallest of the block counts
+        fr_list.dealloc(Extent(30, 1, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(7, 2, false),
+                    Extent(10, 4, false),
+                    Extent(16, 2, false),
+                    Extent(30, 1, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(30, 1, false),
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(7, 2, false),
+                    Extent(16, 2, false),
+                    Extent(10, 4, false)
+                    ));
+
+        // this deallocated extent is the largest
+        fr_list.dealloc(Extent(18, 10, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(7, 2, false),
+                    Extent(10, 4, false),
+                    Extent(16, 2, false),
+                    Extent(18, 10, false),
+                    Extent(30, 1, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(30, 1, false),
+                    Extent(1, 2, false),
+                    Extent(5, 2, false),
+                    Extent(7, 2, false),
+                    Extent(16, 2, false),
+                    Extent(10, 4, false),
+                    Extent(18, 10, false)
+                    ));
+    }
 }
