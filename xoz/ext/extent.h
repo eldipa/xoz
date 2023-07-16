@@ -113,5 +113,9 @@ class Extent {
     inline bool operator!=(const Extent& other) const {
         return _blk_nr != other._blk_nr or _blk_cnt != other._blk_cnt;
     }
+
+    // Pretty print. The signature of the method is required
+    // by GoogleTest
+    friend void PrintTo(const Extent& ext, std::ostream* out);
 };
 
