@@ -63,22 +63,31 @@ class FreeList {
 
         // Accessors to fr_by_nr map iterators' fields with blk_nr as the key
         // and blk_cnt as the value of the map
-        inline const uint32_t& blk_nr_of(FreeList::nr_blk_cnt_map::iterator& it) const {
+        static inline const uint32_t& blk_nr_of(const FreeList::nr_blk_cnt_map::const_iterator& it) {
             return it->first;
         }
 
-        inline uint16_t& blk_cnt_of(FreeList::nr_blk_cnt_map::iterator& it) const {
+        static inline uint16_t& blk_cnt_of(FreeList::nr_blk_cnt_map::iterator& it) {
+            return it->second;
+        }
+
+        static inline const uint16_t& blk_cnt_of(const FreeList::nr_blk_cnt_map::const_iterator& it) {
             return it->second;
         }
 
 
         // Accessors to fr_by_cnt multimap iterators' fields with blk_cnt as the key
         // and blk_nr as the value of the map
-        inline const uint16_t& blk_cnt_of(FreeList::blk_cnt_nr_multimap::iterator& it) const {
+        static inline const uint16_t& blk_cnt_of(const FreeList::blk_cnt_nr_multimap::const_iterator& it) {
             return it->first;
         }
 
-        inline uint32_t& blk_nr_of(FreeList::blk_cnt_nr_multimap::iterator& it) const {
+        static inline uint32_t& blk_nr_of(FreeList::blk_cnt_nr_multimap::iterator& it) {
             return it->second;
         }
+
+        static inline const uint32_t& blk_nr_of(const FreeList::blk_cnt_nr_multimap::const_iterator& it) {
+            return it->second;
+        }
+
 };
