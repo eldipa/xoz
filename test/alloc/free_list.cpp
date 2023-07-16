@@ -422,4 +422,64 @@ namespace {
                     Extent(10, 6, false)
                     ));
     }
+
+    TEST(FreeListTest, DeallocCoalescedWithPrevAndNext) {
+        // We test a new freed extent coalescing with both
+        // the previous and the next chunks already in the free list.
+        //
+        // This kind of coalescing does *not* change the block
+        // number of the prev extent but it *does* change their
+        // block count (as in DeallocCoalescedWithPrev)
+        // but it *also* deletes the "next" chunk
+        // (technically this is also what happen in DeallocCoalescedWithNext)
+        //
+        // Because of this "delete" effect, this kind of coalescing
+        // is the only one that can "shrink" the free list with
+        // less and less chunks (but with each surviving chunk larger
+        // than before).
+        std::list<Extent> initial_extents = {
+            Extent(1, 2, false),
+            Extent(4, 2, false),
+            Extent(10, 2, false),
+            Extent(16, 6, false),
+        };
+
+        FreeList fr_list(true, 0);
+        fr_list.initialize_from_extents(initial_extents);
+
+        fr_list.dealloc(Extent(3, 1, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2+1+2, false),
+                    Extent(10, 2, false),
+                    Extent(16, 6, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(10, 2, false),
+                    Extent(1, 2+1+2, false),
+                    Extent(16, 6, false)
+                    ));
+
+        // as side effect, there are 2 chunks now
+        fr_list.dealloc(Extent(12, 4, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 2+1+2, false),
+                    Extent(10, 2+4+6, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, 2+1+2, false),
+                    Extent(10, 2+4+6, false)
+                    ));
+
+        // as side effect, there is 1 chunk now
+        fr_list.dealloc(Extent(6, 4, false));
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, (2+1+2) + 4 + (2+4+6), false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(1, (2+1+2) + 4 + (2+4+6), false)
+                    ));
+    }
 }
