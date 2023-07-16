@@ -51,6 +51,71 @@ class FreeList {
 
         void dealloc(const Extent& ext);
 
+
+        // Extent iterator: a adapter iterator class over std::map/std::multimap
+        // const_iterator that yields Extent objects.
+        template<typename M>
+        class _ConstExtentIterator {
+            private:
+                typename M::const_iterator it;
+
+            public:
+                _ConstExtentIterator(typename M::const_iterator const& it) : it(it) {}
+
+                _ConstExtentIterator& operator++() {
+                    ++it;
+                    return *this;
+                }
+
+                _ConstExtentIterator operator++(int) {
+                    _ConstExtentIterator copy(*this);
+                    it++;
+                    return copy;
+                }
+
+                inline bool operator==(const _ConstExtentIterator& other) const {
+                    return it == other.it;
+                }
+
+                inline bool operator!=(const _ConstExtentIterator& other) const {
+                    return it != other.it;
+                }
+
+                inline Extent operator*() const {
+                    return Extent(blk_nr_of(it), blk_cnt_of(it), false);
+                }
+        };
+
+
+        // Handy typedef for the 2 kinds of iterators: by block number
+        // and by block count
+        typedef _ConstExtentIterator<nr_blk_cnt_map> const_iterator_by_blk_nr;
+        typedef _ConstExtentIterator<blk_cnt_nr_multimap> const_iterator_by_blk_cnt;
+
+        // Iterators over the free chunks returned as Extent objects.
+        //
+        // The iteration follow one of the 2 possible order:
+        //  - by block number
+        //  - by block count
+        //
+        // All the iterators are constant as the caller must not
+        // modify the internals of the free list.
+        inline const_iterator_by_blk_nr cbegin_by_blk_nr() const {
+            return _ConstExtentIterator<nr_blk_cnt_map>(fr_by_nr.cbegin());
+        }
+
+        inline const_iterator_by_blk_nr cend_by_blk_nr() const {
+            return _ConstExtentIterator<nr_blk_cnt_map>(fr_by_nr.cend());
+        }
+
+        inline const_iterator_by_blk_cnt cbegin_by_blk_cnt() const {
+            return _ConstExtentIterator<blk_cnt_nr_multimap>(fr_by_cnt.cbegin());
+        }
+
+        inline const_iterator_by_blk_cnt cend_by_blk_cnt() const {
+            return _ConstExtentIterator<blk_cnt_nr_multimap>(fr_by_cnt.cend());
+        }
+
     private:
 
         // Erase from the multimap fr_by_cnt the chunk pointed by target_it
