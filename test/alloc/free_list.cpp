@@ -9,6 +9,8 @@
 
 #include <numeric>
 
+using ::testing::IsEmpty;
+
 namespace {
     TEST(FreeListTest, IterateOverEmptyFreeList) {
         std::list<Extent> fr_extents;
@@ -20,7 +22,7 @@ namespace {
         }
 
         // Expected to be empty
-        EXPECT_EQ(fr_extents.size(), (size_t)0);
+        EXPECT_THAT(fr_extents, IsEmpty());
 
         fr_extents.clear();
         for (auto it = fr_list.cbegin_by_blk_cnt(); it != fr_list.cend_by_blk_cnt(); ++it) {
@@ -28,7 +30,7 @@ namespace {
         }
 
         // Expected to be empty
-        EXPECT_EQ(fr_extents.size(), (size_t)0);
+        EXPECT_THAT(fr_extents, IsEmpty());
     }
 
     TEST(FreeListTest, FreeListIteratorDereference) {
