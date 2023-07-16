@@ -105,5 +105,13 @@ class Extent {
     };
 
     static blk_distance_t distance_in_blks(const Extent& ref, const Extent& target);
+
+    inline bool operator==(const Extent& other) const {
+        return _blk_nr == other._blk_nr and _blk_cnt == other._blk_cnt;
+    }
+
+    inline bool operator!=(const Extent& other) const {
+        return _blk_nr != other._blk_nr or _blk_cnt != other._blk_cnt;
+    }
 };
 
