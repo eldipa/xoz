@@ -482,4 +482,78 @@ namespace {
                     Extent(1, (2+1+2) + 4 + (2+4+6), false)
                     ));
     }
+
+    TEST(FreeListTest, AllocCoalescedPerfectFit) {
+        // Perfect fit means that a free chunk is entirely used
+        // for the allocation and therefore, removed from
+        // the free list.
+        //
+        // Eventually we will get with an empty free list
+        std::list<Extent> initial_extents = {
+            Extent(1, 3, false),
+            Extent(4, 1, false),
+            Extent(6, 2, false),
+            Extent(9, 1, false),
+        };
+
+        FreeList fr_list(true, 0);
+        fr_list.initialize_from_extents(initial_extents);
+
+        // alloc from between chunks, bucket for 2-blocks chunks
+        // get empty
+        auto result1 = fr_list.alloc(2);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 3, false),
+                    Extent(4, 1, false),
+                    Extent(9, 1, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(4, 1, false),
+                    Extent(9, 1, false),
+                    Extent(1, 3, false)
+                    ));
+
+        EXPECT_EQ(result1.success, (bool)true);
+        EXPECT_EQ(result1.ext, Extent(6, 2, false));
+
+        // alloc from the end of the free list, the 1-block chunks
+        // still has 1 other chunk left
+        auto result2 = fr_list.alloc(1);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(1, 3, false),
+                    Extent(9, 1, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(9, 1, false),
+                    Extent(1, 3, false)
+                    ));
+
+        EXPECT_EQ(result2.success, (bool)true);
+        EXPECT_EQ(result2.ext, Extent(4, 1, false));
+
+        // alloc from the begin of the free list, the 3-blocks chunks
+        // get empty
+        auto result3 = fr_list.alloc(3);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(9, 1, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(9, 1, false)
+                    ));
+
+        EXPECT_EQ(result3.success, (bool)true);
+        EXPECT_EQ(result3.ext, Extent(1, 3, false));
+
+        // alloc again and the free list gets empty
+        auto result4 = fr_list.alloc(1);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, IsEmpty());
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, IsEmpty());
+
+        EXPECT_EQ(result4.success, (bool)true);
+        EXPECT_EQ(result4.ext, Extent(9, 1, false));
+
+    }
 }
