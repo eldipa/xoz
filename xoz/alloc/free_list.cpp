@@ -136,13 +136,7 @@ struct FreeList::alloc_result_t FreeList::alloc(uint16_t blk_cnt) {
 void FreeList::dealloc(const Extent& ext) {
     if (not coalescing_enabled) {
         fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
-
-        // TODO: does this hint work:
-        //  - does cost O(log(n)) + O(1)?
-        //  - does insert ext at the begin of the list for
-        //    the ext.blk_cnt bucket?
-        const auto hint_it = fr_by_cnt.lower_bound(ext.blk_cnt());
-        fr_by_cnt.insert(hint_it, blk_cnt_nr_pair(ext.blk_cnt(), ext.blk_nr()));
+        fr_by_cnt.insert({ext.blk_cnt(), ext.blk_nr()});
         return;
     }
 
