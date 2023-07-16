@@ -31,9 +31,16 @@ struct FreeList::alloc_result_t FreeList::alloc(uint16_t blk_cnt) {
     // By definition, if usable_it is (at best) a free chunk of
     // exact blk_cnt blocks, the previous element is the closest
     auto closest_it = end_it;
-    if (usable_it != end_it and usable_it != fr_by_cnt.begin()) {
-        closest_it = --usable_it;
-        ++usable_it;
+    if (usable_it != end_it) {
+        if (usable_it != fr_by_cnt.begin()) {
+            closest_it = --usable_it;
+            ++usable_it;
+        }
+    } else {
+        // Try to use the largest (last) chunk.
+        if (fr_by_cnt.size() > 0) {
+            closest_it = --fr_by_cnt.end();
+        }
     }
 
     // It is expected that usable_it to be of exact blk_cnt blocks,

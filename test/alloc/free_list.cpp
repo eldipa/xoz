@@ -12,6 +12,8 @@
 using ::testing::IsEmpty;
 using ::testing::ElementsAre;
 
+using ::testing_xoz::zbreak;
+
 #define XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, matcher) do {     \
         std::list<Extent> fr_extents;                           \
         fr_extents.assign((fr_list).cbegin_by_blk_nr(), (fr_list).cend_by_blk_nr());    \
@@ -555,5 +557,50 @@ namespace {
         EXPECT_EQ(result4.success, (bool)true);
         EXPECT_EQ(result4.ext, Extent(9, 1, false));
 
+    }
+
+    TEST(FreeListTest, AllocCoalescedDoesntSuccessButClose) {
+        // We are going to try to alloc more than it is free
+        // and allocable so we expect to fail but also
+        // the free list should recommend us which smaller
+        // extent could be allocated without split.
+        //
+        std::list<Extent> initial_extents = {
+            Extent(4, 1, false),
+            Extent(8, 2, false)
+        };
+
+        FreeList fr_list(true, 0);
+        fr_list.initialize_from_extents(initial_extents);
+
+        // There is no extent free of 3 or more blocks so the
+        // allocation fails but we should get at least a hint
+        // of the closest extent that could work if a smaller
+        // request is issued
+        auto result1 = fr_list.alloc(3);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(4, 1, false),
+                    Extent(8, 2, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(4, 1, false),
+                    Extent(8, 2, false)
+                    ));
+
+        EXPECT_EQ(result1.success, (bool)false);
+        EXPECT_EQ(result1.ext, Extent(0, 2, false));
+
+
+        // The same but this time the free list is empty and
+        // the closest extent has 0 blocks
+        fr_list.clear();
+        auto result2 = fr_list.alloc(2);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, IsEmpty());
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, IsEmpty());
+
+        EXPECT_EQ(result2.success, (bool)false);
+        EXPECT_EQ(result2.ext, Extent(0, 0, false));
     }
 }
