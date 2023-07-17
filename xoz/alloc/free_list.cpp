@@ -2,9 +2,9 @@
 #include <cassert>
 
 
-FreeList::FreeList(bool coalescing_enabled, uint16_t dont_split_fr_threshold) :
+FreeList::FreeList(bool coalescing_enabled, uint16_t split_above_threshold) :
     coalescing_enabled(coalescing_enabled),
-    dont_split_fr_threshold(dont_split_fr_threshold) {}
+    split_above_threshold(split_above_threshold) {}
 
 
 void FreeList::initialize_from_extents(const std::list<Extent>& exts) {
@@ -47,7 +47,7 @@ struct FreeList::alloc_result_t FreeList::alloc(uint16_t blk_cnt) {
     // a perfect fit/match.
     //
     // If not usable_it will point to free chunks larger than blk_cnt
-    // however if dont_split_fr_threshold is non-zero, the first
+    // however if split_above_threshold is non-zero, the first
     // free chunks found by iteration usable_it will be rejected
     // because even if they are strictly larger than blk_cnt, they
     // cannot be used because they are below the split threshold.
@@ -57,9 +57,9 @@ struct FreeList::alloc_result_t FreeList::alloc(uint16_t blk_cnt) {
     if (usable_it != end_it and blk_cnt_of(usable_it) != blk_cnt) {
         uint16_t blk_cnt_remain = blk_cnt_of(usable_it) - blk_cnt;
 
-        if (blk_cnt_remain <= dont_split_fr_threshold) {
+        if (blk_cnt_remain <= split_above_threshold) {
             uint16_t next_blk_cnt = blk_cnt;
-            next_blk_cnt += dont_split_fr_threshold;
+            next_blk_cnt += split_above_threshold;
             ++next_blk_cnt;
 
             if (next_blk_cnt <= blk_cnt) {
@@ -104,7 +104,7 @@ struct FreeList::alloc_result_t FreeList::alloc(uint16_t blk_cnt) {
         uint16_t blk_cnt_remain = blk_cnt_of(usable_it) - blk_cnt;
         uint32_t new_fr_nr = blk_nr_of(usable_it) + blk_cnt;
 
-        assert (blk_cnt_remain > dont_split_fr_threshold);
+        assert (blk_cnt_remain > split_above_threshold);
 
         // We do the lookup (find) separately from the erase() call
         // so the erase() call returns us an iterator that points

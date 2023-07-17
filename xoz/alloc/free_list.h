@@ -8,7 +8,7 @@
 class FreeList {
     private:
         bool coalescing_enabled;
-        uint16_t dont_split_fr_threshold;
+        uint16_t split_above_threshold;
 
         typedef std::pair<uint32_t, uint16_t> nr_blk_cnt_pair;
         typedef std::pair<uint16_t, uint32_t> blk_cnt_nr_pair;
@@ -20,7 +20,7 @@ class FreeList {
         blk_cnt_nr_multimap fr_by_cnt;
 
     public:
-        FreeList(bool coalescing_enabled = true, uint16_t dont_split_fr_threshold = 0);
+        FreeList(bool coalescing_enabled = true, uint16_t split_above_threshold = 0);
 
         // Result of an allocation.
         struct alloc_result_t {

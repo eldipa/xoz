@@ -610,12 +610,12 @@ namespace {
             Extent(8, 3, false)
         };
 
-        FreeList fr_list(true, /* dont_split_fr_threshold */ 1);
+        FreeList fr_list(true, /* split_above_threshold */ 1);
         fr_list.initialize_from_extents(initial_extents);
 
         // The free chunk of 3 blocks could be split and used
         // to allocate 2 blocks but it would leave a 1 block
-        // free. The dont_split_fr_threshold == 1 forbids that
+        // free. The split_above_threshold == 1 forbids that
         // so the allocation fails
         auto result1 = fr_list.alloc(2);
         XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
@@ -654,12 +654,12 @@ namespace {
             Extent(8, 10, false)
         };
 
-        FreeList fr_list(true, /* dont_split_fr_threshold */ 1);
+        FreeList fr_list(true, /* split_above_threshold */ 1);
         fr_list.initialize_from_extents(initial_extents);
 
         // The free chunk of 10 blocks could be split and used
         // to allocate 9 blocks but it would leave a 1 block
-        // free. The dont_split_fr_threshold == 1 forbids that
+        // free. The split_above_threshold == 1 forbids that
         // so the allocation fails
         auto result1 = fr_list.alloc(9);
         XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
@@ -680,7 +680,7 @@ namespace {
         //
         // The extent Extent(8, 10, false) cannot be split into 9 and 1 blocks
         // but it *can* be split into 8 and 2 blocks as this is above
-        // the dont_split_fr_threshold threshold and it can be a better
+        // the split_above_threshold threshold and it can be a better
         // choice for the caller
         EXPECT_EQ(result1.success, (bool)false);
         EXPECT_EQ(result1.ext, Extent(0, 1, false));
