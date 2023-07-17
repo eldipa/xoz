@@ -94,6 +94,13 @@ class ExtentOverlapError: public std::exception {
         ExtentOverlapError(const Extent& ref, const Extent& ext, const std::string& msg);
         ExtentOverlapError(const Extent& ref, const Extent& ext, const F& msg);
 
+        ExtentOverlapError(const std::string& ref_name, const Extent& ref,
+                           const std::string& ext_name, const Extent& ext,
+                           const std::string& msg);
+        ExtentOverlapError(const std::string& ref_name, const Extent& ref,
+                           const std::string& ext_name, const Extent& ext,
+                           const F& msg);
+
         virtual const char* what() const noexcept override;
 };
 

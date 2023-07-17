@@ -116,44 +116,51 @@ const char* ExtentOutOfBounds::what() const noexcept {
     return msg.data();
 }
 
-ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const std::string& msg) {
-    const uint16_t ref_blk_cnt = ref.is_suballoc() ? 1 : ref.blk_cnt();
-    const uint16_t ext_blk_cnt = ext.is_suballoc() ? 1 : ext.blk_cnt();
+ExtentOverlapError::ExtentOverlapError(
+        const std::string& ref_name, const Extent& ref,
+        const std::string& ext_name, const Extent& ext,
+        const std::string& msg
+        ) {
 
     std::stringstream ss;
 
     if (ext.is_suballoc()) {
-        ss << "The suballoc'd block "
-           << ext.blk_nr()
-           << " ";
+        ss << "The suballoc'd block ";
     } else {
-        ss << "The extent of blocks ["
-           << ext.blk_nr()
-           << " to "
-           << ext.blk_nr() + ext_blk_cnt
-           << ") ";
+        ss << "The extent ";
     }
 
-    ss << "overlaps with the reference ";
+    PrintTo(ext, &ss);
+
+    if (ext_name.size() > 0) {
+        ss << " (" << ext_name << ")";
+    }
+
+    ss << " overlaps with the ";
+
     if (ref.is_suballoc()) {
-        ss << "suballoc'd block "
-           << ref.blk_nr()
-           << ". ";
+        ss << "suballoc'd block ";
     } else {
-       ss << "extent of blocks ["
-       << ref.blk_nr()
-       << " to "
-       << ref.blk_nr() + ref_blk_cnt
-       << "). ";
+       ss << "extent ";
     }
 
+    PrintTo(ref, &ss);
 
-    ss << msg;
+    if (ref_name.size() > 0) {
+        ss << " (" << ref_name << ")";
+    }
+
+    if (msg.size() > 0) {
+        ss << ": " << msg;
+    }
 
     this->msg = ss.str();
 }
 
-ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const F& msg) : ExtentOverlapError(ref, ext, msg.ss.str()) {}
+ExtentOverlapError::ExtentOverlapError(const std::string& ref_name, const Extent& ref, const std::string& ext_name, const Extent& ext, const F& msg) : ExtentOverlapError(ref_name, ref, ext_name, ext, msg.ss.str()) {}
+
+ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const F& msg) : ExtentOverlapError("reference extent", ref, "", ext, msg.ss.str()) {}
+ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const std::string& msg) : ExtentOverlapError("reference extent", ref, "", ext, msg) {}
 
 const char* ExtentOverlapError::what() const noexcept {
     return msg.data();

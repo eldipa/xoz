@@ -140,9 +140,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [500 to 600) "
-                        "overlaps with the reference extent of "
-                        "blocks [500 to 600). (at same start)"
+                        "The extent 001f4 00258 [  64] "
+                        "overlaps with the extent "
+                        "001f4 00258 [  64] (reference extent): (at same start)"
                         )
                     )
                 )
@@ -153,9 +153,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [500 to 520) "
-                        "overlaps with the reference extent of "
-                        "blocks [500 to 600). (at same start)"
+                        "The extent 001f4 00208 [  14] "
+                        "overlaps with the extent "
+                        "001f4 00258 [  64] (reference extent): (at same start)"
                         )
                     )
                 )
@@ -166,9 +166,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [500 to 500) "
-                        "overlaps with the reference extent of "
-                        "blocks [500 to 600). (at same start)"
+                        "The extent 001f4 001f4 [   0] "
+                        "overlaps with the extent "
+                        "001f4 00258 [  64] (reference extent): (at same start)"
                         )
                     )
                 )
@@ -179,9 +179,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [550 to 560) "
-                        "overlaps with the reference extent of "
-                        "blocks [500 to 600). (ext start is ahead ref)"
+                        "The extent 00226 00230 [   a] "
+                        "overlaps with the extent "
+                        "001f4 00258 [  64] (reference extent): (ext start is ahead ref)"
                         )
                     )
                 )
@@ -192,9 +192,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [550 to 650) "
-                        "overlaps with the reference extent of "
-                        "blocks [500 to 600). (ext start is ahead ref)"
+                        "The extent 00226 0028a [  64] "
+                        "overlaps with the extent "
+                        "001f4 00258 [  64] (reference extent): (ext start is ahead ref)"
                         )
                     )
                 )
@@ -205,9 +205,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [450 to 550) "
-                        "overlaps with the reference extent of "
-                        "blocks [500 to 600). (ext start is behind ref)"
+                        "The extent 001c2 00226 [  64] "
+                        "overlaps with the extent "
+                        "001f4 00258 [  64] (reference extent): (ext start is behind ref)"
                         )
                     )
                 )
@@ -215,15 +215,15 @@ namespace {
     }
 
     TEST(ExtentTest, BlockDistanceOverlapFailRefIsSuballoc) {
-        Extent ref(500, 100, true);
+        Extent ref(500, 0b0000000001100100, true);
         EXPECT_THAT(
             [&]() { Extent::distance_in_blks(ref, Extent(500, 100, false)); },
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [500 to 600) "
-                        "overlaps with the reference suballoc'd block "
-                        "500. (at same start)"
+                        "The extent 001f4 00258 [  64] "
+                        "overlaps with the suballoc'd block "
+                        "001f4 [0000000001100100] (reference extent): (at same start)"
                         )
                     )
                 )
@@ -234,9 +234,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [500 to 520) "
-                        "overlaps with the reference suballoc'd block "
-                        "500. (at same start)"
+                        "The extent 001f4 00208 [  14] "
+                        "overlaps with the suballoc'd block "
+                        "001f4 [0000000001100100] (reference extent): (at same start)"
                         )
                     )
                 )
@@ -247,9 +247,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [500 to 500) "
-                        "overlaps with the reference suballoc'd block "
-                        "500. (at same start)"
+                        "The extent 001f4 001f4 [   0] "
+                        "overlaps with the suballoc'd block "
+                        "001f4 [0000000001100100] (reference extent): (at same start)"
                         )
                     )
                 )
@@ -260,9 +260,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [450 to 550) "
-                        "overlaps with the reference suballoc'd block "
-                        "500. (ext start is behind ref)"
+                        "The extent 001c2 00226 [  64] "
+                        "overlaps with the suballoc'd block "
+                        "001f4 [0000000001100100] (reference extent): (ext start is behind ref)"
                         )
                     )
                 )
@@ -273,9 +273,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The extent of blocks [450 to 501) "
-                        "overlaps with the reference suballoc'd block "
-                        "500. (ext start is behind ref)"
+                        "The extent 001c2 001f5 [  33] "
+                        "overlaps with the suballoc'd block "
+                        "001f4 [0000000001100100] (reference extent): (ext start is behind ref)"
                         )
                     )
                 )
@@ -289,9 +289,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The suballoc'd block 500 "
-                        "overlaps with the reference extent of "
-                        "blocks [500 to 600). (at same start)"
+                        "The suballoc'd block 001f4 [0000000001100100] "
+                        "overlaps with the extent "
+                        "001f4 00258 [  64] (reference extent): (at same start)"
                         )
                     )
                 )
@@ -302,9 +302,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The suballoc'd block 500 "
-                        "overlaps with the reference extent of "
-                        "blocks [500 to 600). (at same start)"
+                        "The suballoc'd block 001f4 [0000000000000000] "
+                        "overlaps with the extent "
+                        "001f4 00258 [  64] (reference extent): (at same start)"
                         )
                     )
                 )
@@ -315,9 +315,9 @@ namespace {
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
-                        "The suballoc'd block 550 "
-                        "overlaps with the reference extent of "
-                        "blocks [500 to 600). (ext start is ahead ref)"
+                        "The suballoc'd block 00226 [0000000001100100] "
+                        "overlaps with the extent "
+                        "001f4 00258 [  64] (reference extent): (ext start is ahead ref)"
                         )
                     )
                 )
