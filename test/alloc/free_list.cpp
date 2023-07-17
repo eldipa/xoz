@@ -686,4 +686,85 @@ namespace {
         EXPECT_EQ(result1.ext, Extent(0, 1, false));
 
     }
+
+    TEST(FreeListTest, AllocCoalescedSplitNoThreshold) {
+        std::list<Extent> initial_extents = {
+            Extent(4, 2, false),
+            Extent(8, 5, false),
+            Extent(15, 6, false)
+        };
+
+        FreeList fr_list(true, 0);
+        fr_list.initialize_from_extents(initial_extents);
+
+
+        // Alloc 4 blocks: take the first free chunk large enough and
+        // split it.
+        auto result1 = fr_list.alloc(4);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(4, 2, false),
+                    Extent(12, 1, false),
+                    Extent(15, 6, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(12, 1, false),
+                    Extent(4, 2, false),
+                    Extent(15, 6, false)
+                    ));
+
+        EXPECT_EQ(result1.success, (bool)true);
+        EXPECT_EQ(result1.ext, Extent(8, 4, false));
+
+
+        auto result2 = fr_list.alloc(4);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(4, 2, false),
+                    Extent(12, 1, false),
+                    Extent(19, 2, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(12, 1, false),
+                    Extent(4, 2, false),
+                    Extent(19, 2, false)
+                    ));
+
+        EXPECT_EQ(result2.success, (bool)true);
+        EXPECT_EQ(result2.ext, Extent(15, 4, false));
+    }
+
+    TEST(FreeListTest, AllocCoalescedSplitWithThreshold) {
+        std::list<Extent> initial_extents = {
+            Extent(4, 2, false),
+            Extent(8, 5, false),
+            Extent(15, 6, false)
+        };
+
+        FreeList fr_list(true, /* split_above_threshold */ 1);
+        fr_list.initialize_from_extents(initial_extents);
+
+
+        // Alloc 4 blocks: take the first free chunk large enough and
+        // split it but only if after the split the remaining free blocks
+        // are more than split_above_threshold
+        //
+        // So the Extent(8, 5, false) is skipped and Extent(15, 6, false)
+        // is used instead
+        auto result1 = fr_list.alloc(4);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(4, 2, false),
+                    Extent(8, 5, false),
+                    Extent(19, 2, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(4, 2, false),
+                    Extent(19, 2, false),
+                    Extent(8, 5, false)
+                    ));
+
+        EXPECT_EQ(result1.success, (bool)true);
+        EXPECT_EQ(result1.ext, Extent(15, 4, false));
+    }
 }
