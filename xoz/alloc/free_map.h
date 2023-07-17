@@ -2,16 +2,12 @@
 #include <map>
 #include <cstdint>
 #include <list>
-#include <utility>
 #include "xoz/ext/extent.h"
 
 class FreeMap {
     private:
         bool coalescing_enabled;
         uint16_t split_above_threshold;
-
-        typedef std::pair<uint32_t, uint16_t> nr_blk_cnt_pair;
-        typedef std::pair<uint16_t, uint32_t> blk_cnt_nr_pair;
 
         typedef std::map<uint32_t, uint16_t> nr_blk_cnt_map;
         typedef std::multimap<uint16_t, uint32_t> blk_cnt_nr_multimap;

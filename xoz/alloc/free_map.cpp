@@ -1,5 +1,11 @@
 #include "xoz/alloc/free_map.h"
 #include <cassert>
+#include <utility>
+
+namespace {
+    typedef std::pair<uint32_t, uint16_t> nr_blk_cnt_pair;
+    typedef std::pair<uint16_t, uint32_t> blk_cnt_nr_pair;
+}
 
 
 FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold) :
