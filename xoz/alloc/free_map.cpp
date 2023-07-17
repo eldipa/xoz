@@ -1,13 +1,13 @@
-#include "xoz/alloc/free_list.h"
+#include "xoz/alloc/free_map.h"
 #include <cassert>
 
 
-FreeList::FreeList(bool coalescing_enabled, uint16_t split_above_threshold) :
+FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold) :
     coalescing_enabled(coalescing_enabled),
     split_above_threshold(split_above_threshold) {}
 
 
-void FreeList::initialize_from_extents(const std::list<Extent>& exts) {
+void FreeMap::initialize_from_extents(const std::list<Extent>& exts) {
     if (fr_by_nr.size() != 0 or fr_by_cnt.size() != 0) {
         throw 1;
     }
@@ -18,13 +18,13 @@ void FreeList::initialize_from_extents(const std::list<Extent>& exts) {
     }
 }
 
-void FreeList::clear() {
+void FreeMap::clear() {
     fr_by_nr.clear();
     fr_by_cnt.clear();
 }
 
 
-struct FreeList::alloc_result_t FreeList::alloc(uint16_t blk_cnt) {
+struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
     auto end_it = fr_by_cnt.end();
     auto usable_it = fr_by_cnt.lower_bound(blk_cnt);
 
@@ -140,7 +140,7 @@ struct FreeList::alloc_result_t FreeList::alloc(uint16_t blk_cnt) {
     };
 }
 
-void FreeList::dealloc(const Extent& ext) {
+void FreeMap::dealloc(const Extent& ext) {
     if (not coalescing_enabled) {
         fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
         fr_by_cnt.insert({ext.blk_cnt(), ext.blk_nr()});
@@ -204,7 +204,7 @@ void FreeList::dealloc(const Extent& ext) {
 // This erase operation does a O(log(n)) lookup on fr_by_cnt but because
 // there may be multiple chunks with the same block count, there is
 // a O(n) linear search to delete the one pointed by target_it
-FreeList::blk_cnt_nr_multimap::iterator FreeList::erase_from_fr_by_cnt(FreeList::nr_blk_cnt_map::iterator& target_it) {
+FreeMap::blk_cnt_nr_multimap::iterator FreeMap::erase_from_fr_by_cnt(FreeMap::nr_blk_cnt_map::iterator& target_it) {
     for (auto it = fr_by_cnt.lower_bound(blk_cnt_of(target_it)); it != fr_by_cnt.end(); ++it) {
         if (blk_nr_of(it) == blk_nr_of(target_it)) {
             assert (blk_cnt_of(it) == blk_cnt_of(target_it));
