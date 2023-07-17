@@ -47,6 +47,9 @@ class FreeList {
         // If success is False and ext.blk_cnt is 0 that may signal
         // that there is no free chunks *or* any allocation of a smaller
         // size would require fragment the free chunks.
+        //
+        // See the test case AllocCoalescedDoesntSplitButCloseSuboptimalHint
+        // for more about this.
         struct alloc_result_t alloc(uint16_t blk_cnt);
 
         void dealloc(const Extent& ext);

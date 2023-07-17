@@ -603,4 +603,87 @@ namespace {
         EXPECT_EQ(result2.success, (bool)false);
         EXPECT_EQ(result2.ext, Extent(0, 0, false));
     }
+
+    TEST(FreeListTest, AllocCoalescedDoesntSplitButClose) {
+        std::list<Extent> initial_extents = {
+            Extent(4, 1, false),
+            Extent(8, 3, false)
+        };
+
+        FreeList fr_list(true, /* dont_split_fr_threshold */ 1);
+        fr_list.initialize_from_extents(initial_extents);
+
+        // The free chunk of 3 blocks could be split and used
+        // to allocate 2 blocks but it would leave a 1 block
+        // free. The dont_split_fr_threshold == 1 forbids that
+        // so the allocation fails
+        auto result1 = fr_list.alloc(2);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(4, 1, false),
+                    Extent(8, 3, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(4, 1, false),
+                    Extent(8, 3, false)
+                    ));
+
+        EXPECT_EQ(result1.success, (bool)false);
+        EXPECT_EQ(result1.ext, Extent(0, 1, false));
+
+
+        // The same but this time there is no free chunk close enough
+        // (and smaller than)
+        fr_list.alloc(1); // remove Extent(4, 1, false)
+        auto result2 = fr_list.alloc(2);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(8, 3, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(8, 3, false)
+                    ));
+
+        EXPECT_EQ(result2.success, (bool)false);
+        EXPECT_EQ(result2.ext, Extent(0, 0, false));
+    }
+
+    TEST(FreeListTest, AllocCoalescedDoesntSplitButCloseSuboptimalHint) {
+        std::list<Extent> initial_extents = {
+            Extent(4, 1, false),
+            Extent(8, 10, false)
+        };
+
+        FreeList fr_list(true, /* dont_split_fr_threshold */ 1);
+        fr_list.initialize_from_extents(initial_extents);
+
+        // The free chunk of 10 blocks could be split and used
+        // to allocate 9 blocks but it would leave a 1 block
+        // free. The dont_split_fr_threshold == 1 forbids that
+        // so the allocation fails
+        auto result1 = fr_list.alloc(9);
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_NR(fr_list, ElementsAre(
+                    Extent(4, 1, false),
+                    Extent(8, 10, false)
+                    ));
+
+        XOZ_EXPECT_FREE_LIST_CONTENT_BY_BLK_CNT(fr_list, ElementsAre(
+                    Extent(4, 1, false),
+                    Extent(8, 10, false)
+                    ));
+
+        // The issue:
+        //
+        // The implementation is suggesting a smaller allocation of
+        // 1 block because that can be done without split but
+        // this is suboptimal and the implementation *can do it better*
+        //
+        // The extent Extent(8, 10, false) cannot be split into 9 and 1 blocks
+        // but it *can* be split into 8 and 2 blocks as this is above
+        // the dont_split_fr_threshold threshold and it can be a better
+        // choice for the caller
+        EXPECT_EQ(result1.success, (bool)false);
+        EXPECT_EQ(result1.ext, Extent(0, 1, false));
+
+    }
 }
