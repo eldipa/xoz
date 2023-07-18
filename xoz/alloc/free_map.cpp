@@ -28,11 +28,14 @@ void FreeMap::assign_as_freed(const std::list<Extent>& exts) {
         fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
         fr_by_cnt.insert({ext.blk_cnt(), ext.blk_nr()});
     }
+
+    assert(fr_by_nr.size() == fr_by_cnt.size());
 }
 
 void FreeMap::clear() {
     fr_by_nr.clear();
     fr_by_cnt.clear();
+    assert(fr_by_nr.size() == fr_by_cnt.size());
 }
 
 
@@ -89,6 +92,8 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
             }
         }
     }
+
+    assert(fr_by_nr.size() == fr_by_cnt.size());
 
     if (usable_it == end_it) {
         // We cannot use any of the free chunks
@@ -152,6 +157,7 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
         fr_by_cnt.insert({blk_cnt_remain, new_fr_nr});
     }
 
+    assert(fr_by_nr.size() == fr_by_cnt.size());
     return {
         .ext = ext,
         .success = true,
@@ -167,6 +173,7 @@ void FreeMap::dealloc(const Extent& ext) {
     if (not coalescing_enabled) {
         fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
         fr_by_cnt.insert({ext.blk_cnt(), ext.blk_nr()});
+        assert(fr_by_nr.size() == fr_by_cnt.size());
         return;
     }
 
@@ -217,6 +224,7 @@ void FreeMap::dealloc(const Extent& ext) {
         fr_by_cnt.insert({coalesced.blk_cnt(), coalesced.blk_nr()});
     }
 
+    assert(fr_by_nr.size() == fr_by_cnt.size());
 }
 
 // Erase from the multimap fr_by_cnt the chunk pointed by target_it
