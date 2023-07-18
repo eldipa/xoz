@@ -11,8 +11,12 @@
 
 using ::testing::IsEmpty;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::testing::ThrowsMessage;
+using ::testing::AllOf;
 
 using ::testing_xoz::zbreak;
+using ::testing_xoz::helpers::ensure_called_once;
 
 #define XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, matcher) do {     \
         std::list<Extent> fr_extents;                           \
@@ -102,19 +106,19 @@ namespace {
         FreeMap fr_map(false, 0);
 
         std::list<Extent> initial_extents = {
-            Extent(1, 2, false),
+            Extent(1, 1, false),
             Extent(2, 3, false),
         };
 
         fr_map.initialize_from_extents(initial_extents);
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
-                    Extent(1, 2, false),
+                    Extent(1, 1, false),
                     Extent(2, 3, false)
                     ));
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
-                    Extent(1, 2, false),
+                    Extent(1, 1, false),
                     Extent(2, 3, false)
                     ));
     }
@@ -131,7 +135,7 @@ namespace {
         // by block number (cbegin_by_blk_nr / cend_by_blk_nr) and
         // by block count (cbegin_by_blk_cnt / cend_by_blk_cnt)
         std::list<Extent> initial_extents = {
-            Extent(6, 3, false),
+            Extent(7, 3, false),
             Extent(1, 2, false),
             Extent(3, 4, false),
         };
@@ -141,12 +145,12 @@ namespace {
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
                     Extent(1, 2, false),
                     Extent(3, 4, false),
-                    Extent(6, 3, false)
+                    Extent(7, 3, false)
                     ));
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
                     Extent(1, 2, false),
-                    Extent(6, 3, false),
+                    Extent(7, 3, false),
                     Extent(3, 4, false)
                     ));
     }
@@ -766,5 +770,228 @@ namespace {
 
         EXPECT_EQ(result1.success, (bool)true);
         EXPECT_EQ(result1.ext, Extent(15, 4, false));
+    }
+
+    TEST(FreeMapTest, FailInitializeWithoutClear) {
+        std::list<Extent> initial_extents_1 = {
+            Extent(4, 2, false),
+        };
+        std::list<Extent> initial_extents_2 = {
+            Extent(8, 2, false),
+        };
+
+        FreeMap fr_map(true, 0);
+        fr_map.initialize_from_extents(initial_extents_1);
+
+        EXPECT_THAT(
+            [&]() { fr_map.initialize_from_extents(initial_extents_2); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("the free map is already initialized, call clear() first")
+                    )
+                )
+        );
+    }
+
+    TEST(FreeMapTest, InitializeWithOverlappingIsAnError) {
+        std::list<Extent> initial_extents = {
+            Extent(4, 2, false),
+            Extent(3, 2, false),
+        };
+
+        FreeMap fr_map(true, 0);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { fr_map.initialize_from_extents(initial_extents); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent "
+                        "00003 00005 [   2]"
+                        " (to be freed) overlaps with the extent "
+                        "00004 00006 [   2]"
+                        " (already freed): "
+                        "possible double free detected"
+                        )
+                    )
+                )
+        );
+    }
+
+    TEST(FreeMapTest, InitializeWithZeroBlockExtentsIsAnError) {
+        std::list<Extent> initial_extents = {
+            Extent(4, 0, false),
+        };
+
+        FreeMap fr_map(true, 0);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { fr_map.initialize_from_extents(initial_extents); }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("cannot dealloc 0 blocks")
+                    )
+                )
+        );
+    }
+
+    TEST(FreeMapTest, InvalidAllocOfZeroBlocks) {
+        FreeMap fr_map(true, 0);
+
+        EXPECT_THAT(
+            [&]() { fr_map.alloc(0); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("cannot alloc 0 blocks")
+                    )
+                )
+        );
+    }
+
+    TEST(FreeMapTest, InvalidDeallocOfZeroBlocks) {
+        FreeMap fr_map(true, 0);
+
+        EXPECT_THAT(
+            [&]() { fr_map.dealloc(Extent(4, 0, false)); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("cannot dealloc 0 blocks")
+                    )
+                )
+        );
+    }
+
+    TEST(FreeMapTest, InvalidDeallocOfSuballocatedBlock) {
+        FreeMap fr_map(true, 0);
+
+        EXPECT_THAT(
+            [&]() { fr_map.dealloc(Extent(4, 4, true)); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("cannot dealloc suballoc extent")
+                    )
+                )
+        );
+    }
+
+    TEST(FreeMapTest, InvalidDoubleFree) {
+        std::list<Extent> initial_extents = {
+            Extent(4, 2, false),
+        };
+
+        FreeMap fr_map(true, 0);
+        fr_map.initialize_from_extents(initial_extents);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { fr_map.dealloc(Extent(4, 4, false)); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent "
+                        "00004 00008 [   4]"
+                        " (to be freed) overlaps with the extent "
+                        "00004 00006 [   2]"
+                        " (already freed): "
+                        "possible double free detected"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { fr_map.dealloc(Extent(4, 1, false)); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent "
+                        "00004 00005 [   1]"
+                        " (to be freed) overlaps with the extent "
+                        "00004 00006 [   2]"
+                        " (already freed): "
+                        "possible double free detected"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { fr_map.dealloc(Extent(4, 2, false)); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent "
+                        "00004 00006 [   2]"
+                        " (to be freed) overlaps with the extent "
+                        "00004 00006 [   2]"
+                        " (already freed): "
+                        "possible double free detected"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { fr_map.dealloc(Extent(5, 2, false)); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent "
+                        "00005 00007 [   2]"
+                        " (to be freed) overlaps with the extent "
+                        "00004 00006 [   2]"
+                        " (already freed): "
+                        "possible double free detected"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { fr_map.dealloc(Extent(5, 1, false)); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent "
+                        "00005 00006 [   1]"
+                        " (to be freed) overlaps with the extent "
+                        "00004 00006 [   2]"
+                        " (already freed): "
+                        "possible double free detected"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { fr_map.dealloc(Extent(3, 2, false)); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent "
+                        "00003 00005 [   2]"
+                        " (to be freed) overlaps with the extent "
+                        "00004 00006 [   2]"
+                        " (already freed): "
+                        "possible double free detected"
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { fr_map.dealloc(Extent(3, 4, false)); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent "
+                        "00003 00007 [   4]"
+                        " (to be freed) overlaps with the extent "
+                        "00004 00006 [   2]"
+                        " (already freed): "
+                        "possible double free detected"
+                        )
+                    )
+                )
+        );
     }
 }

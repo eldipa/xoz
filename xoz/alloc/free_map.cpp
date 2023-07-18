@@ -2,6 +2,8 @@
 #include <cassert>
 #include <utility>
 
+#include "xoz/exceptions.h"
+
 namespace {
     typedef std::pair<uint32_t, uint16_t> nr_blk_cnt_pair;
     typedef std::pair<uint16_t, uint32_t> blk_cnt_nr_pair;
@@ -15,10 +17,14 @@ FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold) :
 
 void FreeMap::initialize_from_extents(const std::list<Extent>& exts) {
     if (fr_by_nr.size() != 0 or fr_by_cnt.size() != 0) {
-        throw 1;
+        throw std::runtime_error((F()
+               << "the free map is already initialized, call clear() first."
+               ).str());
     }
 
     for (auto& ext : exts) {
+        fail_if_suballoc_or_zero_cnt(ext);
+        fail_if_overlap(ext);
         fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
         fr_by_cnt.insert({ext.blk_cnt(), ext.blk_nr()});
     }
@@ -31,6 +37,12 @@ void FreeMap::clear() {
 
 
 struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
+    if (blk_cnt == 0) {
+        throw std::runtime_error((F()
+               << "cannot alloc 0 blocks"
+               ).str());
+    }
+
     auto end_it = fr_by_cnt.end();
     auto usable_it = fr_by_cnt.lower_bound(blk_cnt);
 
@@ -147,13 +159,16 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
 }
 
 void FreeMap::dealloc(const Extent& ext) {
+    auto end_it = fr_by_nr.end();
+
+    fail_if_suballoc_or_zero_cnt(ext);
+    fail_if_overlap(ext);
+
     if (not coalescing_enabled) {
         fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
         fr_by_cnt.insert({ext.blk_cnt(), ext.blk_nr()});
         return;
     }
-
-    auto end_it = fr_by_nr.end();
 
     bool coalesced_with_next = false;
     bool coalesced_with_prev = false;
@@ -219,4 +234,50 @@ FreeMap::blk_cnt_nr_multimap::iterator FreeMap::erase_from_fr_by_cnt(FreeMap::nr
     }
 
     return fr_by_cnt.end();
+}
+
+void FreeMap::fail_if_overlap(const Extent& ext) const {
+    if (fr_by_nr.size() == 0) {
+        return;
+    }
+
+    nr_blk_cnt_map::const_iterator to_chk[2];
+
+    int i = 0;
+
+    auto it = fr_by_nr.lower_bound(ext.blk_nr());
+    if (it != fr_by_nr.end()) {
+        to_chk[i] = it; // ext.blk_nr <= blk_nr_of(it)
+        ++i;
+    }
+
+    if (it != fr_by_nr.begin()) {
+        to_chk[i] = --it; // blk_nr_of(it) < ext.blk_nr
+        ++i;
+    }
+
+    for (; i > 0;) {
+        it = to_chk[--i];
+        try {
+            Extent::distance_in_blks(Extent(blk_nr_of(it), blk_cnt_of(it), false), ext);
+        } catch (const ExtentOverlapError& err) {
+            throw ExtentOverlapError(
+                    "already freed",
+                    Extent(blk_nr_of(it), blk_cnt_of(it), false),
+                    "to be freed",
+                    ext,
+                    (F()
+                     << "possible double free detected"
+                    ).str());
+        }
+    }
+}
+
+void FreeMap::fail_if_suballoc_or_zero_cnt(const Extent& ext) const {
+    if (ext.is_suballoc() or ext.blk_cnt() == 0) {
+        throw std::runtime_error((F()
+               << "cannot dealloc "
+               << ((ext.is_suballoc()) ? "suballoc extent" : "0 blocks")
+               ).str());
+    }
 }

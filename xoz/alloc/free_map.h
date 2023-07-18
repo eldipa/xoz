@@ -199,4 +199,6 @@ class FreeMap {
             return it->second;
         }
 
+        void fail_if_overlap(const Extent& ext) const;
+        void fail_if_suballoc_or_zero_cnt(const Extent& ext) const;
 };
