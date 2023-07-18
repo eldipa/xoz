@@ -25,7 +25,7 @@ class FreeMap {
         };
 
 
-        void initialize_from_extents(const std::list<Extent>& exts);
+        void assign_as_freed(const std::list<Extent>& exts);
         void clear();
 
         // Finds the best free chunk that can hold at least

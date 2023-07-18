@@ -15,10 +15,10 @@ FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold) :
     split_above_threshold(split_above_threshold) {}
 
 
-void FreeMap::initialize_from_extents(const std::list<Extent>& exts) {
+void FreeMap::assign_as_freed(const std::list<Extent>& exts) {
     if (fr_by_nr.size() != 0 or fr_by_cnt.size() != 0) {
         throw std::runtime_error((F()
-               << "the free map is already initialized, call clear() first."
+               << "the free map is already assigned, call clear() first."
                ).str());
     }
 
