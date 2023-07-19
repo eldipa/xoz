@@ -55,8 +55,8 @@ class FreeMap {
 
         // Handy typedef for the 2 kinds of iterators: by block number
         // and by block count
-        typedef xoz::alloc::internals::ConstExtentIterator<map_nr2cnt_t, false> const_iterator_by_blk_nr;
-        typedef xoz::alloc::internals::ConstExtentIterator<multimap_cnt2nr_t, false> const_iterator_by_blk_cnt;
+        typedef xoz::alloc::internals::ConstExtentIterator<map_nr2cnt_t, false> const_iterator_by_blk_nr_t;
+        typedef xoz::alloc::internals::ConstExtentIterator<multimap_cnt2nr_t, false> const_iterator_by_blk_cnt_t;
 
         // Iterators over the free chunks returned as Extent objects.
         //
@@ -66,19 +66,19 @@ class FreeMap {
         //
         // All the iterators are constant as the caller must not
         // modify the internals of the free map.
-        inline const_iterator_by_blk_nr cbegin_by_blk_nr() const {
+        inline const_iterator_by_blk_nr_t cbegin_by_blk_nr() const {
             return xoz::alloc::internals::ConstExtentIterator<map_nr2cnt_t, false>(fr_by_nr.cbegin());
         }
 
-        inline const_iterator_by_blk_nr cend_by_blk_nr() const {
+        inline const_iterator_by_blk_nr_t cend_by_blk_nr() const {
             return xoz::alloc::internals::ConstExtentIterator<map_nr2cnt_t, false>(fr_by_nr.cend());
         }
 
-        inline const_iterator_by_blk_cnt cbegin_by_blk_cnt() const {
+        inline const_iterator_by_blk_cnt_t cbegin_by_blk_cnt() const {
             return xoz::alloc::internals::ConstExtentIterator<multimap_cnt2nr_t, false>(fr_by_cnt.cbegin());
         }
 
-        inline const_iterator_by_blk_cnt cend_by_blk_cnt() const {
+        inline const_iterator_by_blk_cnt_t cend_by_blk_cnt() const {
             return xoz::alloc::internals::ConstExtentIterator<multimap_cnt2nr_t, false>(fr_by_cnt.cend());
         }
 

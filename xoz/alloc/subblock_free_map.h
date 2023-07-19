@@ -32,18 +32,18 @@ class SubBlockFreeMap {
         void dealloc(const Extent& ext);
 
         // Handy typedef
-        typedef xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t, true> const_iterator_by_blk_nr;
+        typedef xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t, true> const_iterator_by_blk_nr_t;
 
         // Iterators over the free chunks returned as Extent objects.
         // By block number only order
         //
         // All the iterators are constant as the caller must not
         // modify the internals of the free map.
-        inline const_iterator_by_blk_nr cbegin_by_blk_nr() const {
+        inline const_iterator_by_blk_nr_t cbegin_by_blk_nr() const {
             return xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t, true>(fr_by_nr.cbegin());
         }
 
-        inline const_iterator_by_blk_nr cend_by_blk_nr() const {
+        inline const_iterator_by_blk_nr_t cend_by_blk_nr() const {
             return xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t, true>(fr_by_nr.cend());
         }
 
