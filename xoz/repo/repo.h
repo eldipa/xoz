@@ -124,7 +124,7 @@ class Repository {
         //
         // This expands/shrinks the underlying physical file.
         //
-        // alloc_blocks() returns the block number of the first
+        // grow_by_blocks() returns the block number of the first
         // new allocated blocks.
         uint32_t grow_by_blocks(uint16_t blk_cnt);
 
