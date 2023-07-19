@@ -4,6 +4,7 @@
 
 #include "xoz/exceptions.h"
 
+using namespace xoz::alloc::internals;
 
 SubBlockFreeMap::SubBlockFreeMap() {}
 

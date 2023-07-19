@@ -4,11 +4,7 @@
 
 #include "xoz/exceptions.h"
 
-namespace {
-    typedef std::pair<uint32_t, uint16_t> nr_blk_cnt_pair;
-    typedef std::pair<uint16_t, uint32_t> blk_cnt_nr_pair;
-}
-
+using namespace xoz::alloc::internals;
 
 FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold) :
     coalescing_enabled(coalescing_enabled),
@@ -167,6 +163,7 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
 void FreeMap::dealloc(const Extent& ext) {
     auto end_it = fr_by_nr.end();
 
+    // TODO check that ext is in the range of the repository?
     fail_if_suballoc_or_zero_cnt(ext);
     fail_if_overlap(ext);
 

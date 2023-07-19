@@ -4,11 +4,14 @@
 #include <list>
 #include "xoz/ext/extent.h"
 
+#include "xoz/alloc/internals.h"
+
 class SubBlockFreeMap {
+    using nr2ext_map = xoz::alloc::internals::nr2ext_map;
+
     private:
         std::list<Extent> exts_bin[Extent::SUBBLK_CNT_PER_BLK];
 
-        typedef std::map<uint32_t, Extent> nr2ext_map;
         nr2ext_map fr_by_nr;
 
     public:
@@ -102,7 +105,7 @@ class SubBlockFreeMap {
             private:
                 inline void update_current_extent() const {
                     if (not is_cache_synced) {
-                        cached = Extent(blk_nr_of(it), blk_bitmap_of(it), true);
+                        cached = Extent(xoz::alloc::internals::blk_nr_of(it), xoz::alloc::internals::blk_bitmap_of(it), true);
                         is_cache_synced = true;
                     }
                 }
@@ -128,20 +131,6 @@ class SubBlockFreeMap {
     private:
 
         size_t count_entries_in_bins() const;
-
-        // Accessors to fr_by_nr map iterators' fields with blk_nr as the key
-        // and Extent as the value of the map
-        static inline const uint32_t& blk_nr_of(const SubBlockFreeMap::nr2ext_map::const_iterator& it) {
-            return it->first;
-        }
-
-        static inline uint16_t blk_bitmap_of(SubBlockFreeMap::nr2ext_map::iterator& it) {
-            return it->second.blk_bitmap();
-        }
-
-        static inline uint16_t blk_bitmap_of(const SubBlockFreeMap::nr2ext_map::const_iterator& it) {
-            return it->second.blk_bitmap();
-        }
 
         void fail_if_not_subblk_or_zero_cnt(const Extent& ext) const;
         void fail_if_blk_nr_already_seen(const Extent& ext) const;

@@ -4,13 +4,15 @@
 #include <list>
 #include "xoz/ext/extent.h"
 
+#include "xoz/alloc/internals.h"
+
 class FreeMap {
+    using nr_blk_cnt_map = xoz::alloc::internals::nr_blk_cnt_map;
+    using blk_cnt_nr_multimap = xoz::alloc::internals::blk_cnt_nr_multimap;
+
     private:
         bool coalescing_enabled;
         uint16_t split_above_threshold;
-
-        typedef std::map<uint32_t, uint16_t> nr_blk_cnt_map;
-        typedef std::multimap<uint16_t, uint32_t> blk_cnt_nr_multimap;
 
         nr_blk_cnt_map fr_by_nr;
         blk_cnt_nr_multimap fr_by_cnt;
@@ -124,7 +126,7 @@ class FreeMap {
             private:
                 inline void update_current_extent() const {
                     if (not is_cache_synced) {
-                        cached = Extent(blk_nr_of(it), blk_cnt_of(it), false);
+                        cached = Extent(xoz::alloc::internals::blk_nr_of(it), xoz::alloc::internals::blk_cnt_of(it), false);
                         is_cache_synced = true;
                     }
                 }
@@ -169,35 +171,6 @@ class FreeMap {
         // there may be multiple chunks with the same block count, there is
         // a O(n) linear search to delete the one pointed by target_it
         blk_cnt_nr_multimap::iterator erase_from_fr_by_cnt(nr_blk_cnt_map::iterator& target_it);
-
-        // Accessors to fr_by_nr map iterators' fields with blk_nr as the key
-        // and blk_cnt as the value of the map
-        static inline const uint32_t& blk_nr_of(const FreeMap::nr_blk_cnt_map::const_iterator& it) {
-            return it->first;
-        }
-
-        static inline uint16_t& blk_cnt_of(FreeMap::nr_blk_cnt_map::iterator& it) {
-            return it->second;
-        }
-
-        static inline const uint16_t& blk_cnt_of(const FreeMap::nr_blk_cnt_map::const_iterator& it) {
-            return it->second;
-        }
-
-
-        // Accessors to fr_by_cnt multimap iterators' fields with blk_cnt as the key
-        // and blk_nr as the value of the map
-        static inline const uint16_t& blk_cnt_of(const FreeMap::blk_cnt_nr_multimap::const_iterator& it) {
-            return it->first;
-        }
-
-        static inline uint32_t& blk_nr_of(FreeMap::blk_cnt_nr_multimap::iterator& it) {
-            return it->second;
-        }
-
-        static inline const uint32_t& blk_nr_of(const FreeMap::blk_cnt_nr_multimap::const_iterator& it) {
-            return it->second;
-        }
 
         void fail_if_overlap(const Extent& ext) const;
         void fail_if_suballoc_or_zero_cnt(const Extent& ext) const;
