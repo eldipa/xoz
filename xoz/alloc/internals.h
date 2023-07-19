@@ -58,4 +58,88 @@ namespace xoz::alloc::internals {
     inline uint16_t blk_bitmap_of(const map_nr2ext_t::const_iterator& it) {
         return it->second.blk_bitmap();
     }
+
+    // Extent iterator: a adapter iterator class over std::map/std::multimap
+    // const_iterator that yields Extent objects either normal Extent
+    // and Extent for suballocation
+    template<typename Map, bool IsExtentSubAllocated>
+    class ConstExtentIterator {
+        private:
+            typename Map::const_iterator it;
+
+            // To avoid creating an Extent object every time that
+            // the operators * and -> are called, we cache the
+            // Extent created from the current iterator value once
+            // and we yield then const references and const pointer to.
+            //
+            // On each iterator movement (aka ++it) the cache becomes
+            // invalid and is_cache_synced will be false until another
+            // call to operator * and -> is made.
+            mutable Extent cached;
+            mutable bool is_cache_synced;
+
+        public:
+            // Public traits interface saying
+            //
+            // - which values the iterator
+            // points to (Extent, const Extent& and const Extent*);
+            //
+            // - which type can represent the difference between iterators
+            // (the same that the original container's iterators use);
+            //
+            // - and in which category this iterator falls (Input Iterator).
+            using value_type = Extent;
+
+            using reference = Extent const&;
+            using pointer   = Extent const*;
+
+            using difference_type = typename Map::const_iterator::difference_type;
+
+            using iterator_category = std::input_iterator_tag;
+
+            ConstExtentIterator(typename Map::const_iterator const& it) : it(it), cached(0,0,false), is_cache_synced(false) {}
+
+            ConstExtentIterator& operator++() {
+                ++it;
+                is_cache_synced = false;
+                return *this;
+            }
+
+            ConstExtentIterator operator++(int) {
+                ConstExtentIterator copy(*this);
+                it++;
+                is_cache_synced = false;
+                return copy;
+            }
+
+            inline bool operator==(const ConstExtentIterator& other) const {
+                return it == other.it;
+            }
+
+            inline bool operator!=(const ConstExtentIterator& other) const {
+                return it != other.it;
+            }
+
+            inline const Extent& operator*() const {
+                update_current_extent();
+                return cached;
+            }
+
+            inline const Extent* operator->() const {
+                update_current_extent();
+                return &cached;
+            }
+
+        private:
+            inline void update_current_extent() const {
+                if (not is_cache_synced) {
+                    if constexpr (IsExtentSubAllocated) {
+                        cached = Extent(xoz::alloc::internals::blk_nr_of(it), xoz::alloc::internals::blk_bitmap_of(it), true);
+                    } else {
+                        cached = Extent(xoz::alloc::internals::blk_nr_of(it), xoz::alloc::internals::blk_cnt_of(it), false);
+                    }
+                    is_cache_synced = true;
+                }
+            }
+    };
 }
