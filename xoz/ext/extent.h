@@ -5,6 +5,8 @@
 #include <iostream>
 #include <cassert>
 
+#include "xoz/arch.h"
+
 // An extent defines a contiguous array of <blk_cnt> full  blocks
 // starting from <blk_nr>
 //
@@ -72,6 +74,11 @@ class Extent {
         return _blk_cnt; // on purpose, an alias of blk_cnt()
     }
 
+    inline uint8_t subblk_cnt() const {
+        assert(is_suballoc());
+        return u16_count_bits(_blk_cnt);
+    }
+
     inline bool is_suballoc() const {
         return (bool)(_blk_nr & 0x80000000);
     }
@@ -94,6 +101,11 @@ class Extent {
 
     inline void move_to(uint32_t blk_nr) {
         _blk_nr = (blk_nr & 0x03ffffff) | (_blk_nr & 0xfc000000);
+    }
+
+    inline void set_bitmap(uint16_t bitmap) {
+        assert(is_suballoc());
+        _blk_cnt = bitmap;
     }
 
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
