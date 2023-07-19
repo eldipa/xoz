@@ -7,15 +7,15 @@
 #include "xoz/alloc/internals.h"
 
 class FreeMap {
-    using nr_blk_cnt_map = xoz::alloc::internals::nr_blk_cnt_map;
-    using blk_cnt_nr_multimap = xoz::alloc::internals::blk_cnt_nr_multimap;
+    using map_nr2cnt_t = xoz::alloc::internals::map_nr2cnt_t;
+    using multimap_cnt2nr_t = xoz::alloc::internals::multimap_cnt2nr_t;
 
     private:
         bool coalescing_enabled;
         uint16_t split_above_threshold;
 
-        nr_blk_cnt_map fr_by_nr;
-        blk_cnt_nr_multimap fr_by_cnt;
+        map_nr2cnt_t fr_by_nr;
+        multimap_cnt2nr_t fr_by_cnt;
 
     public:
         FreeMap(bool coalescing_enabled = true, uint16_t split_above_threshold = 0);
@@ -135,8 +135,8 @@ class FreeMap {
 
         // Handy typedef for the 2 kinds of iterators: by block number
         // and by block count
-        typedef _ConstExtentIterator<nr_blk_cnt_map> const_iterator_by_blk_nr;
-        typedef _ConstExtentIterator<blk_cnt_nr_multimap> const_iterator_by_blk_cnt;
+        typedef _ConstExtentIterator<map_nr2cnt_t> const_iterator_by_blk_nr;
+        typedef _ConstExtentIterator<multimap_cnt2nr_t> const_iterator_by_blk_cnt;
 
         // Iterators over the free chunks returned as Extent objects.
         //
@@ -147,19 +147,19 @@ class FreeMap {
         // All the iterators are constant as the caller must not
         // modify the internals of the free map.
         inline const_iterator_by_blk_nr cbegin_by_blk_nr() const {
-            return _ConstExtentIterator<nr_blk_cnt_map>(fr_by_nr.cbegin());
+            return _ConstExtentIterator<map_nr2cnt_t>(fr_by_nr.cbegin());
         }
 
         inline const_iterator_by_blk_nr cend_by_blk_nr() const {
-            return _ConstExtentIterator<nr_blk_cnt_map>(fr_by_nr.cend());
+            return _ConstExtentIterator<map_nr2cnt_t>(fr_by_nr.cend());
         }
 
         inline const_iterator_by_blk_cnt cbegin_by_blk_cnt() const {
-            return _ConstExtentIterator<blk_cnt_nr_multimap>(fr_by_cnt.cbegin());
+            return _ConstExtentIterator<multimap_cnt2nr_t>(fr_by_cnt.cbegin());
         }
 
         inline const_iterator_by_blk_cnt cend_by_blk_cnt() const {
-            return _ConstExtentIterator<blk_cnt_nr_multimap>(fr_by_cnt.cend());
+            return _ConstExtentIterator<multimap_cnt2nr_t>(fr_by_cnt.cend());
         }
 
     private:
@@ -170,7 +170,7 @@ class FreeMap {
         // This erase operation does a O(log(n)) lookup on fr_by_cnt but because
         // there may be multiple chunks with the same block count, there is
         // a O(n) linear search to delete the one pointed by target_it
-        blk_cnt_nr_multimap::iterator erase_from_fr_by_cnt(nr_blk_cnt_map::iterator& target_it);
+        multimap_cnt2nr_t::iterator erase_from_fr_by_cnt(map_nr2cnt_t::iterator& target_it);
 
         void fail_if_overlap(const Extent& ext) const;
         void fail_if_suballoc_or_zero_cnt(const Extent& ext) const;

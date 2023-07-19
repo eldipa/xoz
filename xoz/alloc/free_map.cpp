@@ -142,7 +142,7 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
         //
         // The expected total cost is O(log(n))
         const auto hint_it = fr_by_nr.erase(fr_by_nr.find(blk_nr_of(usable_it)));
-        fr_by_nr.insert(hint_it, nr_blk_cnt_pair(new_fr_nr, blk_cnt_remain));
+        fr_by_nr.insert(hint_it, pair_nr2cnt_t(new_fr_nr, blk_cnt_remain));
 
         // Update the fr_by_cnt. We cannot use the same "hint" trick
         // than before because blk_cnt_remain may or may not be near
@@ -230,7 +230,7 @@ void FreeMap::dealloc(const Extent& ext) {
 // This erase operation does a O(log(n)) lookup on fr_by_cnt but because
 // there may be multiple chunks with the same block count, there is
 // a O(n) linear search to delete the one pointed by target_it
-FreeMap::blk_cnt_nr_multimap::iterator FreeMap::erase_from_fr_by_cnt(FreeMap::nr_blk_cnt_map::iterator& target_it) {
+FreeMap::multimap_cnt2nr_t::iterator FreeMap::erase_from_fr_by_cnt(FreeMap::map_nr2cnt_t::iterator& target_it) {
     for (auto it = fr_by_cnt.lower_bound(blk_cnt_of(target_it)); it != fr_by_cnt.end(); ++it) {
         if (blk_nr_of(it) == blk_nr_of(target_it)) {
             assert (blk_cnt_of(it) == blk_cnt_of(target_it));
@@ -246,7 +246,7 @@ void FreeMap::fail_if_overlap(const Extent& ext) const {
         return;
     }
 
-    nr_blk_cnt_map::const_iterator to_chk[2];
+    map_nr2cnt_t::const_iterator to_chk[2];
 
     int i = 0;
 

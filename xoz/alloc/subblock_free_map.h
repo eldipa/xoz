@@ -7,12 +7,12 @@
 #include "xoz/alloc/internals.h"
 
 class SubBlockFreeMap {
-    using nr2ext_map = xoz::alloc::internals::nr2ext_map;
+    using map_nr2ext_t = xoz::alloc::internals::map_nr2ext_t;
 
     private:
         std::list<Extent> exts_bin[Extent::SUBBLK_CNT_PER_BLK];
 
-        nr2ext_map fr_by_nr;
+        map_nr2ext_t fr_by_nr;
 
     public:
         SubBlockFreeMap();
@@ -113,7 +113,7 @@ class SubBlockFreeMap {
 
 
         // Handy typedef
-        typedef _ConstExtentIterator<nr2ext_map> const_iterator_by_blk_nr;
+        typedef _ConstExtentIterator<map_nr2ext_t> const_iterator_by_blk_nr;
 
         // Iterators over the free chunks returned as Extent objects.
         // By block number only order
@@ -121,11 +121,11 @@ class SubBlockFreeMap {
         // All the iterators are constant as the caller must not
         // modify the internals of the free map.
         inline const_iterator_by_blk_nr cbegin_by_blk_nr() const {
-            return _ConstExtentIterator<nr2ext_map>(fr_by_nr.cbegin());
+            return _ConstExtentIterator<map_nr2ext_t>(fr_by_nr.cbegin());
         }
 
         inline const_iterator_by_blk_nr cend_by_blk_nr() const {
-            return _ConstExtentIterator<nr2ext_map>(fr_by_nr.cend());
+            return _ConstExtentIterator<map_nr2ext_t>(fr_by_nr.cend());
         }
 
     private:
