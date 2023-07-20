@@ -127,8 +127,27 @@ class Repository {
         // grow_by_blocks() returns the block number of the first
         // new allocated blocks.
         uint32_t grow_by_blocks(uint16_t blk_cnt);
-
         void shrink_by_blocks(uint32_t blk_cnt);
+
+        // Return the block number of the first block with data
+        // (after the header) and the past-the-end data section
+        // (before the trailer)
+        //
+        // The total count of readable/writable data blocks by
+        // the callers is (past_end_data_blk_nr() - begin_data_blk_nr())
+        // and it may be zero.
+        inline uint32_t begin_data_blk_nr() const {
+            return 1;
+        }
+
+        inline uint32_t past_end_data_blk_nr() const {
+            assert (blk_total_cnt >= begin_data_blk_nr());
+            return blk_total_cnt;
+        }
+
+        inline uint32_t data_blk_cnt() const {
+            return past_end_data_blk_nr() - begin_data_blk_nr();
+        }
 
         // Pretty print stats
         std::ostream& print_stats(std::ostream& out) const;
