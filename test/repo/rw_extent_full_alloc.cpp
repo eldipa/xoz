@@ -408,6 +408,10 @@ namespace {
         auto old_top_nr = repo.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
         std::vector<char> wrbuf(64);
         std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..65
         std::vector<char> rdbuf;

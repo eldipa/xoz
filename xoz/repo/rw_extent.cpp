@@ -19,7 +19,11 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
     // of block count of 0 which otherwise would be silenced
     // (because a count of 0 means 0 usable space and the method
     // would return 0 (EOF) instead of detecting the bogus extent)
-    if (ext.blk_nr() >= blk_total_cnt) {
+    if (
+            ext.blk_nr() < begin_data_blk_nr()
+         or ext.blk_nr() >= past_end_data_blk_nr()
+         or ext.past_end_blk_nr() > past_end_data_blk_nr()
+         ) {
         throw ExtentOutOfBounds(*this, ext, F()
                << "Detected on a "
                << (is_read_op ? "read" : "write")
@@ -140,14 +144,6 @@ uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, 
 uint32_t Repository::rw_fully_allocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz, uint32_t start) {
     // this should never happen
     assert (ext.blk_cnt() > 0);
-
-    if (ext.blk_nr() + ext.blk_cnt() > blk_total_cnt) {
-        throw ExtentOutOfBounds(*this, ext, F()
-               << "Detected on a "
-               << (is_read_op ? "read" : "write")
-               << " operation."
-               );
-    }
 
     // Seek to the begin of the extent and advance as many
     // bytes as the caller said
