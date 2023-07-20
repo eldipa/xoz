@@ -149,6 +149,14 @@ class Repository {
             return past_end_data_blk_nr() - begin_data_blk_nr();
         }
 
+        inline bool is_extent_within_boundaries(const Extent& ext) const {
+            return not (ext.blk_nr() < begin_data_blk_nr()
+                     or ext.blk_nr() >= past_end_data_blk_nr()
+                     or ext.past_end_blk_nr() > past_end_data_blk_nr()
+                 );
+        }
+
+
         // Pretty print stats
         std::ostream& print_stats(std::ostream& out) const;
 

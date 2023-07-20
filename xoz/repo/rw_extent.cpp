@@ -19,11 +19,7 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
     // of block count of 0 which otherwise would be silenced
     // (because a count of 0 means 0 usable space and the method
     // would return 0 (EOF) instead of detecting the bogus extent)
-    if (
-            ext.blk_nr() < begin_data_blk_nr()
-         or ext.blk_nr() >= past_end_data_blk_nr()
-         or ext.past_end_blk_nr() > past_end_data_blk_nr()
-         ) {
+    if (not is_extent_within_boundaries(ext)) {
         throw ExtentOutOfBounds(*this, ext, F()
                << "Detected on a "
                << (is_read_op ? "read" : "write")
