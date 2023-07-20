@@ -181,7 +181,7 @@ void FreeMap::dealloc(const Extent& ext) {
 
     Extent coalesced = ext;
 
-    if (next_fr_it != end_it and coalesced.blk_end_nr() == blk_nr_of(next_fr_it)) {
+    if (next_fr_it != end_it and coalesced.past_end_blk_nr() == blk_nr_of(next_fr_it)) {
         coalesced.expand_by(blk_cnt_of(next_fr_it));
         coalesced_with_next = true; // then, next_fr_it must be removed
     }

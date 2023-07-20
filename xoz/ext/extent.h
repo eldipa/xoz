@@ -65,8 +65,14 @@ class Extent {
     }
 
     // Block number of the past-the-end block
-    inline uint32_t blk_end_nr() const {
-        return blk_nr() + blk_cnt();
+    // It works even when is_suballoc is True (assumed block count of 1)
+    // or even if blk_cnt is 0.
+    inline uint32_t past_end_blk_nr() const {
+        const uint16_t cnt = is_suballoc() ? 1 : blk_cnt();
+        const uint32_t nr = blk_nr() + cnt;
+
+        assert(nr >= blk_nr());
+        return nr;
     }
 
     inline uint16_t blk_bitmap() const {
