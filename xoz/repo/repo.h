@@ -156,6 +156,10 @@ class Repository {
                  );
         }
 
+        // Call is_extent_within_boundaries(ext) and if it is false
+        // raise ExtentOutOfBounds with the given optionally message
+        void fail_if_out_of_boundaries(const Extent& ext, const std::string& msg) const;
+
 
         // Pretty print stats
         std::ostream& print_stats(std::ostream& out) const;

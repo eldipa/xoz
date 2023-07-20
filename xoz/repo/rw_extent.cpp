@@ -19,13 +19,11 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
     // of block count of 0 which otherwise would be silenced
     // (because a count of 0 means 0 usable space and the method
     // would return 0 (EOF) instead of detecting the bogus extent)
-    if (not is_extent_within_boundaries(ext)) {
-        throw ExtentOutOfBounds(*this, ext, F()
+    fail_if_out_of_boundaries(ext, (F()
                << "Detected on a "
                << (is_read_op ? "read" : "write")
                << " operation."
-               );
-    }
+               ).str());
 
     const uint32_t usable_sz = ext.calc_usable_space_size(gp.blk_sz_order);
 
@@ -50,6 +48,12 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
     }
 
     return to_read_write_sz;
+}
+
+void Repository::fail_if_out_of_boundaries(const Extent& ext, const std::string& msg) const {
+    if (not is_extent_within_boundaries(ext)) {
+        throw ExtentOutOfBounds(*this, ext, msg);
+    }
 }
 
 uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz, uint32_t start) {
