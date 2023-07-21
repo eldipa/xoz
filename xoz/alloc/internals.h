@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <list>
 #include "xoz/ext/extent.h"
+#include "xoz/exceptions.h"
 
 namespace xoz::alloc::internals {
 
@@ -142,4 +143,14 @@ namespace xoz::alloc::internals {
                 }
             }
     };
+
+    // Raise an exception if the block count or subblock count is zero
+    // (depending if is_suballoc is false or true)
+    void fail_alloc_if_empty(const uint16_t cnt, const bool is_suballoc);
+
+    // Raise an exception if the extent has zero blocks or if it
+    // is for suballocation.
+    //
+    // This ensures a non-empty "full" extent.
+    void fail_if_suballoc_or_zero_cnt(const Extent& ext);
 }

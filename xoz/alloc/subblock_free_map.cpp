@@ -40,11 +40,7 @@ void SubBlockFreeMap::clear() {
 
 
 struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt) {
-    if (subblk_cnt == 0) {
-        throw std::runtime_error((F()
-               << "cannot alloc 0 subblocks"
-               ).str());
-    }
+    fail_alloc_if_empty(subblk_cnt, true);
 
     if (subblk_cnt > Extent::SUBBLK_CNT_PER_BLK) {
         throw std::runtime_error((F()

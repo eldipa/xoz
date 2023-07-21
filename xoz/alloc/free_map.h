@@ -93,5 +93,4 @@ class FreeMap {
         multimap_cnt2nr_t::iterator erase_from_fr_by_cnt(map_nr2cnt_t::iterator& target_it);
 
         void fail_if_overlap(const Extent& ext) const;
-        void fail_if_suballoc_or_zero_cnt(const Extent& ext) const;
 };

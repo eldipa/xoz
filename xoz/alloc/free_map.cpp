@@ -36,11 +36,7 @@ void FreeMap::clear() {
 
 
 struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
-    if (blk_cnt == 0) {
-        throw std::runtime_error((F()
-               << "cannot alloc 0 blocks"
-               ).str());
-    }
+    fail_alloc_if_empty(blk_cnt, false);
 
     auto end_it = fr_by_cnt.end();
     auto usable_it = fr_by_cnt.lower_bound(blk_cnt);
@@ -275,14 +271,5 @@ void FreeMap::fail_if_overlap(const Extent& ext) const {
                      << "possible double free detected"
                     ).str());
         }
-    }
-}
-
-void FreeMap::fail_if_suballoc_or_zero_cnt(const Extent& ext) const {
-    if (ext.is_suballoc() or ext.blk_cnt() == 0) {
-        throw std::runtime_error((F()
-               << "cannot dealloc "
-               << ((ext.is_suballoc()) ? "suballoc extent" : "0 blocks")
-               ).str());
     }
 }
