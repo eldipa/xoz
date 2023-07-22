@@ -169,6 +169,24 @@ void Repository::close() {
     if (std::addressof(fp) == std::addressof(disk_fp)) {
         std::filesystem::resize_file(fpath, file_sz);
     } else {
-        // TODO
+        // Quite ugly way to "truncate" an in-memory file
+        // We copy chunk by chunk to a temporal stringstream
+        // until reach the desired "new" file size and then
+        // we do a swap.
+        std::stringstream alt_mem_fp;
+        mem_fp.seekg(0);
+
+        char buf[128];
+        uintmax_t remain = file_sz;
+        while (remain) {
+            const auto chk_sz = std::min(sizeof(buf), remain);
+            mem_fp.read(buf, chk_sz);
+            alt_mem_fp.write(buf, chk_sz);
+
+            remain -= chk_sz;
+        }
+
+        mem_fp.swap(alt_mem_fp);
     }
 }
+
