@@ -1,6 +1,6 @@
 .PHONY: all test clean
 
-all:
+all: test
 
 test:
 	tup
