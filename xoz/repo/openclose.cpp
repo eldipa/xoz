@@ -10,10 +10,19 @@ void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
         throw std::runtime_error("The current repository is memory based. You cannot open a disk based file.");
     }
 
-    open_internal(fpath, phy_repo_start_pos);
+    std::stringstream ignored;
+    open_internal(fpath, std::move(ignored), phy_repo_start_pos);
 }
 
-void Repository::open_internal(const char* fpath, uint64_t phy_repo_start_pos) {
+void Repository::open(std::stringstream&& mem, uint64_t phy_repo_start_pos) {
+    if (std::addressof(fp) != std::addressof(mem_fp)) {
+        throw std::runtime_error("The current repository is disk based. You cannot open a mem based file.");
+    }
+
+    open_internal(Repository::IN_MEMORY_FPATH, std::move(mem), phy_repo_start_pos);
+}
+
+void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint64_t phy_repo_start_pos) {
     if (not closed) {
         throw std::runtime_error("The current repository is not closed. You need to close it before opening a new one");
     }
@@ -34,6 +43,9 @@ void Repository::open_internal(const char* fpath, uint64_t phy_repo_start_pos) {
                 std::fstream::in | std::fstream::out | std::fstream::binary
                 );
     } else {
+        // initialize mem_fp with a new content
+        mem_fp = std::move(mem);
+
         // note: fstream.open implicitly reset the read/write pointers
         // so we emulate the same for the memory based file
         mem_fp.seekg(0, std::ios_base::beg);
@@ -43,6 +55,8 @@ void Repository::open_internal(const char* fpath, uint64_t phy_repo_start_pos) {
     if (!fp) {
         throw OpenXOZError(fpath, "Repository::open could not open the file. May not exist or may not have permissions.");
     }
+
+    this->fpath = std::string(fpath);
 
     // Renable the exception mask
     fp.exceptions(std::ifstream::failbit | std::ifstream::badbit);

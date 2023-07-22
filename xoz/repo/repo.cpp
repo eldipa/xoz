@@ -7,8 +7,8 @@ Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos) : fpath(f
     assert(not closed);
 }
 
-Repository::Repository(std::stringstream&& mem, uint64_t phy_repo_start_pos) : fpath("#memory#"), mem_fp(std::move(mem)), fp(mem_fp), closed(true) {
-    open_internal(fpath, phy_repo_start_pos);
+Repository::Repository(std::stringstream&& mem, uint64_t phy_repo_start_pos) : fp(mem_fp), closed(true) {
+    open_internal(Repository::IN_MEMORY_FPATH, std::move(mem), phy_repo_start_pos);
     assert(not closed);
 }
 

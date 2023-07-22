@@ -12,7 +12,7 @@
 
 class Repository {
     private:
-        const char* fpath;
+        std::string fpath;
 
         std::fstream disk_fp;
         std::stringstream mem_fp;
@@ -104,6 +104,7 @@ class Repository {
         //
         // It is an error also call open on a memory based repository.
         void open(const char* fpath, uint64_t phy_repo_start_pos = 0);
+        void open(std::stringstream&& mem, uint64_t phy_repo_start_pos = 0);
 
         // Close the repository and flush any pending write.
         // Multiple calls can be made without trouble.
@@ -284,9 +285,10 @@ class Repository {
         void seek_read_and_check_header();
         void seek_read_and_check_trailer(bool clear_trailer);
 
-        // Open the given file *iff* the repository is disk based otherwise
-        // reset the memory based file (and path can be any symbolic name)
-        void open_internal(const char* fpath, uint64_t phy_repo_start_pos);
+        // If the repository is disk based open the real file fpath,
+        // otherwise, if the repository is memory based, initialize it
+        // with the given memory stringstream.
+        void open_internal(const char* fpath, std::stringstream&& mem, uint64_t phy_repo_start_pos);
 
         uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start);
 
@@ -298,5 +300,7 @@ class Repository {
     private:
         friend class InconsistentXOZ;
         friend class ExtentOutOfBounds;
+
+        constexpr static const char* IN_MEMORY_FPATH = "@in-memory";
 };
 
