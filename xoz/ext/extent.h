@@ -28,7 +28,7 @@ private:
 
 public:
     // How many bytes are required to represent the blk_cnt field
-    const static unsigned BLK_CNT_FIELD_SIZE_IN_BYTES = sizeof(((Extent*)0)->_blk_cnt);
+    const static unsigned BLK_CNT_FIELD_SIZE_IN_BYTES = sizeof(uint16_t);
 
     // Which is the size order of a subblock and how many subblocks
     // fit in a single block
