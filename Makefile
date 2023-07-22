@@ -6,6 +6,10 @@ test:
 	tup
 	./test/runtests
 
+valgrind:
+	tup
+	valgrind ./test/runtests
+
 #-ftime-report -ftime-report-details -H
 
 clean:
