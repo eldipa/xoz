@@ -1,7 +1,9 @@
 CXXFLAGS += -std=c++20
 CXXFLAGS += -pedantic -Wall -Wextra -Werror
 CXXFLAGS += -Wzero-as-null-pointer-constant -Wconversion -Wno-sign-conversion
-CXXFLAGS += -ggdb -O0
+CXXFLAGS += -ggdb @(OPTIMIZATION_LEVEL) @(CXXEXTRAFLAGS)
+
+CXXLIBS += @(CXXEXTRALIBS)
 
 GTESTPATH = ../googletest/../out-googletest/usr/local
 
@@ -14,4 +16,4 @@ GTESTLIBS = -lgtest -lpthread
 !build-static-lib = |> ar -rc %o %f |>
 
 !compile-test = |> g++ -c $(CXXFLAGS) $(GTESTFLAGS) %f -o %o |> %B.o
-!build-runtests = |> g++ $(CXXFLAGS) $(GTESTFLAGS) %f -o %o $(GTESTLIBS) |>
+!build-runtests = |> g++ $(CXXFLAGS) $(GTESTFLAGS) %f -o %o $(GTESTLIBS) $(CXXLIBS) |>

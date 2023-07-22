@@ -4,11 +4,12 @@ all:
 
 test:
 	tup
-	./test/runtests
+	./build-default/test/runtests
+	./build-fuzzing/test/runtests
 
 valgrind:
 	tup
-	valgrind ./test/runtests
+	valgrind ./build-default/test/runtests
 
 #-ftime-report -ftime-report-details -H
 
