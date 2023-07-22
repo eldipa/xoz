@@ -5,24 +5,12 @@
 
 void PrintTo(const Extent& ext, std::ostream* out) {
     if (ext.is_suballoc()) {
-        (*out)
-            << std::setfill('0') << std::setw(5) << std::hex
-            << ext.blk_nr()
-            << " ["
-            << std::setfill('0') << std::setw(16)
-            << std::bitset<16>(ext.blk_bitmap())
-            << "]";
+        (*out) << std::setfill('0') << std::setw(5) << std::hex << ext.blk_nr() << " [" << std::setfill('0')
+               << std::setw(16) << std::bitset<16>(ext.blk_bitmap()) << "]";
     } else {
-        (*out)
-            << std::setfill('0') << std::setw(5) << std::hex
-            << ext.blk_nr()
-            << " "
-            << std::setfill('0') << std::setw(5) << std::hex
-            << ext.blk_nr() + ext.blk_cnt()
-            << " ["
-            << std::setfill(' ') << std::setw(4)
-            << ext.blk_cnt()
-            << "]";
+        (*out) << std::setfill('0') << std::setw(5) << std::hex << ext.blk_nr() << " " << std::setfill('0')
+               << std::setw(5) << std::hex << ext.blk_nr() + ext.blk_cnt() << " [" << std::setfill(' ') << std::setw(4)
+               << ext.blk_cnt() << "]";
     }
 
     /*

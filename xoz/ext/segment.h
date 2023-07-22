@@ -1,20 +1,20 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 #include <iostream>
+#include <vector>
 
 #include "xoz/ext/extent.h"
 
 class Segment {
-    private:
+private:
     std::vector<Extent> arr;
 
     bool inline_present;
     std::vector<uint8_t> raw;
 
-    public:
-    Segment() : inline_present(false) {}
+public:
+    Segment(): inline_present(false) {}
 
     static Segment create_empty_zero_inline() {
         Segment segm;
@@ -33,25 +33,15 @@ class Segment {
         raw.clear();
     }
 
-    bool has_end_of_segment() {
-        return inline_present;
-    }
+    bool has_end_of_segment() { return inline_present; }
 
-    void add_end_of_segment() {
-        inline_present = true;
-    }
+    void add_end_of_segment() { inline_present = true; }
 
-    void add_extent(const Extent& ext) {
-        arr.push_back(ext);
-    }
+    void add_extent(const Extent& ext) { arr.push_back(ext); }
 
-    void clear_extents() {
-        arr.clear();
-    }
+    void clear_extents() { arr.clear(); }
 
-    std::vector<uint8_t>& inline_data() {
-        return raw;
-    }
+    std::vector<uint8_t>& inline_data() { return raw; }
 
     static Segment read_segment(std::istream& fp, const uint64_t segm_sz) {
         Segment segm;
@@ -65,7 +55,6 @@ class Segment {
     uint32_t calc_footprint_disk_size() const;
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
 
-    private:
+private:
     void fail_if_bad_inline_sz() const;
 };
-

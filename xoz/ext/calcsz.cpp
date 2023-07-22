@@ -1,9 +1,10 @@
-#include "xoz/ext/extent.h"
-#include "xoz/ext/segment.h"
+#include <numeric>
 
-#include "xoz/ext/internal_defs.h"
 #include "xoz/arch.h"
 #include "xoz/exceptions.h"
+#include "xoz/ext/extent.h"
+#include "xoz/ext/internal_defs.h"
+#include "xoz/ext/segment.h"
 
 // Calculates the distance in blocks between a reference extent
 // and the target extent taking into account the length of each
@@ -57,12 +58,11 @@ Extent::blk_distance_t Extent::distance_in_blks(const Extent& ref, const Extent&
     }
 
     return {
-        .blk_cnt = blk_cnt,
-        .is_backwards = is_backwards,
-        .is_near = blk_cnt <= 0x1ff,
+            .blk_cnt = blk_cnt,
+            .is_backwards = is_backwards,
+            .is_near = blk_cnt <= 0x1ff,
     };
 }
-
 
 uint32_t Segment::calc_footprint_disk_size() const {
     const Segment& segm = *this;
@@ -70,7 +70,7 @@ uint32_t Segment::calc_footprint_disk_size() const {
     Extent prev(0, 0, false);
 
     uint32_t sz = 0;
-    for (const auto& ext : segm.arr) {
+    for (const auto& ext: segm.arr) {
         // Ext header, always present
         sz += sizeof(uint16_t);
 
@@ -135,10 +135,9 @@ uint32_t Extent::calc_usable_space_size(uint8_t blk_sz_order) const {
 uint32_t Segment::calc_usable_space_size(uint8_t blk_sz_order) const {
     const Segment& segm = *this;
 
-    uint32_t sz = 0;
-    for (const auto& ext : segm.arr) {
-        sz += ext.calc_usable_space_size(blk_sz_order);
-    }
+    uint32_t sz = std::accumulate(
+            segm.arr.cbegin(), segm.arr.cend(), 0,
+            [&blk_sz_order](uint32_t sz, const Extent& ext) { return sz + ext.calc_usable_space_size(blk_sz_order); });
 
     if (segm.inline_present) {
         segm.fail_if_bad_inline_sz();
@@ -157,5 +156,3 @@ uint32_t Segment::calc_usable_space_size(uint8_t blk_sz_order) const {
 
     return sz;
 }
-
-

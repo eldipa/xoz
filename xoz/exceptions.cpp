@@ -1,12 +1,13 @@
 
 #include "xoz/exceptions.h"
-#include "xoz/repo/repo.h"
-#include "xoz/ext/extent.h"
 
-#include <string>
+#include <bitset>
 #include <sstream>
 #include <stdexcept>
-#include <bitset>
+#include <string>
+
+#include "xoz/ext/extent.h"
+#include "xoz/repo/repo.h"
 
 OpenXOZError::OpenXOZError(const char* fpath, const std::string& msg) {
     std::stringstream ss;
@@ -16,82 +17,60 @@ OpenXOZError::OpenXOZError(const char* fpath, const std::string& msg) {
     this->msg = ss.str();
 }
 
-OpenXOZError::OpenXOZError(const char* fpath, const F& msg) : OpenXOZError(fpath, msg.ss.str()) {}
+OpenXOZError::OpenXOZError(const char* fpath, const F& msg): OpenXOZError(fpath, msg.ss.str()) {}
 
-const char* OpenXOZError::what() const noexcept {
-    return msg.data();
-}
+const char* OpenXOZError::what() const noexcept { return msg.data(); }
 
 InconsistentXOZ::InconsistentXOZ(const Repository& repo, const std::string& msg) {
     std::stringstream ss;
-    ss << "Repository on file '" << repo.fpath << " (offset " << repo.phy_repo_start_pos << ") seems inconsistent/corrupt.\n";
+    ss << "Repository on file '" << repo.fpath << " (offset " << repo.phy_repo_start_pos
+       << ") seems inconsistent/corrupt.\n";
     ss << msg;
 
     this->msg = ss.str();
 }
 
-InconsistentXOZ::InconsistentXOZ(const Repository& repo, const F& msg) : InconsistentXOZ(repo, msg.ss.str()) {}
+InconsistentXOZ::InconsistentXOZ(const Repository& repo, const F& msg): InconsistentXOZ(repo, msg.ss.str()) {}
 
 InconsistentXOZ::InconsistentXOZ(const std::string& msg) {
     std::stringstream ss;
-    ss << "Repository seems inconsistent/corrupt. "
-       << msg;
+    ss << "Repository seems inconsistent/corrupt. " << msg;
 
     this->msg = ss.str();
 }
 
-InconsistentXOZ::InconsistentXOZ(const F& msg) : InconsistentXOZ(msg.ss.str()) {}
+InconsistentXOZ::InconsistentXOZ(const F& msg): InconsistentXOZ(msg.ss.str()) {}
 
-const char* InconsistentXOZ::what() const noexcept {
-    return msg.data();
-}
+const char* InconsistentXOZ::what() const noexcept { return msg.data(); }
 
-WouldEndUpInconsistentXOZ::WouldEndUpInconsistentXOZ(const std::string& msg) {
-    this->msg = msg;
-}
+WouldEndUpInconsistentXOZ::WouldEndUpInconsistentXOZ(const std::string& msg) { this->msg = msg; }
 
-WouldEndUpInconsistentXOZ::WouldEndUpInconsistentXOZ(const F& msg) : WouldEndUpInconsistentXOZ(msg.ss.str()) {}
+WouldEndUpInconsistentXOZ::WouldEndUpInconsistentXOZ(const F& msg): WouldEndUpInconsistentXOZ(msg.ss.str()) {}
 
-const char* WouldEndUpInconsistentXOZ::what() const noexcept {
-    return msg.data();
-}
+const char* WouldEndUpInconsistentXOZ::what() const noexcept { return msg.data(); }
 
-NullBlockAccess::NullBlockAccess(const std::string& msg) {
-    this->msg = msg;
-}
+NullBlockAccess::NullBlockAccess(const std::string& msg) { this->msg = msg; }
 
-NullBlockAccess::NullBlockAccess(const F& msg) : NullBlockAccess(msg.ss.str()) {}
+NullBlockAccess::NullBlockAccess(const F& msg): NullBlockAccess(msg.ss.str()) {}
 
-const char* NullBlockAccess::what() const noexcept {
-    return msg.data();
-}
+const char* NullBlockAccess::what() const noexcept { return msg.data(); }
 
 ExtentOutOfBounds::ExtentOutOfBounds(const Repository& repo, const Extent& ext, const std::string& msg) {
     std::stringstream ss;
 
     if (ext.is_suballoc()) {
         if (ext.blk_bitmap() != 0) {
-            ss << "The extent for suballocation [bitmap: "
-               << std::bitset<Extent::SUBBLK_CNT_PER_BLK>(ext.blk_bitmap())
-               << "] at block "
-               << ext.blk_nr();
+            ss << "The extent for suballocation [bitmap: " << std::bitset<Extent::SUBBLK_CNT_PER_BLK>(ext.blk_bitmap())
+               << "] at block " << ext.blk_nr();
         } else {
-            ss << "The extent for suballocation (empty) at block "
-               << ext.blk_nr();
+            ss << "The extent for suballocation (empty) at block " << ext.blk_nr();
         }
     } else {
         if (ext.blk_cnt() > 0) {
-            ss << "The extent of "
-               << ext.blk_cnt()
-               << " blocks that starts at block "
-               << ext.blk_nr()
-               << " and ends at block "
-               << (ext.blk_nr() + ext.blk_cnt()) - 1;
+            ss << "The extent of " << ext.blk_cnt() << " blocks that starts at block " << ext.blk_nr()
+               << " and ends at block " << (ext.blk_nr() + ext.blk_cnt()) - 1;
         } else {
-            ss << "The extent of "
-               << ext.blk_cnt()
-               << " blocks (empty) at block "
-               << ext.blk_nr();
+            ss << "The extent of " << ext.blk_cnt() << " blocks (empty) at block " << ext.blk_nr();
         }
     }
 
@@ -101,27 +80,20 @@ ExtentOutOfBounds::ExtentOutOfBounds(const Repository& repo, const Extent& ext, 
         ss << " partially falls out of bounds. ";
     }
 
-    ss << "The block "
-       << (repo.blk_total_cnt - 1)
-       << " is the last valid before the end. ";
+    ss << "The block " << (repo.blk_total_cnt - 1) << " is the last valid before the end. ";
 
     ss << msg;
 
     this->msg = ss.str();
 }
 
-ExtentOutOfBounds::ExtentOutOfBounds(const Repository& repo, const Extent& ext, const F& msg) : ExtentOutOfBounds(repo, ext, msg.ss.str()) {}
+ExtentOutOfBounds::ExtentOutOfBounds(const Repository& repo, const Extent& ext, const F& msg):
+        ExtentOutOfBounds(repo, ext, msg.ss.str()) {}
 
-const char* ExtentOutOfBounds::what() const noexcept {
-    return msg.data();
-}
+const char* ExtentOutOfBounds::what() const noexcept { return msg.data(); }
 
-ExtentOverlapError::ExtentOverlapError(
-        const std::string& ref_name, const Extent& ref,
-        const std::string& ext_name, const Extent& ext,
-        const std::string& msg
-        ) {
-
+ExtentOverlapError::ExtentOverlapError(const std::string& ref_name, const Extent& ref, const std::string& ext_name,
+                                       const Extent& ext, const std::string& msg) {
     std::stringstream ss;
 
     if (ext.is_suballoc()) {
@@ -141,7 +113,7 @@ ExtentOverlapError::ExtentOverlapError(
     if (ref.is_suballoc()) {
         ss << "suballoc'd block ";
     } else {
-       ss << "extent ";
+        ss << "extent ";
     }
 
     PrintTo(ref, &ss);
@@ -157,30 +129,27 @@ ExtentOverlapError::ExtentOverlapError(
     this->msg = ss.str();
 }
 
-ExtentOverlapError::ExtentOverlapError(const std::string& ref_name, const Extent& ref, const std::string& ext_name, const Extent& ext, const F& msg) : ExtentOverlapError(ref_name, ref, ext_name, ext, msg.ss.str()) {}
+ExtentOverlapError::ExtentOverlapError(const std::string& ref_name, const Extent& ref, const std::string& ext_name,
+                                       const Extent& ext, const F& msg):
+        ExtentOverlapError(ref_name, ref, ext_name, ext, msg.ss.str()) {}
 
-ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const F& msg) : ExtentOverlapError("reference extent", ref, "", ext, msg.ss.str()) {}
-ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const std::string& msg) : ExtentOverlapError("reference extent", ref, "", ext, msg) {}
+ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const F& msg):
+        ExtentOverlapError("reference extent", ref, "", ext, msg.ss.str()) {}
+ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, const std::string& msg):
+        ExtentOverlapError("reference extent", ref, "", ext, msg) {}
 
-const char* ExtentOverlapError::what() const noexcept {
-    return msg.data();
-}
+const char* ExtentOverlapError::what() const noexcept { return msg.data(); }
 
 NotEnoughRoom::NotEnoughRoom(uint64_t requested_sz, uint64_t available_sz, const std::string& msg) {
     std::stringstream ss;
-    ss << "Requested "
-        << requested_sz
-        << " bytes but only "
-        << available_sz
-        << " bytes are available. ";
+    ss << "Requested " << requested_sz << " bytes but only " << available_sz << " bytes are available. ";
 
     ss << msg;
 
     this->msg = ss.str();
 }
 
-NotEnoughRoom::NotEnoughRoom(uint64_t requested_sz, uint64_t available_sz, const F& msg) : NotEnoughRoom(requested_sz, available_sz, msg.ss.str()) {}
+NotEnoughRoom::NotEnoughRoom(uint64_t requested_sz, uint64_t available_sz, const F& msg):
+        NotEnoughRoom(requested_sz, available_sz, msg.ss.str()) {}
 
-const char* NotEnoughRoom::what() const noexcept {
-    return msg.data();
-}
+const char* NotEnoughRoom::what() const noexcept { return msg.data(); }

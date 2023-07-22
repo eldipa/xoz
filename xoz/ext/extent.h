@@ -1,9 +1,9 @@
 #pragma once
 
-#include <cstdint>
-#include <vector>
-#include <iostream>
 #include <cassert>
+#include <cstdint>
+#include <iostream>
+#include <vector>
 
 #include "xoz/arch.h"
 
@@ -22,12 +22,11 @@
 // for sub-allocation.
 //
 class Extent {
-    private:
+private:
     uint32_t _blk_nr;
     uint16_t _blk_cnt;
 
-    public:
-
+public:
     // How many bytes are required to represent the blk_cnt field
     const static unsigned BLK_CNT_FIELD_SIZE_IN_BYTES = sizeof(((Extent*)0)->_blk_cnt);
 
@@ -42,10 +41,7 @@ class Extent {
     //  - if is_suballoc is True, blk_nr points to a single
     //    blocks and blk_cnt is a 16-bits bitmap which tells
     //    which sub-blocks belong to this extent
-    Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc) :
-        _blk_nr(blk_nr & 0x03ffffff),
-        _blk_cnt(blk_cnt)
-    {
+    Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc): _blk_nr(blk_nr & 0x03ffffff), _blk_cnt(blk_cnt) {
         if (blk_nr & (~0x03ffffff)) {
             // TODO? throw std::runtime_error("bad blk nr (more than 26 bits)");
         }
@@ -55,9 +51,7 @@ class Extent {
         }
     }
 
-    inline uint32_t blk_nr() const {
-        return _blk_nr & 0x03ffffff;
-    }
+    inline uint32_t blk_nr() const { return _blk_nr & 0x03ffffff; }
 
     inline uint16_t blk_cnt() const {
         assert(not is_suballoc());
@@ -77,7 +71,7 @@ class Extent {
 
     inline uint16_t blk_bitmap() const {
         assert(is_suballoc());
-        return _blk_cnt; // on purpose, an alias of blk_cnt()
+        return _blk_cnt;  // on purpose, an alias of blk_cnt()
     }
 
     inline uint8_t subblk_cnt() const {
@@ -85,13 +79,9 @@ class Extent {
         return u16_count_bits(_blk_cnt);
     }
 
-    inline bool is_suballoc() const {
-        return (bool)(_blk_nr & 0x80000000);
-    }
+    inline bool is_suballoc() const { return (bool)(_blk_nr & 0x80000000); }
 
-    inline bool is_unallocated() const {
-        return blk_nr() == 0x0;
-    }
+    inline bool is_unallocated() const { return blk_nr() == 0x0; }
 
     inline void shrink_by(uint16_t cnt) {
         assert(not is_suballoc());
@@ -101,13 +91,11 @@ class Extent {
 
     inline void expand_by(uint16_t cnt) {
         assert(not is_suballoc());
-        assert((_blk_cnt + cnt) >= _blk_cnt); // overflow
+        assert((_blk_cnt + cnt) >= _blk_cnt);  // overflow
         _blk_cnt += cnt;
     }
 
-    inline void move_to(uint32_t blk_nr) {
-        _blk_nr = (blk_nr & 0x03ffffff) | (_blk_nr & 0xfc000000);
-    }
+    inline void move_to(uint32_t blk_nr) { _blk_nr = (blk_nr & 0x03ffffff) | (_blk_nr & 0xfc000000); }
 
     inline void set_bitmap(uint16_t bitmap) {
         assert(is_suballoc());
@@ -128,12 +116,9 @@ class Extent {
         return _blk_nr == other._blk_nr and _blk_cnt == other._blk_cnt;
     }
 
-    inline bool operator!=(const Extent& other) const {
-        return _blk_nr != other._blk_nr or _blk_cnt != other._blk_cnt;
-    }
+    inline bool operator!=(const Extent& other) const { return _blk_nr != other._blk_nr or _blk_cnt != other._blk_cnt; }
 
     // Pretty print. The signature of the method is required
     // by GoogleTest
     friend void PrintTo(const Extent& ext, std::ostream* out);
 };
-

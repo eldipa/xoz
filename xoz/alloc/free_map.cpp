@@ -1,24 +1,21 @@
 #include "xoz/alloc/free_map.h"
+
 #include <cassert>
 #include <utility>
 
 #include "xoz/exceptions.h"
 
-using namespace xoz::alloc::internals;
+using namespace xoz::alloc::internals;  // NOLINT
 
-FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold) :
-    coalescing_enabled(coalescing_enabled),
-    split_above_threshold(split_above_threshold) {}
-
+FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold):
+        coalescing_enabled(coalescing_enabled), split_above_threshold(split_above_threshold) {}
 
 void FreeMap::assign_as_freed(const std::list<Extent>& exts) {
     if (fr_by_nr.size() != 0 or fr_by_cnt.size() != 0) {
-        throw std::runtime_error((F()
-               << "the free map is already assigned, call clear() first."
-               ).str());
+        throw std::runtime_error((F() << "the free map is already assigned, call clear() first.").str());
     }
 
-    for (auto& ext : exts) {
+    for (auto& ext: exts) {
         fail_if_suballoc_or_zero_cnt(ext);
         fail_if_overlap(ext);
         fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
@@ -33,7 +30,6 @@ void FreeMap::clear() {
     fr_by_cnt.clear();
     assert(fr_by_nr.size() == fr_by_cnt.size());
 }
-
 
 struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
     fail_alloc_if_empty(blk_cnt, false);
@@ -99,8 +95,8 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
 
         Extent ext(0, closest_blk_cnt, false);
         return {
-            .ext = ext,
-            .success = false,
+                .ext = ext,
+                .success = false,
         };
     }
 
@@ -119,7 +115,7 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
         uint16_t blk_cnt_remain = blk_cnt_of(usable_it) - blk_cnt;
         uint32_t new_fr_nr = blk_nr_of(usable_it) + blk_cnt;
 
-        assert (blk_cnt_remain > split_above_threshold);
+        assert(blk_cnt_remain > split_above_threshold);
 
         // We do the lookup (find) separately from the erase() call
         // so the erase() call returns us an iterator that points
@@ -145,14 +141,14 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
         // of usable_it->first (aka blk_cnt_of(usable_it))
         //
         // We have to pay O(log(n)) twice additionally
-        fr_by_cnt.erase(usable_it); // erase first, so usable_it is still valid
+        fr_by_cnt.erase(usable_it);  // erase first, so usable_it is still valid
         fr_by_cnt.insert({blk_cnt_remain, new_fr_nr});
     }
 
     assert(fr_by_nr.size() == fr_by_cnt.size());
     return {
-        .ext = ext,
-        .success = true,
+            .ext = ext,
+            .success = true,
     };
 }
 
@@ -179,7 +175,7 @@ void FreeMap::dealloc(const Extent& ext) {
 
     if (next_fr_it != end_it and coalesced.past_end_blk_nr() == blk_nr_of(next_fr_it)) {
         coalesced.expand_by(blk_cnt_of(next_fr_it));
-        coalesced_with_next = true; // then, next_fr_it must be removed
+        coalesced_with_next = true;  // then, next_fr_it must be removed
     }
 
     if (next_fr_it != fr_by_nr.begin()) {
@@ -201,7 +197,7 @@ void FreeMap::dealloc(const Extent& ext) {
             // by block count, now with the updated count.
             fr_by_cnt.insert({blk_cnt_of(prev_fr_it), blk_nr_of(prev_fr_it)});
 
-            coalesced_with_prev = true; // then, prev_fr_it must *not* be removed
+            coalesced_with_prev = true;  // then, prev_fr_it must *not* be removed
         }
     }
 
@@ -229,7 +225,7 @@ void FreeMap::dealloc(const Extent& ext) {
 FreeMap::multimap_cnt2nr_t::iterator FreeMap::erase_from_fr_by_cnt(FreeMap::map_nr2cnt_t::iterator& target_it) {
     for (auto it = fr_by_cnt.lower_bound(blk_cnt_of(target_it)); it != fr_by_cnt.end(); ++it) {
         if (blk_nr_of(it) == blk_nr_of(target_it)) {
-            assert (blk_cnt_of(it) == blk_cnt_of(target_it));
+            assert(blk_cnt_of(it) == blk_cnt_of(target_it));
             return fr_by_cnt.erase(it);
         }
     }
@@ -248,12 +244,12 @@ void FreeMap::fail_if_overlap(const Extent& ext) const {
 
     auto it = fr_by_nr.lower_bound(ext.blk_nr());
     if (it != fr_by_nr.end()) {
-        to_chk[i] = it; // ext.blk_nr <= blk_nr_of(it)
+        to_chk[i] = it;  // ext.blk_nr <= blk_nr_of(it)
         ++i;
     }
 
     if (it != fr_by_nr.begin()) {
-        to_chk[i] = --it; // blk_nr_of(it) < ext.blk_nr
+        to_chk[i] = --it;  // blk_nr_of(it) < ext.blk_nr
         ++i;
     }
 
@@ -262,14 +258,8 @@ void FreeMap::fail_if_overlap(const Extent& ext) const {
         try {
             Extent::distance_in_blks(Extent(blk_nr_of(it), blk_cnt_of(it), false), ext);
         } catch (const ExtentOverlapError& err) {
-            throw ExtentOverlapError(
-                    "already freed",
-                    Extent(blk_nr_of(it), blk_cnt_of(it), false),
-                    "to be freed",
-                    ext,
-                    (F()
-                     << "possible double free detected"
-                    ).str());
+            throw ExtentOverlapError("already freed", Extent(blk_nr_of(it), blk_cnt_of(it), false), "to be freed", ext,
+                                     (F() << "possible double free detected").str());
         }
     }
 }

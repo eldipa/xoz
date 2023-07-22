@@ -1,38 +1,33 @@
-#include "xoz/repo/repo.h"
+#include <algorithm>
+#include <cstring>
+
 #include "xoz/arch.h"
 #include "xoz/exceptions.h"
-#include <cstring>
-#include <algorithm>
+#include "xoz/repo/repo.h"
 
 uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) {
     if (ext.is_unallocated()) {
-        throw NullBlockAccess(F()
-                << "The block 0x00 cannot be "
-                << (is_read_op ? "read" : "written")
-                );
+        throw NullBlockAccess(F() << "The block 0x00 cannot be " << (is_read_op ? "read" : "written"));
     }
 
-    assert (ext.blk_nr() != 0x0);
+    assert(ext.blk_nr() != 0x0);
 
     // Checking for an OOB here *before* doing the calculate
     // of the usable space allows us to capture OOB with extent
     // of block count of 0 which otherwise would be silenced
     // (because a count of 0 means 0 usable space and the method
     // would return 0 (EOF) instead of detecting the bogus extent)
-    fail_if_out_of_boundaries(ext, (F()
-               << "Detected on a "
-               << (is_read_op ? "read" : "write")
-               << " operation."
-               ).str());
+    fail_if_out_of_boundaries(ext, (F() << "Detected on a " << (is_read_op ? "read" : "write") << " operation.").str());
 
     const uint32_t usable_sz = ext.calc_usable_space_size(gp.blk_sz_order);
 
     // If the caller wants to read/write beyond the usable space, return EOF
     if (usable_sz <= start) {
-        return 0; // EOF
+        return 0;  // EOF
     }
 
-    // How much is readable/writeable and how much the caller is willing to read/write?
+    // How much is readable/writeable and how much the caller is willing to
+    // read/write?
     const uint32_t read_writeable_sz = usable_sz - start;
     const uint32_t to_read_write_sz = std::min(read_writeable_sz, max_data_sz);
 
@@ -56,7 +51,8 @@ void Repository::fail_if_out_of_boundaries(const Extent& ext, const std::string&
     }
 }
 
-uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz, uint32_t start) {
+uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz,
+                                            uint32_t start) {
     const uint32_t subblk_sz = gp.blk_sz >> Extent::SUBBLK_SIZE_ORDER;
     const uint32_t subblk_cnt_per_blk = Extent::SUBBLK_CNT_PER_BLK;
 
@@ -94,17 +90,9 @@ uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, 
             } else {
                 const uint32_t copy_sz = std::min(subblk_sz - skip_offset, remain_to_copy);
                 if (is_read_op) {
-                    memcpy(
-                            data + pdata,
-                            scratch.data() + pscratch + skip_offset,
-                            copy_sz
-                          );
+                    memcpy(data + pdata, scratch.data() + pscratch + skip_offset, copy_sz);
                 } else {
-                    memcpy(
-                            scratch.data() + pscratch + skip_offset,
-                            data + pdata,
-                            copy_sz
-                          );
+                    memcpy(scratch.data() + pscratch + skip_offset, data + pdata, copy_sz);
                 }
 
                 // advance the data pointer
@@ -120,15 +108,14 @@ uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, 
 
         // unconditionally advance the scratch pointer
         pscratch += subblk_sz;
-
     }
 
     // We didn't forget to read anything
-    assert (remain_to_copy == 0);
+    assert(remain_to_copy == 0);
 
     // Eventually at least 1 subblock was really copied
     // (otherwise we couldn't never decrement remain_to_copy to 0)
-    assert (skip_offset == 0);
+    assert(skip_offset == 0);
 
     if (is_read_op) {
         // do nothing else
@@ -141,9 +128,10 @@ uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, 
     return to_rw_sz;
 }
 
-uint32_t Repository::rw_fully_allocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz, uint32_t start) {
+uint32_t Repository::rw_fully_allocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz,
+                                               uint32_t start) {
     // this should never happen
-    assert (ext.blk_cnt() > 0);
+    assert(ext.blk_cnt() > 0);
 
     // Seek to the begin of the extent and advance as many
     // bytes as the caller said
@@ -153,7 +141,7 @@ uint32_t Repository::rw_fully_allocated_extent(bool is_read_op, const Extent& ex
         seek_write_blk(ext.blk_nr(), start);
     }
 
-    assert (to_rw_sz > 0);
+    assert(to_rw_sz > 0);
     if (is_read_op) {
         fp.read(data, to_rw_sz);
     } else {
@@ -186,7 +174,8 @@ uint32_t Repository::read_extent(const Extent& ext, char* data, uint32_t max_dat
     }
 }
 
-uint32_t Repository::write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz, uint32_t start) {
+uint32_t Repository::write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz,
+                                  uint32_t start) {
     static_assert(sizeof(uint32_t) <= sizeof(size_t));
     if (data.size() > uint32_t(-1)) {
         throw std::runtime_error("");
@@ -207,5 +196,3 @@ uint32_t Repository::write_extent(const Extent& ext, const char* data, uint32_t 
         return rw_fully_allocated_extent(false, ext, (char*)data, to_write_sz, start);
     }
 }
-
-

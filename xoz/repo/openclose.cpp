@@ -1,13 +1,14 @@
-#include "xoz/repo/repo.h"
+#include <cstdint>
+#include <filesystem>
+
 #include "xoz/arch.h"
 #include "xoz/exceptions.h"
-#include <filesystem>
-#include <cstdint>
-
+#include "xoz/repo/repo.h"
 
 void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
     if (std::addressof(fp) != std::addressof(disk_fp)) {
-        throw std::runtime_error("The current repository is memory based. You cannot open a disk based file.");
+        throw std::runtime_error("The current repository is memory based. You "
+                                 "cannot open a disk based file.");
     }
 
     std::stringstream ignored;
@@ -16,7 +17,8 @@ void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
 
 void Repository::open(std::stringstream&& mem, uint64_t phy_repo_start_pos) {
     if (std::addressof(fp) != std::addressof(mem_fp)) {
-        throw std::runtime_error("The current repository is disk based. You cannot open a mem based file.");
+        throw std::runtime_error("The current repository is disk based. You cannot "
+                                 "open a mem based file.");
     }
 
     open_internal(Repository::IN_MEMORY_FPATH, std::move(mem), phy_repo_start_pos);
@@ -24,7 +26,8 @@ void Repository::open(std::stringstream&& mem, uint64_t phy_repo_start_pos) {
 
 void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint64_t phy_repo_start_pos) {
     if (not closed) {
-        throw std::runtime_error("The current repository is not closed. You need to close it before opening a new one");
+        throw std::runtime_error("The current repository is not closed. You need "
+                                 "to close it before opening a new one");
     }
 
     // Try to avoid raising an exception on the opening so we can
@@ -37,11 +40,9 @@ void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint6
     if (std::addressof(fp) == std::addressof(disk_fp)) {
         // note: iostream does not have open() so we must access disk_fp directly
         // but the check above ensure that fp *is* disk_fp
-        disk_fp.open(
-                fpath,
-                // in/out binary file stream
-                std::fstream::in | std::fstream::out | std::fstream::binary
-                );
+        disk_fp.open(fpath,
+                     // in/out binary file stream
+                     std::fstream::in | std::fstream::out | std::fstream::binary);
     } else {
         // initialize mem_fp with a new content
         mem_fp = std::move(mem);
@@ -53,7 +54,8 @@ void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint6
     }
 
     if (!fp) {
-        throw OpenXOZError(fpath, "Repository::open could not open the file. May not exist or may not have permissions.");
+        throw OpenXOZError(fpath, "Repository::open could not open the file. May "
+                                  "not exist or may not have permissions.");
     }
 
     this->fpath = std::string(fpath);
@@ -65,7 +67,7 @@ void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint6
     // If it cannot be represented by uint64_t, fail.
     seek_read_phy(fp, 0, std::ios_base::end);
     auto tmp_fp_end = fp.tellg();
-    if (tmp_fp_end >= INT64_MAX) { // TODO signed or unsigned check?
+    if (tmp_fp_end >= INT64_MAX) {  // TODO signed or unsigned check?
         throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");
     }
 
@@ -76,13 +78,8 @@ void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint6
     // the phy_repo_start_pos valid.
     if (phy_repo_start_pos > fp_end) {
         // This should never happen but...
-        throw InconsistentXOZ(*this, F()
-                << "the repository started at an offset ("
-                << phy_repo_start_pos
-                << ") beyond the file physical size ("
-                << fp_end
-                << "."
-                );
+        throw InconsistentXOZ(*this, F() << "the repository started at an offset (" << phy_repo_start_pos
+                                         << ") beyond the file physical size (" << fp_end << ".");
     }
 
     // Set the physical file positions to the expected start
@@ -101,7 +98,6 @@ void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint6
     closed = false;
 }
 
-
 // Create a new repository in the given physical file.
 //
 // If the file exists and fail_if_exists is False, try to open a
@@ -119,14 +115,16 @@ void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint6
 // create a new file and a repository there.
 //
 // Only in this case the global parameters (gp) will be used.
-Repository Repository::create(const char* fpath, bool fail_if_exists, uint64_t phy_repo_start_pos, const GlobalParameters& gp) {
+Repository Repository::create(const char* fpath, bool fail_if_exists, uint64_t phy_repo_start_pos,
+                              const GlobalParameters& gp) {
     std::fstream test(fpath, std::fstream::in | std::fstream::binary);
     if (test) {
         // File already exists: ...
         if (fail_if_exists) {
             // ... bad we don't want to corrupt a file
             // by mistake. Abort.
-            throw OpenXOZError(fpath, "the file already exist and Repository::create is configured to not override it.");
+            throw OpenXOZError(fpath, "the file already exist and Repository::create "
+                                      "is configured to not override it.");
         } else {
             // ... ok, try to open (the constructor will fail
             // if it cannot open it)
@@ -136,7 +134,7 @@ Repository Repository::create(const char* fpath, bool fail_if_exists, uint64_t p
         // File does not exist: create a new one and the open it
         std::fstream fp = _truncate_disk_file(fpath);
         _init_new_repository_into(fp, phy_repo_start_pos, gp);
-        fp.close(); // flush the content make the constructor to open it back
+        fp.close();  // flush the content make the constructor to open it back
         return Repository(fpath, phy_repo_start_pos);
     }
 }
@@ -147,22 +145,18 @@ Repository Repository::create_mem_based(uint64_t phy_repo_start_pos, const Globa
     return Repository(std::move(fp), phy_repo_start_pos);
 }
 
-
-
 std::fstream Repository::_truncate_disk_file(const char* fpath) {
-    std::fstream fp(
-            fpath,
-            // in/out binary file stream
-            std::fstream::in | std::fstream::out | std::fstream::binary | std::fstream::trunc
-            );
+    std::fstream fp(fpath,
+                    // in/out binary file stream
+                    std::fstream::in | std::fstream::out | std::fstream::binary | std::fstream::trunc);
 
     if (!fp) {
-        throw OpenXOZError(fpath, "Repository::(truncate and create) could not truncate+create the file. May not have permissions.");
+        throw OpenXOZError(fpath, "Repository::(truncate and create) could not "
+                                  "truncate+create the file. May not have permissions.");
     }
 
     return fp;
 }
-
 
 void Repository::close() {
     if (closed)
@@ -203,4 +197,3 @@ void Repository::close() {
         mem_fp.swap(alt_mem_fp);
     }
 }
-
