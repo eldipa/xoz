@@ -23,7 +23,7 @@ line,+whitespace/parens,+whitespace/semicolon,-whitespace/blank_line", "--linele
         files: ^xoz/(.*[.]cpp|.*[.]h)$
         args: ["--style=file", "-i", "--version=14"]
       - id: clang-tidy
-        require_serial: true
+        stages: [push]
         files: ^xoz/(.*[.]cpp)$
         args: ["-checks=*", "--", "-I./", "-std=c++20"]
 
