@@ -28,6 +28,11 @@ public:
         raw = data;
     }
 
+    void reserve_inline_data(uint8_t len) {
+        inline_present = true;
+        raw.resize(len);
+    }
+
     void remove_inline_data() {
         inline_present = false;
         raw.clear();
@@ -40,6 +45,8 @@ public:
     void add_extent(const Extent& ext) { arr.push_back(ext); }
 
     void clear_extents() { arr.clear(); }
+
+    size_t ext_cnt() const { return arr.size(); }
 
     std::vector<uint8_t>& inline_data() { return raw; }
 

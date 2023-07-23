@@ -35,6 +35,8 @@ public:
     const static unsigned SUBBLK_SIZE_ORDER = 4;
     constexpr static unsigned SUBBLK_CNT_PER_BLK = (1 << SUBBLK_SIZE_ORDER);
 
+    constexpr static unsigned MAX_BLK_CNT = (1 << 16) - 1;
+
     // Create an extent:
     //  - if is_suballoc is False, blk_nr points to the first
     //    block of a contiguous array of blk_cnt blocks
