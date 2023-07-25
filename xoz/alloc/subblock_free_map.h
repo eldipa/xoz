@@ -39,11 +39,11 @@ public:
     // All the iterators are constant as the caller must not
     // modify the internals of the free map.
     inline const_iterator_by_blk_nr_t cbegin_by_blk_nr() const {
-        return xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t::const_iterator, true>(fr_by_nr.cbegin());
+        return const_iterator_by_blk_nr_t(fr_by_nr.cbegin());
     }
 
     inline const_iterator_by_blk_nr_t cend_by_blk_nr() const {
-        return xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t::const_iterator, true>(fr_by_nr.cend());
+        return const_iterator_by_blk_nr_t(fr_by_nr.cend());
     }
 
 private:
