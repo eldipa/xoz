@@ -47,10 +47,10 @@ inline uint16_t blk_bitmap_of(const map_nr2ext_t::const_iterator& it) { return i
 // Extent iterator: a adapter iterator class over std::map/std::multimap
 // const_iterator that yields Extent objects either normal Extent
 // and Extent for suballocation
-template <typename Map, bool IsExtentSubAllocated>
+template <typename const_iterator_t, bool IsExtentSubAllocated>
 class ConstExtentIterator {
 private:
-    typename Map::const_iterator it;
+    const_iterator_t it;
 
     // To avoid creating an Extent object every time that
     // the operators * and -> are called, we cache the
@@ -78,11 +78,11 @@ public:
     using reference = Extent const&;
     using pointer = Extent const*;
 
-    using difference_type = typename Map::const_iterator::difference_type;
+    using difference_type = typename  const_iterator_t::difference_type;
 
     using iterator_category = std::input_iterator_tag;
 
-    explicit ConstExtentIterator(typename Map::const_iterator const& it):
+    explicit ConstExtentIterator(const_iterator_t const& it):
             it(it), cached(0, 0, false), is_cache_synced(false) {}
 
     ConstExtentIterator& operator++() {
