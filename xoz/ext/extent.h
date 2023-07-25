@@ -104,6 +104,24 @@ public:
         _blk_cnt = bitmap;
     }
 
+    inline Extent as_suballoc() const {
+        if (is_suballoc()) {
+            return *this;
+        }
+
+        assert(blk_cnt() == 1);
+        return Extent(blk_nr(), 0xffff, true);
+    }
+
+    inline Extent as_not_suballoc() const {
+        if (not is_suballoc()) {
+            return *this;
+        }
+
+        assert(blk_bitmap() == 0xffff);
+        return Extent(blk_nr(), 1, false);
+    }
+
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
 
     struct blk_distance_t {
