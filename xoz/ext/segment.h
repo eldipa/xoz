@@ -38,6 +38,10 @@ public:
         raw.clear();
     }
 
+    std::vector<Extent> const& exts() const {
+        return arr;
+    }
+
     bool has_end_of_segment() { return inline_present; }
 
     void add_end_of_segment() { inline_present = true; }
