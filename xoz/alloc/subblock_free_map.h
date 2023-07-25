@@ -30,6 +30,8 @@ public:
 
     void dealloc(const Extent& ext);
 
+    std::list<Extent> release(bool mandatory);
+
     // Handy typedef
     typedef xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t::const_iterator, true> const_iterator_by_blk_nr_t;
 

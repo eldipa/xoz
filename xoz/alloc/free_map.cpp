@@ -216,6 +216,10 @@ void FreeMap::dealloc(const Extent& ext) {
     assert(fr_by_nr.size() == fr_by_cnt.size());
 }
 
+std::list<Extent> FreeMap::release([[maybe_unused]] bool mandatory) {
+    return std::list<Extent>();
+}
+
 // Erase from the multimap fr_by_cnt the chunk pointed by target_it
 // (coming from the fr_by_nr map)
 //

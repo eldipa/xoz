@@ -50,6 +50,7 @@ public:
     struct alloc_result_t alloc(uint16_t blk_cnt);
 
     void dealloc(const Extent& ext);
+    std::list<Extent> release(bool mandatory);
 
     // Handy typedef for the 2 kinds of iterators: by block number
     // and by block count

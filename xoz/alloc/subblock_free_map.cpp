@@ -215,6 +215,13 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
     assert(fr_by_nr.size() == count_entries_in_bins());
 }
 
+std::list<Extent> SubBlockFreeMap::release([[maybe_unused]] bool mandatory) {
+    std::list<Extent> ret;
+    exts_bin[15].swap(ret);
+
+    return ret;
+}
+
 size_t SubBlockFreeMap::count_entries_in_bins() const {
     size_t accum = 0;
     for (uint8_t bin = 0; bin < Extent::SUBBLK_CNT_PER_BLK; ++bin) {
