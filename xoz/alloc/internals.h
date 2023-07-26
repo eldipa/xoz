@@ -78,12 +78,11 @@ public:
     using reference = Extent const&;
     using pointer = Extent const*;
 
-    using difference_type = typename  const_iterator_t::difference_type;
+    using difference_type = typename const_iterator_t::difference_type;
 
     using iterator_category = std::input_iterator_tag;
 
-    explicit ConstExtentIterator(const_iterator_t const& it):
-            it(it), cached(0, 0, false), is_cache_synced(false) {}
+    explicit ConstExtentIterator(const_iterator_t const& it): it(it), cached(0, 0, false), is_cache_synced(false) {}
 
     ConstExtentIterator& operator++() {
         ++it;
@@ -121,6 +120,91 @@ private:
                 cached = Extent(xoz::alloc::internals::blk_nr_of(it), xoz::alloc::internals::blk_cnt_of(it), false);
             }
             is_cache_synced = true;
+        }
+    }
+};
+
+
+template <typename const_iterator1_t, typename const_iterator2_t, bool IsIncreasingOrder>
+class ConstExtentMergeIterator {
+private:
+    const_iterator1_t left_it;
+    const_iterator1_t left_end_it;
+    const_iterator2_t right_it;
+    const_iterator2_t right_end_it;
+
+public:
+    using value_type = Extent;
+
+    using reference = Extent const&;
+    using pointer = Extent const*;
+
+    // NOTE: a hack: we expect that this difference_type of Map1 is
+    // the same for Map2
+    using difference_type = typename const_iterator1_t::difference_type;
+
+    using iterator_category = std::input_iterator_tag;
+
+    explicit ConstExtentMergeIterator(const_iterator1_t const& it1, const_iterator1_t const& end1,
+                                      const_iterator2_t const& it2, const_iterator2_t const& end2):
+            left_it(it1), left_end_it(end1), right_it(it2), right_end_it(end2) {}
+
+    ConstExtentMergeIterator& operator++() {
+        if (is_left_iter_chosen()) {
+            ++left_it;
+        } else {
+            ++right_it;
+        }
+        return *this;
+    }
+
+    ConstExtentMergeIterator operator++(int) {
+        ConstExtentMergeIterator copy(*this);
+        if (is_left_iter_chosen()) {
+            ++left_it;
+        } else {
+            ++right_it;
+        }
+        return copy;
+    }
+
+    inline bool operator==(const ConstExtentMergeIterator& other) const {
+        return left_it == other.left_it and right_it == other.right_it;
+    }
+
+    inline bool operator!=(const ConstExtentMergeIterator& other) const {
+        return left_it != other.left_it or right_it != other.right_it;
+    }
+
+    inline const Extent& operator*() const {
+        if (is_left_iter_chosen()) {
+            return *left_it;
+        } else {
+            return *right_it;
+        }
+    }
+
+    inline const Extent* operator->() const {
+        if (is_left_iter_chosen()) {
+            return &(*left_it);
+        } else {
+            return &(*right_it);
+        }
+    }
+
+private:
+    inline bool is_left_iter_chosen() const {
+        if (left_it == left_end_it) {
+            return false;
+        } else if (right_it == right_end_it) {
+            // the left iter may also be exhausted !!
+            return true;
+        }
+
+        if constexpr (IsIncreasingOrder) {
+            return left_it->blk_nr() < right_it->blk_nr();
+        } else {
+            return left_it->blk_nr() > right_it->blk_nr();
         }
     }
 };
