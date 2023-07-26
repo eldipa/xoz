@@ -129,6 +129,7 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         // All the remaining subblocks in that block remain free
         // to be used later
@@ -164,12 +165,61 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)(2));
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         // All the remaining subblocks in that block remain free
         // to be used later
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
                     Extent(1, 0x3fff, true)
                     ));
+    }
+
+    TEST(SegmentAllocatorTest, IterateOverSingleElementFreeMap) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo);
+
+        // Alloc N bytes that would completely fill a 2 subblks
+        // so we expect to have 1 blocks allocated
+        // in the repository and 1 in the segment as for suballocation
+        // with 2 sub block inside and 0 bytes inline'd.
+        Segment segm = sg_alloc.alloc(repo.subblk_sz() << 1);
+
+        EXPECT_EQ(segm.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.subblk_sz() << 1));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data().size(), (size_t)0);
+
+        EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)true);
+        EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)(2));
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
+
+        // Test *it
+        std::list<Extent> fr_extents;
+        for (auto it = sg_alloc.cbegin_by_blk_nr(); it != sg_alloc.cend_by_blk_nr(); ++it) {
+            fr_extents.push_back(*it);
+        }
+
+        EXPECT_THAT(fr_extents, ElementsAre(
+                    Extent(1, 0x3fff, true)
+                    ));
+
+        // Test it->
+        std::list<uint32_t> fr_blk_nr;
+        for (auto it = sg_alloc.cbegin_by_blk_nr(); it != sg_alloc.cend_by_blk_nr(); ++it) {
+            fr_blk_nr.push_back(it->blk_nr());
+        }
+
+        EXPECT_THAT(fr_blk_nr, ElementsAre(1));
     }
 
     TEST(SegmentAllocatorTest, AllocAlmostFullSingleBlk) {
@@ -202,6 +252,7 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)(Extent::SUBBLK_CNT_PER_BLK - 1));
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         // All the remaining subblocks in that block remain free
         // to be used later
@@ -240,6 +291,7 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)1);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         // The allocator is "tight" or "conservative" and allocated 1 block only
         // as this was the minimum to fulfill the request.
@@ -276,6 +328,7 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)1);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
     }
@@ -309,9 +362,11 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)1);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         EXPECT_EQ(segm.exts()[1].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[1].subblk_cnt(), (uint8_t)1);
+        EXPECT_EQ(segm.exts()[1].blk_nr(), (uint32_t)(2));
 
         // note the block number: the first blk (1) was used to
         // fulfill the entire block request and the second (2)
@@ -347,9 +402,11 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)2);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         EXPECT_EQ(segm.exts()[1].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[1].subblk_cnt(), (uint8_t)3);
+        EXPECT_EQ(segm.exts()[1].blk_nr(), (uint32_t)(3));
 
         // The first allocated extent owned 2 blocks, the third
         // block was suballocated so in the free map we have
@@ -385,6 +442,7 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
     }
@@ -415,6 +473,7 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
     }
@@ -446,9 +505,11 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         EXPECT_EQ(segm.exts()[1].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[1].subblk_cnt(), (uint8_t)1);
+        EXPECT_EQ(segm.exts()[1].blk_nr(), (uint32_t)(Extent::MAX_BLK_CNT+1));
 
         // N full blocks allocated and the N+1 for suballocation
         // so that the one it is still (partially) free
@@ -483,9 +544,11 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         EXPECT_EQ(segm.exts()[1].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[1].blk_cnt(), (uint16_t)1);
+        EXPECT_EQ(segm.exts()[1].blk_nr(), (uint32_t)(Extent::MAX_BLK_CNT+1));
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
     }
@@ -518,12 +581,15 @@ namespace {
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
 
         EXPECT_EQ(segm.exts()[1].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[1].blk_cnt(), (uint16_t)1);
+        EXPECT_EQ(segm.exts()[1].blk_nr(), (uint32_t)(Extent::MAX_BLK_CNT+1));
 
         EXPECT_EQ(segm.exts()[2].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[2].subblk_cnt(), (uint16_t)1);
+        EXPECT_EQ(segm.exts()[2].blk_nr(), (uint32_t)(Extent::MAX_BLK_CNT+2));
 
         // N blocks in the first extent; 1 in the next extent and
         // only then 1 suballocated extent so block number is N+2
