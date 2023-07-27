@@ -18,6 +18,7 @@ using ::testing::ElementsAre;
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::subvec;
+using ::testing_xoz::helpers::ensure_called_once;
 
 // Check that the serialization of the extents in fp are of the
 // expected size (call calc_footprint_disk_size) and they match
@@ -68,11 +69,6 @@ namespace {
                 );
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
-        /*
-        sz = 0                          -> err ?
-        sz = SUBLK_SZ / 2               -> inline ?
-        sz = SUBLK_SZ - 1               -> inline ?
-        */
     }
 
     TEST(SegmentAllocatorTest, AllocOneByte) {
@@ -596,6 +592,323 @@ namespace {
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
                     Extent(Extent::MAX_BLK_CNT+2, 0x7fff, true)
                     ));
+    }
+
+    TEST(SegmentAllocatorTest, DeallocNoneAsAllItsInlined) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo);
+
+        // Alloc 1 byte so we expect to have 0 blocks allocated
+        // in the repository (and in the segment) and 1 byte
+        // inline'd in the segment.
+        Segment segm = sg_alloc.alloc(1);
+
+        EXPECT_EQ(segm.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)1);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm.inline_data().size(), (size_t)1);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+
+        sg_alloc.dealloc(segm);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm.inline_data().size(), (size_t)1);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+    }
+
+    TEST(SegmentAllocatorTest, DellocSomeSubBlksThenAll) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo);
+
+        // Alloc 3 subblocks which requires allocate 1 block
+        Segment segm1 = sg_alloc.alloc(repo.subblk_sz() * 3);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.subblk_sz() * 3));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm1.inline_data().size(), (size_t)0);
+
+        EXPECT_EQ(segm1.exts()[0].is_suballoc(), (bool)true);
+        EXPECT_EQ(segm1.exts()[0].subblk_cnt(), (uint8_t)(3));
+        EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(1));
+
+        EXPECT_EQ(segm1.exts()[0].blk_bitmap(), (uint16_t)(0xe000));
+
+        // All the remaining subblocks in that block remain free
+        // to be used later
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 0x1fff, true)
+                    ));
+
+        // Alloc 2 subblocks more reusing the previously allocated 1 block
+        Segment segm2 = sg_alloc.alloc(repo.subblk_sz() * 2);
+
+        EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.subblk_sz() * 2));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        EXPECT_EQ(segm2.exts()[0].is_suballoc(), (bool)true);
+        EXPECT_EQ(segm2.exts()[0].subblk_cnt(), (uint8_t)(2));
+        EXPECT_EQ(segm2.exts()[0].blk_nr(), (uint32_t)(1));
+
+        EXPECT_EQ(segm2.exts()[0].blk_bitmap(), (uint16_t)(0x1800));
+
+        // Note the extent bitmask 0000 1111 1111 1111
+        //                         ^^^^
+        //                            marked as used
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 0x07ff, true)
+                    ));
+
+        // Dealloc the first segment, its subblocks should be deallocated
+        // but the 1 block holding them should not
+        sg_alloc.dealloc(segm1);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        // Note the extent bitmask 1110 1111 1111 1111
+        //                            ^
+        //                            marked as used
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 0xe7ff, true)
+                    ));
+
+        // Dealloc the second segment, now the 1 block should be deallocated too
+        // however this does not implies a reduction of the repository size
+        sg_alloc.dealloc(segm2);
+
+        // This is unchanged
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        // Note how the extent for suballocation was changed
+        // to a normal extent. This means that the subblock_free_map
+        // released the block back to block_free_map
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false)
+                    ));
+    }
+
+    TEST(SegmentAllocatorTest, DellocSomeBlksThenAllWithCoalescing) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo);
+
+        // Alloc 2 blks + 3 subblocks which requires allocate 3 block
+        // in total
+        Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 2 + repo.subblk_sz() * 3);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2 + repo.subblk_sz() * 3));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)2);
+        EXPECT_EQ(segm1.inline_data().size(), (size_t)0);
+
+        EXPECT_EQ(segm1.exts()[0].is_suballoc(), (bool)false);
+        EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint8_t)(2));
+        EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(1));
+
+        EXPECT_EQ(segm1.exts()[1].is_suballoc(), (bool)true);
+        EXPECT_EQ(segm1.exts()[1].subblk_cnt(), (uint8_t)(3));
+        EXPECT_EQ(segm1.exts()[1].blk_nr(), (uint32_t)(3));
+
+        EXPECT_EQ(segm1.exts()[1].blk_bitmap(), (uint16_t)(0xe000));
+
+        // All the remaining subblocks in that last block remain free
+        // to be used later
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(3, 0x1fff, true)
+                    ));
+
+        // Alloc 1 block and 2 subblocks more. These subblocks will be
+        // reusing the previously allocated 1 block
+        Segment segm2 = sg_alloc.alloc(repo.blk_sz() + repo.subblk_sz() * 2);
+
+        EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() + repo.subblk_sz() * 2));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)5);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)4);
+
+        EXPECT_EQ(segm2.exts()[0].is_suballoc(), (bool)false);
+        EXPECT_EQ(segm2.exts()[0].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm2.exts()[0].blk_nr(), (uint32_t)(4));
+
+        EXPECT_EQ(segm2.exts()[1].is_suballoc(), (bool)true);
+        EXPECT_EQ(segm2.exts()[1].subblk_cnt(), (uint8_t)(2));
+        EXPECT_EQ(segm2.exts()[1].blk_nr(), (uint32_t)(3));
+
+        EXPECT_EQ(segm2.exts()[1].blk_bitmap(), (uint16_t)(0x1800));
+
+        // Note the extent bitmask 0000 1111 1111 1111
+        //                         ^^^^
+        //                            marked as used
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(3, 0x07ff, true)
+                    ));
+
+        // Dealloc the first segment, its blocks and subblocks should be deallocated
+        // but the 1 block holding the subblocks should not
+        sg_alloc.dealloc(segm1);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)5);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)4);
+
+        // Note the extent bitmask 1110 1111 1111 1111
+        //                            ^
+        //                            marked as used
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 2, false),
+                    Extent(3, 0xe7ff, true)
+                    ));
+
+        // Dealloc the second segment
+        sg_alloc.dealloc(segm2);
+
+        // This is unchanged
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)5);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)4);
+
+        // Note how freeing the block for suballocation allowed
+        // the merge (coalescing) of the extents of the segment 1
+        // and the segments 2 to form a single large extent free.
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 4, false)
+                    ));
+    }
+
+    TEST(SegmentAllocatorTest, AllocMoreThanInlineAllow) {
+        const GlobalParameters gp = {
+            .blk_sz = 128,
+            .blk_sz_order = 7,
+            .blk_init_cnt = 1
+        };
+
+        const uint16_t MaxInlineSize = 4;
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, MaxInlineSize);
+
+        // Sanity check: the point is that we are allocating
+        // Max+1 and that trigger to do the allocation in a subblock
+        // The test makes no sense *if* that Max+1 is already of
+        // the size of a subblk or larger as storing there is the
+        // default in that case.
+        // So we check that Max+1 is lower than subblock sz
+        //EXPECT_EQ((MaxInlineSize + 1 < sg_alloc.subblk_sz()), (bool)(true));
+
+        // Alloc Max bytes, expected to be all inline'd.
+        Segment segm1 = sg_alloc.alloc(MaxInlineSize);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(MaxInlineSize));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm1.inline_data().size(), (size_t)(MaxInlineSize));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+
+        // Alloc Max+ bytes, expected to be all in a subblock
+        Segment segm2 = sg_alloc.alloc(MaxInlineSize + 1);
+
+        // Note that the usable size is the subblock size
+        // which it is >= than the requested size as the request couldn't
+        // be fit into the inline space because it was larger than
+        // the maximum.
+        EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.subblk_sz()));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        EXPECT_EQ(segm2.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm2.inline_data().size(), (size_t)(0));
+
+        EXPECT_EQ(segm2.exts()[0].is_suballoc(), (bool)true);
+        EXPECT_EQ(segm2.exts()[0].subblk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm2.exts()[0].blk_nr(), (uint32_t)(1));
+
+        EXPECT_EQ(segm2.exts()[0].blk_bitmap(), (uint16_t)(0x8000));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 0x7fff, true)
+                    ));
+    }
+
+    TEST(SegmentAllocatorTest, AllocAndDeallocZeroBytes) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo);
+
+        Segment segm = sg_alloc.alloc(0);
+
+        EXPECT_EQ(segm.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(0));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm.inline_data().size(), (size_t)(0));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+
+        sg_alloc.dealloc(segm);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
     }
 }
 
