@@ -191,7 +191,7 @@ struct extent_t /* inline data mode */ {
         uint suballoc   : 1;    // mask 0x8000 (MUST BE SET TO 1)
         uint inline     : 1;    // mask 0x4000 (MUST BE SET TO 1)
         uint size       : 6;    // mask 0x3f00
-        uint end        : 8;    // mask 0x00ff
+        uint last       : 8;    // mask 0x00ff
     };
 
     uint8_t raw[/* size or size - 1 */];
@@ -203,15 +203,12 @@ ensures that `smallcnt > 0`).
 
 `size` is the count of bytes of user data inline'd which may be zero.
 
-If `size` is an even number (including zero), `raw` has `size` bytes;
-of `size` is an odd number, `raw` has `size - 1` bytes.
+If `size` is an even number (including zero), `raw` has `size` bytes
+and field `last` is reserved; if `size` is an odd number,
+`raw` has `size - 1` bytes and the field `last` contains the *last byte*
+of the user data.
 
-In both cases, the byte `end` contains the *last byte*
-of the user data and `raw` the rest (with `raw[0]` being the first byte
-of the user data).
-
-If `size` is zero, `raw` is empty (zero bytes length) and
-the value of `last` is zero.
+In both cases `raw` contains the first `size` bytes of the user data.
 
 These rules guarantees that the size of `struct extent_t` is
 always a multiple of 2:
