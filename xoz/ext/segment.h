@@ -14,6 +14,8 @@ private:
     std::vector<uint8_t> raw;
 
 public:
+    static const uint32_t MaxInlineSize = (1 << 6) - 1;
+
     Segment(): inline_present(false) {}
 
     static Segment create_empty_zero_inline() {

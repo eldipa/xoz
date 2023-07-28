@@ -243,7 +243,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
-        segm.set_inline_data(std::vector<uint8_t>(1 << 6));
+        segm.set_inline_data(std::vector<uint8_t>(Segment::MaxInlineSize + 1));
 
         // Inline data size has a limit
         EXPECT_THAT(
