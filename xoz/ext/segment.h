@@ -50,7 +50,10 @@ public:
 
     void clear_extents() { arr.clear(); }
 
-    size_t ext_cnt() const { return arr.size(); }
+    uint32_t ext_cnt() const {
+        // TODO check cast
+        return uint32_t(arr.size());
+    }
 
     std::vector<uint8_t>& inline_data() { return raw; }
 

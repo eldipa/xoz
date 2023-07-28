@@ -181,7 +181,7 @@ public:
 private:
     uint32_t allocate_extents(Segment& segm, uint32_t blk_cnt_remain, uint32_t max_ext_cnt, bool ignore_max_ext_cnt,
                               bool use_parent) {
-        uint32_t allocated = uint32_t(segm.ext_cnt());  // TODO
+        uint32_t allocated = segm.ext_cnt();
         uint32_t predicted_remaining = (blk_cnt_remain / Extent::MAX_BLK_CNT) + 1;
 
         // Given N extents already allocated and assuming a perfect world where
