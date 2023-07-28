@@ -9,11 +9,7 @@ using namespace xoz::alloc::internals;  // NOLINT
 
 SubBlockFreeMap::SubBlockFreeMap() {}
 
-void SubBlockFreeMap::assign_as_freed(const std::list<Extent>& exts) {
-    if (fr_by_nr.size() != 0 or count_entries_in_bins() != 0) {
-        throw std::runtime_error((F() << "the free map is already assigned, call clear() first.").str());
-    }
-
+void SubBlockFreeMap::provide(const std::list<Extent>& exts) {
     for (auto& ext: exts) {
         fail_if_not_subblk_or_zero_cnt(ext);
         fail_if_blk_nr_already_seen(ext);

@@ -58,7 +58,7 @@ namespace {
         std::list<Extent> assign_extents = {
             Extent(1, 2, false)
         };
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // Check that the operator* (dereference) of the iterators
         // yields the correct (single) extent.
@@ -91,7 +91,7 @@ namespace {
             Extent(1, 2, false)
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
                     Extent(1, 2, false)
@@ -110,7 +110,7 @@ namespace {
             Extent(2, 3, false),
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
                     Extent(1, 1, false),
@@ -140,7 +140,7 @@ namespace {
             Extent(3, 4, false),
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
                     Extent(1, 2, false),
@@ -359,7 +359,7 @@ namespace {
         };
 
         FreeMap fr_map(true, 0);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         fr_map.dealloc(Extent(3, 4, false));
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
@@ -404,7 +404,7 @@ namespace {
         };
 
         FreeMap fr_map(true, 0);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         fr_map.dealloc(Extent(1, 2, false));
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
@@ -451,7 +451,7 @@ namespace {
         };
 
         FreeMap fr_map(true, 0);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         fr_map.dealloc(Extent(3, 1, false));
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
@@ -497,57 +497,57 @@ namespace {
         // Eventually we will get with an empty free map
         std::list<Extent> assign_extents = {
             Extent(1, 3, false),
-            Extent(4, 1, false),
-            Extent(6, 2, false),
-            Extent(9, 1, false),
+            Extent(5, 1, false),
+            Extent(7, 2, false),
+            Extent(10, 1, false),
         };
 
         FreeMap fr_map(true, 0);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // alloc from between chunks, bucket for 2-blocks chunks
         // get empty
         auto result1 = fr_map.alloc(2);
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
                     Extent(1, 3, false),
-                    Extent(4, 1, false),
-                    Extent(9, 1, false)
+                    Extent(5, 1, false),
+                    Extent(10, 1, false)
                     ));
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
-                    Extent(4, 1, false),
-                    Extent(9, 1, false),
+                    Extent(5, 1, false),
+                    Extent(10, 1, false),
                     Extent(1, 3, false)
                     ));
 
         EXPECT_EQ(result1.success, (bool)true);
-        EXPECT_EQ(result1.ext, Extent(6, 2, false));
+        EXPECT_EQ(result1.ext, Extent(7, 2, false));
 
         // alloc from the end of the free map, the 1-block chunks
         // still has 1 other chunk left
         auto result2 = fr_map.alloc(1);
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
                     Extent(1, 3, false),
-                    Extent(9, 1, false)
+                    Extent(10, 1, false)
                     ));
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
-                    Extent(9, 1, false),
+                    Extent(10, 1, false),
                     Extent(1, 3, false)
                     ));
 
         EXPECT_EQ(result2.success, (bool)true);
-        EXPECT_EQ(result2.ext, Extent(4, 1, false));
+        EXPECT_EQ(result2.ext, Extent(5, 1, false));
 
         // alloc from the begin of the free map, the 3-blocks chunks
         // get empty
         auto result3 = fr_map.alloc(3);
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
-                    Extent(9, 1, false)
+                    Extent(10, 1, false)
                     ));
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
-                    Extent(9, 1, false)
+                    Extent(10, 1, false)
                     ));
 
         EXPECT_EQ(result3.success, (bool)true);
@@ -559,7 +559,7 @@ namespace {
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, IsEmpty());
 
         EXPECT_EQ(result4.success, (bool)true);
-        EXPECT_EQ(result4.ext, Extent(9, 1, false));
+        EXPECT_EQ(result4.ext, Extent(10, 1, false));
 
     }
 
@@ -575,7 +575,7 @@ namespace {
         };
 
         FreeMap fr_map(true, 0);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // There is no extent free of 3 or more blocks so the
         // allocation fails but we should get at least a hint
@@ -615,7 +615,7 @@ namespace {
         };
 
         FreeMap fr_map(true, /* split_above_threshold */ 1);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // The free chunk of 3 blocks could be split and used
         // to allocate 2 blocks but it would leave a 1 block
@@ -659,7 +659,7 @@ namespace {
         };
 
         FreeMap fr_map(true, /* split_above_threshold */ 1);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // The free chunk of 10 blocks could be split and used
         // to allocate 9 blocks but it would leave a 1 block
@@ -699,7 +699,7 @@ namespace {
         };
 
         FreeMap fr_map(true, 0);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
 
         // Alloc 4 blocks: take the first free chunk large enough and
@@ -746,7 +746,7 @@ namespace {
         };
 
         FreeMap fr_map(true, /* split_above_threshold */ 1);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
 
         // Alloc 4 blocks: take the first free chunk large enough and
@@ -772,25 +772,34 @@ namespace {
         EXPECT_EQ(result1.ext, Extent(15, 4, false));
     }
 
-    TEST(FreeMapTest, FailAssignWithoutClear) {
+    TEST(FreeMapTest, ProvideTwice) {
         std::list<Extent> assign_extents_1 = {
             Extent(4, 2, false),
         };
         std::list<Extent> assign_extents_2 = {
-            Extent(8, 2, false),
+            Extent(1, 3, false),
         };
 
         FreeMap fr_map(true, 0);
-        fr_map.assign_as_freed(assign_extents_1);
+        fr_map.provide(assign_extents_1);
 
-        EXPECT_THAT(
-            [&]() { fr_map.assign_as_freed(assign_extents_2); },
-            ThrowsMessage<std::runtime_error>(
-                AllOf(
-                    HasSubstr("the free map is already assigned, call clear() first")
-                    )
-                )
-        );
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
+                    Extent(4, 2, false)
+                    ));
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
+                    Extent(4, 2, false)
+                    ));
+
+        fr_map.provide(assign_extents_2);
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
+                    Extent(1, 5, false)
+                    ));
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
+                    Extent(1, 5, false)
+                    ));
     }
 
     TEST(FreeMapTest, AssignWithOverlappingIsAnError) {
@@ -802,7 +811,7 @@ namespace {
         FreeMap fr_map(true, 0);
 
         EXPECT_THAT(
-            ensure_called_once([&]() { fr_map.assign_as_freed(assign_extents); }),
+            ensure_called_once([&]() { fr_map.provide(assign_extents); }),
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
@@ -826,7 +835,7 @@ namespace {
         FreeMap fr_map(true, 0);
 
         EXPECT_THAT(
-            ensure_called_once([&]() { fr_map.assign_as_freed(assign_extents); }),
+            ensure_called_once([&]() { fr_map.provide(assign_extents); }),
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("cannot dealloc 0 blocks")
@@ -880,7 +889,7 @@ namespace {
         };
 
         FreeMap fr_map(true, 0);
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         EXPECT_THAT(
             ensure_called_once([&]() { fr_map.dealloc(Extent(4, 4, false)); }),

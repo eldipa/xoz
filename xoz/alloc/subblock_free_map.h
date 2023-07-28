@@ -23,7 +23,7 @@ public:
         bool success;
     };
 
-    void assign_as_freed(const std::list<Extent>& exts);
+    void provide(const std::list<Extent>& exts);
     void clear();
 
     struct alloc_result_t alloc(uint8_t subblk_cnt);

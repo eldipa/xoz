@@ -45,7 +45,7 @@ namespace {
         std::list<Extent> assign_extents = {
             Extent(1, 0b1000000001010011, true)
         };
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // Check that the operator* (dereference) of the iterators
         // yields the correct (single) extent.
@@ -70,7 +70,7 @@ namespace {
             Extent(1, 2, true)
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
                     Extent(1, 2, true)
@@ -86,7 +86,7 @@ namespace {
             Extent(2, 3, true),
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
                     Extent(1, 1, true),
@@ -104,7 +104,7 @@ namespace {
             Extent(3, 4, true),
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
                     Extent(1, 2, true),
@@ -121,7 +121,7 @@ namespace {
             Extent(1, 0b0000000011110000, true), // subblk_cnt 4
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // Dealloc a novel extent. It will be stored in the same
         // bin that the Extent at blk_nr 1
@@ -166,7 +166,7 @@ namespace {
             Extent(1, 0b0000000011110000, true), // subblk_cnt 4
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // Dealloc the same block number but with a different bitmask.
         fr_map.dealloc(Extent(1, 0b0000000100001000, true));    // subblk_cnt 2
@@ -189,7 +189,7 @@ namespace {
             Extent(1, 0b1111111111111111, true), // subblk_cnt 16
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // Alloc 4 subblocks. The first MSB bits should be used.
         auto result1 = fr_map.alloc(4);
@@ -232,7 +232,7 @@ namespace {
             Extent(1, 0b0000000000000111, true), // subblk_cnt 3
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // Alloc 3 subblocks. Perfect match. Extent removed from
         // the free map.
@@ -253,7 +253,7 @@ namespace {
             Extent(1, 0b0010000000000000, true), // subblk_cnt 1
         };
 
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         // Alloc 3 subblocks. Perfect match. Extent(2, ...) removed from
         // the free map.
@@ -283,7 +283,7 @@ namespace {
 
     TEST(SubBlockFreeMapTest, AssignWithDuplicatedBlkNumberError) {
         // Despite having different bitmaps, these two extent have
-        // the same block number and assign_as_freed does not support that
+        // the same block number and provide does not support that
         std::list<Extent> assign_extents = {
             Extent(4, 0b1111000000000000, true),
             Extent(4, 0b0000000011111111, true),
@@ -292,7 +292,7 @@ namespace {
         SubBlockFreeMap fr_map;
 
         EXPECT_THAT(
-            ensure_called_once([&]() { fr_map.assign_as_freed(assign_extents); }),
+            ensure_called_once([&]() { fr_map.provide(assign_extents); }),
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
@@ -320,7 +320,7 @@ namespace {
         SubBlockFreeMap fr_map;
 
         EXPECT_THAT(
-            ensure_called_once([&]() { fr_map.assign_as_freed(assign_extents_1); }),
+            ensure_called_once([&]() { fr_map.provide(assign_extents_1); }),
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("cannot dealloc 0 subblocks")
@@ -330,7 +330,7 @@ namespace {
 
         fr_map.clear();
         EXPECT_THAT(
-            ensure_called_once([&]() { fr_map.assign_as_freed(assign_extents_2); }),
+            ensure_called_once([&]() { fr_map.provide(assign_extents_2); }),
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("cannot dealloc extent that it is not for suballocation")
@@ -384,7 +384,7 @@ namespace {
         };
 
         SubBlockFreeMap fr_map;
-        fr_map.assign_as_freed(assign_extents);
+        fr_map.provide(assign_extents);
 
         EXPECT_THAT(
             ensure_called_once([&]() { fr_map.dealloc(Extent(4, 0b0000100000000000, true)); }),

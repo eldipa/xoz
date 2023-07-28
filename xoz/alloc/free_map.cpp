@@ -10,16 +10,9 @@ using namespace xoz::alloc::internals;  // NOLINT
 FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold):
         coalescing_enabled(coalescing_enabled), split_above_threshold(split_above_threshold) {}
 
-void FreeMap::assign_as_freed(const std::list<Extent>& exts) {
-    if (fr_by_nr.size() != 0 or fr_by_cnt.size() != 0) {
-        throw std::runtime_error((F() << "the free map is already assigned, call clear() first.").str());
-    }
-
+void FreeMap::provide(const std::list<Extent>& exts) {
     for (auto& ext: exts) {
-        fail_if_suballoc_or_zero_cnt(ext);
-        fail_if_overlap(ext);
-        fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
-        fr_by_cnt.insert({ext.blk_cnt(), ext.blk_nr()});
+        dealloc(ext);
     }
 
     assert(fr_by_nr.size() == fr_by_cnt.size());
