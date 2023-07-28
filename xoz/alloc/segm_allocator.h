@@ -123,7 +123,11 @@ public:
         }
 
         if (subblk_cnt_remain) {
-            subblk_cnt_remain = allocate_subblk_extent(segm, subblk_cnt_remain);
+            // RFC says 16 subblocks per block only and the code above should
+            // ensure that we are dealing with one block at most.
+            assert(subblk_cnt_remain < 256);
+            assert(subblk_cnt_remain <= Extent::SUBBLK_CNT_PER_BLK);
+            subblk_cnt_remain = allocate_subblk_extent(segm, uint8_t(subblk_cnt_remain));
         }
 
         if (subblk_cnt_remain) {
@@ -249,12 +253,11 @@ private:
         return blk_cnt_remain;
     }
 
-    uint32_t allocate_subblk_extent(Segment& segm, uint32_t subblk_cnt_remain) {
+    uint8_t allocate_subblk_extent(Segment& segm, uint8_t subblk_cnt_remain) {
         bool ok = false;
 
     try_subfr_map_alloc:
-        // TODO cast
-        auto result = subfr_map.alloc(uint8_t(subblk_cnt_remain));
+        auto result = subfr_map.alloc(subblk_cnt_remain);
         if (result.success) {
             segm.add_extent(result.ext);
             return 0;
