@@ -25,12 +25,12 @@ public:
 
     void provide(const std::list<Extent>& exts);
     void provide(const Extent& ext);
+    void release(const std::list<Extent>& exts);
 
     struct alloc_result_t alloc(uint8_t subblk_cnt);
 
     void dealloc(const Extent& ext);
 
-    std::list<Extent> release(bool mandatory);
     void reset();
 
     // Handy typedef

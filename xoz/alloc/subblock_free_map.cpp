@@ -40,6 +40,38 @@ void SubBlockFreeMap::_provide(const Extent& ext) {
     exts_bin[bin].push_back(ext);
 }
 
+void SubBlockFreeMap::release(const std::list<Extent>& exts) {
+    for (const auto& ext : exts) {
+        if (ext.blk_cnt() != 1) {
+            throw "no such extent";
+        }
+
+        // fr_by_nr may change in each iteration so keep an
+        // update end() iter.
+        auto end_it = fr_by_nr.end();
+
+        auto ours_it = fr_by_nr.find(ext.blk_nr());
+        if (ours_it == end_it or not ours_it->second.can_be_single_blk()) {
+            throw "no such extent";
+        }
+
+        // Search and remove it from both maps
+        size_t found_cnt = exts_bin[Extent::SUBBLK_CNT_PER_BLK-1].remove_if(
+                [&ext](const Extent& ours) {
+                    return ours.blk_nr() == ext.blk_nr();
+                });
+        if (found_cnt == 0) {
+            throw "not such extent";
+        }
+
+        // 2 or more are in invariance violation
+        assert(found_cnt == 1);
+        fr_by_nr.erase(ours_it);
+    }
+
+    assert(fr_by_nr.size() == count_entries_in_bins());
+}
+
 void SubBlockFreeMap::reset() {
     fr_by_nr.clear();
 
@@ -228,16 +260,6 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
     assert(fr_by_nr.size() == count_entries_in_bins());
 }
 
-std::list<Extent> SubBlockFreeMap::release([[maybe_unused]] bool mandatory) {
-    std::list<Extent> ret;
-    exts_bin[15].swap(ret);
-    for (auto const& ext : ret) {
-        fr_by_nr.erase(ext.blk_nr());
-    }
-
-    assert(fr_by_nr.size() == count_entries_in_bins());
-    return ret;
-}
 
 size_t SubBlockFreeMap::count_entries_in_bins() const {
     size_t accum = 0;

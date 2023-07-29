@@ -160,11 +160,11 @@ public:
             }
         }
 
-        reclaim_free_space_from_subfr_map(false);
+        reclaim_free_space_from_subfr_map();
     }
 
     void release() {
-        reclaim_free_space_from_subfr_map(true);
+        reclaim_free_space_from_subfr_map();
         reclaim_free_space_from_fr_map();
     }
 
@@ -313,9 +313,15 @@ private:
         fr_map.release(reclaimed);
     }
 
-    void reclaim_free_space_from_subfr_map(bool mandatory) {
-        for (auto const& ext: subfr_map.release(mandatory)) {
-            fr_map.dealloc(ext.as_not_suballoc());
+    void reclaim_free_space_from_subfr_map() {
+        std::list<Extent> reclaimed;
+
+        for (auto it = subfr_map.cbegin_full_blk(); it != subfr_map.cend_full_blk(); ++it) {
+            const auto ext = it->as_not_suballoc();
+            fr_map.dealloc(ext);
+            reclaimed.push_back(ext);
         }
+
+        subfr_map.release(reclaimed);
     }
 };
