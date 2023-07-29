@@ -25,7 +25,7 @@ public:
 
     void provide(const std::list<Extent>& exts);
     void provide(const Extent& ext);
-    void clear();
+    std::list<Extent> release_all();
 
     struct alloc_result_t alloc(uint8_t subblk_cnt);
 

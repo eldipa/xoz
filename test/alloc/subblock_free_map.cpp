@@ -328,7 +328,7 @@ namespace {
                 )
         );
 
-        fr_map.clear();
+        fr_map.release_all();
         EXPECT_THAT(
             ensure_called_once([&]() { fr_map.provide(assign_extents_2); }),
             ThrowsMessage<std::runtime_error>(

@@ -40,7 +40,10 @@ void SubBlockFreeMap::_provide(const Extent& ext) {
     exts_bin[bin].push_back(ext);
 }
 
-void SubBlockFreeMap::clear() {
+std::list<Extent> SubBlockFreeMap::release_all() {
+    std::list<Extent> ret;
+    ret.assign(cbegin_by_blk_nr(), cend_by_blk_nr());
+
     fr_by_nr.clear();
 
     for (uint8_t bin = 0; bin < Extent::SUBBLK_CNT_PER_BLK; ++bin) {
@@ -48,6 +51,7 @@ void SubBlockFreeMap::clear() {
     }
 
     assert(fr_by_nr.size() == count_entries_in_bins());
+    return ret;
 }
 
 struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt) {

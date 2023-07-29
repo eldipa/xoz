@@ -28,7 +28,7 @@ public:
 
     void provide(const std::list<Extent>& exts);
     void provide(const Extent& exts);
-    void clear();
+    std::list<Extent> release_all();
 
     // Finds the best free chunk that can hold at least
     // <blk_cnt> blocks
