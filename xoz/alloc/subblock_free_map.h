@@ -24,6 +24,7 @@ public:
     };
 
     void provide(const std::list<Extent>& exts);
+    void provide(const Extent& ext);
     void clear();
 
     struct alloc_result_t alloc(uint8_t subblk_cnt);
@@ -49,4 +50,6 @@ private:
 
     void fail_if_not_subblk_or_zero_cnt(const Extent& ext) const;
     void fail_if_blk_nr_already_seen(const Extent& ext) const;
+
+    void _provide(const Extent& ext);
 };

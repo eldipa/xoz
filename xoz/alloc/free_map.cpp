@@ -18,6 +18,11 @@ void FreeMap::provide(const std::list<Extent>& exts) {
     assert(fr_by_nr.size() == fr_by_cnt.size());
 }
 
+void FreeMap::provide(const Extent& ext) {
+    dealloc(ext);
+    assert(fr_by_nr.size() == fr_by_cnt.size());
+}
+
 void FreeMap::clear() {
     fr_by_nr.clear();
     fr_by_cnt.clear();

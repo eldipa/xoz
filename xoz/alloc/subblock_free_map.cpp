@@ -11,16 +11,33 @@ SubBlockFreeMap::SubBlockFreeMap() {}
 
 void SubBlockFreeMap::provide(const std::list<Extent>& exts) {
     for (auto& ext: exts) {
-        fail_if_not_subblk_or_zero_cnt(ext);
-        fail_if_blk_nr_already_seen(ext);
-
-        fr_by_nr.insert({ext.blk_nr(), ext});
-
-        uint8_t bin = ext.subblk_cnt() - 1;
-        exts_bin[bin].push_back(ext);
+        provide(ext);
     }
 
     assert(fr_by_nr.size() == count_entries_in_bins());
+}
+
+void SubBlockFreeMap::provide(const Extent& ext) {
+    if (ext.is_suballoc()) {
+        _provide(ext);
+    } else {
+        if (not ext.can_be_for_suballoc()) {
+            throw std::runtime_error("extent cannot be used for suballocation");
+        }
+        _provide(ext.as_suballoc());
+    }
+
+    assert(fr_by_nr.size() == count_entries_in_bins());
+}
+
+void SubBlockFreeMap::_provide(const Extent& ext) {
+    fail_if_not_subblk_or_zero_cnt(ext);
+    fail_if_blk_nr_already_seen(ext);
+
+    fr_by_nr.insert({ext.blk_nr(), ext});
+
+    uint8_t bin = ext.subblk_cnt() - 1;
+    exts_bin[bin].push_back(ext);
 }
 
 void SubBlockFreeMap::clear() {

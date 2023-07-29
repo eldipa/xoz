@@ -308,13 +308,13 @@ namespace {
         );
     }
 
-    TEST(SubBlockFreeMapTest, AssignWithZeroSubBlocksOrNonSubAllocExtentsIsAnError) {
+    TEST(SubBlockFreeMapTest, AssignWithZeroSubBlocksOrWithTooManyBlocksIsAnError) {
         std::list<Extent> assign_extents_1 = {
             Extent(4, 0x0000, true), // subblk_cnt = 0
         };
 
         std::list<Extent> assign_extents_2 = {
-            Extent(4, 0x00ff, false), // is_suballoc is False
+            Extent(4, 2, false), // non-subblock but blk_cnt != 1 (cannot be converted)
         };
 
         SubBlockFreeMap fr_map;
@@ -333,10 +333,23 @@ namespace {
             ensure_called_once([&]() { fr_map.provide(assign_extents_2); }),
             ThrowsMessage<std::runtime_error>(
                 AllOf(
-                    HasSubstr("cannot dealloc extent that it is not for suballocation")
+                    HasSubstr("extent cannot be used for suballocation")
                     )
                 )
         );
+    }
+
+    TEST(SubBlockFreeMapTest, AssignNonSubAllocExtentsWorksIfConverted) {
+        std::list<Extent> assign_extents_1 = {
+            Extent(4, 1, false), // non-subblock but blk_cnt == 1 (conversion is possible)
+        };
+
+        SubBlockFreeMap fr_map;
+        fr_map.provide(assign_extents_1);
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
+                    Extent(4, 0b1111111111111111, true) // subblk_cnt 16 <--
+                    ));
     }
 
     TEST(SubBlockFreeMapTest, InvalidAllocOfZeroSubBlocks) {

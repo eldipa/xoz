@@ -280,7 +280,7 @@ private:
     bool provide_more_space_to_fr_map(uint16_t blk_cnt) {
         auto result = tail.alloc(blk_cnt);
         if (result.success) {
-            fr_map.dealloc(result.ext);
+            fr_map.provide(result.ext);
             return true;
         }
 
@@ -290,7 +290,7 @@ private:
     bool provide_more_space_to_subfr_map() {
         auto result = fr_map.alloc(1);
         if (result.success) {
-            subfr_map.dealloc(result.ext.as_suballoc());
+            subfr_map.provide(result.ext);
             return true;
         }
 

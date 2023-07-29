@@ -113,6 +113,10 @@ public:
         return Extent(blk_nr(), 0xffff, true);
     }
 
+    inline bool can_be_for_suballoc() const {
+        return blk_cnt() == 1;
+    }
+
     inline Extent as_not_suballoc() const {
         if (not is_suballoc()) {
             return *this;

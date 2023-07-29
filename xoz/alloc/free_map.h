@@ -27,6 +27,7 @@ public:
     };
 
     void provide(const std::list<Extent>& exts);
+    void provide(const Extent& exts);
     void clear();
 
     // Finds the best free chunk that can hold at least
