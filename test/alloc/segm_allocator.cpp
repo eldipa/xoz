@@ -632,6 +632,155 @@ namespace {
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
     }
 
+    TEST(SegmentAllocatorTest, DellocAndReleaseSomeBlksThenAllWithCoalescing) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo);
+
+        // Alloc 3 segments of 1, 2 and 3 blocks each (6 blocks in total)
+        Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 1);
+        Segment segm2 = sg_alloc.alloc(repo.blk_sz() * 2);
+        Segment segm3 = sg_alloc.alloc(repo.blk_sz() * 3);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 1));
+        EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+        EXPECT_EQ(segm3.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 3));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)7);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)6);
+
+        // Dealloc the second segment (2 blocks).
+        sg_alloc.dealloc(segm2);
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(2, 2, false)
+                    ));
+
+        // No block can be freed by the tail allocator
+        // (the repository) because the third segment is still in use.
+        sg_alloc.release();
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(2, 2, false)
+                    ));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)7);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)6);
+
+
+        // Dealloc the third segment (3 blocks).
+        // These 3 blocks  should be coalesced with the blocks
+        // of the second segment (2 blocks).
+        sg_alloc.dealloc(segm3);
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(2, 5, false) // coalesced
+                    ));
+
+        // Then all of them released into the tail allocator
+        // shrinking the repository size (block count).
+        sg_alloc.release();
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        // Dealloc the first segment (1 blocks).
+        sg_alloc.dealloc(segm1);
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false)
+                    ));
+
+        // Then all of them released into the tail allocator
+        // shrinking the repository size (block count).
+        sg_alloc.release();
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+    }
+
+    TEST(SegmentAllocatorTest, DellocAndReleaseSomeBlksThenAllWithoutCoalescing) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, false);
+
+        // Alloc 3 segments of 1, 2 and 3 blocks each (6 blocks in total)
+        Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 1);
+        Segment segm2 = sg_alloc.alloc(repo.blk_sz() * 2);
+        Segment segm3 = sg_alloc.alloc(repo.blk_sz() * 3);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 1));
+        EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+        EXPECT_EQ(segm3.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 3));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)7);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)6);
+
+        // Dealloc the second segment (2 blocks).
+        sg_alloc.dealloc(segm2);
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(2, 2, false)
+                    ));
+
+        // No block can be freed by the tail allocator
+        // (the repository) because the third segment is still in use.
+        sg_alloc.release();
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(2, 2, false)
+                    ));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)7);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)6);
+
+
+        // Dealloc the third segment (3 blocks).
+        // These 3 blocks  should not be coalesced with the blocks
+        // of the second segment (2 blocks).
+        sg_alloc.dealloc(segm3);
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(2, 2, false),
+                    Extent(4, 3, false)
+                    ));
+
+        // Then all of them released into the tail allocator
+        // shrinking the repository size (block count).
+        sg_alloc.release();
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        // Dealloc the first segment (1 blocks).
+        sg_alloc.dealloc(segm1);
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false)
+                    ));
+
+        // Then all of them released into the tail allocator
+        // shrinking the repository size (block count).
+        sg_alloc.release();
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+    }
+
     TEST(SegmentAllocatorTest, DellocSomeSubBlksThenAll) {
         const GlobalParameters gp = {
             .blk_sz = 64,

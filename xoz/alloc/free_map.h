@@ -29,6 +29,7 @@ public:
     void provide(const std::list<Extent>& exts);
     void provide(const Extent& exts);
     std::list<Extent> release_all();
+    void release(const std::list<Extent>& exts);
 
     // Finds the best free chunk that can hold at least
     // <blk_cnt> blocks
@@ -51,7 +52,6 @@ public:
     struct alloc_result_t alloc(uint16_t blk_cnt);
 
     void dealloc(const Extent& ext);
-    std::list<Extent> release(bool mandatory);
 
     // Handy typedefs iterators: by block number
     // and by block count

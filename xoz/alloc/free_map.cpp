@@ -34,6 +34,22 @@ std::list<Extent> FreeMap::release_all() {
     return ret;
 }
 
+void FreeMap::release(const std::list<Extent>& exts) {
+    for (const auto& ext : exts) {
+        // fr_by_nr may change in each iteration so keep an
+        // update end() iter.
+        auto end_it = fr_by_nr.end();
+
+        auto ours_it = fr_by_nr.find(ext.blk_nr());
+        if (ours_it == end_it or blk_cnt_of(ours_it) != ext.blk_cnt()) {
+            throw "no such extent";
+        }
+
+        erase_from_fr_by_cnt(ours_it);
+        fr_by_nr.erase(ours_it);
+    }
+}
+
 struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
     fail_alloc_if_empty(blk_cnt, false);
 
@@ -218,8 +234,6 @@ void FreeMap::dealloc(const Extent& ext) {
 
     assert(fr_by_nr.size() == fr_by_cnt.size());
 }
-
-std::list<Extent> FreeMap::release([[maybe_unused]] bool mandatory) { return std::list<Extent>(); }
 
 // Erase from the multimap fr_by_cnt the chunk pointed by target_it
 // (coming from the fr_by_nr map)

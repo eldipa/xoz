@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <list>
 
 #include "xoz/alloc/free_map.h"
 #include "xoz/alloc/subblock_free_map.h"
@@ -164,7 +165,7 @@ public:
 
     void release() {
         reclaim_free_space_from_subfr_map(true);
-        reclaim_free_space_from_fr_map(true);
+        reclaim_free_space_from_fr_map();
     }
 
 
@@ -297,10 +298,19 @@ private:
         return false;
     }
 
-    void reclaim_free_space_from_fr_map(bool mandatory) {
-        for (auto const& ext: fr_map.release(mandatory)) {
-            tail.dealloc(ext);  // TODO exts may not be in order?
+    void reclaim_free_space_from_fr_map() {
+        std::list<Extent> reclaimed;
+
+        for (auto it = fr_map.crbegin_by_blk_nr(); it != fr_map.crend_by_blk_nr(); ++it) {
+            bool ok = tail.dealloc(*it);
+            if (ok) {
+                reclaimed.push_back(*it);
+            } else {
+                break;
+            }
         }
+
+        fr_map.release(reclaimed);
     }
 
     void reclaim_free_space_from_subfr_map(bool mandatory) {
