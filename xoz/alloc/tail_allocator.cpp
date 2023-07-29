@@ -12,12 +12,6 @@ using namespace xoz::alloc::internals;  // NOLINT
 
 TailAllocator::TailAllocator(Repository& repo): repo(repo) {}
 
-// Result of an allocation.
-struct alloc_result_t {
-    Extent ext;
-    bool success;
-};
-
 struct TailAllocator::alloc_result_t TailAllocator::alloc(uint16_t blk_cnt) {
     fail_alloc_if_empty(blk_cnt, false);
 
