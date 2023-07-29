@@ -7,7 +7,7 @@
 
 using namespace xoz::alloc::internals;  // NOLINT
 
-SubBlockFreeMap::SubBlockFreeMap() : owned_subblk_cnt(0), allocated_subblk_cnt(0) {}
+SubBlockFreeMap::SubBlockFreeMap(): owned_subblk_cnt(0), allocated_subblk_cnt(0) {}
 
 void SubBlockFreeMap::provide(const std::list<Extent>& exts) {
     for (auto& ext: exts) {
@@ -43,7 +43,7 @@ void SubBlockFreeMap::_provide(const Extent& ext) {
 }
 
 void SubBlockFreeMap::release(const std::list<Extent>& exts) {
-    for (const auto& ext : exts) {
+    for (const auto& ext: exts) {
         if (ext.blk_cnt() != 1) {
             throw "no such extent";
         }
@@ -58,10 +58,8 @@ void SubBlockFreeMap::release(const std::list<Extent>& exts) {
         }
 
         // Search and remove it from both maps
-        size_t found_cnt = exts_bin[Extent::SUBBLK_CNT_PER_BLK-1].remove_if(
-                [&ext](const Extent& ours) {
-                    return ours.blk_nr() == ext.blk_nr();
-                });
+        size_t found_cnt = exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1].remove_if(
+                [&ext](const Extent& ours) { return ours.blk_nr() == ext.blk_nr(); });
         if (found_cnt == 0) {
             throw "not such extent";
         }

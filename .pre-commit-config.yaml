@@ -1,5 +1,11 @@
 ---
 repos:
+  - repo: https://github.com/ssciwr/clang-format-hook
+    rev: v14.0.0
+    hooks:
+      - id: clang-format
+        files: ^xoz/(.*[.]cpp|.*[.]h)$
+        args: ["--style=file", "-i"]
   - repo: https://github.com/cpplint/cpplint
     rev: 1.6.0
     hooks:
@@ -18,10 +24,6 @@ line,+whitespace/parens,+whitespace/semicolon,-whitespace/blank_line", "--linele
       - id: cppcheck
         files: ^xoz/(.*[.]cpp|.*[.]h)$
         args: ["--inline-suppr", "--enable=all", "--suppress=unusedFunction", "--suppress=unusedStructMember", "--suppress=missingIncludeSystem", "--suppress=missingInclude", "--suppress=unmatchedSuppression", "--language=c++", "--std=c++20", "--error-exitcode=1"]
-      - id: clang-format
-        # pipx install clang-format==14.0.0
-        files: ^xoz/(.*[.]cpp|.*[.]h)$
-        args: ["--style=file", "-i", "--version=14"]
       - id: clang-tidy
         stages: [push]
         files: ^xoz/(.*[.]cpp)$

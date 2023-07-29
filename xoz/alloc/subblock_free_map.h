@@ -43,10 +43,7 @@ public:
     };
 
     inline const struct fr_stats_t stats() const {
-        return {
-            .owned_subblk_cnt = owned_subblk_cnt,
-            .allocated_subblk_cnt = allocated_subblk_cnt
-        };
+        return {.owned_subblk_cnt = owned_subblk_cnt, .allocated_subblk_cnt = allocated_subblk_cnt};
     }
 
     // Handy typedef
@@ -64,12 +61,10 @@ public:
 
     // Iterators over the full free blocks as Extent objects.
     inline const_iterator_full_blk_t cbegin_full_blk() const {
-        return exts_bin[Extent::SUBBLK_CNT_PER_BLK-1].cbegin();
+        return exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1].cbegin();
     }
 
-    inline const_iterator_full_blk_t cend_full_blk() const {
-        return exts_bin[Extent::SUBBLK_CNT_PER_BLK-1].cend();
-    }
+    inline const_iterator_full_blk_t cend_full_blk() const { return exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1].cend(); }
 
 
 private:

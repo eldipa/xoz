@@ -31,7 +31,7 @@ void FreeMap::reset() {
 }
 
 void FreeMap::release(const std::list<Extent>& exts) {
-    for (const auto& ext : exts) {
+    for (const auto& ext: exts) {
         // fr_by_nr may change in each iteration so keep an
         // update end() iter.
         auto end_it = fr_by_nr.end();

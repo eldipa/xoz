@@ -121,13 +121,9 @@ public:
 
     inline const GlobalParameters& params() const { return gp; }
 
-    inline uint32_t subblk_sz() const {
-        return gp.blk_sz >> Extent::SUBBLK_SIZE_ORDER;
-    }
+    inline uint32_t subblk_sz() const { return gp.blk_sz >> Extent::SUBBLK_SIZE_ORDER; }
 
-    inline uint32_t blk_sz() const {
-        return gp.blk_sz;
-    }
+    inline uint32_t blk_sz() const { return gp.blk_sz; }
 
     // Main primitive to allocate / free blocks
     //
