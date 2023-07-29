@@ -35,6 +35,7 @@ public:
 
     // Handy typedef
     typedef xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t::const_iterator, true> const_iterator_by_blk_nr_t;
+    typedef std::list<Extent>::const_iterator const_iterator_full_blk_t;
 
     // Iterators over the free chunks returned as Extent objects.
     // By block number only order
@@ -44,6 +45,16 @@ public:
     inline const_iterator_by_blk_nr_t cbegin_by_blk_nr() const { return const_iterator_by_blk_nr_t(fr_by_nr.cbegin()); }
 
     inline const_iterator_by_blk_nr_t cend_by_blk_nr() const { return const_iterator_by_blk_nr_t(fr_by_nr.cend()); }
+
+    // Iterators over the full free blocks as Extent objects.
+    inline const_iterator_full_blk_t cbegin_full_blk() const {
+        return exts_bin[Extent::SUBBLK_CNT_PER_BLK-1].cbegin();
+    }
+
+    inline const_iterator_full_blk_t cend_full_blk() const {
+        return exts_bin[Extent::SUBBLK_CNT_PER_BLK-1].cend();
+    }
+
 
 private:
     size_t count_entries_in_bins() const;

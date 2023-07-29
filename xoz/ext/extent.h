@@ -117,6 +117,10 @@ public:
         return blk_cnt() == 1;
     }
 
+    inline bool can_be_single_blk() const {
+        return blk_bitmap() == 0xffff;
+    }
+
     inline Extent as_not_suballoc() const {
         if (not is_suballoc()) {
             return *this;

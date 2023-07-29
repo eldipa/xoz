@@ -114,6 +114,41 @@ namespace {
 
     }
 
+    TEST(SubBlockFreeMapTest, IterateOverFullBlkOnly) {
+        SubBlockFreeMap fr_map;
+
+        std::list<Extent> assign_extents = {
+            Extent(7, 0x01f1, true),
+            Extent(1, 0xffff, true),    // full blk
+            Extent(3, 0x1011, true),
+            Extent(6, 0xffff, true),    // full blk
+        };
+
+        fr_map.provide(assign_extents);
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
+                    Extent(1, 0xffff, true),    // full blk
+                    Extent(3, 0x1011, true),
+                    Extent(6, 0xffff, true),    // full blk
+                    Extent(7, 0x01f1, true)
+                    ));
+
+        // Test iterate by full-blk extents, unspecified order
+        std::list<Extent> fr_extents;
+        for (auto it = fr_map.cbegin_full_blk(); it != fr_map.cend_full_blk(); ++it) {
+            fr_extents.push_back(*it);
+        }
+
+        // Make a deterministic order for checking
+        fr_extents.sort([](const Extent& a, const Extent& b) { return a.blk_nr() < b.blk_nr(); });
+
+        EXPECT_THAT(fr_extents, ElementsAre(
+                    Extent(1, 0xffff, true),    // full blk
+                    Extent(6, 0xffff, true)     // full blk
+                    ));
+
+    }
+
     TEST(SubBlockFreeMapTest, DeallocPartiallyIntoANewFreeBlock) {
         SubBlockFreeMap fr_map;
 
