@@ -121,6 +121,17 @@ namespace {
                     Extent(1, 1, false),
                     Extent(2, 3, false)
                     ));
+
+        // Test iterate by blk number in reverse order
+        std::list<Extent> fr_extents;
+        for (auto it = fr_map.crbegin_by_blk_nr(); it != fr_map.crend_by_blk_nr(); ++it) {
+            fr_extents.push_back(*it);
+        }
+
+        EXPECT_THAT(fr_extents, ElementsAre(
+                    Extent(2, 3, false),
+                    Extent(1, 1, false)
+                    ));
     }
 
     TEST(FreeMapTest, IterateOverThreeElementsFreeMap) {

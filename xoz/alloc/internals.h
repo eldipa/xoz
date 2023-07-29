@@ -22,11 +22,18 @@ typedef std::map<uint32_t, Extent> map_nr2ext_t;
 
 // Accessors to fr_by_nr map iterators' fields with blk_nr as the key
 // and blk_cnt as the value of the map
+// Forward (const_iterator) and reverse (const_reverse_iterator)
 inline const uint32_t& blk_nr_of(const map_nr2cnt_t::const_iterator& it) { return it->first; }
+
+inline const uint32_t& blk_nr_of(const map_nr2cnt_t::const_reverse_iterator& it) { return it->first; }
 
 inline uint16_t& blk_cnt_of(const map_nr2cnt_t::iterator& it) { return it->second; }
 
+inline uint16_t& blk_cnt_of(const map_nr2cnt_t::reverse_iterator& it) { return it->second; }
+
 inline const uint16_t& blk_cnt_of(const map_nr2cnt_t::const_iterator& it) { return it->second; }
+
+inline const uint16_t& blk_cnt_of(const map_nr2cnt_t::const_reverse_iterator& it) { return it->second; }
 
 // Accessors to fr_by_cnt multimap iterators' fields with blk_cnt as the key
 // and blk_nr as the value of the map

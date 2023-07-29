@@ -53,9 +53,11 @@ public:
     void dealloc(const Extent& ext);
     std::list<Extent> release(bool mandatory);
 
-    // Handy typedef for the 2 kinds of iterators: by block number
+    // Handy typedefs iterators: by block number
     // and by block count
     typedef xoz::alloc::internals::ConstExtentIterator<map_nr2cnt_t::const_iterator, false> const_iterator_by_blk_nr_t;
+    typedef xoz::alloc::internals::ConstExtentIterator<map_nr2cnt_t::const_reverse_iterator, false>
+            const_reverse_iterator_by_blk_nr_t;
     typedef xoz::alloc::internals::ConstExtentIterator<multimap_cnt2nr_t::const_iterator, false>
             const_iterator_by_blk_cnt_t;
 
@@ -70,6 +72,14 @@ public:
     inline const_iterator_by_blk_nr_t cbegin_by_blk_nr() const { return const_iterator_by_blk_nr_t(fr_by_nr.cbegin()); }
 
     inline const_iterator_by_blk_nr_t cend_by_blk_nr() const { return const_iterator_by_blk_nr_t(fr_by_nr.cend()); }
+
+    inline const_reverse_iterator_by_blk_nr_t crbegin_by_blk_nr() const {
+        return const_reverse_iterator_by_blk_nr_t(fr_by_nr.crbegin());
+    }
+
+    inline const_reverse_iterator_by_blk_nr_t crend_by_blk_nr() const {
+        return const_reverse_iterator_by_blk_nr_t(fr_by_nr.crend());
+    }
 
     inline const_iterator_by_blk_cnt_t cbegin_by_blk_cnt() const {
         return const_iterator_by_blk_cnt_t(fr_by_cnt.cbegin());
