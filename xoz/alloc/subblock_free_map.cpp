@@ -7,7 +7,7 @@
 
 using namespace xoz::alloc::internals;  // NOLINT
 
-SubBlockFreeMap::SubBlockFreeMap() {}
+SubBlockFreeMap::SubBlockFreeMap() : owned_subblk_cnt(0), allocated_subblk_cnt(0) {}
 
 void SubBlockFreeMap::provide(const std::list<Extent>& exts) {
     for (auto& ext: exts) {
@@ -38,6 +38,8 @@ void SubBlockFreeMap::_provide(const Extent& ext) {
 
     uint8_t bin = ext.subblk_cnt() - 1;
     exts_bin[bin].push_back(ext);
+
+    owned_subblk_cnt += ext.subblk_cnt();
 }
 
 void SubBlockFreeMap::release(const std::list<Extent>& exts) {
@@ -67,6 +69,8 @@ void SubBlockFreeMap::release(const std::list<Extent>& exts) {
         // 2 or more are in invariance violation
         assert(found_cnt == 1);
         fr_by_nr.erase(ours_it);
+
+        owned_subblk_cnt -= Extent::SUBBLK_CNT_PER_BLK;
     }
 
     assert(fr_by_nr.size() == count_entries_in_bins());
@@ -79,6 +83,7 @@ void SubBlockFreeMap::reset() {
         exts_bin[bin].clear();
     }
 
+    owned_subblk_cnt = allocated_subblk_cnt = 0;
     assert(fr_by_nr.size() == count_entries_in_bins());
 }
 
@@ -182,6 +187,7 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
     }
 
     assert(fr_by_nr.size() == count_entries_in_bins());
+    allocated_subblk_cnt += ext.subblk_cnt();
     return {
             .ext = ext,
             .success = true,
@@ -247,7 +253,7 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
     free_ext.move_to(ext.blk_nr());
 
     // Add it to its new bin
-    uint8_t bin = free_ext.subblk_cnt() - 1;  // TODO bin == 15 should be freed, return dealloc_result?
+    uint8_t bin = free_ext.subblk_cnt() - 1;
     exts_bin[bin].push_back(free_ext);
 
     // Update the map indexed by blk_nr with the new bitmap
@@ -258,6 +264,7 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
     }
 
     assert(fr_by_nr.size() == count_entries_in_bins());
+    allocated_subblk_cnt -= free_ext.subblk_cnt();
 }
 
 

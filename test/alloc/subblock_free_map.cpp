@@ -26,6 +26,13 @@ using ::testing_xoz::helpers::ensure_called_once;
 
 
 namespace {
+    TEST(SubBlockFreeMapTest, FreeMapStats) {
+        SubBlockFreeMap fr_map;
+
+        EXPECT_EQ(fr_map.stats().owned_subblk_cnt, 0);
+        EXPECT_EQ(fr_map.stats().allocated_subblk_cnt, 0);
+    }
+
     TEST(SubBlockFreeMapTest, IterateOverEmptyFreeMap) {
         std::list<Extent> fr_extents;
         SubBlockFreeMap fr_map;

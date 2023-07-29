@@ -14,6 +14,10 @@ private:
 
     map_nr2ext_t fr_by_nr;
 
+    // Stats
+    int32_t owned_subblk_cnt;
+    int32_t allocated_subblk_cnt;
+
 public:
     SubBlockFreeMap();
 
@@ -32,6 +36,18 @@ public:
     void dealloc(const Extent& ext);
 
     void reset();
+
+    struct fr_stats_t {
+        int32_t owned_subblk_cnt;
+        int32_t allocated_subblk_cnt;
+    };
+
+    inline const struct fr_stats_t stats() const {
+        return {
+            .owned_subblk_cnt = owned_subblk_cnt,
+            .allocated_subblk_cnt = allocated_subblk_cnt
+        };
+    }
 
     // Handy typedef
     typedef xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t::const_iterator, true> const_iterator_by_blk_nr_t;
