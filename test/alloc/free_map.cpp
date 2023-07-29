@@ -609,7 +609,7 @@ namespace {
 
         // The same but this time the free map is empty and
         // the closest extent has 0 blocks
-        fr_map.release_all();
+        fr_map.reset();
         auto result2 = fr_map.alloc(2);
         XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, IsEmpty());
 

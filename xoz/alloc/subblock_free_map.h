@@ -25,13 +25,13 @@ public:
 
     void provide(const std::list<Extent>& exts);
     void provide(const Extent& ext);
-    std::list<Extent> release_all();
 
     struct alloc_result_t alloc(uint8_t subblk_cnt);
 
     void dealloc(const Extent& ext);
 
     std::list<Extent> release(bool mandatory);
+    void reset();
 
     // Handy typedef
     typedef xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t::const_iterator, true> const_iterator_by_blk_nr_t;

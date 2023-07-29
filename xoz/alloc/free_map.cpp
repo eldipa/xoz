@@ -23,15 +23,11 @@ void FreeMap::provide(const Extent& ext) {
     assert(fr_by_nr.size() == fr_by_cnt.size());
 }
 
-std::list<Extent> FreeMap::release_all() {
-    std::list<Extent> ret;
-    ret.assign(cbegin_by_blk_nr(), cend_by_blk_nr());
-
+void FreeMap::reset() {
     fr_by_nr.clear();
     fr_by_cnt.clear();
-    assert(fr_by_nr.size() == fr_by_cnt.size());
 
-    return ret;
+    assert(fr_by_nr.size() == fr_by_cnt.size());
 }
 
 void FreeMap::release(const std::list<Extent>& exts) {
