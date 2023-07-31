@@ -15,7 +15,7 @@
 class SegmentAllocator {
 private:
     Repository& repo;
-    uint16_t max_inline_sz;
+    uint32_t max_inline_sz;
 
     TailAllocator tail;
 
@@ -136,7 +136,8 @@ public:
         }
 
         if (inline_sz) {
-            // TODO cast
+            // This should be guaranteed because MaxInlineSize is a uint8_t
+            assert(inline_sz < 256);
             segm.reserve_inline_data(uint8_t(inline_sz));
             inline_sz = 0;
         }
