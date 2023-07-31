@@ -125,6 +125,8 @@ public:
 
     inline uint32_t blk_sz() const { return gp.blk_sz; }
 
+    inline uint8_t blk_sz_order() const { return gp.blk_sz_order; }
+
     // Main primitive to allocate / free blocks
     //
     // This expands/shrinks the underlying physical file.
