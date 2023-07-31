@@ -25,9 +25,9 @@ private:
     float frag_factor;
 
 public:
-    const static uint16_t MaxInlineSize = 8;
+    const static uint8_t MaxInlineSize = 8;
 
-    explicit SegmentAllocator(Repository& repo, uint16_t max_inline_sz = MaxInlineSize, bool coalescing_enabled = true,
+    explicit SegmentAllocator(Repository& repo, uint8_t max_inline_sz = MaxInlineSize, bool coalescing_enabled = true,
                               uint16_t split_above_threshold = 0):
             repo(repo),
             max_inline_sz(max_inline_sz),

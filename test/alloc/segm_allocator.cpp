@@ -93,7 +93,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)0);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)1);
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
     }
@@ -121,7 +121,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)(1));
@@ -157,7 +157,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)(2));
@@ -193,7 +193,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)(2));
@@ -244,7 +244,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)(repo.subblk_sz() - 1));
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(repo.subblk_sz() - 1));
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)true);
         EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)(Extent::SUBBLK_CNT_PER_BLK - 1));
@@ -283,7 +283,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)1);
@@ -320,7 +320,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)1);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)1);
@@ -354,7 +354,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)2);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)2);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)1);
@@ -394,7 +394,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)2);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)1);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)2);
@@ -434,7 +434,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)Extent::MAX_BLK_CNT);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
@@ -465,7 +465,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)Extent::MAX_BLK_CNT);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)1);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
@@ -497,7 +497,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)Extent::MAX_BLK_CNT + 1);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)2);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
@@ -536,7 +536,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)Extent::MAX_BLK_CNT + 1);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)2);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
@@ -573,7 +573,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)Extent::MAX_BLK_CNT + 2);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)3);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)1);
 
         EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint16_t)Extent::MAX_BLK_CNT);
@@ -616,7 +616,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)0);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)1);
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
 
@@ -627,7 +627,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)0);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)1);
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
     }
@@ -801,7 +801,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
 
         EXPECT_EQ(segm1.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm1.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm1.exts()[0].is_suballoc(), (bool)true);
         EXPECT_EQ(segm1.exts()[0].subblk_cnt(), (uint8_t)(3));
@@ -869,6 +869,7 @@ namespace {
                     ));
     }
 
+
     TEST(SegmentAllocatorTest, DellocSomeBlksThenAllWithCoalescing) {
         const GlobalParameters gp = {
             .blk_sz = 64,
@@ -890,7 +891,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
 
         EXPECT_EQ(segm1.ext_cnt(), (size_t)2);
-        EXPECT_EQ(segm1.inline_data().size(), (size_t)0);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)0);
 
         EXPECT_EQ(segm1.exts()[0].is_suballoc(), (bool)false);
         EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint8_t)(2));
@@ -974,7 +975,7 @@ namespace {
             .blk_init_cnt = 1
         };
 
-        const uint16_t MaxInlineSize = 4;
+        const uint8_t MaxInlineSize = 4;
 
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(repo, MaxInlineSize);
@@ -997,7 +998,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
 
         EXPECT_EQ(segm1.ext_cnt(), (size_t)0);
-        EXPECT_EQ(segm1.inline_data().size(), (size_t)(MaxInlineSize));
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)(MaxInlineSize));
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
 
@@ -1015,7 +1016,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
 
         EXPECT_EQ(segm2.ext_cnt(), (size_t)1);
-        EXPECT_EQ(segm2.inline_data().size(), (size_t)(0));
+        EXPECT_EQ(segm2.inline_data_sz(), (uint8_t)(0));
 
         EXPECT_EQ(segm2.exts()[0].is_suballoc(), (bool)true);
         EXPECT_EQ(segm2.exts()[0].subblk_cnt(), (uint8_t)(1));
@@ -1047,7 +1048,7 @@ namespace {
         EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
 
         EXPECT_EQ(segm.ext_cnt(), (size_t)0);
-        EXPECT_EQ(segm.inline_data().size(), (size_t)(0));
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(0));
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
 

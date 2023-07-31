@@ -55,7 +55,15 @@ public:
         return uint32_t(arr.size());
     }
 
-    std::vector<uint8_t>& inline_data() { return raw; }
+    std::vector<uint8_t>& inline_data() {
+        assert(inline_present);
+        return raw;
+    }
+
+    uint8_t inline_data_sz() const {
+        // TODO check cast
+        return inline_present ? uint8_t(raw.size()) : 0;
+    }
 
     static Segment read_segment(std::istream& fp, const uint64_t segm_sz) {
         Segment segm;
