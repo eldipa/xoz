@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <list>
 
 #include "xoz/alloc/free_map.h"
@@ -13,6 +14,9 @@
 #include "xoz/repo/repo.h"
 
 class SegmentAllocator {
+public:
+    const static uint8_t StatsExtPerSegmLen = 8;
+
 private:
     Repository& repo;
     uint32_t max_inline_sz;
@@ -24,6 +28,22 @@ private:
 
     float frag_factor;
 
+    uint64_t in_use_by_user_sz;
+    uint64_t in_use_blk_cnt;
+    uint64_t in_use_blk_for_suballoc_cnt;
+    uint64_t in_use_subblk_cnt;
+
+    uint64_t in_use_ext_cnt;
+    uint64_t in_use_inlined_sz;
+
+    uint64_t alloc_call_cnt;
+    uint64_t dealloc_call_cnt;
+
+    uint64_t all_user_sz;
+    uint64_t all_req_sz;
+
+    uint64_t in_use_ext_per_segm[StatsExtPerSegmLen];
+
 public:
     const static uint8_t MaxInlineSize = 8;
 
@@ -34,9 +54,21 @@ public:
             tail(repo),
             fr_map(coalescing_enabled, split_above_threshold),
             subfr_map(),
-            frag_factor(1) {}
+            frag_factor(1),
+            in_use_by_user_sz(0),
+            in_use_blk_cnt(0),
+            in_use_blk_for_suballoc_cnt(0),
+            in_use_subblk_cnt(0),
+            in_use_ext_cnt(0),
+            in_use_inlined_sz(0),
+            alloc_call_cnt(0),
+            dealloc_call_cnt(0),
+            all_user_sz(0),
+            all_req_sz(0) {
+        memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
+    }
 
-    Segment alloc(uint32_t sz) {
+    Segment alloc(const uint32_t sz) {
         //
         //   [------------------------------------------------------] <-- sz
         //   :                                                      :
@@ -67,6 +99,7 @@ public:
 
         Segment segm;
         uint32_t sz_remain = sz;
+        uint32_t avail_sz = 0;
 
         // How many blocks are needed?
         uint32_t blk_cnt_remain = sz_remain / repo.blk_sz();
@@ -147,19 +180,46 @@ public:
         assert(inline_sz == 0);
         assert(sz_remain == 0);
 
+        avail_sz = segm.calc_usable_space_size(repo.blk_sz_order());
+        in_use_by_user_sz += avail_sz;
+        in_use_ext_cnt += segm.ext_cnt();
+        in_use_inlined_sz += segm.inline_data_sz();
+        in_use_blk_cnt += segm.blk_cnt();
+        in_use_subblk_cnt += segm.subblk_cnt();
+
+        calc_ext_per_segm_stats(segm, true);
+
+        all_user_sz += avail_sz;
+        all_req_sz += sz;
+
+        ++alloc_call_cnt;
         return segm;
     no_free_space:
         throw "no free space";
     }
 
     void dealloc(const Segment& segm) {
+        auto sz = segm.calc_usable_space_size(repo.blk_sz_order());
+        auto blk_cnt = 0;
+        auto subblk_cnt = 0;
         for (auto const& ext: segm.exts()) {
             if (ext.is_suballoc()) {
                 subfr_map.dealloc(ext);
+                subblk_cnt += ext.subblk_cnt();
             } else {
                 fr_map.dealloc(ext);
+                blk_cnt += ext.blk_cnt();
             }
         }
+
+        in_use_by_user_sz -= sz;
+        in_use_blk_cnt -= blk_cnt;
+        in_use_subblk_cnt -= subblk_cnt;
+        in_use_ext_cnt -= segm.ext_cnt();
+        in_use_inlined_sz -= segm.inline_data_sz();
+
+        calc_ext_per_segm_stats(segm, false);
+        ++dealloc_call_cnt;
 
         reclaim_free_space_from_subfr_map();
     }
@@ -167,6 +227,116 @@ public:
     void release() {
         reclaim_free_space_from_subfr_map();
         reclaim_free_space_from_fr_map();
+    }
+
+    struct stats_t {
+        // How many bytes are currently used (aka allocated / non-free)?
+        uint64_t in_use_by_user_sz;
+
+        // How many blocks are currently in use?
+        // How many of those blocks are being used for suballocation?
+        // How many subblocks are in use?
+        uint64_t in_use_blk_cnt;
+        uint64_t in_use_blk_for_suballoc_cnt;
+        uint64_t in_use_subblk_cnt;
+
+        // How many extents are there?
+        uint64_t in_use_ext_cnt;
+
+        // How many bytes were inlined?
+        uint64_t in_use_inlined_sz;
+
+        // How many times alloc() / dealloc() were called?
+        // Note: calling dealloc() does not decrement alloc_call_cnt,
+        // both counter are monotonic.
+        uint64_t alloc_call_cnt;
+        uint64_t dealloc_call_cnt;
+
+        // External fragmentation is defined as how many blocks the repository
+        // has (without counting metadata) and how many were allocated by
+        // the Segment allocator.
+        //
+        // The difference, in block count, are the blocks unallocated by
+        // the allocator (aka free) but not released back the repository
+        // (making shrink its size).
+        //
+        // The difference of blocks is then converted to bytes.
+        //
+        // An large number may indicate that the SegmentAllocator is not
+        // doing a good job finding free space for alloc(), or it is not
+        // doing a smart split or the alloc/dealloc pattern is kind of pathological.
+        uint64_t external_frag_sz;
+
+        // Internal fragmentation is defined as how many bytes are allocated
+        // (as both blocks and subblocks and inline) minus how many bytes
+        // were requested by the user/caller. This assumes that the user
+        // will not use the extra space that it is totally wasted.
+        //
+        // This wasted space lives within the block or subblock so it is not
+        // allocable. This means that the space is lost until the segment
+        // that owns it is deallocated.
+        //
+        // An large number may indicate that the inline space is not enough
+        // and more semi-used subblocks are being used instead or that
+        // suballocation is disabled forcing the SegmentAllocator to use
+        // full blocks (and the user data is clearly not a multiple of
+        // the block size hence the internal fragmentation).
+        uint64_t internal_frag_sz;
+
+        // This internal fragmentation is defined as the blocks allocated
+        // for suballocation (in bytes) minus the subblocks in use (in bytes).
+        //
+        // This wasted space lives within the blocks for suballocation
+        // and can be allocated in future calls to alloc() without requiring
+        // deallocating first the segment that owns that block.
+        //
+        // An large number may indicate that there are a lot of blocks
+        // for suballocation semi-used. Some it is expected but if the
+        // number is too large it may indicate that different segments
+        // are not reusing the same block for their suballocation.
+        uint64_t allocable_internal_frag_sz;
+
+        // Count how many segments are that have certain count of extents
+        // as a measure of the "split-ness", "spread" or "data fragmentation".
+        //
+        // For the first 5 indexes (array[0] to array[4] inclusive), the count is for
+        // segments with 0 to 4 extents (inclusive).
+        // For array[5], segments with from 5 to 8 extents (inclusive)
+        // For array[6], segments with from 9 to 16 extents (inclusive)
+        // For array[7], segments with 17 or more extents
+        uint64_t in_use_ext_per_segm[StatsExtPerSegmLen];
+    };
+
+    struct stats_t stats() const {
+        uint64_t external_frag_sz = (repo.data_blk_cnt() - in_use_blk_cnt) << repo.blk_sz_order();
+
+        uint64_t internal_frag_sz = all_user_sz - all_req_sz;
+
+        uint64_t allocable_internal_frag_sz =
+                ((in_use_blk_for_suballoc_cnt << repo.blk_sz_order()) -
+                 ((in_use_subblk_cnt << (repo.blk_sz_order() - Extent::SUBBLK_SIZE_ORDER))));
+
+        struct stats_t st = {.in_use_by_user_sz = in_use_by_user_sz,
+                             .in_use_blk_cnt = in_use_blk_cnt,
+                             .in_use_blk_for_suballoc_cnt = in_use_blk_for_suballoc_cnt,
+                             .in_use_subblk_cnt = in_use_subblk_cnt,
+
+                             .in_use_ext_cnt = in_use_ext_cnt,
+                             .in_use_inlined_sz = in_use_inlined_sz,
+
+                             .alloc_call_cnt = alloc_call_cnt,
+                             .dealloc_call_cnt = dealloc_call_cnt,
+
+                             .external_frag_sz = external_frag_sz,
+                             .internal_frag_sz = internal_frag_sz,
+
+                             .allocable_internal_frag_sz = allocable_internal_frag_sz,
+
+                             .in_use_ext_per_segm = {0}};
+
+        memcpy(st.in_use_ext_per_segm, in_use_ext_per_segm, sizeof(st.in_use_ext_per_segm));
+
+        return st;
     }
 
 
@@ -293,6 +463,8 @@ private:
         auto result = fr_map.alloc(1);
         if (result.success) {
             subfr_map.provide(result.ext);
+            in_use_blk_for_suballoc_cnt += result.ext.blk_cnt();
+            in_use_blk_cnt += result.ext.blk_cnt();
             return true;
         }
 
@@ -316,13 +488,43 @@ private:
 
     void reclaim_free_space_from_subfr_map() {
         std::list<Extent> reclaimed;
+        uint32_t blk_cnt = 0;
 
         for (auto it = subfr_map.cbegin_full_blk(); it != subfr_map.cend_full_blk(); ++it) {
             const auto ext = it->as_not_suballoc();
             fr_map.dealloc(ext);
             reclaimed.push_back(ext);
+            blk_cnt += ext.blk_cnt();
         }
 
         subfr_map.release(reclaimed);
+        in_use_blk_for_suballoc_cnt -= blk_cnt;
+        in_use_blk_cnt -= blk_cnt;
+    }
+
+    void calc_ext_per_segm_stats(const Segment& segm, bool is_alloc) {
+        auto ext_cnt = segm.ext_cnt();
+
+        // Ext count: 0 1 2 3 4
+        auto index = ext_cnt;
+        if (ext_cnt > 4) {
+            // Ext count: [5 8] (8 16] (16 inf)
+            index = 4;
+            if (ext_cnt <= 8) {
+                index += 1;
+            } else if (ext_cnt <= 16) {
+                index += 2;
+            } else {
+                index += 3;
+            }
+        }
+
+        assert(StatsExtPerSegmLen == 8);  // cppcheck-suppress knownConditionTrueFalse
+
+        if (is_alloc) {
+            ++in_use_ext_per_segm[index];
+        } else {
+            --in_use_ext_per_segm[index];
+        }
     }
 };

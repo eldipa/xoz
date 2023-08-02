@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <numeric>
 #include <vector>
 
 #include "xoz/ext/extent.h"
@@ -53,6 +54,18 @@ public:
     uint32_t ext_cnt() const {
         // TODO check cast
         return uint32_t(arr.size());
+    }
+
+    uint32_t blk_cnt() const {
+        return std::accumulate(arr.cbegin(), arr.cend(), 0, [](uint32_t cnt, const Extent& ext) {
+            return cnt + (ext.is_suballoc() ? 0 : ext.blk_cnt());
+        });
+    }
+
+    uint32_t subblk_cnt() const {
+        return std::accumulate(arr.cbegin(), arr.cend(), 0, [](uint32_t cnt, const Extent& ext) {
+            return cnt + (ext.is_suballoc() ? ext.subblk_cnt() : 0);
+        });
     }
 
     std::vector<uint8_t>& inline_data() {
