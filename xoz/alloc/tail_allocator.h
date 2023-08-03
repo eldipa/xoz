@@ -23,4 +23,6 @@ public:
     bool dealloc(const Extent& ext);
 
     bool dealloc(const uint32_t blk_nr, const uint16_t blk_cnt);
+
+    bool is_at_the_end(const Extent& ext) const;
 };
