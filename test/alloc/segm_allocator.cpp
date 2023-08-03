@@ -1802,7 +1802,7 @@ namespace {
         const uint16_t segm_frag_threshold = 1;
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, true, 0, segm_frag_threshold);
+        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, true, 0);
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -1848,7 +1848,7 @@ namespace {
         // This translate in the repository to grow by 1 block and not
         // by 2.
 
-        Segment segm = sg_alloc.alloc(repo.blk_sz() * 2);
+        Segment segm = sg_alloc.alloc(repo.blk_sz() * 2, segm_frag_threshold);
 
         EXPECT_EQ(segm.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
 
@@ -1891,7 +1891,7 @@ namespace {
         const uint16_t segm_frag_threshold = 1;
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, false, 0, segm_frag_threshold);
+        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, false, 0);
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -1931,7 +1931,7 @@ namespace {
         // the allocator is forced to allocate the requested blocks without
         // the possibility to combine it with the last free blocks (even
         // if the combination results in a single contiguos extent).
-        Segment segm = sg_alloc.alloc(repo.blk_sz() * 2);
+        Segment segm = sg_alloc.alloc(repo.blk_sz() * 2, segm_frag_threshold);
 
         EXPECT_EQ(segm.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
 
@@ -1968,7 +1968,7 @@ namespace {
         const uint16_t segm_frag_threshold = 2;
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, true, 0, segm_frag_threshold);
+        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, true, 0);
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -1999,7 +1999,7 @@ namespace {
 
         // Because we allow up to a segment fragmentation of 2, this 2-block
         // request can be fulfilled allocation 2 separated 1-block extents
-        Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 2);
+        Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 2, segm_frag_threshold);
 
         EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
 
@@ -2029,7 +2029,7 @@ namespace {
         // Because there is no 2-block extents free, this alloc will
         // force the tail allocator to alloc more blocks and the repo
         // will grow (by 1 block)
-        Segment segm2 = sg_alloc.alloc(repo.blk_sz() * 3);
+        Segment segm2 = sg_alloc.alloc(repo.blk_sz() * 3, segm_frag_threshold);
 
         EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 3));
 
@@ -2056,7 +2056,7 @@ namespace {
                     Extent(13, 1, false)
                     ));
 
-        Segment segm3 = sg_alloc.alloc(repo.blk_sz() * 4);
+        Segment segm3 = sg_alloc.alloc(repo.blk_sz() * 4, segm_frag_threshold);
 
         EXPECT_EQ(segm3.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 4));
 
@@ -2094,7 +2094,7 @@ namespace {
         const uint16_t segm_frag_threshold = 3;
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, true, 0, segm_frag_threshold);
+        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, true, 0);
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2125,7 +2125,7 @@ namespace {
 
         // Because we allow up to a segment fragmentation of 3, this 2-block
         // request can be fulfilled allocation 2 separated 1-block extents
-        Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 2);
+        Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 2, segm_frag_threshold);
 
         EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
 
@@ -2152,7 +2152,7 @@ namespace {
 
         // This 3-block request can be fulfilled with three 1-block
         // block extents.
-        Segment segm2 = sg_alloc.alloc(repo.blk_sz() * 3);
+        Segment segm2 = sg_alloc.alloc(repo.blk_sz() * 3, segm_frag_threshold);
 
         EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 3));
 
@@ -2177,7 +2177,7 @@ namespace {
                     Extent(15, 1, false)
                     ));
 
-        Segment segm3 = sg_alloc.alloc(repo.blk_sz() * 4);
+        Segment segm3 = sg_alloc.alloc(repo.blk_sz() * 4, segm_frag_threshold);
 
         EXPECT_EQ(segm3.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 4));
 

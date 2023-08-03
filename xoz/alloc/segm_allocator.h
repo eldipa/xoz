@@ -28,8 +28,6 @@ private:
 
     bool coalescing_enabled;
 
-    uint16_t segm_frag_threshold;
-
     uint64_t in_use_by_user_sz;
     uint64_t in_use_blk_cnt;
     uint64_t in_use_blk_for_suballoc_cnt;
@@ -50,14 +48,13 @@ public:
     const static uint8_t MaxInlineSize = 8;
 
     explicit SegmentAllocator(Repository& repo, uint8_t max_inline_sz = MaxInlineSize, bool coalescing_enabled = true,
-                              uint16_t split_above_threshold = 0, uint16_t segm_frag_threshold = 0):
+                              uint16_t split_above_threshold = 0):
             repo(repo),
             max_inline_sz(max_inline_sz),
             tail(repo),
             fr_map(coalescing_enabled, split_above_threshold),
             subfr_map(),
             coalescing_enabled(coalescing_enabled),
-            segm_frag_threshold(segm_frag_threshold),
             in_use_by_user_sz(0),
             in_use_blk_cnt(0),
             in_use_blk_for_suballoc_cnt(0),
@@ -71,7 +68,7 @@ public:
         memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
     }
 
-    Segment alloc(const uint32_t sz) {
+    Segment alloc(const uint32_t sz, uint16_t segm_frag_threshold = 0) {
         //
         //   [------------------------------------------------------] <-- sz
         //   :                                                      :
@@ -134,13 +131,13 @@ public:
         // but instead reusing free space already present even if
         // that means to fragment the segment a little more
         if (blk_cnt_remain) {
-            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, false, false);
+            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, segm_frag_threshold, false, false);
         }
 
         // If we still require to allocate more blocks, just allow
         // to expand the repository to get more free space
         if (blk_cnt_remain) {
-            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, true, true);
+            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, segm_frag_threshold, true, true);
         }
 
         if (blk_cnt_remain) {
@@ -346,8 +343,8 @@ public:
     }
 
 private:
-    uint32_t allocate_extents(Segment& segm, uint32_t blk_cnt_remain, bool ignore_segm_frag_threshold,
-                              bool use_parent) {
+    uint32_t allocate_extents(Segment& segm, uint32_t blk_cnt_remain, uint16_t segm_frag_threshold,
+                              bool ignore_segm_frag_threshold, bool use_parent) {
         uint32_t current_segm_frag = segm.ext_cnt() <= 1 ? 0 : (segm.ext_cnt() - 1);
 
         bool frag_level_ok = (current_segm_frag < segm_frag_threshold) or ignore_segm_frag_threshold;
