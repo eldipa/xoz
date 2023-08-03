@@ -26,7 +26,9 @@ private:
     FreeMap fr_map;
     SubBlockFreeMap subfr_map;
 
-    float frag_factor;
+    bool coalescing_enabled;
+
+    uint16_t segm_frag_threshold;
 
     uint64_t in_use_by_user_sz;
     uint64_t in_use_blk_cnt;
@@ -48,13 +50,14 @@ public:
     const static uint8_t MaxInlineSize = 8;
 
     explicit SegmentAllocator(Repository& repo, uint8_t max_inline_sz = MaxInlineSize, bool coalescing_enabled = true,
-                              uint16_t split_above_threshold = 0):
+                              uint16_t split_above_threshold = 0, uint16_t segm_frag_threshold = 0):
             repo(repo),
             max_inline_sz(max_inline_sz),
             tail(repo),
             fr_map(coalescing_enabled, split_above_threshold),
             subfr_map(),
-            frag_factor(1),
+            coalescing_enabled(coalescing_enabled),
+            segm_frag_threshold(segm_frag_threshold),
             in_use_by_user_sz(0),
             in_use_blk_cnt(0),
             in_use_blk_for_suballoc_cnt(0),
@@ -127,29 +130,17 @@ public:
             subblk_cnt_remain = 0;
         }
 
-
-        // Count how many extent are we are going to need (in the best
-        // scenario where we can fit large sequences of blocks without
-        // fragmentation).
-        //
-        // On top of that, add some slack for fragmentation
-        // (frag_factor > 1);
-        //
-        // TODO check float-to-int and back conversions + overflows
-        // USE ORDER
-        const uint32_t max_ext_cnt = uint32_t((float(blk_cnt_remain) / Extent::MAX_BLK_CNT) * frag_factor) + 1;
-
         // Allocate extents trying to not expand the repository
         // but instead reusing free space already present even if
         // that means to fragment the segment a little more
         if (blk_cnt_remain) {
-            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, max_ext_cnt, false, false);
+            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, false, false);
         }
 
         // If we still require to allocate more blocks, just allow
         // to expand the repository to get more free space
         if (blk_cnt_remain) {
-            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, max_ext_cnt, true, true);
+            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, true, true);
         }
 
         if (blk_cnt_remain) {
@@ -355,25 +346,11 @@ public:
     }
 
 private:
-    uint32_t allocate_extents(Segment& segm, uint32_t blk_cnt_remain, uint32_t max_ext_cnt, bool ignore_max_ext_cnt,
+    uint32_t allocate_extents(Segment& segm, uint32_t blk_cnt_remain, bool ignore_segm_frag_threshold,
                               bool use_parent) {
-        uint32_t allocated = segm.ext_cnt();
-        uint32_t predicted_remaining = (blk_cnt_remain / Extent::MAX_BLK_CNT) + 1;
+        uint32_t current_segm_frag = segm.ext_cnt() <= 1 ? 0 : (segm.ext_cnt() - 1);
 
-        // Given N extents already allocated and assuming a perfect world where
-        // we can allocate M extents more for the blk_cnt_remain request.
-        //
-        // The segment would end up having N+M extents. If that is below the
-        // max_ext_cnt limit (or the limit is ignored), we continue doing
-        // allocations even if in the reality we do allocations smaller
-        // than in a perfect would.
-        //
-        // Eventually or we complete and leave blk_cnt_remain to 0 or we reach
-        // the limit (because we are allocating too small extents). In that case
-        // we stop to avoid further fragmentation.
-        //
-        // If ignore_max_ext_cnt is set, we keep allocating.
-        bool frag_level_ok = (allocated + predicted_remaining < max_ext_cnt) or ignore_max_ext_cnt;
+        bool frag_level_ok = (current_segm_frag < segm_frag_threshold) or ignore_segm_frag_threshold;
 
         // Block count "probe" or "try" to allocate
         uint32_t blk_cnt_probe = (uint16_t)(-1);
@@ -391,12 +368,9 @@ private:
                 assert(blk_cnt_probe == result.ext.blk_cnt());
 
                 segm.add_extent(result.ext);
+                ++current_segm_frag;
 
-                ++allocated;
                 blk_cnt_remain -= result.ext.blk_cnt();
-                predicted_remaining = (blk_cnt_remain / Extent::MAX_BLK_CNT) + 1;
-
-                frag_level_ok = (allocated + predicted_remaining < max_ext_cnt) or ignore_max_ext_cnt;
 
             } else {
                 if (use_parent) {
@@ -418,8 +392,11 @@ private:
                     // Try to allocate this new (smaller) block count per extent
                     // from now and on
                     blk_cnt_probe = closest_free_blk_cnt;
+                    ++current_segm_frag;
                 }
             }
+
+            frag_level_ok = (current_segm_frag < segm_frag_threshold) or ignore_segm_frag_threshold;
         }
 
         return blk_cnt_remain;
@@ -450,6 +427,14 @@ private:
     }
 
     bool provide_more_space_to_fr_map(uint16_t blk_cnt) {
+        if (coalescing_enabled) {
+            auto last_free_it = fr_map.crbegin_by_blk_nr();
+            if (last_free_it != fr_map.crend_by_blk_nr() and tail.is_at_the_end(*last_free_it)) {
+                auto extendable_cnt = last_free_it->blk_cnt();
+                blk_cnt = (blk_cnt <= extendable_cnt) ? 0 : (blk_cnt - extendable_cnt);
+            }
+        }
+
         auto result = tail.alloc(blk_cnt);
         if (result.success) {
             fr_map.provide(result.ext);

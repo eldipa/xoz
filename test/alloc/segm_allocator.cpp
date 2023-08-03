@@ -1791,5 +1791,417 @@ namespace {
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
     }
+
+    TEST(SegmentAllocatorTest, ForceTailAllocCoalescedWithFree) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        const uint16_t segm_frag_threshold = 1;
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, true, 0, segm_frag_threshold);
+
+        // Alloc 15 segments, each of 1 block size
+        std::vector<Segment> segments;
+        for (size_t i = 0; i < 15; ++i) {
+            auto segm = sg_alloc.alloc(repo.blk_sz());
+            segments.push_back(segm);
+        }
+
+        // Now, dealloc every 2 segment, leaving an alternating allocated/free pattern
+        for (size_t i = 0; i < segments.size(); i += 2) {
+            sg_alloc.dealloc(segments[i]);
+        }
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(3, 1, false),
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // Now, let's see what happen if we try to allocate an segment
+        // of 2 blocks where there is no single 2-block extent free.
+        //
+        // Because split_above_threshold is 0, the allocator is not
+        // allowed to split the 2 blocks into 2 extents of 1 block each,
+        // forcing the allocator to request more space from the repository.
+        //
+        // Because SegmentAllocator is configured with coalescing enabled,
+        // the request of 2 blocks can be fulfilled using the last free
+        // 1-block extent plus a new 1-block extent from the repository.
+        //
+        // This is possible because the free extent is at the end of the
+        // free map and it will be coalesced with any new extent.
+        //
+        // This translate in the repository to grow by 1 block and not
+        // by 2.
+
+        Segment segm = sg_alloc.alloc(repo.blk_sz() * 2);
+
+        EXPECT_EQ(segm.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)17);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)16);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)(2));
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(15));
+
+        // Note how the free map didn't change *except*
+        // the last extent at the end of the repository *before*
+        // the last allocation that it is *not* longer free.
+        //
+        // This is because SegmentAllocator used to partially fulfill
+        // the request.
+        //
+        // This works only if coalescing is enabled.
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(3, 1, false),
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false)
+                    ));
+    }
+
+    TEST(SegmentAllocatorTest, ForceTailAllocButCoalescedIsDisabled) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        const uint16_t segm_frag_threshold = 1;
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, false, 0, segm_frag_threshold);
+
+        // Alloc 15 segments, each of 1 block size
+        std::vector<Segment> segments;
+        for (size_t i = 0; i < 15; ++i) {
+            auto segm = sg_alloc.alloc(repo.blk_sz());
+            segments.push_back(segm);
+        }
+
+        // Now, dealloc every 2 segment, leaving an alternating allocated/free pattern
+        for (size_t i = 0; i < segments.size(); i += 2) {
+            sg_alloc.dealloc(segments[i]);
+        }
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(3, 1, false),
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // Now, let's see what happen if we try to allocate an segment
+        // of 2 blocks where there is no single 2-block extent free.
+        //
+        // Because split_above_threshold is 0, the allocator is not
+        // allowed to split the 2 blocks into 2 extents of 1 block each,
+        // forcing the allocator to request more space from the repository.
+        //
+        // Because SegmentAllocator is configured with coalescing disabled,
+        // the allocator is forced to allocate the requested blocks without
+        // the possibility to combine it with the last free blocks (even
+        // if the combination results in a single contiguos extent).
+        Segment segm = sg_alloc.alloc(repo.blk_sz() * 2);
+
+        EXPECT_EQ(segm.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)18);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)17);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)(2));
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(16));
+
+        // Note how the free map didn't change
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(3, 1, false),
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+    }
+
+    TEST(SegmentAllocatorTest, ForceSplitOnce) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        const uint16_t segm_frag_threshold = 2;
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, true, 0, segm_frag_threshold);
+
+        // Alloc 15 segments, each of 1 block size
+        std::vector<Segment> segments;
+        for (size_t i = 0; i < 15; ++i) {
+            auto segm = sg_alloc.alloc(repo.blk_sz());
+            segments.push_back(segm);
+        }
+
+        // Now, dealloc every 2 segment, leaving an alternating allocated/free pattern
+        for (size_t i = 0; i < segments.size(); i += 2) {
+            sg_alloc.dealloc(segments[i]);
+        }
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(3, 1, false),
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // Because we allow up to a segment fragmentation of 2, this 2-block
+        // request can be fulfilled allocation 2 separated 1-block extents
+        Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 2);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)2);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(1));
+        EXPECT_EQ(segm1.exts()[1].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm1.exts()[1].blk_nr(), (uint32_t)(3));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // This 3-block request can be fulfilled with one 1-block
+        // and one 2-block extents.
+        // Because there is no 2-block extents free, this alloc will
+        // force the tail allocator to alloc more blocks and the repo
+        // will grow (by 1 block)
+        Segment segm2 = sg_alloc.alloc(repo.blk_sz() * 3);
+
+        EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 3));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)17);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)16);
+
+        EXPECT_EQ(segm2.ext_cnt(), (size_t)2);
+        EXPECT_EQ(segm2.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm2.exts()[0].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm2.exts()[0].blk_nr(), (uint32_t)(5));
+        EXPECT_EQ(segm2.exts()[1].blk_cnt(), (uint8_t)(2));
+        EXPECT_EQ(segm2.exts()[1].blk_nr(), (uint32_t)(15));
+
+        // Note how the free extent at blk nr 5 was used and also
+        // the one at blk nr 15. This last one, of 1-block, was coalesced
+        // with the 1-block new (tail allocator) to fulfill the remaining
+        // 2-blocks.
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false)
+                    ));
+
+        Segment segm3 = sg_alloc.alloc(repo.blk_sz() * 4);
+
+        EXPECT_EQ(segm3.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 4));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)20);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)19);
+
+        EXPECT_EQ(segm3.ext_cnt(), (size_t)2);
+        EXPECT_EQ(segm3.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm3.exts()[0].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm3.exts()[0].blk_nr(), (uint32_t)(7));
+        EXPECT_EQ(segm3.exts()[1].blk_cnt(), (uint8_t)(3));
+        EXPECT_EQ(segm3.exts()[1].blk_nr(), (uint32_t)(17));
+
+        // Note how the free extent at blk nr 7 was used to fill 1-block.
+        // For the remaining 3-blocks an entire 2-block was obtained
+        // from the repository.
+        // The last free extent at blk nr 13 was *not* used because
+        // it is not at the end of the repository.
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false)
+                    ));
+    }
+
+    TEST(SegmentAllocatorTest, ForceSplitTwice) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        const uint16_t segm_frag_threshold = 3;
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, SegmentAllocator::MaxInlineSize, true, 0, segm_frag_threshold);
+
+        // Alloc 15 segments, each of 1 block size
+        std::vector<Segment> segments;
+        for (size_t i = 0; i < 15; ++i) {
+            auto segm = sg_alloc.alloc(repo.blk_sz());
+            segments.push_back(segm);
+        }
+
+        // Now, dealloc every 2 segment, leaving an alternating allocated/free pattern
+        for (size_t i = 0; i < segments.size(); i += 2) {
+            sg_alloc.dealloc(segments[i]);
+        }
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(3, 1, false),
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // Because we allow up to a segment fragmentation of 3, this 2-block
+        // request can be fulfilled allocation 2 separated 1-block extents
+        Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 2);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)2);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(1));
+        EXPECT_EQ(segm1.exts()[1].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm1.exts()[1].blk_nr(), (uint32_t)(3));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // This 3-block request can be fulfilled with three 1-block
+        // block extents.
+        Segment segm2 = sg_alloc.alloc(repo.blk_sz() * 3);
+
+        EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 3));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        EXPECT_EQ(segm2.ext_cnt(), (size_t)3);
+        EXPECT_EQ(segm2.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm2.exts()[0].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm2.exts()[0].blk_nr(), (uint32_t)(5));
+        EXPECT_EQ(segm2.exts()[1].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm2.exts()[1].blk_nr(), (uint32_t)(7));
+        EXPECT_EQ(segm2.exts()[2].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm2.exts()[2].blk_nr(), (uint32_t)(9));
+
+        // All the 3 blks were taken from three 1-block extents already free
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        Segment segm3 = sg_alloc.alloc(repo.blk_sz() * 4);
+
+        EXPECT_EQ(segm3.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 4));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)17);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)16);
+
+        EXPECT_EQ(segm3.ext_cnt(), (size_t)3);
+        EXPECT_EQ(segm3.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm3.exts()[0].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm3.exts()[0].blk_nr(), (uint32_t)(11));
+        EXPECT_EQ(segm3.exts()[1].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm3.exts()[1].blk_nr(), (uint32_t)(13));
+        EXPECT_EQ(segm3.exts()[2].blk_cnt(), (uint8_t)(2));
+        EXPECT_EQ(segm3.exts()[2].blk_nr(), (uint32_t)(15));
+
+        // This last 4-block allocation consumed the first two 1-block free extents.
+        // The third and last free extent was of 1-block size so it couldn't
+        // fulfill the remaining 2-blocks.
+        // This forced to the repo to grow by 1 block, coalesce that
+        // block with the last block free to form a 2-block extent
+        // and use that to fulfill the request.
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+    }
 }
 
