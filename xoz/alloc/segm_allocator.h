@@ -66,8 +66,9 @@ public:
         uint64_t in_use_blk_for_suballoc_cnt;
         uint64_t in_use_subblk_cnt;
 
-        // How many extents are there?
+        // How many extents are there? And segments?
         uint64_t in_use_ext_cnt;
+        uint64_t in_use_segment_cnt;
 
         // How many bytes were inlined?
         uint64_t in_use_inlined_sz;
@@ -92,6 +93,8 @@ public:
         // doing a good job finding free space for alloc(), or it is not
         // doing a smart split or the alloc/dealloc pattern is kind of pathological.
         uint64_t external_frag_sz;
+        double external_frag_sz_kb;
+        double external_frag_rel;
 
         // Internal fragmentation is defined as how many bytes are allocated
         // (as both blocks and subblocks and inline) minus how many bytes
@@ -108,6 +111,8 @@ public:
         // full blocks (and the user data is clearly not a multiple of
         // the block size hence the internal fragmentation).
         uint64_t internal_frag_sz;
+        double internal_frag_sz_kb;
+        double internal_frag_rel;
 
         // This internal fragmentation is defined as the blocks allocated
         // for suballocation (in bytes) minus the subblocks in use (in bytes).
@@ -121,6 +126,8 @@ public:
         // number is too large it may indicate that different segments
         // are not reusing the same block for their suballocation.
         uint64_t allocable_internal_frag_sz;
+        double allocable_internal_frag_sz_kb;
+        double allocable_internal_frag_rel;
 
         // Count how many segments are that have certain count of extents
         // as a measure of the "split-ness", "spread" or "data fragmentation".
@@ -149,6 +156,10 @@ public:
         return const_iterator_by_blk_nr_t(fr_map.cend_by_blk_nr(), fr_map.cend_by_blk_nr(), subfr_map.cend_by_blk_nr(),
                                           subfr_map.cend_by_blk_nr());
     }
+
+    // Pretty print. The signature of the method is required
+    // by GoogleTest
+    friend void PrintTo(const SegmentAllocator& alloc, std::ostream* out);
 
 private:
     uint32_t allocate_extents(Segment& segm, uint32_t blk_cnt_remain, uint16_t segm_frag_threshold,
