@@ -19,7 +19,6 @@ public:
 
 private:
     Repository& repo;
-    uint32_t max_inline_sz;
 
     TailAllocator tail;
 
@@ -45,12 +44,8 @@ private:
     uint64_t in_use_ext_per_segm[StatsExtPerSegmLen];
 
 public:
-    const static uint8_t MaxInlineSize = 8;
-
-    explicit SegmentAllocator(Repository& repo, uint8_t max_inline_sz = MaxInlineSize, bool coalescing_enabled = true,
-                              uint16_t split_above_threshold = 0):
+    explicit SegmentAllocator(Repository& repo, bool coalescing_enabled = true, uint16_t split_above_threshold = 0):
             repo(repo),
-            max_inline_sz(max_inline_sz),
             tail(repo),
             fr_map(coalescing_enabled, split_above_threshold),
             subfr_map(),
@@ -68,7 +63,15 @@ public:
         memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
     }
 
-    Segment alloc(const uint32_t sz, uint16_t segm_frag_threshold = 0) {
+    struct req_t {
+        uint16_t segm_frag_threshold;
+        uint8_t max_inline_sz;
+        bool allow_suballoc;
+    };
+
+    constexpr static struct req_t DefaultReq = {.segm_frag_threshold = 2, .max_inline_sz = 8, .allow_suballoc = true};
+
+    Segment alloc(const uint32_t sz, const struct req_t& req = SegmentAllocator::DefaultReq) {
         //
         //   [------------------------------------------------------] <-- sz
         //   :                                                      :
@@ -115,7 +118,7 @@ public:
 
         // Backpressure: if inline sz is greater than the limit,
         // put it into its own subblock
-        if (inline_sz > max_inline_sz) {
+        if (inline_sz > req.max_inline_sz) {
             ++subblk_cnt_remain;
             inline_sz = 0;
         }
@@ -131,13 +134,13 @@ public:
         // but instead reusing free space already present even if
         // that means to fragment the segment a little more
         if (blk_cnt_remain) {
-            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, segm_frag_threshold, false, false);
+            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, req.segm_frag_threshold, false, false);
         }
 
         // If we still require to allocate more blocks, just allow
         // to expand the repository to get more free space
         if (blk_cnt_remain) {
-            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, segm_frag_threshold, true, true);
+            blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, req.segm_frag_threshold, true, true);
         }
 
         if (blk_cnt_remain) {
