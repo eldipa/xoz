@@ -860,6 +860,74 @@ namespace {
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,1,0,0,0,0));
     }
 
+    TEST(SegmentAllocatorTest, AllocWithoutSuballoc) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        const SegmentAllocator::req_t req = {
+            .segm_frag_threshold = 2,
+            .max_inline_sz = 4,
+            .allow_suballoc = false
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo);
+
+        // This will not require a full block because it fits in the inline space
+        Segment segm1 = sg_alloc.alloc(req.max_inline_sz, req);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(req.max_inline_sz));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)(1));
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)req.max_inline_sz);
+
+
+        // This will require a full block because it doesn't fit in the inline space
+        // and suballoc is disabled
+        Segment segm2 = sg_alloc.alloc(req.max_inline_sz + 1, req);
+
+        EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz()));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)(2));
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        EXPECT_EQ(segm2.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm2.inline_data_sz(), (uint8_t)0);
+
+        EXPECT_EQ(segm2.exts()[0].is_suballoc(), (bool)false);
+        EXPECT_EQ(segm2.exts()[0].blk_cnt(), (uint16_t)1);
+        EXPECT_EQ(segm2.exts()[0].blk_nr(), (uint32_t)(1));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+
+        auto stats = sg_alloc.stats();
+
+        EXPECT_EQ(stats.in_use_by_user_sz, uint64_t(req.max_inline_sz + repo.blk_sz()));
+        EXPECT_EQ(stats.in_use_blk_cnt, uint64_t(1));
+        EXPECT_EQ(stats.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats.in_use_ext_cnt, uint64_t(1));
+        EXPECT_EQ(stats.in_use_inlined_sz, uint64_t(req.max_inline_sz));
+
+        EXPECT_EQ(stats.alloc_call_cnt, uint64_t(2));
+        EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_sz, uint64_t(repo.blk_sz() - (req.max_inline_sz + 1)));
+        EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(1,1,0,0,0,0,0,0));
+    }
+
     TEST(SegmentAllocatorTest, DeallocNoneAsAllItsInlined) {
         const GlobalParameters gp = {
             .blk_sz = 64,

@@ -109,8 +109,13 @@ public:
         sz_remain = sz_remain % repo.blk_sz();
 
         // How many sub blocks are needed?
-        uint32_t subblk_cnt_remain = sz_remain / repo.subblk_sz();
-        sz_remain = sz_remain % repo.subblk_sz();
+        uint32_t subblk_cnt_remain;
+        if (req.allow_suballoc) {
+            subblk_cnt_remain = sz_remain / repo.subblk_sz();
+            sz_remain = sz_remain % repo.subblk_sz();
+        } else {
+            subblk_cnt_remain = 0;
+        }
 
         // How many bytes are going to be inline'd?
         uint32_t inline_sz = sz_remain;
@@ -119,7 +124,13 @@ public:
         // Backpressure: if inline sz is greater than the limit,
         // put it into its own subblock
         if (inline_sz > req.max_inline_sz) {
-            ++subblk_cnt_remain;
+            if (req.allow_suballoc) {
+                assert(inline_sz <= repo.subblk_sz());
+                ++subblk_cnt_remain;
+            } else {
+                assert(inline_sz <= repo.blk_sz());
+                ++blk_cnt_remain;
+            }
             inline_sz = 0;
         }
 
