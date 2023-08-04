@@ -1,0 +1,4 @@
+include_rules
+:foreach *.cpp |> !compile -I../ |>
+: *.o ../xoz/libxoz.a |> !build-prog |> allocdemo
+

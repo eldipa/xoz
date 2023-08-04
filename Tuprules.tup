@@ -17,3 +17,5 @@ GTESTLIBS = -lgtest -lpthread
 
 !compile-test = |> g++ -c $(CXXFLAGS) $(GTESTFLAGS) %f -o %o |> %B.o
 !build-runtests = |> g++ $(CXXFLAGS) $(GTESTFLAGS) %f -o %o $(GTESTLIBS) $(CXXLIBS) |>
+
+!build-prog = |> g++ $(CXXFLAGS) %f -o %o $(CXXLIBS) |>
