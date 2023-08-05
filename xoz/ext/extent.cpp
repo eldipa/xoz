@@ -4,6 +4,8 @@
 #include <iomanip>
 
 void PrintTo(const Extent& ext, std::ostream* out) {
+    std::ios_base::fmtflags ioflags = out->flags();
+
     if (ext.is_suballoc()) {
         (*out) << std::setfill('0') << std::setw(5) << std::hex << ext.blk_nr() << " [" << std::setfill('0')
                << std::setw(16) << std::bitset<16>(ext.blk_bitmap()) << "]";
@@ -12,6 +14,8 @@ void PrintTo(const Extent& ext, std::ostream* out) {
                << std::setw(5) << std::hex << ext.blk_nr() + ext.blk_cnt() << " [" << std::setfill(' ') << std::setw(4)
                << ext.blk_cnt() << "]";
     }
+
+    out->flags(ioflags);
 
     /*
      * The following is an untested version of the code above

@@ -418,6 +418,7 @@ void SegmentAllocator::calc_ext_per_segm_stats(const Segment& segm, bool is_allo
 
 void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
     struct SegmentAllocator::stats_t st = alloc.stats();
+    std::ios_base::fmtflags ioflags = out->flags();
 
     (*out) << "Calls to alloc:   " << std::setfill(' ') << std::setw(8) << st.alloc_call_cnt << "\n"
            << "Calls to dealloc: " << std::setfill(' ') << std::setw(8) << st.dealloc_call_cnt << "\n"
@@ -463,5 +464,6 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
            << "- 17 to * extents: " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[7] << " segments\n"
            << "\n";
 
+    out->flags(ioflags);
     assert(SegmentAllocator::StatsExtPerSegmLen == 8);
 }
