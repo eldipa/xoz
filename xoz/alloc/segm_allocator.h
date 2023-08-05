@@ -58,6 +58,7 @@ public:
     struct stats_t {
         // How many bytes are currently used (aka allocated / non-free)?
         uint64_t in_use_by_user_sz;
+        double in_use_by_user_sz_kb;
 
         // How many blocks are currently in use?
         // How many of those blocks are being used for suballocation?

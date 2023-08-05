@@ -216,7 +216,10 @@ SegmentAllocator::stats_t SegmentAllocator::stats() const {
 
     uint64_t in_use_segment_cnt = alloc_call_cnt - dealloc_call_cnt;
 
+    double in_use_by_user_sz_kb = double(in_use_by_user_sz) / double(1024.0);
+
     struct stats_t st = {.in_use_by_user_sz = in_use_by_user_sz,
+                         .in_use_by_user_sz_kb = in_use_by_user_sz_kb,
                          .in_use_blk_cnt = in_use_blk_cnt,
                          .in_use_blk_for_suballoc_cnt = in_use_blk_for_suballoc_cnt,
                          .in_use_subblk_cnt = in_use_subblk_cnt,
@@ -420,11 +423,11 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
            << "Calls to dealloc: " << std::setfill(' ') << std::setw(8) << st.dealloc_call_cnt << "\n"
            << "\n"
 
-           << "In use by user:   " << std::setfill(' ') << std::setw(8) << st.in_use_by_user_sz << " kb\n"
+           << "In use by user:   " << std::setfill(' ') << std::setw(8) << st.in_use_by_user_sz_kb << " kb\n"
            << "\n"
 
            << "Blocks in use:    " << std::setfill(' ') << std::setw(8) << st.in_use_blk_cnt << " blocks\n"
-           << " - for suballoc:  " << std::setfill(' ') << std::setw(8) << st.in_use_blk_for_suballoc_cnt << " blocks\n"
+           << "- for suballoc:   " << std::setfill(' ') << std::setw(8) << st.in_use_blk_for_suballoc_cnt << " blocks\n"
            << "Subblocks in use: " << std::setfill(' ') << std::setw(8) << st.in_use_subblk_cnt << " subblocks\n"
            << "\n"
 
@@ -450,14 +453,14 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
 
            << "Data fragmentation: \n"
 
-           << " - only 0 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[0] << " segments\n"
-           << " - only 1 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[1] << " segments\n"
-           << " - only 2 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[2] << " segments\n"
-           << " - only 3 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[3] << " segments\n"
-           << " - only 4 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[4] << " segments\n"
-           << " - 5 to 8 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[5] << " segments\n"
-           << " - 9 to 16 extents: " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[6] << " segments\n"
-           << " - 17 to * extents: " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[7] << " segments\n"
+           << "- only 0 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[0] << " segments\n"
+           << "- only 1 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[1] << " segments\n"
+           << "- only 2 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[2] << " segments\n"
+           << "- only 3 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[3] << " segments\n"
+           << "- only 4 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[4] << " segments\n"
+           << "- 5 to 8 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[5] << " segments\n"
+           << "- 9 to 16 extents: " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[6] << " segments\n"
+           << "- 17 to * extents: " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[7] << " segments\n"
            << "\n";
 
     assert(SegmentAllocator::StatsExtPerSegmLen == 8);
