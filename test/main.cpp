@@ -1,6 +1,8 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
+#include "xoz/trace.h"
+
 #include <fstream>
 
 #define SCRATCH_HOME "./scratch/mem/"
@@ -32,6 +34,7 @@ class EnsureScratchMemIsMounted: public ::testing::Environment {
 };
 
 int main(int argc, char** argv) {
+    set_trace_mask_from_env();
     testing::InitGoogleTest(&argc, argv);
     testing::AddGlobalTestEnvironment(new EnsureScratchMemIsMounted);
     return RUN_ALL_TESTS();
