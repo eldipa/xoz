@@ -4,26 +4,36 @@
 #include <utility>
 
 #include "xoz/exceptions.h"
+#include "xoz/trace.h"
 
 using namespace xoz::alloc::internals;  // NOLINT
+
+#define TRACE TRACE_ON(0x01)
+
+#define TRACE_LINE TRACE << "\t\t\t\t"
 
 FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold):
         coalescing_enabled(coalescing_enabled), split_above_threshold(split_above_threshold) {}
 
 void FreeMap::provide(const std::list<Extent>& exts) {
+    TRACE_LINE << "v--- provide " << exts.size() << " exts" << TRACE_ENDL;
     for (auto& ext: exts) {
         dealloc(ext);
     }
+    TRACE_LINE << "^---" << TRACE_ENDL;
 
     assert(fr_by_nr.size() == fr_by_cnt.size());
 }
 
 void FreeMap::provide(const Extent& ext) {
+    TRACE_LINE << "v--- provide 1 ext" << TRACE_ENDL;
     dealloc(ext);
+    TRACE_LINE << "^---" << TRACE_ENDL;
     assert(fr_by_nr.size() == fr_by_cnt.size());
 }
 
 void FreeMap::reset() {
+    TRACE_LINE << "|reset" << TRACE_ENDL;
     fr_by_nr.clear();
     fr_by_cnt.clear();
 
@@ -31,6 +41,7 @@ void FreeMap::reset() {
 }
 
 void FreeMap::release(const std::list<Extent>& exts) {
+    TRACE_LINE << "v--- release " << exts.size() << " exts" << TRACE_ENDL;
     for (const auto& ext: exts) {
         // fr_by_nr may change in each iteration so keep an
         // update end() iter.
@@ -44,10 +55,12 @@ void FreeMap::release(const std::list<Extent>& exts) {
         erase_from_fr_by_cnt(ours_it);
         fr_by_nr.erase(ours_it);
     }
+    TRACE_LINE << "^---" << TRACE_ENDL;
 }
 
-struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
+struct FreeMap::alloc_result_t FreeMap::alloc(const uint16_t blk_cnt) {
     fail_alloc_if_empty(blk_cnt, false);
+    TRACE_LINE << "|" << TRACE_FLUSH;
 
     auto end_it = fr_by_cnt.end();
     auto usable_it = fr_by_cnt.lower_bound(blk_cnt);
@@ -59,11 +72,18 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
         if (usable_it != fr_by_cnt.begin()) {
             closest_it = --usable_it;
             ++usable_it;
+
+            TRACE << "clos usbl " << TRACE_FLUSH;
+        } else {
+            TRACE << "     usbl " << TRACE_FLUSH;
         }
     } else {
         // Try to use the largest (last) chunk.
         if (fr_by_cnt.size() > 0) {
             closest_it = --fr_by_cnt.end();
+            TRACE << "clos      " << TRACE_FLUSH;
+        } else {
+            TRACE << "          " << TRACE_FLUSH;
         }
     }
 
@@ -81,6 +101,11 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
     if (usable_it != end_it and blk_cnt_of(usable_it) != blk_cnt) {
         uint16_t blk_cnt_remain = blk_cnt_of(usable_it) - blk_cnt;
 
+        // If the free chunk is it at the end of the freemap
+        //
+        // Note: usable_it is != end_it so the free map is not-empty
+        // and therefore the crbegin_by_blk_nr() will return a valid iterator
+
         if (blk_cnt_remain <= split_above_threshold) {
             uint16_t next_blk_cnt = blk_cnt;
             next_blk_cnt += split_above_threshold;
@@ -90,14 +115,23 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
                 // overflow, don't do anything and assume that
                 // there are no more usable free chunks to iterate
                 usable_it = end_it;
+                TRACE << "nospl,end   " << TRACE_FLUSH;
             } else {
                 usable_it = fr_by_cnt.lower_bound(next_blk_cnt);
+                TRACE << "nospl,other " << TRACE_FLUSH;
             }
+        } else {
+            TRACE << "splt        " << TRACE_FLUSH;
         }
+    } else if (usable_it == end_it) {
+        TRACE << "nousbl      " << TRACE_FLUSH;
+    } else {
+        TRACE << "            " << TRACE_FLUSH; /* perfect match */
     }
 
     assert(fr_by_nr.size() == fr_by_cnt.size());
 
+    TRACE << " /  " << std::setw(5) << blk_cnt << " blks req -> " << TRACE_FLUSH;
     if (usable_it == end_it) {
         // We cannot use any of the free chunks
         // so we return the closest free chunk block count that
@@ -108,6 +142,7 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
             closest_blk_cnt = blk_cnt_of(closest_it);
         }
 
+        TRACE << "fail: closest " << closest_blk_cnt << TRACE_ENDL;
         Extent ext(0, closest_blk_cnt, false);
         return {
                 .ext = ext,
@@ -121,11 +156,15 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
     // NOTE: from here and on, end_it and any other iterator
     // will be invalid as the following code will mutate fr_by_cnt
     if (blk_cnt_of(usable_it) == blk_cnt) {
+        TRACE << "perfect: " << Extent(blk_nr_of(usable_it), blk_cnt_of(usable_it), false) << TRACE_ENDL;
+
         // perfect match, remove the free chunk entirely
         fr_by_nr.erase(blk_nr_of(usable_it));
         fr_by_cnt.erase(usable_it);
 
     } else if (blk_cnt_of(usable_it) > blk_cnt) {
+        TRACE << "split: " << Extent(blk_nr_of(usable_it), blk_cnt_of(usable_it), false) << TRACE_FLUSH;
+
         // not a perfect match, split the free chunk is required
         uint16_t blk_cnt_remain = blk_cnt_of(usable_it) - blk_cnt;
         uint32_t new_fr_nr = blk_nr_of(usable_it) + blk_cnt;
@@ -158,6 +197,9 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
         // We have to pay O(log(n)) twice additionally
         fr_by_cnt.erase(usable_it);  // erase first, so usable_it is still valid
         fr_by_cnt.insert({blk_cnt_remain, new_fr_nr});
+        TRACE << " -> " << Extent(new_fr_nr, blk_cnt_remain, false) << TRACE_ENDL;
+    } else {
+        assert(0);
     }
 
     assert(fr_by_nr.size() == fr_by_cnt.size());
@@ -168,6 +210,7 @@ struct FreeMap::alloc_result_t FreeMap::alloc(uint16_t blk_cnt) {
 }
 
 void FreeMap::dealloc(const Extent& ext) {
+    TRACE_LINE << "|" << TRACE_FLUSH;
     auto end_it = fr_by_nr.end();
 
     // TODO check that ext is in the range of the repository?
@@ -178,6 +221,8 @@ void FreeMap::dealloc(const Extent& ext) {
         fr_by_nr.insert({ext.blk_nr(), ext.blk_cnt()});
         fr_by_cnt.insert({ext.blk_cnt(), ext.blk_nr()});
         assert(fr_by_nr.size() == fr_by_cnt.size());
+
+        TRACE << "nocoal:" << ext << TRACE_ENDL;
         return;
     }
 
@@ -191,6 +236,7 @@ void FreeMap::dealloc(const Extent& ext) {
     if (next_fr_it != end_it and coalesced.past_end_blk_nr() == blk_nr_of(next_fr_it)) {
         coalesced.expand_by(blk_cnt_of(next_fr_it));
         coalesced_with_next = true;  // then, next_fr_it must be removed
+        TRACE << "next:" << Extent(blk_nr_of(next_fr_it), blk_cnt_of(next_fr_it), false) << "  " << TRACE_FLUSH;
     }
 
     if (next_fr_it != fr_by_nr.begin()) {
@@ -198,6 +244,9 @@ void FreeMap::dealloc(const Extent& ext) {
         ++next_fr_it;
 
         if ((blk_nr_of(prev_fr_it) + blk_cnt_of(prev_fr_it)) == coalesced.blk_nr()) {
+            // trace *before* modifying prev_fr_it
+            TRACE << "prev:" << Extent(blk_nr_of(prev_fr_it), blk_cnt_of(prev_fr_it), false) << "  " << TRACE_FLUSH;
+
             // Update prev free chunk in-place, after the coalesced extent was
             // coalesced with the next free chunk (if possible)
             //
@@ -213,6 +262,10 @@ void FreeMap::dealloc(const Extent& ext) {
             fr_by_cnt.insert({blk_cnt_of(prev_fr_it), blk_nr_of(prev_fr_it)});
 
             coalesced_with_prev = true;  // then, prev_fr_it must *not* be removed
+
+            // For tracing purposes, update the coalesced Extent to track its
+            // new location and size
+            coalesced = Extent(blk_nr_of(prev_fr_it), blk_cnt_of(prev_fr_it), false);
         }
     }
 
@@ -226,6 +279,14 @@ void FreeMap::dealloc(const Extent& ext) {
     if (not coalesced_with_prev) {
         fr_by_nr.insert({coalesced.blk_nr(), coalesced.blk_cnt()});
         fr_by_cnt.insert({coalesced.blk_cnt(), coalesced.blk_nr()});
+
+        if (coalesced_with_next) {
+            TRACE << "coal:" << ext << " -> " << coalesced << TRACE_ENDL;
+        } else {
+            TRACE << "nocoal:" << coalesced << TRACE_ENDL;
+        }
+    } else {
+        TRACE << "coal:" << ext << " -> " << coalesced << TRACE_ENDL;
     }
 
     assert(fr_by_nr.size() == fr_by_cnt.size());

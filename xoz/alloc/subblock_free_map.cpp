@@ -4,33 +4,45 @@
 #include <utility>
 
 #include "xoz/exceptions.h"
+#include "xoz/trace.h"
 
 using namespace xoz::alloc::internals;  // NOLINT
+
+#define TRACE TRACE_ON(0x02)
+#define TRACE_LINE TRACE << "\t\t\t\t"
 
 SubBlockFreeMap::SubBlockFreeMap(): owned_subblk_cnt(0), allocated_subblk_cnt(0) {}
 
 void SubBlockFreeMap::provide(const std::list<Extent>& exts) {
+    TRACE_LINE << "v--- provide " << exts.size() << " exts" << TRACE_ENDL;
     for (auto& ext: exts) {
-        provide(ext);
+        _provide_any_ext(ext);
     }
+    TRACE_LINE << "^---" << TRACE_ENDL;
 
     assert(fr_by_nr.size() == count_entries_in_bins());
 }
 
 void SubBlockFreeMap::provide(const Extent& ext) {
+    TRACE_LINE << "v--- provide 1 ext" << TRACE_ENDL;
+    _provide_any_ext(ext);
+    TRACE_LINE << "^---" << TRACE_ENDL;
+}
+
+void SubBlockFreeMap::_provide_any_ext(const Extent& ext) {
     if (ext.is_suballoc()) {
-        _provide(ext);
+        _provide_subblk_ext(ext);
     } else {
         if (not ext.can_be_for_suballoc()) {
             throw std::runtime_error("extent cannot be used for suballocation");
         }
-        _provide(ext.as_suballoc());
+        _provide_subblk_ext(ext.as_suballoc());
     }
 
     assert(fr_by_nr.size() == count_entries_in_bins());
 }
 
-void SubBlockFreeMap::_provide(const Extent& ext) {
+void SubBlockFreeMap::_provide_subblk_ext(const Extent& ext) {
     fail_if_not_subblk_or_zero_cnt(ext);
     fail_if_blk_nr_already_seen(ext);
 
@@ -40,9 +52,12 @@ void SubBlockFreeMap::_provide(const Extent& ext) {
     exts_bin[bin].push_back(ext);
 
     owned_subblk_cnt += ext.subblk_cnt();
+
+    TRACE_LINE << "|bin: " << std::setw(2) << (uint16_t)bin << " <-- " << ext << TRACE_ENDL;
 }
 
 void SubBlockFreeMap::release(const std::list<Extent>& exts) {
+    TRACE_LINE << "v--- release " << exts.size() << " exts" << TRACE_ENDL;
     for (const auto& ext: exts) {
         if (ext.blk_cnt() != 1) {
             throw "no such extent";
@@ -70,11 +85,13 @@ void SubBlockFreeMap::release(const std::list<Extent>& exts) {
 
         owned_subblk_cnt -= Extent::SUBBLK_CNT_PER_BLK;
     }
+    TRACE_LINE << "^---" << TRACE_ENDL;
 
     assert(fr_by_nr.size() == count_entries_in_bins());
 }
 
 void SubBlockFreeMap::reset() {
+    TRACE_LINE << "|reset" << TRACE_ENDL;
     fr_by_nr.clear();
 
     for (uint8_t bin = 0; bin < Extent::SUBBLK_CNT_PER_BLK; ++bin) {
@@ -86,6 +103,7 @@ void SubBlockFreeMap::reset() {
 }
 
 struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt) {
+    TRACE_LINE << "|" << TRACE_FLUSH;
     fail_alloc_if_empty(subblk_cnt, true);
 
     if (subblk_cnt > Extent::SUBBLK_CNT_PER_BLK) {
@@ -124,6 +142,7 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
     // Too bad, nothing was found.
     // Return empty extent and signal failure
     if (free_ext.subblk_cnt() == 0) {
+        TRACE << "fail" << TRACE_ENDL;
         assert(fr_by_nr.size() == count_entries_in_bins());
         return {
                 .ext = free_ext,
@@ -156,6 +175,9 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
 
     assert(subblk_cnt == 0);
 
+    // Save a copy of the free ext for tracing
+    Extent orig_free_ext = free_ext;
+
     // Free chunks allocated. Save them.
     Extent ext(free_ext.blk_nr(), allocated_bitmask, true);
     free_ext.set_bitmap(free_bitmask);
@@ -171,9 +193,10 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
         auto nr_it = fr_by_nr.find(free_ext.blk_nr());
         assert(nr_it != fr_by_nr.end());
         fr_by_nr.erase(nr_it);
+        TRACE << "perfect: " << ext << TRACE_ENDL;
 
     } else {
-        // Update and readd the extent to its new bin
+        // Update and read the extent to its new bin
         uint8_t new_bin = free_ext.subblk_cnt() - 1;
         exts_bin[new_bin].push_back(free_ext);
 
@@ -182,6 +205,7 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
         assert(nr_it != fr_by_nr.end());
 
         nr_it->second = free_ext;
+        TRACE << "sub: " << orig_free_ext << " -> " << ext << TRACE_ENDL;
     }
 
     assert(fr_by_nr.size() == count_entries_in_bins());
@@ -193,6 +217,7 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
 }
 
 void SubBlockFreeMap::dealloc(const Extent& ext) {
+    TRACE_LINE << "|" << TRACE_FLUSH;
     auto end_it = fr_by_nr.end();
 
     fail_if_not_subblk_or_zero_cnt(ext);
@@ -235,6 +260,7 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
             }
         }
 
+        TRACE << "found      " << TRACE_FLUSH;
         assert(found_in_bin);
 
     } else {
@@ -244,7 +270,11 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
                 assert(it->blk_nr() != ext.blk_nr());
             }
         }
+        TRACE << "nofound    " << TRACE_FLUSH;
     }
+
+    // Save for tracing
+    Extent orig_free_ext = free_ext;
 
     // Update the free extent with the deallocated ext
     free_ext.set_bitmap(free_ext.blk_bitmap() | ext.blk_bitmap());
@@ -257,8 +287,11 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
     // Update the map indexed by blk_nr with the new bitmap
     if (found_in_nr_map) {
         free_it->second = free_ext;
+        TRACE << "/  " << orig_free_ext << " + del: " << ext << " -> " << free_ext << TRACE_ENDL;
     } else {
         fr_by_nr.insert({free_ext.blk_nr(), free_ext});
+        TRACE << "/  "
+              << "new: " << ext << TRACE_ENDL;
     }
 
     assert(fr_by_nr.size() == count_entries_in_bins());

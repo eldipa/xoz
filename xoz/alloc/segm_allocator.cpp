@@ -14,6 +14,12 @@
 #include "xoz/ext/extent.h"
 #include "xoz/ext/segment.h"
 #include "xoz/repo/repo.h"
+#include "xoz/trace.h"
+
+#define TRACE TRACE_ON(0x01)
+
+#define TRACE_SECTION(x) TRACE << (x) << " "
+#define TRACE_LINE TRACE << "    "
 
 SegmentAllocator::SegmentAllocator(Repository& repo, bool coalescing_enabled, uint16_t split_above_threshold):
         repo(repo),
@@ -104,16 +110,22 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
         subblk_cnt_remain = 0;
     }
 
+    TRACE_SECTION("A") << std::setw(5) << sz << " b" << TRACE_ENDL;
+
     // Allocate extents trying to not expand the repository
     // but instead reusing free space already present even if
     // that means to fragment the segment a little more
     if (blk_cnt_remain) {
+        TRACE_LINE << "to alloc,not grow -> " << blk_cnt_remain << "+" << subblk_cnt_remain << "+" << inline_sz
+                   << "   -----v" << TRACE_ENDL;
         blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, req.segm_frag_threshold, false, false);
     }
 
     // If we still require to allocate more blocks, just allow
     // to expand the repository to get more free space
     if (blk_cnt_remain) {
+        TRACE_LINE << "to alloc,may grow -> " << blk_cnt_remain << "+" << subblk_cnt_remain << "+" << inline_sz
+                   << "   -----v" << TRACE_ENDL;
         blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, req.segm_frag_threshold, true, true);
     }
 
@@ -122,6 +134,8 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     }
 
     if (subblk_cnt_remain) {
+        TRACE_LINE << "to suballoc  ->      " << blk_cnt_remain << "+" << subblk_cnt_remain << "+" << inline_sz
+                   << "   -----v" << TRACE_ENDL;
         // RFC says 16 subblocks per block only and the code above should
         // ensure that we are dealing with one block at most.
         assert(subblk_cnt_remain < 256);
@@ -139,6 +153,8 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
         segm.reserve_inline_data(uint8_t(inline_sz));
         inline_sz = 0;
     }
+
+    TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
 
     assert(blk_cnt_remain == 0);
     assert(subblk_cnt_remain == 0);
@@ -165,6 +181,10 @@ no_free_space:
 
 void SegmentAllocator::dealloc(const Segment& segm) {
     auto sz = segm.calc_usable_space_size(repo.blk_sz_order());
+
+    TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
+    TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
+
     auto blk_cnt = 0;
     auto subblk_cnt = 0;
     for (auto const& ext: segm.exts()) {
@@ -330,6 +350,8 @@ try_fr_map_alloc:
 }
 
 bool SegmentAllocator::provide_more_space_to_fr_map(uint16_t blk_cnt) {
+    TRACE_LINE << "tail provides to freemap  " << TRACE_FLUSH;
+    auto orig_blk_cnt = blk_cnt;
     if (coalescing_enabled) {
         auto last_free_it = fr_map.crbegin_by_blk_nr();
         if (last_free_it != fr_map.crend_by_blk_nr() and tail.is_at_the_end(*last_free_it)) {
@@ -338,28 +360,40 @@ bool SegmentAllocator::provide_more_space_to_fr_map(uint16_t blk_cnt) {
         }
     }
 
+    TRACE << std::setw(5) << blk_cnt << " blks" << TRACE_FLUSH;
+    if (orig_blk_cnt != blk_cnt) {
+        TRACE << " (orig req: " << orig_blk_cnt << ")" << TRACE_FLUSH;
+    }
+    TRACE << " ----v" << TRACE_ENDL;
+
     auto result = tail.alloc(blk_cnt);
     if (result.success) {
         fr_map.provide(result.ext);
         return true;
+    } else {
+        TRACE_LINE << " * tail couldn't provide" << TRACE_ENDL;
     }
 
     return false;
 }
 
 bool SegmentAllocator::provide_more_space_to_subfr_map() {
+    TRACE_LINE << "freemap provides subblks to subfreemap -------v" << TRACE_ENDL;
     auto result = fr_map.alloc(1);
     if (result.success) {
         subfr_map.provide(result.ext);
         in_use_blk_for_suballoc_cnt += result.ext.blk_cnt();
         in_use_blk_cnt += result.ext.blk_cnt();
         return true;
+    } else {
+        TRACE_LINE << " * freemap couldn't provide" << TRACE_ENDL;
     }
 
     return false;
 }
 
 void SegmentAllocator::reclaim_free_space_from_fr_map() {
+    TRACE_LINE << "tail reclaims blks from freemap --------------v" << TRACE_ENDL;
     std::list<Extent> reclaimed;
 
     for (auto it = fr_map.crbegin_by_blk_nr(); it != fr_map.crend_by_blk_nr(); ++it) {
@@ -375,11 +409,13 @@ void SegmentAllocator::reclaim_free_space_from_fr_map() {
 }
 
 void SegmentAllocator::reclaim_free_space_from_subfr_map() {
+    TRACE_LINE << "freemap reclaims subblks from subfreemap -----v" << TRACE_ENDL;
     std::list<Extent> reclaimed;
     uint32_t blk_cnt = 0;
 
     for (auto it = subfr_map.cbegin_full_blk(); it != subfr_map.cend_full_blk(); ++it) {
         const auto ext = it->as_not_suballoc();
+
         fr_map.dealloc(ext);
         reclaimed.push_back(ext);
         blk_cnt += ext.blk_cnt();

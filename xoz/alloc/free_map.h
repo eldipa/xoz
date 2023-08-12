@@ -50,7 +50,7 @@ public:
     //
     // See the test case AllocCoalescedDoesntSplitButCloseSuboptimalHint
     // for more about this.
-    struct alloc_result_t alloc(uint16_t blk_cnt);
+    struct alloc_result_t alloc(const uint16_t blk_cnt);
 
     void dealloc(const Extent& ext);
 

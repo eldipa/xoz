@@ -145,4 +145,5 @@ public:
     // Pretty print. The signature of the method is required
     // by GoogleTest
     friend void PrintTo(const Extent& ext, std::ostream* out);
+    friend std::ostream& operator<<(std::ostream& out, const Extent& ext);
 };

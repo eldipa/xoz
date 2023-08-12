@@ -40,3 +40,8 @@ void PrintTo(const Extent& ext, std::ostream* out) {
     }
     */
 }
+
+std::ostream& operator<<(std::ostream& out, const Extent& ext) {
+    PrintTo(ext, &out);
+    return out;
+}
