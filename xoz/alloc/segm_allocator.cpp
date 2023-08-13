@@ -357,6 +357,10 @@ bool SegmentAllocator::provide_more_space_to_fr_map(uint16_t blk_cnt) {
         if (last_free_it != fr_map.crend_by_blk_nr() and tail.is_at_the_end(*last_free_it)) {
             auto extendable_cnt = last_free_it->blk_cnt();
             blk_cnt = (blk_cnt <= extendable_cnt) ? 0 : (blk_cnt - extendable_cnt);
+
+            if (!blk_cnt) {
+                ++blk_cnt;
+            }
         }
     }
 
