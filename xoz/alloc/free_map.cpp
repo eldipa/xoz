@@ -101,11 +101,6 @@ struct FreeMap::alloc_result_t FreeMap::alloc(const uint16_t blk_cnt) {
     if (usable_it != end_it and blk_cnt_of(usable_it) != blk_cnt) {
         uint16_t blk_cnt_remain = blk_cnt_of(usable_it) - blk_cnt;
 
-        // If the free chunk is it at the end of the freemap
-        //
-        // Note: usable_it is != end_it so the free map is not-empty
-        // and therefore the crbegin_by_blk_nr() will return a valid iterator
-
         if (blk_cnt_remain <= split_above_threshold) {
             uint16_t next_blk_cnt = blk_cnt;
             next_blk_cnt += split_above_threshold;
