@@ -1,4 +1,5 @@
 import click
+import subprocess
 
 def simulate_desc_alloc(desc_sz, blk_sz, free_streams_space):
     if free_streams_space and free_streams_space[-1] >= desc_sz:
@@ -55,18 +56,24 @@ class Obj:
 class Extent:
     blk_nr : int
     blk_cnt: int
+    is_suballoc : bool
 
     def as_indexes_str(self):
         return f"{self.blk_nr:05x} {self.blk_nr+self.blk_cnt:05x} [{self.blk_cnt: 4}]"
 
     def as_tuple(self):
+        if self.is_suballoc:
+            return (self.blk_nr, 1)
         return (self.blk_nr, self.blk_cnt)
 
     def as_endpoints(self):
+        if self.is_suballoc:
+            return (self.blk_nr, self.blk_nr + 1)
         return (self.blk_nr, self.blk_nr + self.blk_cnt)
 
 @dataclass
 class Segment:
+    segm_id : int
     extents : list
 
     def as_indexes_str(self):
@@ -120,7 +127,7 @@ class Response:
 
     def update(self, **kargs):
         params = dict(
-                segm=Segment([]),
+                segm=Segment(0, []),
                 expand_blk_space=0,
                 contract_blk_space=0,
                 expected_global_endix=0,
@@ -146,6 +153,12 @@ class Allocator:
         # shall return a Response
         raise NotImplementedError()
 
+    def stats(self):
+        return ""
+
+    def shutdown(self):
+        pass
+
 class SimulatedAllocatorMixin:
     def single_extent_segment_for(self, data_sz, blk_nr=None):
         assert data_sz > 0
@@ -156,8 +169,8 @@ class SimulatedAllocatorMixin:
             blk_cnt += 1 # partially filled blk
 
         assert blk_cnt >= 0
-        extent = Extent(blk_nr, blk_cnt)
-        return Segment(extents=[extent])
+        extent = Extent(blk_nr, blk_cnt, False)
+        return Segment(0, extents=[extent])
 
 
 class MonotonicAllocator(Allocator, SimulatedAllocatorMixin):
@@ -272,7 +285,7 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                     continue
 
                 # good enough fit, update in place the free list
-                self.free_list[i] = Extent(fr_ix + ext.blk_cnt, fr_cnt - ext.blk_cnt)
+                self.free_list[i] = Extent(fr_ix + ext.blk_cnt, fr_cnt - ext.blk_cnt, False)
                 ext.blk_nr = fr_ix
 
                 main_resp.trace('split free, remain:', self.free_list[i])
@@ -332,7 +345,7 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                         # ^.......^....
                         #  fr_cnt   ext.blk_cnt
                         found.append((fr_ix, fr_blk_cnt))
-                        coalesced = self.free_list[i] = Extent(fr_ix, fr_blk_cnt+ext.blk_cnt)
+                        coalesced = self.free_list[i] = Extent(fr_ix, fr_blk_cnt+ext.blk_cnt, False)
 
                     elif endix == fr_ix:
                         #         startix    fr_ix
@@ -343,10 +356,10 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                         found.append((fr_ix, fr_blk_cnt))
                         if coalesced:
                             prev_fr_ix, prev_fr_blk_cnt = self.free_list[i-1].as_tuple()
-                            coalesced = self.free_list[i-1] = Extent(prev_fr_ix, prev_fr_blk_cnt+fr_blk_cnt)
+                            coalesced = self.free_list[i-1] = Extent(prev_fr_ix, prev_fr_blk_cnt+fr_blk_cnt, False)
                             del self.free_list[i]
                         else:
-                            coalesced = self.free_list[i] = Extent(startix, ext.blk_cnt+fr_blk_cnt)
+                            coalesced = self.free_list[i] = Extent(startix, ext.blk_cnt+fr_blk_cnt, False)
 
                         break
 
@@ -354,7 +367,7 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                         break
 
                 if not coalesced:
-                    fr = Extent(startix, ext.blk_cnt)
+                    fr = Extent(startix, ext.blk_cnt, False)
                     main_resp.trace("free added:", fr)
                     self.free_list.append(fr)
                 else:
@@ -362,7 +375,7 @@ class KRAllocator(Allocator, SimulatedAllocatorMixin):
                     main_resp.trace("coalesced into:", coalesced)
             else:
                 # naively append, we are not doing "coalescing"
-                fr = Extent(startix, ext.blk_cnt)
+                fr = Extent(startix, ext.blk_cnt, False)
                 main_resp.trace("free added:", fr)
                 self.free_list.append(fr)
 
@@ -404,7 +417,7 @@ class HalvingAllocator(Allocator):
 
     def alloc(self, req):
         main_resp = Response(
-                segm=Segment([]),
+                segm=Segment(0, []),
                 expand_blk_space=0,
                 contract_blk_space=0,
                 expected_global_endix=0,
@@ -538,7 +551,7 @@ class LinearAllocator(Allocator):
 
     def alloc(self, req):
         main_resp = Response(
-                segm=Segment([]),
+                segm=Segment(0, []),
                 expand_blk_space=0,
                 contract_blk_space=0,
                 expected_global_endix=0,
@@ -643,6 +656,161 @@ class LinearAllocator(Allocator):
     def contract(self):
         return self.backend_allocator.contract()
 
+class ExternalProgramAllocator(Allocator):
+    def __init__(self, coalescing, split_above_threshold, segm_frag_threshold, allow_suballoc, allow_inline, inline_size):
+        Allocator.__init__(self)
+        self.data_blk_cnt = 0
+
+        # TODO run the program with gdb but without gdb's console.
+        # Make the program to hang until a gdb client connects to it
+        # from a separated console, then, continue with the execution
+        binary = "../build-default/demos/allocdemo"
+        self.prog = subprocess.Popen([binary, str(int(coalescing)), str(split_above_threshold), str(segm_frag_threshold), str(int(allow_suballoc)), str(int(allow_inline)), str(int(inline_size))], stdout=subprocess.PIPE, stdin=subprocess.PIPE, bufsize=1, text=True)
+
+
+    def alloc(self, req):
+        assert req.allow_expand
+        segm_id, data_blk_cnt, raw_extents = self._do_alloc(req.data_sz)
+
+        extents = []
+        for is_suballoc, nr, cnt_or_bitmap in raw_extents:
+            extents.append(Extent(nr, cnt_or_bitmap, is_suballoc))
+
+        segm = Segment(segm_id, extents)
+
+        expand_cnt = data_blk_cnt - self.data_blk_cnt
+        assert expand_cnt >= 0
+
+        self.data_blk_cnt = data_blk_cnt
+
+        # thise extra +1 in expected_global_endix is because
+        # the real repository has the first block
+        # allocated block for its header and it is not counted as data block
+        # but it i *is* simulatated/modeled here
+        return Response(
+                segm=segm,
+                expand_blk_space=expand_cnt,
+                contract_blk_space=0,
+                expected_global_endix=self.data_blk_cnt + 1,
+                not_enough_space=False,
+                traces=[],
+                hint_closest_free_blk_cnt=None
+                )
+
+    def dealloc(self, req):
+        segm_id = req.segm.segm_id
+        assert (segm_id > 0)
+
+        data_blk_cnt = self._do_dealloc(segm_id)
+
+        contract_cnt = self.data_blk_cnt - data_blk_cnt
+        assert contract_cnt >= 0
+
+        self.data_blk_cnt = data_blk_cnt
+
+        return Response(
+                segm=None,
+                expand_blk_space=0,
+                contract_blk_space=contract_cnt,
+                expected_global_endix=self.data_blk_cnt + 1,
+                not_enough_space=False,
+                traces=[],
+                hint_closest_free_blk_cnt=None
+                )
+
+    def contract(self):
+        data_blk_cnt = self._do_release()
+
+        contract_cnt = self.data_blk_cnt - data_blk_cnt
+        assert contract_cnt >= 0
+
+        self.data_blk_cnt = data_blk_cnt
+
+        return Response(
+                segm=None,
+                expand_blk_space=0,
+                contract_blk_space=contract_cnt,
+                expected_global_endix=self.data_blk_cnt + 1,
+                not_enough_space=False,
+                traces=[],
+                hint_closest_free_blk_cnt=None
+                )
+
+    def stats(self):
+        return self._do_stats()
+
+    def shutdown(self):
+        self.prog.stdin.close()
+        self.prog.stdout.close()
+        self.prog.wait()
+
+    def _do_alloc(self, sz):
+        msg = f"0 {sz}\n"
+        self.prog.stdin.write(msg)
+        self.prog.stdin.flush()
+
+        msg = self.prog.stdout.readline().strip().split()
+
+        #if not msg:
+        #    import pudb; pudb.set_trace();
+        segm_id = int(msg[0])
+        data_blk_cnt = int(msg[1])
+        extent_cnt = int(msg[2])
+
+        msg = msg[3:]
+        assert len(msg) == extent_cnt * 3
+
+        raw_extents = []
+        for i in range(extent_cnt):
+            raw_extents.append((
+                int(msg[0]),
+                int(msg[1]),
+                int(msg[2]),
+                ))
+
+            del msg[:3]
+
+        assert len(raw_extents) == extent_cnt
+
+        return segm_id, data_blk_cnt, raw_extents
+
+    def _do_dealloc(self, segm_id):
+        msg = f"1 {segm_id}\n"
+        self.prog.stdin.write(msg)
+        self.prog.stdin.flush()
+
+        msg = self.prog.stdout.readline().strip().split()
+
+        assert len(msg) == 1
+        data_blk_cnt = int(msg[0])
+        return data_blk_cnt
+
+    def _do_release(self):
+        msg = f"2\n"
+        self.prog.stdin.write(msg)
+        self.prog.stdin.flush()
+
+        msg = self.prog.stdout.readline().strip().split()
+
+        assert len(msg) == 1
+        data_blk_cnt = int(msg[0])
+        return data_blk_cnt
+
+    def _do_stats(self):
+        msg = f"3\n"
+        self.prog.stdin.write(msg)
+        self.prog.stdin.flush()
+
+        out = ""
+        while True:
+            msg = self.prog.stdout.readline().strip()
+            if msg == "EOF":
+                break
+
+            out += msg + '\n'
+
+        return out
+
 class Simulator:
     def __init__(self, allocator, space, obj_by_id, trace_enabled):
         self.allocator = allocator
@@ -654,6 +822,7 @@ class Simulator:
         S = len(self.space)
         obj = self.object_lookup(act, is_delete_action=False)
 
+        assert obj.data_sz > 0
         resp = self.allocator.alloc(AllocRequest(obj.data_sz, True))
         self.trace(type='alloc', obj=obj, segm=resp.segm, subtraces=resp.traces)
 
@@ -736,6 +905,13 @@ class Simulator:
         obj.segm = segm
 
         for ext in obj.segm.extents:
+            if ext.is_suballoc:
+                if isinstance(self.space[ext.blk_nr], set):
+                    self.space[ext.blk_nr].add(obj.obj_id)
+                else:
+                    self.space[ext.blk_nr] = {obj.obj_id}
+                continue
+
             startix = ext.blk_nr
             endix = startix + ext.blk_cnt
 
@@ -757,6 +933,12 @@ class Simulator:
         self.chk_subspace(obj, obj.segm, self.space, is_already_allocd=True)
 
         for ext in obj.segm.extents:
+            if ext.is_suballoc:
+                self.space[ext.blk_nr].remove(obj.obj_id)
+                if not self.space[ext.blk_nr]:
+                    self.space[ext.blk_nr] = 0
+                continue
+
             startix = ext.blk_nr
             endix = startix + ext.blk_cnt
 
@@ -789,11 +971,11 @@ class Simulator:
             # Expected to have a segment because it is already
             # allocated
             assert obj.segm is not None
-            assert obj.segm.extents
+            #assert obj.segm.extents
 
             # Sanity checks on extents
             assert segm is not None
-            assert segm.extents
+            #assert segm.extents
             assert len(obj.segm.extents) == len(segm.extents)
 
             # Check both obj.segm and segm are the "same"
@@ -837,6 +1019,9 @@ class Simulator:
         assert all(prev_endix <= next_startix for prev_endix, next_startix in zip(all_endixs[:-1], all_startixs[1:]))
 
         for ext in segm.extents:
+            if ext.is_suballoc:
+                continue
+
             startix = ext.blk_nr
             endix = startix + ext.blk_cnt
 
@@ -874,7 +1059,7 @@ class Simulator:
         if is_delete_action:
             assert act.is_delete_action
             assert obj.segm is not None
-            assert obj.segm.extents
+            #assert obj.segm.extents
             for ext in obj.segm.extents:
                 assert ext.blk_nr >= 0
                 assert ext.blk_cnt > 0
@@ -1222,7 +1407,6 @@ def show_space_stats(space, obj_by_id, allocator, fname_postfix):
     internal_frag_sz = (non_free_blk_cnt * BLK_SZ) - total_data_sz
     assert internal_frag_sz >= 0
 
-
     print("Block cnt:", total_blk_cnt)
     print("File size:", kb(total_file_sz), "kb")
     print("Useful data size:", kb(total_data_sz), "kb")
@@ -1243,7 +1427,7 @@ def show_space_stats(space, obj_by_id, allocator, fname_postfix):
             columns=["Extent count"]
             )
     print(obj_ext_counts_df.quantile([.5, .9, .99, 1]))
-    print()
+    print("--------------")
 
 #SAMPLE_TARGET = 'ph-01'
 #SAMPLE_TARGET = 'dc-03'
@@ -1270,7 +1454,7 @@ _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
 @click.option('--dp', default=0.1*8, help='probability to delete a draw')
 @click.option('--idp', default=0.01*8, help='probability to delete an "image" draw')
 @click.option('--rf', default=0.25, help='scale blksz to add on reinserts, a random from [-blksz * rf, blksz * rf]')
-@click.option('-a', '--allocator', type=click.Choice(['mono', 'kr', 'halving-kr', 'linear-kr']), required=True)
+@click.option('-a', '--allocator', type=click.Choice(['mono', 'kr', 'halving-kr', 'linear-kr', 'external']), required=True)
 @click.option('-s', '--sample', type=click.Choice(_samples), default='ph-01')
 @click.option('--coalescing', is_flag=True, default=False)
 @click.option('-m', '--writer-model', type=click.Choice(['copier', 'notetaker', 'editor']), default='editor')
@@ -1282,7 +1466,10 @@ _samples = ['au-01', 'dc-01', 'dc-02', 'dc-03', 'dc-04', 'dc-05', 'dc-06',
 @click.option('--max-ext-cnt', default=8)
 @click.option('--min-fr-split-remain', default=1)
 @click.option('--fname-tag', default="")
-def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sample, coalescing, writer_model, no_reinsert, contract, trace, show_progress, show_map, max_ext_cnt, min_fr_split_remain, fname_tag):
+@click.option('--enable-suballoc', is_flag=True, default=False)
+@click.option('--enable-inline', is_flag=True, default=False)
+@click.option('--inline-size', default=8)
+def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sample, coalescing, writer_model, no_reinsert, contract, trace, show_progress, show_map, max_ext_cnt, min_fr_split_remain, fname_tag, enable_suballoc, enable_inline, inline_size):
     SEED = seed
     NOTE_TAKER_BACK_W = max(4, note_taker_back_w)
     DEL_PROB = min(0.9, max(0, dp))
@@ -1300,6 +1487,9 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sampl
     MAX_EXTENT_CNT = max_ext_cnt
     MIN_FR_SPLIT_REMAIN = min_fr_split_remain
     FNAME_TAG = fname_tag
+    ENABLE_SUBALLOC = enable_suballoc
+    ENABLE_INLINE = enable_inline
+    INLINE_SIZE = inline_size
 
     df = pd.read_csv('01-results/xopp-dataset-2023.csv')
 
@@ -1340,32 +1530,44 @@ def main(seed, rerun_until_bug, note_taker_back_w, dp, idp, rf, allocator, sampl
         _main_actions.append(act)
 
     do_simulations = True
+    error_found = False
     while do_simulations:
         do_simulations = False
-        simulate(
-                _main_actions = copy.deepcopy(_main_actions),
-                _main_obj_by_id = copy.deepcopy(_main_obj_by_id),
-                obj_id = obj_id,
-                SEED = SEED,
-                NOTE_TAKER_BACK_W = NOTE_TAKER_BACK_W,
-                DEL_PROB = DEL_PROB,
-                DEL_IMG_PROB = DEL_IMG_PROB,
-                REINSERT_CHG_SZ_FACTOR = REINSERT_CHG_SZ_FACTOR,
-                ALLOCATOR = ALLOCATOR,
-                COALESCING = COALESCING,
-                WRITER_MODEL = WRITER_MODEL,
-                REINSERT = REINSERT,
-                CONTRACT = CONTRACT,
-                TRACE = TRACE,
-                NOT_SHOW_PROGRESS = NOT_SHOW_PROGRESS,
-                SHOW_MAPS = SHOW_MAPS,
-                MAX_EXTENT_CNT = MAX_EXTENT_CNT,
-                SAMPLE_TARGET = SAMPLE_TARGET,
-                MIN_FR_SPLIT_REMAIN = MIN_FR_SPLIT_REMAIN,
-                FNAME_TAG = FNAME_TAG
-            )
+        error_found = False
+        try:
+            print("========= USING SEED:", SEED, "============")
+            simulate(
+                    _main_actions = copy.deepcopy(_main_actions),
+                    _main_obj_by_id = copy.deepcopy(_main_obj_by_id),
+                    obj_id = obj_id,
+                    SEED = SEED,
+                    NOTE_TAKER_BACK_W = NOTE_TAKER_BACK_W,
+                    DEL_PROB = DEL_PROB,
+                    DEL_IMG_PROB = DEL_IMG_PROB,
+                    REINSERT_CHG_SZ_FACTOR = REINSERT_CHG_SZ_FACTOR,
+                    ALLOCATOR = ALLOCATOR,
+                    COALESCING = COALESCING,
+                    WRITER_MODEL = WRITER_MODEL,
+                    REINSERT = REINSERT,
+                    CONTRACT = CONTRACT,
+                    TRACE = TRACE,
+                    NOT_SHOW_PROGRESS = NOT_SHOW_PROGRESS,
+                    SHOW_MAPS = SHOW_MAPS,
+                    MAX_EXTENT_CNT = MAX_EXTENT_CNT,
+                    SAMPLE_TARGET = SAMPLE_TARGET,
+                    MIN_FR_SPLIT_REMAIN = MIN_FR_SPLIT_REMAIN,
+                    FNAME_TAG = FNAME_TAG,
+                    ENABLE_SUBALLOC = ENABLE_SUBALLOC,
+                    ENABLE_INLINE = ENABLE_INLINE,
+                    INLINE_SIZE = INLINE_SIZE
+                )
+        except Exception as err:
+            import traceback
+            traceback.print_exc()
+            error_found = True
+            print("========= SEED USED:", SEED, "============")
 
-        if rerun_until_bug:
+        if rerun_until_bug and not error_found:
             do_simulations = True
             rnd = random.Random(SEED)
             SEED = random.randint(0, 2**32)
@@ -1390,7 +1592,10 @@ def simulate(
         MAX_EXTENT_CNT,
         SAMPLE_TARGET,
         MIN_FR_SPLIT_REMAIN,
-        FNAME_TAG
+        FNAME_TAG,
+        ENABLE_SUBALLOC,
+        ENABLE_INLINE,
+        INLINE_SIZE
     ):
 
     def bool2short(b):
@@ -1531,10 +1736,15 @@ def simulate(
             allocator = HalvingAllocator(KRAllocator(coalescing=COALESCING, min_fr_split_remain=MIN_FR_SPLIT_REMAIN), None)
         elif ALLOCATOR == 'linear-kr':
             allocator = LinearAllocator(KRAllocator(coalescing=COALESCING, min_fr_split_remain=MIN_FR_SPLIT_REMAIN), MAX_EXTENT_CNT)
+        elif ALLOCATOR == 'external':
+            allocator = ExternalProgramAllocator(coalescing=COALESCING, split_above_threshold=MIN_FR_SPLIT_REMAIN, segm_frag_threshold=MAX_EXTENT_CNT, allow_suballoc=ENABLE_SUBALLOC, allow_inline=ENABLE_INLINE, inline_size=INLINE_SIZE)
         else:
             assert False
 
         sim = Simulator(allocator, space, obj_by_id, trace_enabled=TRACE)
+        if ALLOCATOR == 'external':
+            sim.space.extend([0]) # the "real" repository *has* 1 block allocated  by default
+
         #plot_alloc_patterns(space, obj_by_id, allocator, actions, fname_postfix)
         #return
 
@@ -1554,6 +1764,9 @@ def simulate(
         if CONTRACT:
             sim.contract()
 
+        if ALLOCATOR == 'external':
+            del space[0]
+
         print()
         for show_map_name in sorted(set(SHOW_MAPS)):
             if show_map_name == 'pages':
@@ -1571,7 +1784,12 @@ def simulate(
             else:
                 assert False
 
-        show_space_stats(space, obj_by_id, allocator, fname_postfix)
+        if not (ENABLE_SUBALLOC or ENABLE_INLINE):
+            show_space_stats(space, obj_by_id, allocator, fname_postfix)
+
+        print(allocator.stats())
+
+        allocator.shutdown()
 
 if __name__ == '__main__':
     import sys
