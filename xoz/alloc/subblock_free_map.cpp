@@ -49,7 +49,7 @@ void SubBlockFreeMap::_provide_subblk_ext(const Extent& ext) {
     fr_by_nr.insert({ext.blk_nr(), ext});
 
     uint8_t bin = ext.subblk_cnt() - 1;
-    exts_bin[bin].push_back(ext);
+    exts_bin[bin].insert({ext.blk_nr(), ext});
 
     owned_subblk_cnt += ext.subblk_cnt();
 
@@ -73,14 +73,16 @@ void SubBlockFreeMap::release(const std::list<Extent>& exts) {
         }
 
         // Search and remove it from both maps
-        size_t found_cnt = exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1].remove_if(
-                [&ext](const Extent& ours) { return ours.blk_nr() == ext.blk_nr(); });
-        if (found_cnt == 0) {
+        auto& ext_bin = exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1];
+        auto found_in_bin_it = ext_bin.find(ext.blk_nr());
+        if (found_in_bin_it == ext_bin.end()) {
             throw "not such extent";
         }
 
+        ext_bin.erase(found_in_bin_it);
+
         // 2 or more are in invariance violation
-        assert(found_cnt == 1);
+        // assert(found_cnt == 1);
         fr_by_nr.erase(ours_it);
 
         owned_subblk_cnt -= Extent::SUBBLK_CNT_PER_BLK;
@@ -133,8 +135,9 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
     uint8_t bin = subblk_cnt - 1;
     for (; bin < Extent::SUBBLK_CNT_PER_BLK; ++bin) {
         if (exts_bin[bin].size() > 0) {
-            free_ext = exts_bin[bin].back();
-            exts_bin[bin].pop_back();
+            auto tmpit = exts_bin[bin].begin();
+            free_ext = tmpit->second;
+            exts_bin[bin].erase(tmpit);
             break;
         }
     }
@@ -198,7 +201,7 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
     } else {
         // Update and read the extent to its new bin
         uint8_t new_bin = free_ext.subblk_cnt() - 1;
-        exts_bin[new_bin].push_back(free_ext);
+        exts_bin[new_bin].insert({free_ext.blk_nr(), free_ext});
 
         // Update it in the by-blk-nr map
         auto nr_it = fr_by_nr.find(free_ext.blk_nr());
@@ -250,25 +253,19 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
         // Search the not-updated-yet free extent and remove it
         // from its bin
         uint8_t bin = free_ext.subblk_cnt() - 1;
-        bool found_in_bin = false;
-        for (auto it = exts_bin[bin].begin(); it != exts_bin[bin].end(); ++it) {
-            if (it->blk_nr() == free_ext.blk_nr()) {
-                // Found. Remove it.
-                exts_bin[bin].erase(it);
-                found_in_bin = true;
-                break;
-            }
-        }
+        auto& ext_bin = exts_bin[bin];
+
+        auto found_in_bin_it = ext_bin.find(free_ext.blk_nr());
+        assert(found_in_bin_it != ext_bin.end());
+        ext_bin.erase(found_in_bin_it);
 
         TRACE << "found      " << TRACE_FLUSH;
-        assert(found_in_bin);
 
     } else {
         // If ext is not in fr_by_nr it must not be in any bins either
         for (uint8_t bin = 0; bin < Extent::SUBBLK_CNT_PER_BLK; ++bin) {
-            for (auto it = exts_bin[bin].begin(); it != exts_bin[bin].end(); ++it) {
-                assert(it->blk_nr() != ext.blk_nr());
-            }
+            auto& ext_bin = exts_bin[bin];
+            assert(ext_bin.find(ext.blk_nr()) == ext_bin.end());
         }
         TRACE << "nofound    " << TRACE_FLUSH;
     }
@@ -282,7 +279,7 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
 
     // Add it to its new bin
     uint8_t bin = free_ext.subblk_cnt() - 1;
-    exts_bin[bin].push_back(free_ext);
+    exts_bin[bin].insert({free_ext.blk_nr(), free_ext});
 
     // Update the map indexed by blk_nr with the new bitmap
     if (found_in_nr_map) {

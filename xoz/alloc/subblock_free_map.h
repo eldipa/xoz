@@ -10,7 +10,7 @@ class SubBlockFreeMap {
     using map_nr2ext_t = xoz::alloc::internals::map_nr2ext_t;
 
 private:
-    std::list<Extent> exts_bin[Extent::SUBBLK_CNT_PER_BLK];
+    map_nr2ext_t exts_bin[Extent::SUBBLK_CNT_PER_BLK];
 
     map_nr2ext_t fr_by_nr;
 
@@ -48,7 +48,7 @@ public:
 
     // Handy typedef
     typedef xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t::const_iterator, true> const_iterator_by_blk_nr_t;
-    typedef std::list<Extent>::const_iterator const_iterator_full_blk_t;
+    typedef xoz::alloc::internals::ConstExtentIterator<map_nr2ext_t::const_iterator, true> const_iterator_full_blk_t;
 
     // Iterators over the free chunks returned as Extent objects.
     // By block number only order
@@ -61,10 +61,12 @@ public:
 
     // Iterators over the full free blocks as Extent objects.
     inline const_iterator_full_blk_t cbegin_full_blk() const {
-        return exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1].cbegin();
+        return const_iterator_full_blk_t(exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1].cbegin());
     }
 
-    inline const_iterator_full_blk_t cend_full_blk() const { return exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1].cend(); }
+    inline const_iterator_full_blk_t cend_full_blk() const {
+        return const_iterator_full_blk_t(exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1].cend());
+    }
 
 
 private:
