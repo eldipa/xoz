@@ -1601,7 +1601,7 @@ def simulate(
     def bool2short(b):
         return "yes" if b else "no"
 
-    fname_postfix = f"sample:{SAMPLE_TARGET}_alloc:{ALLOCATOR}_coal:{bool2short(COALESCING)}_contr:{bool2short(CONTRACT)}_maxext:{MAX_EXTENT_CNT}_minsplit:{MIN_FR_SPLIT_REMAIN}_model:{WRITER_MODEL}_back:{NOTE_TAKER_BACK_W}_rmprobs:{DEL_PROB}_{DEL_IMG_PROB}_reins:{bool2short(REINSERT)}_{REINSERT_CHG_SZ_FACTOR}_seed:{SEED}"
+    fname_postfix = f"sample:{SAMPLE_TARGET}_alloc:{ALLOCATOR}_coal:{bool2short(COALESCING)}_contr:{bool2short(CONTRACT)}_maxext:{MAX_EXTENT_CNT}_minsplit:{MIN_FR_SPLIT_REMAIN}_model:{WRITER_MODEL}_back:{NOTE_TAKER_BACK_W}_rmprobs:{DEL_PROB}_{DEL_IMG_PROB}_reins:{bool2short(REINSERT)}_{REINSERT_CHG_SZ_FACTOR}_subblk:{bool2short(ENABLE_SUBALLOC)}_inline:{bool2short(ENABLE_INLINE)}_{INLINE_SIZE}_seed:{SEED}"
     if FNAME_TAG:
         fname_postfix += f"_tag:{FNAME_TAG}"
 
