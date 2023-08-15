@@ -34,8 +34,7 @@ private:
     uint64_t alloc_call_cnt;
     uint64_t dealloc_call_cnt;
 
-    uint64_t all_user_sz;
-    uint64_t all_req_sz;
+    uint64_t accum_internal_frag_avg_sz;
 
     uint64_t in_use_ext_per_segm[StatsExtPerSegmLen];
 
@@ -86,24 +85,29 @@ public:
         //
         // The difference, in block count, are the blocks unallocated by
         // the allocator (aka free) but not released back the repository
-        // (making shrink its size).
+        // (making not to shrink its size).
         //
         // The difference of blocks is then converted to bytes.
         //
-        // An large number may indicate that the SegmentAllocator is not
+        // A large number may indicate that the SegmentAllocator is not
         // doing a good job finding free space for alloc(), or it is not
         // doing a smart split or the alloc/dealloc pattern is kind of pathological.
         uint64_t external_frag_sz;
         double external_frag_sz_kb;
         double external_frag_rel;
 
-        // Internal fragmentation is defined as how many bytes are allocated
-        // (as both blocks and subblocks and inline) minus how many bytes
-        // were requested by the user/caller. This assumes that the user
-        // will not use the extra space that it is totally wasted.
+        // Internal fragmentation "average" is defined as how many
+        // bytes are allocated (as both blocks and subblocks and inline)
+        // minus how many bytes were requested by the user/caller.
+        // This assumes that the user will not use the extra space that
+        // it is totally wasted.
         //
-        // This wasted space lives within the block or subblock so it is not
-        // allocable. This means that the space is lost until the segment
+        // We track correctly the increments in the internal fragmentation
+        // on each alloc() call but we can only guess the decrements (in average).
+        //
+        // The internal fragmentation is wasted space that lives within
+        // the block or subblock so it is not allocable further.
+        // This means that the space is lost until the segment
         // that owns it is deallocated.
         //
         // An large number may indicate that the inline space is not enough
@@ -111,9 +115,9 @@ public:
         // suballocation is disabled forcing the SegmentAllocator to use
         // full blocks (and the user data is clearly not a multiple of
         // the block size hence the internal fragmentation).
-        uint64_t internal_frag_sz;
-        double internal_frag_sz_kb;
-        double internal_frag_rel;
+        uint64_t internal_frag_avg_sz;
+        double internal_frag_avg_sz_kb;
+        double internal_frag_avg_rel;
 
         // This internal fragmentation is defined as the blocks allocated
         // for suballocation (in bytes) minus the subblocks in use (in bytes).

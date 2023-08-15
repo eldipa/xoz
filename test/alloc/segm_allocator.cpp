@@ -84,7 +84,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
@@ -130,7 +130,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(1,0,0,0,0,0,0,0));
@@ -185,7 +185,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 1) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -240,7 +240,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 2) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -346,7 +346,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((1) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -403,7 +403,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -456,7 +456,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -518,7 +518,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 1) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,1,0,0,0,0,0));
@@ -577,7 +577,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 3) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,1,0,0,0,0,0));
@@ -627,7 +627,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -677,7 +677,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -736,7 +736,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 1) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,1,0,0,0,0,0));
@@ -790,7 +790,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,1,0,0,0,0,0));
@@ -854,7 +854,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 1) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,1,0,0,0,0));
@@ -922,7 +922,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(repo.blk_sz() - (req.max_inline_sz + 1)));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(repo.blk_sz() - (req.max_inline_sz + 1)));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(1,1,0,0,0,0,0,0));
@@ -979,7 +979,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(1));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
@@ -1028,7 +1028,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(1));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(repo.blk_sz() * 2));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,2,0,0,0,0,0,0));
@@ -1058,7 +1058,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(1));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(repo.blk_sz() * 2));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,2,0,0,0,0,0,0));
@@ -1086,7 +1086,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(2));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(repo.blk_sz() * 5));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -1114,7 +1114,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(2));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -1148,7 +1148,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(3));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
@@ -1197,7 +1197,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(1));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(repo.blk_sz() * 2));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,2,0,0,0,0,0,0));
@@ -1227,7 +1227,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(1));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(repo.blk_sz() * 2));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,2,0,0,0,0,0,0));
@@ -1256,7 +1256,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(2));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(repo.blk_sz() * 5));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -1284,7 +1284,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(2));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -1318,7 +1318,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(3));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
@@ -1372,7 +1372,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 3) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -1413,7 +1413,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 5) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,2,0,0,0,0,0,0));
@@ -1447,7 +1447,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(1));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 2) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
@@ -1483,7 +1483,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(2));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(repo.blk_sz() * 1));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
@@ -1543,7 +1543,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 3) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,1,0,0,0,0,0));
@@ -1589,7 +1589,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 5) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,2,0,0,0,0,0));
@@ -1624,7 +1624,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(1));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(repo.blk_sz() * 2));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 2) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,1,0,0,0,0,0));
@@ -1658,7 +1658,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(2));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(repo.blk_sz() * 4));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
@@ -1718,7 +1718,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(1,0,0,0,0,0,0,0));
@@ -1763,7 +1763,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(repo.subblk_sz() - (MaxInlineSize + 1)));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(repo.subblk_sz() - (MaxInlineSize + 1)));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t((Extent::SUBBLK_CNT_PER_BLK - 1) * repo.subblk_sz()));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(1,1,0,0,0,0,0,0));
@@ -1806,7 +1806,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(1,0,0,0,0,0,0,0));
@@ -1833,7 +1833,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(1));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
@@ -1860,7 +1860,7 @@ namespace {
         EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(1));
 
         EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
-        EXPECT_EQ(stats.internal_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(0));
         EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));

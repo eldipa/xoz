@@ -35,8 +35,7 @@ SegmentAllocator::SegmentAllocator(Repository& repo, bool coalescing_enabled, ui
         in_use_inlined_sz(0),
         alloc_call_cnt(0),
         dealloc_call_cnt(0),
-        all_user_sz(0),
-        all_req_sz(0) {
+        accum_internal_frag_avg_sz(0) {
     memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
 }
 
@@ -92,6 +91,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
 
     // Backpressure: if inline sz is greater than the limit,
     // put it into its own subblock
+    // In this case the inline must be 0 (unused)
     if (inline_sz > req.max_inline_sz) {
         if (req.allow_suballoc) {
             assert(inline_sz <= repo.subblk_sz());
@@ -170,8 +170,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
 
     calc_ext_per_segm_stats(segm, true);
 
-    all_user_sz += avail_sz;
-    all_req_sz += sz;
+    accum_internal_frag_avg_sz += (avail_sz - sz);
 
     ++alloc_call_cnt;
     return segm;
@@ -185,12 +184,14 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
     TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
 
+    // bool used_suballoc = false;
     auto blk_cnt = 0;
     auto subblk_cnt = 0;
     for (auto const& ext: segm.exts()) {
         if (ext.is_suballoc()) {
             subfr_map.dealloc(ext);
             subblk_cnt += ext.subblk_cnt();
+            // used_suballoc = true;
         } else {
             fr_map.dealloc(ext);
             blk_cnt += ext.blk_cnt();
@@ -205,6 +206,10 @@ void SegmentAllocator::dealloc(const Segment& segm) {
 
     calc_ext_per_segm_stats(segm, false);
     ++dealloc_call_cnt;
+
+    uint64_t avg_truncated =
+            uint64_t((double(accum_internal_frag_avg_sz) / double(alloc_call_cnt - (dealloc_call_cnt - 1))));
+    accum_internal_frag_avg_sz -= avg_truncated;
 
     reclaim_free_space_from_subfr_map();
 }
@@ -221,9 +226,10 @@ SegmentAllocator::stats_t SegmentAllocator::stats() const {
     double external_frag_sz_kb = double(external_frag_sz) / double(1024.0);
     double external_frag_rel = repo_data_sz == 0 ? 0 : (double(external_frag_sz) / double(repo_data_sz));
 
-    uint64_t internal_frag_sz = all_user_sz - all_req_sz;
-    double internal_frag_sz_kb = double(internal_frag_sz) / double(1024.0);
-    double internal_frag_rel = all_user_sz == 0 ? 0 : (double(internal_frag_sz) / double(all_user_sz));
+    uint64_t internal_frag_avg_sz = accum_internal_frag_avg_sz;
+    double internal_frag_avg_sz_kb = double(internal_frag_avg_sz) / double(1024.0);
+    double internal_frag_avg_rel =
+            in_use_by_user_sz == 0 ? 0 : (double(internal_frag_avg_sz) / double(in_use_by_user_sz));
 
     uint64_t allocable_internal_frag_sz = ((in_use_blk_for_suballoc_cnt << repo.blk_sz_order()) -
                                            ((in_use_subblk_cnt << (repo.blk_sz_order() - Extent::SUBBLK_SIZE_ORDER))));
@@ -240,6 +246,7 @@ SegmentAllocator::stats_t SegmentAllocator::stats() const {
 
     struct stats_t st = {.in_use_by_user_sz = in_use_by_user_sz,
                          .in_use_by_user_sz_kb = in_use_by_user_sz_kb,
+
                          .in_use_blk_cnt = in_use_blk_cnt,
                          .in_use_blk_for_suballoc_cnt = in_use_blk_for_suballoc_cnt,
                          .in_use_subblk_cnt = in_use_subblk_cnt,
@@ -254,9 +261,9 @@ SegmentAllocator::stats_t SegmentAllocator::stats() const {
                          .external_frag_sz = external_frag_sz,
                          .external_frag_sz_kb = external_frag_sz_kb,
                          .external_frag_rel = external_frag_rel,
-                         .internal_frag_sz = internal_frag_sz,
-                         .internal_frag_sz_kb = internal_frag_sz_kb,
-                         .internal_frag_rel = internal_frag_rel,
+                         .internal_frag_avg_sz = internal_frag_avg_sz,
+                         .internal_frag_avg_sz_kb = internal_frag_avg_sz_kb,
+                         .internal_frag_avg_rel = internal_frag_avg_rel,
 
                          .allocable_internal_frag_sz = allocable_internal_frag_sz,
                          .allocable_internal_frag_sz_kb = allocable_internal_frag_sz_kb,
@@ -460,48 +467,49 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
     struct SegmentAllocator::stats_t st = alloc.stats();
     std::ios_base::fmtflags ioflags = out->flags();
 
-    (*out) << "Calls to alloc:   " << std::setfill(' ') << std::setw(8) << st.alloc_call_cnt << "\n"
-           << "Calls to dealloc: " << std::setfill(' ') << std::setw(8) << st.dealloc_call_cnt << "\n"
+    (*out) << "Calls to alloc:    " << std::setfill(' ') << std::setw(12) << st.alloc_call_cnt << "\n"
+           << "Calls to dealloc:  " << std::setfill(' ') << std::setw(12) << st.dealloc_call_cnt << "\n"
            << "\n"
 
-           << "In use by user:   " << std::setfill(' ') << std::setw(8) << st.in_use_by_user_sz_kb << " kb\n"
+           << "Available to user: " << std::setfill(' ') << std::setw(12) << st.in_use_by_user_sz_kb << " kb\n"
            << "\n"
 
-           << "Blocks in use:    " << std::setfill(' ') << std::setw(8) << st.in_use_blk_cnt << " blocks\n"
-           << "- for suballoc:   " << std::setfill(' ') << std::setw(8) << st.in_use_blk_for_suballoc_cnt << " blocks\n"
-           << "Subblocks in use: " << std::setfill(' ') << std::setw(8) << st.in_use_subblk_cnt << " subblocks\n"
+           << "Blocks in use:     " << std::setfill(' ') << std::setw(12) << st.in_use_blk_cnt << " blocks\n"
+           << "- for suballoc:    " << std::setfill(' ') << std::setw(12) << st.in_use_blk_for_suballoc_cnt
+           << " blocks\n"
+           << "Subblocks in use:  " << std::setfill(' ') << std::setw(12) << st.in_use_subblk_cnt << " subblocks\n"
            << "\n"
 
-           << "External fragmentation:  " << std::setfill(' ') << std::setw(8) << std::setprecision(2)
+           << "External fragmentation:       " << std::setfill(' ') << std::setw(12) << std::setprecision(2)
            << st.external_frag_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
            << std::setprecision(2) << (st.external_frag_rel * 100) << "%)\n"
 
-           << "Internal fragmentation:  " << std::setfill(' ') << std::setw(8) << std::setprecision(2)
-           << st.internal_frag_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
-           << std::setprecision(2) << (st.internal_frag_rel * 100) << "%)\n"
+           << "Internal fragmentation (avg): " << std::setfill(' ') << std::setw(12) << std::setprecision(2)
+           << st.internal_frag_avg_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
+           << std::setprecision(2) << (st.internal_frag_avg_rel * 100) << "%)\n"
 
-           << "Allocable fragmentation: " << std::setfill(' ') << std::setw(8) << std::setprecision(2)
+           << "Allocable fragmentation:      " << std::setfill(' ') << std::setw(12) << std::setprecision(2)
            << st.allocable_internal_frag_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
            << std::setprecision(2) << (st.allocable_internal_frag_rel * 100) << "%)\n"
            << "\n"
 
-           << "Data inlined:   " << std::setfill(' ') << std::setw(8) << st.in_use_inlined_sz << " bytes\n"
+           << "Data inlined:      " << std::setfill(' ') << std::setw(12) << st.in_use_inlined_sz << " bytes\n"
            << "\n"
 
-           << "Extent in use:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_cnt << " extents\n"
-           << "Segment in use: " << std::setfill(' ') << std::setw(8) << st.in_use_segment_cnt << " segments\n"
+           << "Extent in use:     " << std::setfill(' ') << std::setw(12) << st.in_use_ext_cnt << " extents\n"
+           << "Segment in use:    " << std::setfill(' ') << std::setw(12) << st.in_use_segment_cnt << " segments\n"
            << "\n"
 
            << "Data fragmentation: \n"
 
-           << "- only 0 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[0] << " segments\n"
-           << "- only 1 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[1] << " segments\n"
-           << "- only 2 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[2] << " segments\n"
-           << "- only 3 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[3] << " segments\n"
-           << "- only 4 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[4] << " segments\n"
-           << "- 5 to 8 extents:  " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[5] << " segments\n"
-           << "- 9 to 16 extents: " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[6] << " segments\n"
-           << "- 17 to * extents: " << std::setfill(' ') << std::setw(4) << st.in_use_ext_per_segm[7] << " segments\n"
+           << "- only 0 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[0] << " segments\n"
+           << "- only 1 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[1] << " segments\n"
+           << "- only 2 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[2] << " segments\n"
+           << "- only 3 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[3] << " segments\n"
+           << "- only 4 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[4] << " segments\n"
+           << "- 5 to 8 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[5] << " segments\n"
+           << "- 9 to 16 extents: " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[6] << " segments\n"
+           << "- 17 to * extents: " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[7] << " segments\n"
            << "\n";
 
     out->flags(ioflags);
