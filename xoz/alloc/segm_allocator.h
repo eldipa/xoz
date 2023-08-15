@@ -143,6 +143,8 @@ public:
         // For array[6], segments with from 9 to 16 extents (inclusive)
         // For array[7], segments with 17 or more extents
         uint64_t in_use_ext_per_segm[StatsExtPerSegmLen];
+
+        uint64_t suballoc_bin_cnts[Extent::SUBBLK_CNT_PER_BLK];
     };
 
     struct stats_t stats() const;

@@ -68,6 +68,8 @@ public:
         return const_iterator_full_blk_t(exts_bin[Extent::SUBBLK_CNT_PER_BLK - 1].cend());
     }
 
+    void fill_bin_stats(uint64_t* bin_stats, size_t len) const;
+
 
 private:
     size_t count_entries_in_bins() const;

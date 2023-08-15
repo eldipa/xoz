@@ -269,9 +269,12 @@ SegmentAllocator::stats_t SegmentAllocator::stats() const {
                          .allocable_internal_frag_sz_kb = allocable_internal_frag_sz_kb,
                          .allocable_internal_frag_rel = allocable_internal_frag_rel,
 
-                         .in_use_ext_per_segm = {0}};
+                         .in_use_ext_per_segm = {0},
+                         .suballoc_bin_cnts = {0}};
 
     memcpy(st.in_use_ext_per_segm, in_use_ext_per_segm, sizeof(st.in_use_ext_per_segm));
+
+    subfr_map.fill_bin_stats(st.suballoc_bin_cnts, sizeof(st.suballoc_bin_cnts) / sizeof(st.suballoc_bin_cnts[0]));
 
     return st;
 }
@@ -479,7 +482,20 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
            << " blocks\n"
            << "Subblocks in use:  " << std::setfill(' ') << std::setw(12) << st.in_use_subblk_cnt << " subblocks\n"
            << "\n"
+           << "Blocks for suballocation:\n";
 
+
+    assert(Extent::SUBBLK_CNT_PER_BLK == 16);
+    for (unsigned i = 0; i < Extent::SUBBLK_CNT_PER_BLK / 2; ++i) {
+        (*out) << "- with " << std::setfill(' ') << std::setw(2) << i + 1 << " subblks free: " << std::setfill(' ')
+               << std::setw(12) << st.suballoc_bin_cnts[i] << " blocks"
+               << "       "
+               << "- with " << std::setfill(' ') << std::setw(2) << i + 9 << " subblks free: " << std::setfill(' ')
+               << std::setw(12) << st.suballoc_bin_cnts[i + 8] << " blocks"
+               << "\n";
+    }
+
+    (*out) << "\n"
            << "External fragmentation:       " << std::setfill(' ') << std::setw(12) << std::setprecision(2)
            << st.external_frag_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
            << std::setprecision(2) << (st.external_frag_rel * 100) << "%)\n"
@@ -502,14 +518,14 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
 
            << "Data fragmentation: \n"
 
-           << "- only 0 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[0] << " segments\n"
-           << "- only 1 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[1] << " segments\n"
-           << "- only 2 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[2] << " segments\n"
-           << "- only 3 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[3] << " segments\n"
-           << "- only 4 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[4] << " segments\n"
-           << "- 5 to 8 extents:  " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[5] << " segments\n"
-           << "- 9 to 16 extents: " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[6] << " segments\n"
-           << "- 17 to * extents: " << std::setfill(' ') << std::setw(8) << st.in_use_ext_per_segm[7] << " segments\n"
+           << "- only 0 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[0] << " segments\n"
+           << "- only 1 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[1] << " segments\n"
+           << "- only 2 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[2] << " segments\n"
+           << "- only 3 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[3] << " segments\n"
+           << "- only 4 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[4] << " segments\n"
+           << "- 5 to 8 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[5] << " segments\n"
+           << "- 9 to 16 extents: " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[6] << " segments\n"
+           << "- 17 to * extents: " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[7] << " segments\n"
            << "\n";
 
     out->flags(ioflags);

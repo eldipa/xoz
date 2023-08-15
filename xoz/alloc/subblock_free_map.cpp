@@ -295,6 +295,15 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
     allocated_subblk_cnt -= free_ext.subblk_cnt();
 }
 
+void SubBlockFreeMap::fill_bin_stats(uint64_t* bin_stats, size_t len) const {
+    if (len < Extent::SUBBLK_CNT_PER_BLK) {
+        throw "too small";
+    }
+
+    for (uint8_t bin = 0; bin < Extent::SUBBLK_CNT_PER_BLK; ++bin) {
+        bin_stats[bin] = exts_bin[bin].size();
+    }
+}
 
 size_t SubBlockFreeMap::count_entries_in_bins() const {
     size_t accum = 0;
