@@ -59,3 +59,8 @@ constexpr inline int u16_log2_floor(uint16_t x) { return (16 - std::countl_zero(
 constexpr inline int u32_log2_floor(uint32_t x) { return (32 - std::countl_zero(x) - 1); }
 
 constexpr inline uint8_t u16_count_bits(uint16_t x) { return (uint8_t)std::popcount(x); }
+
+constexpr inline bool u16_add_will_overflow(uint16_t a, uint16_t b) {
+    uint16_t tmp = a + b;
+    return tmp < a;
+}
