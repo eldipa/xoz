@@ -27,7 +27,7 @@ public:
     OpenXOZError(const char* fpath, const std::string& msg);
     OpenXOZError(const char* fpath, const F& msg);
 
-    virtual const char* what() const noexcept override;
+    const char* what() const noexcept override;
 };
 
 // Error when reading a xoz file and we find inconsistencies.
@@ -41,7 +41,7 @@ public:
     explicit InconsistentXOZ(const std::string& msg);
     explicit InconsistentXOZ(const F& msg);
 
-    virtual const char* what() const noexcept override;
+    const char* what() const noexcept override;
 };
 
 // Error detected before writing/modifying a xoz file that if we allow
@@ -54,7 +54,7 @@ public:
     explicit WouldEndUpInconsistentXOZ(const std::string& msg);
     explicit WouldEndUpInconsistentXOZ(const F& msg);
 
-    virtual const char* what() const noexcept override;
+    const char* what() const noexcept override;
 };
 class NullBlockAccess: public std::exception {
 private:
@@ -64,7 +64,7 @@ public:
     explicit NullBlockAccess(const std::string& msg);
     explicit NullBlockAccess(const F& msg);
 
-    virtual const char* what() const noexcept override;
+    const char* what() const noexcept override;
 };
 
 // An extent (blk_nr + blk_cnt) that goes (partially
@@ -79,7 +79,7 @@ public:
     ExtentOutOfBounds(const Repository& repo, const Extent& ext, const std::string& msg);
     ExtentOutOfBounds(const Repository& repo, const Extent& ext, const F& msg);
 
-    virtual const char* what() const noexcept override;
+    const char* what() const noexcept override;
 };
 
 class ExtentOverlapError: public std::exception {
@@ -95,7 +95,7 @@ public:
     ExtentOverlapError(const std::string& ref_name, const Extent& ref, const std::string& ext_name, const Extent& ext,
                        const F& msg);
 
-    virtual const char* what() const noexcept override;
+    const char* what() const noexcept override;
 };
 
 class NotEnoughRoom: public std::exception {
@@ -106,5 +106,5 @@ public:
     NotEnoughRoom(uint64_t requested_sz, uint64_t available_sz, const std::string& msg);
     NotEnoughRoom(uint64_t requested_sz, uint64_t available_sz, const F& msg);
 
-    virtual const char* what() const noexcept override;
+    const char* what() const noexcept override;
 };
