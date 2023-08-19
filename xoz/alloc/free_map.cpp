@@ -229,9 +229,11 @@ void FreeMap::dealloc(const Extent& ext) {
     Extent coalesced = ext;
 
     if (next_fr_it != end_it and coalesced.past_end_blk_nr() == blk_nr_of(next_fr_it)) {
-        coalesced.expand_by(blk_cnt_of(next_fr_it));
-        coalesced_with_next = true;  // then, next_fr_it must be removed
-        TRACE << "next:" << Extent(blk_nr_of(next_fr_it), blk_cnt_of(next_fr_it), false) << "  " << TRACE_FLUSH;
+        if (not u16_add_will_overflow(blk_cnt_of(next_fr_it), coalesced.blk_cnt())) {
+            coalesced.expand_by(blk_cnt_of(next_fr_it));
+            coalesced_with_next = true;  // then, next_fr_it must be removed
+            TRACE << "next:" << Extent(blk_nr_of(next_fr_it), blk_cnt_of(next_fr_it), false) << "  " << TRACE_FLUSH;
+        }
     }
 
     if (next_fr_it != fr_by_nr.begin()) {
@@ -239,28 +241,30 @@ void FreeMap::dealloc(const Extent& ext) {
         ++next_fr_it;
 
         if ((blk_nr_of(prev_fr_it) + blk_cnt_of(prev_fr_it)) == coalesced.blk_nr()) {
-            // trace *before* modifying prev_fr_it
-            TRACE << "prev:" << Extent(blk_nr_of(prev_fr_it), blk_cnt_of(prev_fr_it), false) << "  " << TRACE_FLUSH;
+            if (not u16_add_will_overflow(blk_cnt_of(prev_fr_it), coalesced.blk_cnt())) {
+                // trace *before* modifying prev_fr_it
+                TRACE << "prev:" << Extent(blk_nr_of(prev_fr_it), blk_cnt_of(prev_fr_it), false) << "  " << TRACE_FLUSH;
 
-            // Update prev free chunk in-place, after the coalesced extent was
-            // coalesced with the next free chunk (if possible)
-            //
-            // This implies a change in the block count so we must remove the chunk
-            // from the map that tracks it by block count.
-            erase_from_fr_by_cnt(prev_fr_it);
+                // Update prev free chunk in-place, after the coalesced extent was
+                // coalesced with the next free chunk (if possible)
+                //
+                // This implies a change in the block count so we must remove the chunk
+                // from the map that tracks it by block count.
+                erase_from_fr_by_cnt(prev_fr_it);
 
-            // Update in-place
-            blk_cnt_of(prev_fr_it) += coalesced.blk_cnt();
+                // Update in-place
+                blk_cnt_of(prev_fr_it) += coalesced.blk_cnt();
 
-            // Re insert the previously deleted entry from the map tracking
-            // by block count, now with the updated count.
-            fr_by_cnt.insert({blk_cnt_of(prev_fr_it), blk_nr_of(prev_fr_it)});
+                // Re insert the previously deleted entry from the map tracking
+                // by block count, now with the updated count.
+                fr_by_cnt.insert({blk_cnt_of(prev_fr_it), blk_nr_of(prev_fr_it)});
 
-            coalesced_with_prev = true;  // then, prev_fr_it must *not* be removed
+                coalesced_with_prev = true;  // then, prev_fr_it must *not* be removed
 
-            // For tracing purposes, update the coalesced Extent to track its
-            // new location and size
-            coalesced = Extent(blk_nr_of(prev_fr_it), blk_cnt_of(prev_fr_it), false);
+                // For tracing purposes, update the coalesced Extent to track its
+                // new location and size
+                coalesced = Extent(blk_nr_of(prev_fr_it), blk_cnt_of(prev_fr_it), false);
+            }
         }
     }
 

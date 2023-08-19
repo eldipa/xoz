@@ -1014,4 +1014,74 @@ namespace {
                 )
         );
     }
+
+    TEST(FreeMapTest, OverflowWhenCoalescing) {
+        std::list<Extent> assign_extents = {
+            Extent(1, 0xfff0, false),
+
+            Extent(0x10004, 0xfff1, false),
+        };
+
+        FreeMap fr_map(true, 0);
+        fr_map.provide(assign_extents);
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
+                    Extent(1, 0xfff0, false),
+                    Extent(0x10004, 0xfff1, false)
+                    ));
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
+                    Extent(1, 0xfff0, false),
+                    Extent(0x10004, 0xfff1, false)
+                    ));
+
+        // OK, this tiny extent can be coalesced with the previous huge extent
+        // without overflowing
+        fr_map.dealloc(Extent(0xfff1, 4, false));
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
+                    Extent(1, 0xfff4, false),  // coalesced
+                    Extent(0x10004, 0xfff1, false)
+                    ));
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
+                    Extent(0x10004, 0xfff1, false),
+                    Extent(1, 0xfff4, false)
+                    ));
+
+
+        // We cannot coalesce this extent with the previous because the
+        // resulting coalesced extent will be too large and it will overflow
+        // the block count.
+        fr_map.dealloc(Extent(0xfff5, 0xc, false));
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
+                    Extent(1, 0xfff4, false),
+                    Extent(0xfff5, 0xc, false), // not coalesced
+                    Extent(0x10004, 0xfff1, false)
+                    ));
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
+                    Extent(0xfff5, 0xc, false), // not coalesced
+                    Extent(0x10004, 0xfff1, false),
+                    Extent(1, 0xfff4, false)
+                    ));
+
+
+        // Now free a chunk in between 1 small and 1 huge extents. The chunks will
+        // be coalesced with the second but not with the first.
+        fr_map.dealloc(Extent(0x10001, 0x3, false));
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, ElementsAre(
+                    Extent(1, 0xfff4, false),
+                    Extent(0xfff5, 0xc, false),
+                    Extent(0x10001, 0xfff4, false) // coalesced with the free chk but no more
+                    ));
+
+        XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_CNT(fr_map, ElementsAre(
+                    Extent(0xfff5, 0xc, false),
+                    Extent(1, 0xfff4, false),
+                    Extent(0x10001, 0xfff4, false)
+                    ));
+    }
 }
