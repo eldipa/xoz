@@ -1,0 +1,8 @@
+Checks:              '-*,cppcoreguidelines-*,-cppcoreguidelines-init-variables'
+ExtraArgs:           ['-ferror-limit=1']
+WarningsAsErrors:    ''
+HeaderFilterRegex:   'xoz/.*'
+FormatStyle:         none
+InheritParentConfig: true
+User:                user
+

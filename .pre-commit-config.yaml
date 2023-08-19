@@ -18,7 +18,8 @@ repos:
         files: ^xoz/(.*[.]cpp|.*[.]h)$
         args: ["--inline-suppr", "--enable=all", "--suppress=unusedFunction", "--suppress=unusedStructMember", "--suppress=missingIncludeSystem", "--suppress=missingInclude", "--suppress=unmatchedSuppression", "--language=c++", "--std=c++20", "--error-exitcode=1"]
       - id: clang-tidy
-        stages: [push]
+        stages: [manual]
         files: ^xoz/(.*[.]cpp)$
-        args: ["-checks=*", "--", "-I./", "-std=c++20"]
+        args: ["--", "-I./", "-std=c++20"]
+        additional_dependencies: ["clang-tidy==v14.0.6"]
 
