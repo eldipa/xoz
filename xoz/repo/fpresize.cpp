@@ -32,8 +32,7 @@ uint32_t Repository::grow_by_blocks(uint16_t blk_cnt) {
     if (blk_cnt == 0)
         throw std::runtime_error("alloc of 0 blocks is not allowed");
 
-    // prevent overflow
-    assert(blk_total_cnt + blk_cnt >= blk_cnt);
+    assert(not u32_add_will_overflow(blk_total_cnt, blk_cnt));
 
     uint64_t sz = (blk_cnt << gp.blk_sz_order);
 

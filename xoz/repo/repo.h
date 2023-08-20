@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "xoz/arch.h"
 #include "xoz/ext/extent.h"
 #include "xoz/parameters.h"
 
@@ -259,11 +260,13 @@ private:
     // Alias for blk read / write positioning
     inline void seek_read_blk(uint32_t blk_nr, uint32_t offset = 0) {
         assert(blk_nr);
+        assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_nr << gp.blk_sz_order) + offset));
         seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos + offset);
     }
 
     inline void seek_write_blk(uint32_t blk_nr, uint32_t offset = 0) {
         assert(blk_nr);
+        assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_nr << gp.blk_sz_order) + offset));
         seek_write_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos + offset);
     }
 

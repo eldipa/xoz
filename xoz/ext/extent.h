@@ -93,7 +93,7 @@ public:
 
     inline void expand_by(uint16_t cnt) {
         assert(not is_suballoc());
-        assert((_blk_cnt + cnt) >= _blk_cnt);  // overflow
+        assert(not u16_add_will_overflow(_blk_cnt, cnt));
         _blk_cnt += cnt;
     }
 

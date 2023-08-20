@@ -81,15 +81,16 @@ void Repository::seek_read_and_check_header() {
                                          << " and block size " << gp.blk_sz << ".");
     }
 
-    // Calculate the repository end position
-    phy_repo_end_pos = phy_repo_start_pos + repo_sz;
 
     // This could happen only on overflow
-    if (phy_repo_end_pos < phy_repo_start_pos) {
+    if (u64_add_will_overflow(phy_repo_start_pos, repo_sz)) {
         throw InconsistentXOZ(*this, F() << "the repository starts at the physical file position " << phy_repo_start_pos
                                          << " and has a size of " << repo_sz
                                          << " bytes, which added together goes beyond the allowed limit.");
     }
+
+    // Calculate the repository end position
+    phy_repo_end_pos = phy_repo_start_pos + repo_sz;
 
     if (phy_repo_end_pos > fp_end) {
         throw InconsistentXOZ(*this, F() << "the repository has a declared size (" << repo_sz << ") starting at "
@@ -123,6 +124,7 @@ void Repository::seek_read_and_check_trailer(bool clear_trailer) {
                                          << " bytes.");
     }
 
+    assert(not u64_add_will_overflow(phy_repo_start_pos, repo_sz));
     fp.seekg(phy_repo_start_pos + repo_sz);
 
     struct repo_trailer_t eof;
@@ -170,6 +172,7 @@ std::streampos Repository::_seek_and_write_trailer(std::ostream& fp, uint64_t ph
     // Go to the end of the repository.
     // If this goes beyond the current file size, this will
     // "reserve" space for the "ghost" blocks.
+    assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_total_cnt << gp.blk_sz_order)));
     may_grow_and_seek_write_phy(fp, phy_repo_start_pos + (blk_total_cnt << gp.blk_sz_order));
 
     struct repo_trailer_t eof = {.magic = {'E', 'O', 'F', 0}};
