@@ -90,6 +90,8 @@ public:
     uint32_t calc_footprint_disk_size() const;
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
 
+    uint32_t estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const;
+
     friend void PrintTo(const Segment& segm, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const Segment& segm);
 

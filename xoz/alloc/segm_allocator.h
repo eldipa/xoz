@@ -34,7 +34,7 @@ private:
     uint64_t alloc_call_cnt;
     uint64_t dealloc_call_cnt;
 
-    uint64_t accum_internal_frag_avg_sz;
+    uint64_t internal_frag_avg_sz;
 
     uint64_t in_use_ext_per_segm[StatsExtPerSegmLen];
 
@@ -102,19 +102,26 @@ public:
         // This assumes that the user will not use the extra space that
         // it is totally wasted.
         //
-        // We track correctly the increments in the internal fragmentation
-        // on each alloc() call but we can only guess the decrements (in average).
-        //
         // The internal fragmentation is wasted space that lives within
         // the block or subblock so it is not allocable further.
         // This means that the space is lost until the segment
         // that owns it is deallocated.
         //
-        // An large number may indicate that the inline space is not enough
-        // and more semi-used subblocks are being used instead or that
-        // suballocation is disabled forcing the SegmentAllocator to use
-        // full blocks (and the user data is clearly not a multiple of
-        // the block size hence the internal fragmentation).
+        // While SegmentAllocator can track accurately the internal
+        // fragmentation on alloc(), it cannot do it on dealloc() so
+        // instead we provide an average:
+        //
+        //  - if subblocks are used, the fragmentation per segment
+        //    is half subblock
+        //  - if no subblocks are used *and* there is at least 1 block,
+        //    the fragmentation per segment is half block
+        //  - otherwise, the fragmentation per segment is 0,
+        //    regardless if exists inlined data.
+        //
+        // Because SegmentAllocator may reduce the real fragmentation
+        // moving data to the inline space which it is not counted
+        // by the stats, the internal_frag_avg_sz over estimates it.
+        //
         uint64_t internal_frag_avg_sz;
         double internal_frag_avg_sz_kb;
         double internal_frag_avg_rel;

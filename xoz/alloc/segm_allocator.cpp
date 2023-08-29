@@ -35,7 +35,7 @@ SegmentAllocator::SegmentAllocator(Repository& repo, bool coalescing_enabled, ui
         in_use_inlined_sz(0),
         alloc_call_cnt(0),
         dealloc_call_cnt(0),
-        accum_internal_frag_avg_sz(0) {
+        internal_frag_avg_sz(0) {
     memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
 }
 
@@ -170,7 +170,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
 
     calc_ext_per_segm_stats(segm, true);
 
-    accum_internal_frag_avg_sz += (avail_sz - sz);
+    internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(repo.blk_sz_order());
 
     ++alloc_call_cnt;
     return segm;
@@ -207,9 +207,7 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     calc_ext_per_segm_stats(segm, false);
     ++dealloc_call_cnt;
 
-    uint64_t avg_truncated =
-            uint64_t((double(accum_internal_frag_avg_sz) / double(alloc_call_cnt - (dealloc_call_cnt - 1))));
-    accum_internal_frag_avg_sz -= avg_truncated;
+    internal_frag_avg_sz -= segm.estimate_on_avg_internal_frag_sz(repo.blk_sz_order());
 
     reclaim_free_space_from_subfr_map();
 }
@@ -226,7 +224,7 @@ SegmentAllocator::stats_t SegmentAllocator::stats() const {
     double external_frag_sz_kb = double(external_frag_sz) / double(1024.0);
     double external_frag_rel = repo_data_sz == 0 ? 0 : (double(external_frag_sz) / double(repo_data_sz));
 
-    uint64_t internal_frag_avg_sz = accum_internal_frag_avg_sz;
+    uint64_t internal_frag_avg_sz = this->internal_frag_avg_sz;
     double internal_frag_avg_sz_kb = double(internal_frag_avg_sz) / double(1024.0);
     double internal_frag_avg_rel =
             in_use_by_user_sz == 0 ? 0 : (double(internal_frag_avg_sz) / double(in_use_by_user_sz));
