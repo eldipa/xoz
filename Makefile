@@ -1,16 +1,17 @@
-.PHONY: all test clean
+.PHONY: all test clean coverage
 
 all: test
 
 compile:
-	tup 
+	tup
 
 test: compile
 	./test/runtests
 
 coverage:
-	lcov  --directory xoz/ --no-external --capture > coverage.info
-	genhtml coverage.info
+	mkdir -p coverage/
+	lcov  --directory xoz/ --no-external --capture > coverage/coverage.info
+	cd coverage && genhtml coverage.info
 
 valgrind: compile
 	valgrind ./build-default/test/runtests
@@ -19,3 +20,4 @@ valgrind: compile
 
 clean:
 	rm -f scratch/mem/*
+	rm -fR coverage/*

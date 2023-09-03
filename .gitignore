@@ -6,3 +6,6 @@ out-googletest/
 test/runtests
 wiki/
 build-*/
+*.gcno
+*.gcda
+coverage/
