@@ -165,7 +165,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     in_use_by_user_sz += avail_sz;
     in_use_ext_cnt += segm.ext_cnt();
     in_use_inlined_sz += segm.inline_data_sz();
-    in_use_blk_cnt += segm.blk_cnt();
+    in_use_blk_cnt += segm.full_blk_cnt();  // blks for suballoc are counted in provide()
     in_use_subblk_cnt += segm.subblk_cnt();
 
     calc_ext_per_segm_stats(segm, true);

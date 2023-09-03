@@ -160,7 +160,7 @@ uint32_t Segment::calc_usable_space_size(uint8_t blk_sz_order) const {
 uint32_t Segment::estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const {
     if (subblk_cnt() > 0) {
         return 1 << (blk_sz_order - Extent::SUBBLK_SIZE_ORDER - 1);
-    } else if (blk_cnt() > 0) {
+    } else if (full_blk_cnt() > 0) {
         return 1 << (blk_sz_order - 1);
     } else {
         return 0;

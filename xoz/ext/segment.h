@@ -56,7 +56,7 @@ public:
         return uint32_t(arr.size());
     }
 
-    uint32_t blk_cnt() const {
+    uint32_t full_blk_cnt() const {
         return std::accumulate(arr.cbegin(), arr.cend(), 0, [](uint32_t cnt, const Extent& ext) {
             return cnt + (ext.is_suballoc() ? 0 : ext.blk_cnt());
         });
