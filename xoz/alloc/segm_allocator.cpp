@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <iostream>
 #include <list>
+#include <map>
 
 #include "xoz/alloc/free_map.h"
 #include "xoz/alloc/subblock_free_map.h"
@@ -208,6 +209,112 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     internal_frag_avg_sz -= segm.estimate_on_avg_internal_frag_sz(repo.blk_sz_order());
 
     reclaim_free_space_from_subfr_map();
+}
+
+
+void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
+    if (alloc_call_cnt or dealloc_call_cnt) {
+        throw "Segment allocator already been used.";
+    }
+
+    // Collect all the allocated extents of all the segments
+    std::list<Extent> allocated;
+    for (const auto& segm: allocated_segms) {
+        allocated.insert(allocated.end(), segm.exts().begin(), segm.exts().end());
+
+        in_use_by_user_sz += segm.calc_usable_space_size(repo.blk_sz_order());
+        in_use_ext_cnt += segm.ext_cnt();
+        in_use_inlined_sz += segm.inline_data_sz();
+        in_use_blk_cnt += segm.full_blk_cnt();
+        in_use_subblk_cnt += segm.subblk_cnt();
+
+        calc_ext_per_segm_stats(segm, true);
+        internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(repo.blk_sz_order());
+    }
+
+    // Sort them by block number
+    allocated.sort(Extent::cmp_by_blk_nr);
+
+    std::map<uint32_t, uint16_t> suballocated_bitmap_by_nr;
+    for (const auto& ext: allocated) {
+        if (not ext.is_suballoc()) {
+            continue;
+        }
+
+        // We must collect and merge all the suballocated bitmaps before
+        // knowing which subblocks are truly free
+        suballocated_bitmap_by_nr[ext.blk_nr()] |= ext.blk_bitmap();
+    }
+
+    // Provide the free subblocks and track the blocks for suballocation
+    // as allocated full-block extents
+    for (const auto& p: suballocated_bitmap_by_nr) {
+        uint32_t blk_nr = p.first;
+        uint16_t free_bitmap = ~p.second;  // negation of the allocated bitmap
+
+        if (free_bitmap) {
+            subfr_map.provide(Extent(blk_nr, free_bitmap, true));
+        }
+
+        allocated.push_back(Extent(blk_nr, 1, false));
+        ++in_use_blk_for_suballoc_cnt;
+        ++in_use_blk_cnt;
+    }
+
+    // Sort them by block number, again
+    allocated.sort(Extent::cmp_by_blk_nr);
+
+
+    // Find the gaps between consecutive allocated extents.
+    // These gaps are the free extents to initialize the free maps
+    uint32_t cur_nr = repo.begin_data_blk_nr();
+    for (const auto& ext: allocated) {
+        if (ext.is_suballoc()) {
+            // already handled
+            continue;
+        }
+
+        if (ext.blk_nr() == cur_nr) {
+            // skip extent
+            cur_nr = ext.past_end_blk_nr();
+            continue;
+        } else if (ext.blk_nr() < cur_nr) {
+            assert(false);
+        }
+
+        assert(ext.blk_nr() > cur_nr);
+
+        uint32_t gap = ext.blk_nr() - cur_nr;
+
+        // Non-suballocated Extent can be provided right now
+        // We may require multiple extents if the gap is larger than 0xffff
+        while (gap) {
+            uint16_t len = uint16_t(std::min<uint32_t>(gap, 0xffff));
+            fr_map.provide(Extent(cur_nr, len, false));
+
+            gap -= len;
+            cur_nr += len;
+        }
+
+        assert(cur_nr == ext.blk_nr());
+        cur_nr = ext.past_end_blk_nr();
+    }
+
+    // Provide the last free extent (if any) that lies after the last
+    // allocated extent and the end of the data section
+    if (repo.past_end_data_blk_nr() > cur_nr) {
+        uint32_t gap = repo.past_end_data_blk_nr() - cur_nr;
+
+        while (gap) {
+            uint16_t len = uint16_t(std::min<uint32_t>(gap, 0xffff));
+            fr_map.provide(Extent(cur_nr, len, false));
+
+            gap -= len;
+            cur_nr += len;
+        }
+
+        assert(cur_nr == repo.past_end_data_blk_nr());
+    }
 }
 
 void SegmentAllocator::release() {

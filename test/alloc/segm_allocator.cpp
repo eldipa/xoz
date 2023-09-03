@@ -2309,5 +2309,585 @@ namespace {
         // and use that to fulfill the request.
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
     }
+
+    TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsOfOneExtentOfOneBlock) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        /*
+        const SegmentAllocator::req_t req = {
+            .segm_frag_threshold = 3,
+            .max_inline_sz = 8,
+            .allow_suballoc = true
+        };
+        */
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, true);
+
+        // Alloc 15 segments, each of 1 block size
+        std::vector<Segment> segments;
+        for (size_t i = 0; i < 15; ++i) {
+            auto segm = sg_alloc.alloc(repo.blk_sz());
+            segments.push_back(segm);
+        }
+
+        // Now, dealloc every 2 segment, leaving an alternating allocated/free pattern
+        // Keep the still-allocated in a separated list
+        std::list<Segment> allocated;
+        for (size_t i = 0; i < segments.size(); ++i) {
+            if (i % 2 == 0) {
+                sg_alloc.dealloc(segments[i]);
+            } else {
+                allocated.push_back(segments[i]);
+            }
+        }
+
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        auto stats = sg_alloc.stats();
+
+        EXPECT_EQ(stats.in_use_by_user_sz, uint64_t(448));
+        EXPECT_EQ(stats.in_use_blk_cnt, uint64_t(7));
+        EXPECT_EQ(stats.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats.in_use_ext_cnt, uint64_t(7));
+        EXPECT_EQ(stats.in_use_inlined_sz, uint64_t(0));
+
+        EXPECT_EQ(stats.alloc_call_cnt, uint64_t(15));
+        EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(8));
+
+        EXPECT_EQ(stats.external_frag_sz, uint64_t(512));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(224));
+        EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,7,0,0,0,0,0,0));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(3, 1, false),
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        SegmentAllocator sg_alloc1(repo, true);
+        sg_alloc1.initialize(allocated);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        auto stats1 = sg_alloc1.stats();
+
+        EXPECT_EQ(stats1.in_use_by_user_sz, uint64_t(448));
+        EXPECT_EQ(stats1.in_use_blk_cnt, uint64_t(7));
+        EXPECT_EQ(stats1.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats1.in_use_ext_cnt, uint64_t(7));
+        EXPECT_EQ(stats1.in_use_inlined_sz, uint64_t(0));
+
+        // Alloc/Dealloc call count cannot be deduced reliable cross
+        // multiple segment allocators. The safest thing is to set them to 0
+        EXPECT_EQ(stats1.alloc_call_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.dealloc_call_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats1.external_frag_sz, uint64_t(512));
+        EXPECT_EQ(stats1.internal_frag_avg_sz, uint64_t(224));
+        EXPECT_EQ(stats1.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats1.in_use_ext_per_segm, ElementsAre(0,7,0,0,0,0,0,0));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(3, 1, false),
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // The new allocator is fully functional
+        auto segm1 = sg_alloc1.alloc(repo.blk_sz() * 2);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)2);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(1));
+        EXPECT_EQ(segm1.exts()[1].blk_cnt(), (uint8_t)(1));
+        EXPECT_EQ(segm1.exts()[1].blk_nr(), (uint32_t)(3));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // We can release the extents that can be reclaimed by the Tail allocator
+        sg_alloc1.release();
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)15);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)14);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(5, 1, false),
+                    Extent(7, 1, false),
+                    Extent(9, 1, false),
+                    Extent(11, 1, false),
+                    Extent(13, 1, false)
+                    ));
+
+    }
+
+    TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsOfMultipleExtentsOfMultipleBlocks) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, true);
+
+        // Alloc 15 blocks
+        auto main_segm = sg_alloc.alloc(repo.blk_sz() * 15);
+        auto main_ext = main_segm.exts().back();
+
+        // Hand-craft segments using those 15 blocks
+        // Note that there are unused blocks at the begin and at the end
+        std::list<Segment> allocated;
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 9, 2, false));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 3, false));
+
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 1, false));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 7, 2, false));
+
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+
+        SegmentAllocator sg_alloc1(repo, true);
+        sg_alloc1.initialize(allocated);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        auto stats1 = sg_alloc1.stats();
+
+        EXPECT_EQ(stats1.in_use_by_user_sz, uint64_t(repo.blk_sz() * (2+3+1+2)));
+        EXPECT_EQ(stats1.in_use_blk_cnt, uint64_t(2+3+1+2));
+        EXPECT_EQ(stats1.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats1.in_use_ext_cnt, uint64_t(2+2));
+        EXPECT_EQ(stats1.in_use_inlined_sz, uint64_t(0));
+
+        // Alloc/Dealloc call count cannot be deduced reliable cross
+        // multiple segment allocators. The safest thing is to set them to 0
+        EXPECT_EQ(stats1.alloc_call_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.dealloc_call_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats1.external_frag_sz, uint64_t(repo.blk_sz() * (15 - (2+3+1+2))));
+        EXPECT_EQ(stats1.internal_frag_avg_sz, uint64_t((repo.blk_sz() >> 1) * (1+1)));
+        EXPECT_EQ(stats1.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats1.in_use_ext_per_segm, ElementsAre(0,0,2,0,0,0,0,0));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(5, 2, false),
+                    Extent(12, 4, false)
+                    ));
+
+        // The new allocator is fully functional
+        auto segm1 = sg_alloc1.alloc(repo.blk_sz() * 3);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 3));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint8_t)(3));
+        EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(12));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(5, 2, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // We can release the extents that can be reclaimed by the Tail allocator
+        sg_alloc1.release();
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)15);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)14);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(5, 2, false)
+                    ));
+    }
+
+    TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsWithLargeGaps) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, true);
+
+        auto main_segm = sg_alloc.alloc(repo.blk_sz() * (0xffff + 2));
+
+        EXPECT_EQ(main_segm.ext_cnt(), (size_t)2);
+        EXPECT_EQ(main_segm.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(main_segm.exts()[0].blk_cnt(), (uint16_t)(0xffff));
+        EXPECT_EQ(main_segm.exts()[0].blk_nr(), (uint32_t)(1));
+        EXPECT_EQ(main_segm.exts()[1].blk_cnt(), (uint16_t)(2));
+        EXPECT_EQ(main_segm.exts()[1].blk_nr(), (uint32_t)(0xffff + 1));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)(0xffff + 2 + 1));
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)(0xffff + 2));
+
+
+        // Hand-craft segment: simulate a single block allocated at the end
+        std::list<Segment> allocated;
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(repo.past_end_data_blk_nr()-1, 1, false));
+
+
+        SegmentAllocator sg_alloc1(repo, true);
+        sg_alloc1.initialize(allocated);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)(0xffff + 2 + 1));
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)(0xffff + 2));
+
+        auto stats1 = sg_alloc1.stats();
+
+        EXPECT_EQ(stats1.in_use_by_user_sz, uint64_t(repo.blk_sz() * 1));
+        EXPECT_EQ(stats1.in_use_blk_cnt, uint64_t(1));
+        EXPECT_EQ(stats1.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats1.in_use_ext_cnt, uint64_t(1));
+        EXPECT_EQ(stats1.in_use_inlined_sz, uint64_t(0));
+
+        EXPECT_EQ(stats1.external_frag_sz, uint64_t(repo.blk_sz() * ((0xffff + 2) - 1)));
+        EXPECT_EQ(stats1.internal_frag_avg_sz, uint64_t((repo.blk_sz() >> 1) * (1)));
+        EXPECT_EQ(stats1.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats1.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(1, 0xffff, false),
+                    Extent(0xffff + 1, 1, false)
+                    ));
+
+        // The new allocator is fully functional
+        auto segm1 = sg_alloc1.alloc(repo.blk_sz() * 2);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)(0xffff + 2 + 1));
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)(0xffff + 2));
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint16_t)(2));
+        EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(1));
+
+        // Note how the alloc() does not trigger a coalescing between
+        // these 2 consecutive extents
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(3, 0xffff - 2, false),
+                    Extent(0xffff + 1, 1, false)
+                    ));
+
+        // Note how this dealloc() does not trigger a coalescing either
+        // because the coalesced extent cannot be represented in a single extent
+        // (the concatenation is too large)
+        sg_alloc1.dealloc(allocated.back());
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(3, 0xffff - 2, false),
+                    Extent(0xffff + 1, 2, false)
+                    ));
+
+        // We can release the extents that can be reclaimed by the Tail allocator
+        sg_alloc1.release();
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)2);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, IsEmpty());
+    }
+
+    TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsWithLargeGapsAtEnd) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, true);
+
+        auto main_segm = sg_alloc.alloc(repo.blk_sz() * (0xffff + 2));
+
+        EXPECT_EQ(main_segm.ext_cnt(), (size_t)2);
+        EXPECT_EQ(main_segm.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(main_segm.exts()[0].blk_cnt(), (uint16_t)(0xffff));
+        EXPECT_EQ(main_segm.exts()[0].blk_nr(), (uint32_t)(1));
+        EXPECT_EQ(main_segm.exts()[1].blk_cnt(), (uint16_t)(2));
+        EXPECT_EQ(main_segm.exts()[1].blk_nr(), (uint32_t)(0xffff + 1));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)(0xffff + 2 + 1));
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)(0xffff + 2));
+
+
+        // Hand-craft segment: simulate a single block allocated at the begin
+        std::list<Segment> allocated;
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(repo.begin_data_blk_nr(), 1, false));
+
+
+        SegmentAllocator sg_alloc1(repo, true);
+        sg_alloc1.initialize(allocated);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)(0xffff + 2 + 1));
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)(0xffff + 2));
+
+        auto stats1 = sg_alloc1.stats();
+
+        EXPECT_EQ(stats1.in_use_by_user_sz, uint64_t(repo.blk_sz() * 1));
+        EXPECT_EQ(stats1.in_use_blk_cnt, uint64_t(1));
+        EXPECT_EQ(stats1.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats1.in_use_ext_cnt, uint64_t(1));
+        EXPECT_EQ(stats1.in_use_inlined_sz, uint64_t(0));
+
+        EXPECT_EQ(stats1.external_frag_sz, uint64_t(repo.blk_sz() * ((0xffff + 2) - 1)));
+        EXPECT_EQ(stats1.internal_frag_avg_sz, uint64_t((repo.blk_sz() >> 1) * (1)));
+        EXPECT_EQ(stats1.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats1.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(2, 0xffff, false),
+                    Extent(0xffff + 2, 1, false)
+                    ));
+
+        // The new allocator is fully functional
+        auto segm1 = sg_alloc1.alloc(repo.blk_sz()*2);
+        auto segm2 = sg_alloc1.alloc(repo.blk_sz()*2);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+        EXPECT_EQ(segm2.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 2));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)(0xffff + 2 + 1));
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)(0xffff + 2));
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm2.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm2.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint16_t)(2));
+        EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(2));
+
+        EXPECT_EQ(segm2.exts()[0].blk_cnt(), (uint16_t)(2));
+        EXPECT_EQ(segm2.exts()[0].blk_nr(), (uint32_t)(4));
+
+        // Note how the alloc() does not trigger a coalescing between
+        // these 2 consecutive extents
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(6, 0xffff - 4, false),
+                    Extent(0xffff + 2, 1, false)
+                    ));
+
+        // Note how this dealloc() does a coalescing
+        sg_alloc1.dealloc(segm2);
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(4, 0xffff-2, false),
+                    Extent(0xffff + 2, 1, false)
+                    ));
+
+        // Note how this alloc() will alloc the last extent and then
+        // the dealloc() will do a coalescing
+        sg_alloc1.dealloc(sg_alloc1.alloc(repo.blk_sz()));
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(4, 0xffff-1, false)
+                    ));
+
+        // But this will not
+        sg_alloc1.dealloc(segm1);
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(2, 2, false),
+                    Extent(4, 0xffff-1, false)
+                    ));
+
+        // We can release the extents that can be reclaimed by the Tail allocator
+        sg_alloc1.release();
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, IsEmpty());
+    }
+
+    TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsOfMultipleExtentsOfMultipleBlocksAndSubblocks) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, true);
+
+        // Alloc 15 blocks
+        auto main_segm = sg_alloc.alloc(repo.blk_sz() * 15);
+        auto main_ext = main_segm.exts().back();
+
+        // Hand-craft segments using those 15 blocks
+        // Note that there are unused blocks at the begin and at the end
+        // and some extent are for sub allocation (some share the same block,
+        // others don't; some combined fully use the block, others don't)
+        std::list<Segment> allocated;
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 9, 2, false));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0x000f, true));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0x0f00, true));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 0x0fff, true));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 3, 1, false));
+
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0xf000, true));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 1, false));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 7, 2, false));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 0xf000, true));
+
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+
+        SegmentAllocator sg_alloc1(repo, true);
+        sg_alloc1.initialize(allocated);
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        auto stats1 = sg_alloc1.stats();
+
+        EXPECT_EQ(stats1.in_use_by_user_sz, uint64_t(repo.blk_sz() * (2+1+1+2) + repo.subblk_sz() * (4+4+(4*3)+4+4)));
+        EXPECT_EQ(stats1.in_use_blk_cnt, uint64_t(2+1+1+1+1+2));
+        EXPECT_EQ(stats1.in_use_blk_for_suballoc_cnt, uint64_t(2));
+        EXPECT_EQ(stats1.in_use_subblk_cnt, uint64_t(4+4+(4*3)+4+4));
+
+        EXPECT_EQ(stats1.in_use_ext_cnt, uint64_t(5+4));
+        EXPECT_EQ(stats1.in_use_inlined_sz, uint64_t(0));
+
+        // Alloc/Dealloc call count cannot be deduced reliable cross
+        // multiple segment allocators. The safest thing is to set them to 0
+        EXPECT_EQ(stats1.alloc_call_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.dealloc_call_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats1.external_frag_sz, uint64_t(repo.blk_sz() * (15 - (2+1+1+1+1+2))));
+        EXPECT_EQ(stats1.internal_frag_avg_sz, uint64_t((repo.subblk_sz() >> 1) * (1+1)));
+        EXPECT_EQ(stats1.allocable_internal_frag_sz, uint64_t(repo.subblk_sz() * 4));
+
+        EXPECT_THAT(stats1.in_use_ext_per_segm, ElementsAre(0,0,0,0,1,1,0,0));
+
+        /*
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(5, 2, false),
+                    Extent(12, 4, false)
+                    ));
+
+        // The new allocator is fully functional
+        auto segm1 = sg_alloc1.alloc(repo.blk_sz() * 3);
+
+        EXPECT_EQ(segm1.calc_usable_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz() * 3));
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)15);
+
+        EXPECT_EQ(segm1.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm1.inline_data_sz(), (uint8_t)(0));
+
+        EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint8_t)(3));
+        EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(12));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(5, 2, false),
+                    Extent(15, 1, false)
+                    ));
+
+        // We can release the extents that can be reclaimed by the Tail allocator
+        sg_alloc1.release();
+
+        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)15);
+        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)14);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(5, 2, false)
+                    ));
+                    */
+    }
 }
 

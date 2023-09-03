@@ -146,4 +146,10 @@ public:
     // by GoogleTest
     friend void PrintTo(const Extent& ext, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const Extent& ext);
+
+    static bool cmp_by_blk_nr(const Extent& a, const Extent& b) { return a.blk_nr() < b.blk_nr(); }
+
+    // Copy are allowed
+    Extent(const Extent&) = default;
+    constexpr Extent& operator=(const Extent&) = default;
 };

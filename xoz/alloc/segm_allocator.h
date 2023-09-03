@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <list>
 
 #include "xoz/alloc/free_map.h"
 #include "xoz/alloc/subblock_free_map.h"
@@ -52,6 +53,7 @@ public:
     Segment alloc(const uint32_t sz, const struct req_t& req = SegmentAllocator::DefaultReq);
     void dealloc(const Segment& segm);
 
+    void initialize(const std::list<Segment>& allocated_segms);
     void release();
 
     struct stats_t {
