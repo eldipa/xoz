@@ -184,14 +184,12 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
     TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
 
-    // bool used_suballoc = false;
     auto blk_cnt = 0;
     auto subblk_cnt = 0;
     for (auto const& ext: segm.exts()) {
         if (ext.is_suballoc()) {
             subfr_map.dealloc(ext);
             subblk_cnt += ext.subblk_cnt();
-            // used_suballoc = true;
         } else {
             fr_map.dealloc(ext);
             blk_cnt += ext.blk_cnt();
