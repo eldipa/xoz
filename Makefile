@@ -3,11 +3,14 @@
 all: test
 
 compile:
-	tup
+	tup 
 
 test: compile
-	./build-default/test/runtests
-	./build-fuzzing/test/runtests
+	./test/runtests
+
+coverage:
+	lcov  --directory xoz/ --no-external --capture > coverage.info
+	genhtml coverage.info
 
 valgrind: compile
 	valgrind ./build-default/test/runtests
