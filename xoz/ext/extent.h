@@ -83,7 +83,7 @@ public:
 
     inline bool is_suballoc() const { return (bool)(_blk_nr & 0x80000000); }
 
-    inline bool is_unallocated() const { return blk_nr() == 0x0; }
+    inline bool is_null() const { return blk_nr() == 0x0; }
 
     inline void shrink_by(uint16_t cnt) {
         assert(not is_suballoc());
