@@ -6,7 +6,7 @@
 #include "xoz/exceptions.h"
 #include "xoz/ext/extent.h"
 #include "xoz/ext/internal_defs.h"
-#include "xoz/ext/segment.h"
+#include "xoz/segm/segment.h"
 
 void Segment::fail_if_bad_inline_sz() const {
     const Segment& segm = *this;

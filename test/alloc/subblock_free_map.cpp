@@ -1,5 +1,5 @@
 #include "xoz/ext/extent.h"
-#include "xoz/ext/segment.h"
+#include "xoz/segm/segment.h"
 #include "xoz/exceptions.h"
 #include "xoz/alloc/subblock_free_map.h"
 

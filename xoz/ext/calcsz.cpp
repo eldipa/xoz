@@ -4,7 +4,7 @@
 #include "xoz/exceptions.h"
 #include "xoz/ext/extent.h"
 #include "xoz/ext/internal_defs.h"
-#include "xoz/ext/segment.h"
+#include "xoz/segm/segment.h"
 
 // Calculates the distance in blocks between a reference extent
 // and the target extent taking into account the length of each

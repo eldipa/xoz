@@ -7,8 +7,8 @@
 #include "xoz/alloc/subblock_free_map.h"
 #include "xoz/alloc/tail_allocator.h"
 #include "xoz/ext/extent.h"
-#include "xoz/ext/segment.h"
 #include "xoz/repo/repo.h"
+#include "xoz/segm/segment.h"
 
 class SegmentAllocator {
 public:

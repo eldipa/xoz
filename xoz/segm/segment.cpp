@@ -1,4 +1,4 @@
-#include "xoz/ext/segment.h"
+#include "xoz/segm/segment.h"
 
 #include <ostream>
 
