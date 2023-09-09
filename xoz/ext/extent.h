@@ -53,6 +53,8 @@ public:
         }
     }
 
+    static Extent NullExtent() { return Extent(0, 0, false); }
+
     inline uint32_t blk_nr() const { return _blk_nr & 0x03ffffff; }
 
     inline uint16_t blk_cnt() const {
