@@ -2,15 +2,15 @@
 
 all: test
 
-compile:
+compile: unmirror
 	tup
 
 test: compile
-	./test/runtests
+	./build-debug/test/runtests
 
-coverage:
+coverage: mirror
 	mkdir -p coverage/
-	lcov  --directory xoz/ --no-external --capture > coverage/coverage.info
+	lcov  --directory build-debug/xoz/ --no-external --capture > coverage/coverage.info
 	cd coverage && genhtml coverage.info
 
 valgrind: compile
@@ -18,6 +18,14 @@ valgrind: compile
 
 #-ftime-report -ftime-report-details -H
 
+mirror:
+	find xoz/ test/ \( -name '*.h' -o -name '*.cpp' \) -exec ln -sr {} build-debug/{} \;
+
+unmirror:
+	find build-debug/xoz/ build-debug/test/ \( -name '*.h' -o -name '*.cpp' \) -exec rm {} \;
+
 clean:
+	rm -Rf build-*/
 	rm -f scratch/mem/*
 	rm -fR coverage/*
+	tup variant configs/*.config
