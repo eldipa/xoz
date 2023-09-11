@@ -8,6 +8,9 @@ compile: unmirror
 test: compile
 	./build-debug/test/runtests
 
+debug:
+	gdb -x .gdbinit --args build-debug/test/runtests
+
 coverage: mirror
 	mkdir -p coverage/
 	lcov  --directory build-debug/xoz/ --no-external --capture > coverage/coverage.info

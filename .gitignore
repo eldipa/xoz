@@ -9,3 +9,4 @@ build-*/
 *.gcno
 *.gcda
 coverage/
+.gdbinit
