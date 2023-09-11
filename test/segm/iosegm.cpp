@@ -617,4 +617,76 @@ namespace {
                 "454f 4600"
                 );
     }
+
+    TEST(IOSegmentTest, RWExactFail) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+
+        auto old_top_nr = repo.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+
+        Segment sg;
+        sg.add_extent(Extent(1, 1, false)); // one block
+
+        std::vector<char> wrbuf(65); // block size plus 1
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0);
+
+        std::vector<char> rdbuf(128, 0); // initialize to 0 so we can check later that nobody written on it
+
+        IOSegment iosg1(repo, sg);
+        EXPECT_THAT(
+            [&]() { iosg1.writeall(wrbuf); },  // try to write 65 bytes, but 64 is max and fail
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 65 bytes but only 64 bytes are available. "
+                              "Write exact-byte-count operation at position 0 failed; "
+                              "detected before the write."
+                        )
+                    )
+                )
+        );
+
+        // Nothing is written
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Write a few bytes
+        iosg1.writeall(subvec(wrbuf, 0, 8));
+
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+                "0001 0203 0405 0607 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        IOSegment iosg2(repo, sg);
+        EXPECT_THAT(
+            [&]() { iosg2.readall(rdbuf, 65); },  // try to read 65 bytes, but 64 is max and fail
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 65 bytes but only 64 bytes are available. "
+                              "Read exact-byte-count operation at position 0 failed; "
+                              "detected before the read."
+                        )
+                    )
+                )
+        );
+
+        // Nothing was read
+        std::vector<char> zeros = {0, 0, 0, 0, 0, 0, 0, 0};
+        EXPECT_EQ(subvec(rdbuf, 0, 8), zeros);
+
+        repo.close();
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+                "0001 0203 0405 0607 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "454f 4600"
+                );
+    }
 }

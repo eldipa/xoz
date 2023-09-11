@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "xoz/chk.h"
+#include "xoz/exceptions.h"
 #include "xoz/ext/extent.h"
 #include "xoz/repo/repo.h"
 #include "xoz/segm/segment.h"
@@ -43,12 +44,19 @@ IOSegment::IOSegment(Repository& repo, const Segment& sg):
 void IOSegment::rw_operation_exact_sz(const bool is_read_op, char* data, const uint32_t exact_sz) {
     const uint32_t remain_sz = is_read_op ? remain_rd() : remain_wr();
     if (remain_sz < exact_sz) {
-        throw "";
+        throw NotEnoughRoom(exact_sz, remain_sz,
+                            F() << (is_read_op ? "Read " : "Write ") << "exact-byte-count operation at position "
+                                << (is_read_op ? rd : wr) << " failed; detected before the "
+                                << (is_read_op ? "read." : "write."));
     }
 
     const uint32_t rw_total_sz = rw_operation(is_read_op, data, exact_sz);
     if (rw_total_sz != exact_sz) {
-        throw "";
+        throw UnexpectedShorten(exact_sz, remain_sz, rw_total_sz,
+                                F() << (is_read_op ? "Read " : "Write ")
+                                    << "exact-byte-count operation failed due a short "
+                                    << (is_read_op ? "read " : "write ") << "(pointer left at position "
+                                    << (is_read_op ? rd : wr) << " ).");
     }
 }
 
