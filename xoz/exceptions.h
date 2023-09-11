@@ -108,3 +108,14 @@ public:
 
     const char* what() const noexcept override;
 };
+
+class UnexpectedShorten: public std::exception {
+private:
+    std::string msg;
+
+public:
+    UnexpectedShorten(uint64_t requested_sz, uint64_t available_sz, uint64_t short_sz, const std::string& msg);
+    UnexpectedShorten(uint64_t requested_sz, uint64_t available_sz, uint64_t short_sz, const F& msg);
+
+    const char* what() const noexcept override;
+};
