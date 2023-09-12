@@ -78,14 +78,14 @@ public:
         return inline_present ? uint8_t(raw.size()) : 0;
     }
 
-    static Segment read_segment(std::istream& fp, const uint64_t segm_sz) {
+    static Segment load_struct_from(std::istream& fp, const uint64_t segm_sz) {
         Segment segm;
-        segm.read(fp, segm_sz);
+        segm.read_struct_from(fp, segm_sz);
         return segm;
     }
 
-    void read(std::istream& fp, const uint64_t segm_sz);
-    void write(std::ostream& fp) const;
+    void read_struct_from(std::istream& fp, const uint64_t segm_sz);
+    void write_struct_into(std::ostream& fp) const;
 
     uint32_t calc_footprint_disk_size() const;
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;

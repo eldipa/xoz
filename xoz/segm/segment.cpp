@@ -190,7 +190,7 @@ constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, 
     *available_sz -= requested_sz;
 }
 
-void Segment::read(std::istream& fp, const uint64_t segm_sz) {
+void Segment::read_struct_from(std::istream& fp, const uint64_t segm_sz) {
     // Check that the segment size to read (aka remain_sz)
     // is multiple of the segment size
     // NOTE: in a future version we may accept segm_sz == (uint64_t)(-1)
@@ -353,7 +353,7 @@ void Segment::read(std::istream& fp, const uint64_t segm_sz) {
     assert(remain_sz == 0 or segm.inline_present);
 }
 
-void Segment::write(std::ostream& fp) const {
+void Segment::write_struct_into(std::ostream& fp) const {
     const Segment& segm = *this;
     Extent prev(0, 0, false);
 
