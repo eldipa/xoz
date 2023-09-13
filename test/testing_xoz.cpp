@@ -2,6 +2,13 @@
 #include <iomanip>
 #include <fstream>
 
+std::string testing_xoz::helpers::hexdump(const std::vector<char>& buf, unsigned at, unsigned len) {
+    std::stringstream fp;
+    fp.write(buf.data(), buf.size());
+
+    return hexdump(fp, at, len);
+}
+
 std::string testing_xoz::helpers::hexdump(const std::stringstream& fp, unsigned at, unsigned len) {
     std::ostringstream out;
 
@@ -21,6 +28,13 @@ std::string testing_xoz::helpers::hexdump(const std::stringstream& fp, unsigned 
     }
 
     return out.str();
+}
+
+bool testing_xoz::helpers::are_all_zeros(const std::vector<char>& buf, unsigned at, unsigned len) {
+    std::stringstream fp;
+    fp.write(buf.data(), buf.size());
+
+    return are_all_zeros(fp, at, len);
 }
 
 bool testing_xoz::helpers::are_all_zeros(const std::stringstream& fp, unsigned at, unsigned len) {
