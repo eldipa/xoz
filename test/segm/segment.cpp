@@ -20,19 +20,8 @@ namespace {
 const size_t FP_SZ = 64;
 }
 
-#define XOZ_RESET_FP(fp, sz) do {                                           \
-    (fp).clear();                                                           \
-    (fp).str(std::string((sz), '\0'));                                      \
-    (fp).seekp(0);                                                          \
-    (fp).seekg(0);                                                          \
-    (fp).exceptions(std::ios_base::failbit | std::ios_base::badbit);        \
-} while (0)
-
-#define XOZ_RESET_FP_POSITIONS(fp) do {                                     \
-    (fp).clear();                                                           \
-    (fp).seekp(0);                                                          \
-    (fp).seekg(0);                                                          \
-    (fp).exceptions(std::ios_base::failbit | std::ios_base::badbit);        \
+#define XOZ_RESET_FP(fp, sz) do {           \
+    (fp).assign(sz, 0);                     \
 } while (0)
 
 // Check the size in bytes of the segm in terms of how much is needed
@@ -52,27 +41,20 @@ const size_t FP_SZ = 64;
 
 // Load from fp the extents and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
-#define XOZ_EXPECT_DESERIALIZATION(fp, segm) do {                       \
-    std::stringstream fp2;                                              \
-    XOZ_RESET_FP(fp2, FP_SZ);                                           \
-    auto curg = (fp).tellg();                                           \
-    auto curp = (fp).tellp();                                           \
-    (fp).seekg(0);                                                      \
-    (fp).seekp(0);                                                      \
-    auto segm_sz = (segm).calc_footprint_disk_size();                   \
-                                                                        \
-    Segment segm = Segment::load_struct_from((fp), segm_sz);            \
-    segm.write_struct_into(fp2);                                        \
-    EXPECT_EQ((fp).str(), fp2.str());                                   \
-    (fp).seekg(curg);                                                   \
-    (fp).seekp(curp);                                                   \
-    (fp).clear(); /* clear the flags */                                 \
+#define XOZ_EXPECT_DESERIALIZATION(fp, segm) do {                        \
+    std::vector<char> buf2;                                              \
+    XOZ_RESET_FP(buf2, FP_SZ);                                           \
+    auto segm_sz = (segm).calc_footprint_disk_size();                    \
+                                                                         \
+    Segment segm2 = Segment::load_struct_from((fp), segm_sz);            \
+    segm2.write_struct_into(buf2);                                       \
+    EXPECT_EQ((fp), buf2);                                               \
 } while (0)
 
 namespace {
     TEST(SegmentTest, ValidEmptyZeroBytes) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
@@ -94,7 +76,7 @@ namespace {
 
     TEST(SegmentTest, ValidEmptyZeroInline) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm = Segment::create_empty_zero_inline();
 
@@ -115,7 +97,7 @@ namespace {
 
     TEST(SegmentTest, InlineDataOnly) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
@@ -168,7 +150,7 @@ namespace {
 
     TEST(SegmentTest, InlineDataAsEndOfSegment) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Empty segment, add "end of segment"
@@ -239,7 +221,7 @@ namespace {
 
     TEST(SegmentTest, InlineDataBadSize) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
@@ -308,7 +290,7 @@ namespace {
 
     TEST(SegmentTest, OneExtentFullBlockOnly) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
@@ -416,7 +398,7 @@ namespace {
 
     TEST(SegmentTest, OneExtentSubAllocOnly) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
@@ -498,7 +480,7 @@ namespace {
 
     TEST(SegmentTest, SeveralExtentsAndInline) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
@@ -687,9 +669,10 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
+
     TEST(SegmentTest, FileOverflowNotEnoughRoom) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ / 2); // half file size, easier to test TODO test FP_SZ only
         Segment segm;
 
@@ -709,7 +692,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Requested 34 bytes but only 32 bytes are available. "
-                        "Read operation at position 0 failed (end position is at 32)"
+                        "Read segment structure from buffer failed."
                         )
                     )
                 )
@@ -720,7 +703,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Requested 34 bytes but only 32 bytes are available. "
-                        "Write operation at position 0 failed (end position is at 32)"
+                        "Write segment structure into buffer failed."
                         )
                     )
                 )
@@ -750,7 +733,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Requested 36 bytes but only 32 bytes are available. "
-                        "Read operation at position 0 failed (end position is at 32)"
+                        "Read segment structure from buffer failed."
                         )
                     )
                 )
@@ -761,7 +744,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Requested 36 bytes but only 32 bytes are available. "
-                        "Write operation at position 0 failed (end position is at 32)"
+                        "Write segment structure into buffer failed."
                         )
                     )
                 )
@@ -769,52 +752,10 @@ namespace {
 
         // Nothing was written
         EXPECT_EQ(are_all_zeros(fp), (bool)true);
-
-        XOZ_RESET_FP(fp, FP_SZ / 2);
-
-        // The same but this time write some dummy bytes in the file
-        // to generate an offset on the writes and a different offset
-        // on the read
-        char buf[1];
-        fp.write("ABCD", 4); // a 4 bytes offset for writing
-        fp.read(buf, 1); // a 1 byte offset for readings
-        EXPECT_EQ(buf[0], (char)'A');
-
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
-                36, /* 6 extents times 6 bytes each -- disc size */
-                6 << blk_sz_order /* allocated size */
-                );
-
-        // The read/write however exceeds the file size
-        EXPECT_THAT(
-            [&]() { Segment::load_struct_from(fp, segm.calc_footprint_disk_size()); },
-            ThrowsMessage<NotEnoughRoom>(
-                AllOf(
-                    HasSubstr(
-                        "Requested 36 bytes but only 31 bytes are available. "
-                        "Read operation at position 1 failed (end position is at 32)"
-                        )
-                    )
-                )
-        );
-        EXPECT_THAT(
-            [&]() { segm.write_struct_into(fp); },
-            ThrowsMessage<NotEnoughRoom>(
-                AllOf(
-                    HasSubstr(
-                        "Requested 36 bytes but only 28 bytes are available. "
-                        "Write operation at position 4 failed (end position is at 32)"
-                        )
-                    )
-                )
-        );
-
-        // Nothing was written (except the dummy values)
-        EXPECT_EQ(are_all_zeros(fp, 4), (bool)true);
     }
 
     TEST(SegmentTest, ReadSegmSizeNotMultipleOfTwo) {
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
@@ -833,7 +774,7 @@ namespace {
 
     TEST(SegmentTest, PartialReadError) {
         const uint8_t blk_sz_order = 10;
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Write a 6-bytes single-extent segment
@@ -867,7 +808,6 @@ namespace {
                 )
         );
 
-        XOZ_RESET_FP_POSITIONS(fp);
 
         // The same but with 4 bytes
         EXPECT_THAT(
@@ -952,7 +892,6 @@ namespace {
                 )
         );
 
-        XOZ_RESET_FP_POSITIONS(fp);
 
         // The same but only 2 bytes are available, not enough for
         // completing the 4 bytes inline payload
@@ -975,12 +914,12 @@ namespace {
     }
 
     TEST(SegmentTest, CorruptedData) {
-        std::stringstream fp;
+        std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Because is_suballoc is set and smallcnt > 0, it is expected
         // that the is_inline bi set bit it is not, hence the error
-        fp.write("\x00\x90\x01\x00", 4);
+        fp = {'\x00', '\x90', '\x01', '\x00'};
 
         EXPECT_THAT(
             ensure_called_once([&]() { Segment::load_struct_from(fp, 4); }),
@@ -997,7 +936,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Because blk_nr is 0, hence the error.
-        fp.write("\x00\x10\x00\x00", 4);
+        fp = {'\x00', '\x10', '\x00', '\x00'};
 
         EXPECT_THAT(
             ensure_called_once([&]() { Segment::load_struct_from(fp, 4); }),
@@ -1015,7 +954,7 @@ namespace {
 
         XOZ_RESET_FP(fp, FP_SZ);
 
-        fp.write("\x01\x24\x01\x26", 4);
+        fp = {'\x01', '\x24', '\x01', '\x26'};
 
         EXPECT_THAT(
             ensure_called_once([&]() { Segment::load_struct_from(fp, 4); }),

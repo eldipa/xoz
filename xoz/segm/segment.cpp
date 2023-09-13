@@ -2,6 +2,7 @@
 
 #include <bit>
 #include <cassert>
+#include <cstring>
 #include <iostream>
 #include <numeric>
 #include <ostream>
@@ -125,49 +126,6 @@ void Segment::fail_if_bad_inline_sz() const {
     }
 }
 
-static void fail_if_no_room_in_file_for_write(std::ostream& fp, uint64_t requested_sz, uint64_t endpos = uint64_t(-1)) {
-    auto cur = fp.tellp();
-
-    if (endpos == uint64_t(-1)) {
-        // Save the end position
-        fp.seekp(0, std::ios_base::end);
-        endpos = fp.tellp();
-
-        // Rollback
-        fp.seekp(cur);
-    }
-
-    assert(std::streampos(endpos) >= cur);
-
-    auto available_sz = endpos - cur;
-    if (requested_sz > available_sz) {
-        throw NotEnoughRoom(
-                requested_sz, available_sz,
-                F() << "Write operation at position " << cur << " failed (end position is at " << endpos << ")");
-    }
-}
-
-static void fail_if_no_room_in_file_for_read(std::istream& fp, uint64_t requested_sz, uint64_t endpos = uint64_t(-1)) {
-    auto cur = fp.tellg();
-
-    if (endpos == uint64_t(-1)) {
-        // Save the end position
-        fp.seekg(0, std::ios_base::end);
-        endpos = fp.tellg();
-
-        // Rollback
-        fp.seekg(cur);
-    }
-
-    assert(std::streampos(endpos) >= cur);
-
-    auto available_sz = endpos - cur;
-    if (requested_sz > available_sz) {
-        throw NotEnoughRoom(
-                requested_sz, available_sz,
-                F() << "Read operation at position " << cur << " failed (end position is at " << endpos << ")");
-    }
-}
 
 constexpr void assert_write_room_and_consume(uint64_t requested_sz, uint64_t* available_sz) {
     // hard failure as failing this is considered a bug
@@ -190,7 +148,7 @@ constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, 
     *available_sz -= requested_sz;
 }
 
-void Segment::read_struct_from(std::istream& fp, const uint64_t segm_sz) {
+void Segment::read_struct_from(const std::vector<char>& data, const uint64_t segm_sz) {
     // Check that the segment size to read (aka remain_sz)
     // is multiple of the segment size
     // NOTE: in a future version we may accept segm_sz == (uint64_t)(-1)
@@ -202,7 +160,12 @@ void Segment::read_struct_from(std::istream& fp, const uint64_t segm_sz) {
 
     // Check that the segment size to read (aka remain_sz)
     // is smaller than the available size in the file.
-    fail_if_no_room_in_file_for_read(fp, remain_sz);
+    auto available_sz = data.size();
+    if (segm_sz > available_sz) {
+        throw NotEnoughRoom(segm_sz, available_sz, F() << "Read segment structure from buffer failed.");
+    }
+
+    const char* dataptr = data.data();
 
     Extent prev(0, 0, false);
     Segment segm;
@@ -211,12 +174,10 @@ void Segment::read_struct_from(std::istream& fp, const uint64_t segm_sz) {
         assert(remain_sz % 2 == 0);
 
         uint16_t hdr_ext;
-
         fail_remain_exhausted_during_partial_read(sizeof(hdr_ext), &remain_sz, segm_sz,
                                                   "stop before reading extent header");
-        fp.read((char*)&hdr_ext, sizeof(hdr_ext));
 
-        hdr_ext = u16_from_le(hdr_ext);
+        hdr_ext = read_u16_from_le(&dataptr);
 
         bool is_suballoc = READ_HdrEXT_SUBALLOC_FLAG(hdr_ext);
         bool is_inline = READ_HdrEXT_INLINE_FLAG(hdr_ext);
@@ -240,7 +201,8 @@ void Segment::read_struct_from(std::istream& fp, const uint64_t segm_sz) {
             if (inline_sz > 0) {
                 fail_remain_exhausted_during_partial_read(inline_sz, &remain_sz, segm_sz,
                                                           "inline data is partially read");
-                fp.read((char*)segm.raw.data(), inline_sz);
+                memcpy((char*)segm.raw.data(), dataptr, inline_sz);
+                dataptr += inline_sz;
             }
 
             // inline data *is* the last element of a segment
@@ -262,8 +224,8 @@ void Segment::read_struct_from(std::istream& fp, const uint64_t segm_sz) {
 
                 fail_remain_exhausted_during_partial_read(sizeof(lo_blk_nr), &remain_sz, segm_sz,
                                                           "cannot read LSB block number");
-                fp.read((char*)&lo_blk_nr, sizeof(lo_blk_nr));
-                lo_blk_nr = u16_from_le(lo_blk_nr);
+
+                lo_blk_nr = read_u16_from_le(&dataptr);
 
                 blk_nr = ((uint32_t(hi_blk_nr & 0x03ff) << 16) | lo_blk_nr);
 
@@ -286,8 +248,7 @@ void Segment::read_struct_from(std::istream& fp, const uint64_t segm_sz) {
 
                 fail_remain_exhausted_during_partial_read(sizeof(blk_cnt), &remain_sz, segm_sz,
                                                           "cannot read block count");
-                fp.read((char*)&blk_cnt, sizeof(blk_cnt));
-                blk_cnt = u16_from_le(blk_cnt);
+                blk_cnt = read_u16_from_le(&dataptr);
             }
 
             // If it is a near extent, we know now its block count so we can
@@ -353,13 +314,18 @@ void Segment::read_struct_from(std::istream& fp, const uint64_t segm_sz) {
     assert(remain_sz == 0 or segm.inline_present);
 }
 
-void Segment::write_struct_into(std::ostream& fp) const {
+void Segment::write_struct_into(std::vector<char>& data) const {
     const Segment& segm = *this;
     Extent prev(0, 0, false);
 
     // Track how many bytes we written so far
     uint64_t remain_sz = segm.calc_footprint_disk_size();
-    fail_if_no_room_in_file_for_write(fp, remain_sz);
+    auto available_sz = data.size();
+    if (remain_sz > available_sz) {
+        throw NotEnoughRoom(remain_sz, available_sz, F() << "Write segment structure into buffer failed.");
+    }
+
+    char* dataptr = data.data();
 
     // We track how many extents remain_cnt in the list
     size_t remain_cnt = segm.arr.size();
@@ -407,9 +373,7 @@ void Segment::write_struct_into(std::ostream& fp) const {
 
             // Now hdr_ext is complete: write it to disk
             assert_write_room_and_consume(sizeof(hdr_ext), &remain_sz);
-
-            hdr_ext = u16_to_le(hdr_ext);
-            fp.write((char*)&hdr_ext, sizeof(hdr_ext));
+            write_u16_to_le(&dataptr, hdr_ext);
 
         } else {
             // Split the block number in two parts
@@ -422,11 +386,8 @@ void Segment::write_struct_into(std::ostream& fp) const {
             // Now hdr_ext and lo_blk_nr are complete: write both to disk
             assert_write_room_and_consume(sizeof(hdr_ext) + sizeof(lo_blk_nr), &remain_sz);
 
-            hdr_ext = u16_to_le(hdr_ext);
-            fp.write((char*)&hdr_ext, sizeof(hdr_ext));
-
-            lo_blk_nr = u16_to_le(lo_blk_nr);
-            fp.write((char*)&lo_blk_nr, sizeof(lo_blk_nr));
+            write_u16_to_le(&dataptr, hdr_ext);
+            write_u16_to_le(&dataptr, lo_blk_nr);
         }
 
         assert(not(is_suballoc and smallcnt));
@@ -434,7 +395,7 @@ void Segment::write_struct_into(std::ostream& fp) const {
             // write blk_cnt/bitmap
             uint16_t blk_cnt_bitmap = is_suballoc ? u16_to_le(ext.blk_bitmap()) : u16_to_le(ext.blk_cnt());
             assert_write_room_and_consume(sizeof(blk_cnt_bitmap), &remain_sz);
-            fp.write((char*)&blk_cnt_bitmap, sizeof(blk_cnt_bitmap));
+            write_u16_to_le(&dataptr, blk_cnt_bitmap);
         }
 
         prev = ext;
@@ -471,12 +432,12 @@ void Segment::write_struct_into(std::ostream& fp) const {
 
         // Now hdr_ext is complete: write it to disk
         assert_write_room_and_consume(sizeof(hdr_ext) + inline_sz, &remain_sz);
-        hdr_ext = u16_to_le(hdr_ext);
-        fp.write((char*)&hdr_ext, sizeof(hdr_ext));
+        write_u16_to_le(&dataptr, hdr_ext);
 
         // After the uint8_t raw follows, if any
         if (inline_sz > 0) {
-            fp.write((char*)segm.raw.data(), inline_sz);
+            memcpy(dataptr, segm.raw.data(), inline_sz);
+            dataptr += inline_sz;
         }
     }
 
