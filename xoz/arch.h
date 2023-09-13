@@ -74,3 +74,16 @@ constexpr inline bool u64_add_will_overflow(uint64_t a, uint64_t b) {
     uint64_t tmp = a + b;
     return tmp < a;
 }
+
+constexpr inline uint16_t read_u16_from_le(const char** dataptr) {
+    uint16_t x = *(uint16_t*)(*dataptr);
+    *dataptr += sizeof(uint16_t);
+
+    return u16_from_le(x);
+}
+
+constexpr inline void write_u16_to_le(char** dataptr, uint16_t x) {
+    x = u16_to_le(x);
+    *(uint16_t*)(*dataptr) = x;
+    *dataptr += sizeof(uint16_t);
+}
