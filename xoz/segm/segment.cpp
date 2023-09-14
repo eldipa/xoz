@@ -314,7 +314,7 @@ void Segment::read_struct_from(const std::span<const char> dataview, const uint6
     assert(remain_sz == 0 or segm.inline_present);
 }
 
-void Segment::write_struct_into(std::span<char> dataview) const {
+void Segment::write_struct_into(const std::span<char> dataview) const {
     const Segment& segm = *this;
     Extent prev(0, 0, false);
 

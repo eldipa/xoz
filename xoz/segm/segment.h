@@ -85,17 +85,8 @@ public:
         return segm;
     }
 
-    static Segment load_struct_from(const std::vector<char>& data, const uint64_t segm_sz) {
-        return load_struct_from({data.data(), data.size()}, segm_sz);
-    }
-
     void read_struct_from(const std::span<const char> dataview, const uint64_t segm_sz);
-    void write_struct_into(std::span<char> dataview) const;
-
-    void read_struct_from(const std::vector<char>& data, const uint64_t segm_sz) {
-        return read_struct_from({data.data(), data.size()}, segm_sz);
-    }
-    void write_struct_into(std::vector<char>& data) const { return write_struct_into({data.data(), data.size()}); }
+    void write_struct_into(const std::span<char> dataview) const;
 
     uint32_t calc_footprint_disk_size() const;
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;

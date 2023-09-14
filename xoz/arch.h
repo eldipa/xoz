@@ -2,6 +2,8 @@
 
 #include <bit>
 #include <cstdint>
+#include <span>
+#include <vector>
 
 constexpr uint16_t u16_byteswap(uint16_t x) noexcept { return (uint16_t)((x >> 8) | (x << 8)); }
 
@@ -87,3 +89,7 @@ constexpr inline void write_u16_to_le(char** dataptr, uint16_t x) {
     *(uint16_t*)(*dataptr) = x;
     *dataptr += sizeof(uint16_t);
 }
+
+inline std::span<const char> viewof(const std::vector<char>& datavec) { return {datavec.data(), datavec.size()}; }
+
+inline std::span<char> viewof(std::vector<char>& datavec) { return {datavec.data(), datavec.size()}; }
