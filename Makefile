@@ -17,7 +17,7 @@ coverage: mirror
 	cd coverage && genhtml coverage.info
 
 valgrind: compile
-	valgrind ./build-default/test/runtests
+	valgrind ./build-debug/test/runtests
 
 #-ftime-report -ftime-report-details -H
 
