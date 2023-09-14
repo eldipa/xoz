@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <iostream>
 #include <numeric>
+#include <span>
 #include <vector>
 
 #include "xoz/ext/extent.h"
@@ -78,14 +79,23 @@ public:
         return inline_present ? uint8_t(raw.size()) : 0;
     }
 
-    static Segment load_struct_from(const std::vector<char>& data, const uint64_t segm_sz) {
+    static Segment load_struct_from(const std::span<const char> dataview, const uint64_t segm_sz) {
         Segment segm;
-        segm.read_struct_from(data, segm_sz);
+        segm.read_struct_from(dataview, segm_sz);
         return segm;
     }
 
-    void read_struct_from(const std::vector<char>& data, const uint64_t segm_sz);
-    void write_struct_into(std::vector<char>& data) const;
+    static Segment load_struct_from(const std::vector<char>& data, const uint64_t segm_sz) {
+        return load_struct_from({data.data(), data.size()}, segm_sz);
+    }
+
+    void read_struct_from(const std::span<const char> dataview, const uint64_t segm_sz);
+    void write_struct_into(std::span<char> dataview) const;
+
+    void read_struct_from(const std::vector<char>& data, const uint64_t segm_sz) {
+        return read_struct_from({data.data(), data.size()}, segm_sz);
+    }
+    void write_struct_into(std::vector<char>& data) const { return write_struct_into({data.data(), data.size()}); }
 
     uint32_t calc_footprint_disk_size() const;
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;

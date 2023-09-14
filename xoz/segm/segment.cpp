@@ -148,7 +148,7 @@ constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, 
     *available_sz -= requested_sz;
 }
 
-void Segment::read_struct_from(const std::vector<char>& data, const uint64_t segm_sz) {
+void Segment::read_struct_from(const std::span<const char> dataview, const uint64_t segm_sz) {
     // Check that the segment size to read (aka remain_sz)
     // is multiple of the segment size
     // NOTE: in a future version we may accept segm_sz == (uint64_t)(-1)
@@ -160,12 +160,12 @@ void Segment::read_struct_from(const std::vector<char>& data, const uint64_t seg
 
     // Check that the segment size to read (aka remain_sz)
     // is smaller than the available size in the file.
-    auto available_sz = data.size();
+    auto available_sz = dataview.size();
     if (segm_sz > available_sz) {
         throw NotEnoughRoom(segm_sz, available_sz, F() << "Read segment structure from buffer failed.");
     }
 
-    const char* dataptr = data.data();
+    const char* dataptr = dataview.data();
 
     Extent prev(0, 0, false);
     Segment segm;
@@ -314,18 +314,18 @@ void Segment::read_struct_from(const std::vector<char>& data, const uint64_t seg
     assert(remain_sz == 0 or segm.inline_present);
 }
 
-void Segment::write_struct_into(std::vector<char>& data) const {
+void Segment::write_struct_into(std::span<char> dataview) const {
     const Segment& segm = *this;
     Extent prev(0, 0, false);
 
     // Track how many bytes we written so far
     uint64_t remain_sz = segm.calc_footprint_disk_size();
-    auto available_sz = data.size();
+    auto available_sz = dataview.size();
     if (remain_sz > available_sz) {
         throw NotEnoughRoom(remain_sz, available_sz, F() << "Write segment structure into buffer failed.");
     }
 
-    char* dataptr = data.data();
+    char* dataptr = dataview.data();
 
     // We track how many extents remain_cnt in the list
     size_t remain_cnt = segm.arr.size();
