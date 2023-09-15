@@ -441,8 +441,8 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
         }
     }
 
-    // It must be hold remain_cnt == 0 because we counted at the begin
-    // of the Segment::write how many extents+inline there were so
+    // It must hold remain_cnt == 0 because we counted at the begin
+    // of the Segment::write_struct_into how many extents+inline there were so
     // if everything worked as planned, we should have 0 elements remaining
     assert(remain_cnt == 0);
 
