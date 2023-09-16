@@ -179,15 +179,15 @@ void Segment::read_struct_from(const std::span<const char> dataview, const uint6
 
         hdr_ext = read_u16_from_le(&dataptr);
 
-        bool is_suballoc = READ_HdrEXT_SUBALLOC_FLAG(hdr_ext);
-        bool is_inline = READ_HdrEXT_INLINE_FLAG(hdr_ext);
-        bool is_near = READ_HdrEXT_NEAR_FLAG(hdr_ext);
+        bool is_suballoc = read_bitsfield_from_u16<bool>(hdr_ext, MASK_SUBALLOC_FLAG);
+        bool is_inline = read_bitsfield_from_u16<bool>(hdr_ext, MASK_INLINE_FLAG);
+        bool is_near = read_bitsfield_from_u16<bool>(hdr_ext, MASK_NEAR_FLAG);
 
         if (is_suballoc and is_inline) {
             segm.inline_present = true;
 
-            uint16_t inline_sz = READ_HdrEXT_INLINE_SZ(hdr_ext);
-            uint8_t last = READ_HdrEXT_INLINE_LAST(hdr_ext);
+            uint16_t inline_sz = read_bitsfield_from_u16<uint16_t>(hdr_ext, MASK_INLINE_SZ);
+            uint8_t last = read_bitsfield_from_u16<uint8_t>(hdr_ext, MASK_INLINE_LAST);
 
             segm.raw.resize(inline_sz);
 
@@ -214,12 +214,12 @@ void Segment::read_struct_from(const std::span<const char> dataview, const uint6
             // data, it is not allowed by RFC-v3
             assert(not segm.inline_present);
 
-            uint8_t smallcnt = READ_HdrEXT_SMALLCNT(hdr_ext);
+            uint8_t smallcnt = read_bitsfield_from_u16<uint8_t>(hdr_ext, MASK_SMALLCNT);
             uint32_t blk_nr = 0;
 
             // If not a near extent, we need to read the full block number
             if (not is_near) {
-                uint16_t hi_blk_nr = READ_HdrEXT_HI_BLK_NR(hdr_ext);
+                uint16_t hi_blk_nr = read_bitsfield_from_u16<uint16_t>(hdr_ext, MASK_HI_BLK_NR);
                 uint16_t lo_blk_nr;
 
                 fail_remain_exhausted_during_partial_read(sizeof(lo_blk_nr), &remain_sz, segm_sz,
@@ -227,12 +227,12 @@ void Segment::read_struct_from(const std::span<const char> dataview, const uint6
 
                 lo_blk_nr = read_u16_from_le(&dataptr);
 
-                blk_nr = ((uint32_t(hi_blk_nr & 0x03ff) << 16) | lo_blk_nr);
+                blk_nr = ((uint32_t(hi_blk_nr & MASK_HI_BLK_NR) << 16) | lo_blk_nr);
 
                 if (blk_nr == 0) {
                     throw InconsistentXOZ(F()
                                           << "Extent with block number 0 is unexpected "
-                                          << "from composing hi_blk_nr:" << (hi_blk_nr & 0x03ff)
+                                          << "from composing hi_blk_nr:" << (hi_blk_nr & MASK_HI_BLK_NR)
                                           << " (10 highest bits) and lo_blk_nr:" << lo_blk_nr << " (16 lowest bits).");
                 }
             }
@@ -255,8 +255,8 @@ void Segment::read_struct_from(const std::span<const char> dataview, const uint6
             // compute the jump/gap
             if (is_near) {
                 assert(blk_nr == 0);
-                bool is_backward_dir = READ_HdrEXT_BACKWARD_DIR(hdr_ext);
-                uint16_t jmp_offset = READ_HdrEXT_JMP_OFFSET(hdr_ext);
+                bool is_backward_dir = read_bitsfield_from_u16<bool>(hdr_ext, MASK_BACKWARD_DIR);
+                uint16_t jmp_offset = read_bitsfield_from_u16<uint16_t>(hdr_ext, MASK_JMP_OFFSET);
 
                 // Reference at prev extent's block number
                 uint32_t ref_nr = blk_nr = prev.blk_nr();
@@ -347,8 +347,7 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
         // ext.blk_nr encodes in its highest bits meta-information
         // in this case, if the block is for sub-block allaction
         bool is_suballoc = ext.is_suballoc();
-        if (is_suballoc)
-            hdr_ext = WRITE_HdrEXT_SUBALLOC_FLAG(hdr_ext);
+        write_bitsfield_into_u16(hdr_ext, is_suballoc, MASK_SUBALLOC_FLAG);
 
         uint8_t smallcnt = 0;
         if (not is_suballoc and ext.blk_cnt() <= EXT_SMALLCNT_MAX and ext.blk_cnt() > 0) {
@@ -358,18 +357,16 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
         // This may set the smallcnt *iff* not suballoc and the
         // count can be represented in the smallcnt bitfield
         // otherwise this will set zeros in there (no-op)
-        hdr_ext = WRITE_HdrEXT_SMALLCNT(hdr_ext, smallcnt);
+        write_bitsfield_into_u16(hdr_ext, smallcnt, MASK_SMALLCNT);
 
         // Calculate the distance from the previous extent the current
         // so we can know if it is a near extent or not
         Extent::blk_distance_t dist = Extent::distance_in_blks(prev, ext);
 
         if (dist.is_near) {
-            hdr_ext = WRITE_HdrEXT_NEAR_FLAG(hdr_ext);
-            hdr_ext = WRITE_HdrEXT_JMP_OFFSET(hdr_ext, dist.blk_cnt);
-            if (dist.is_backwards) {
-                hdr_ext = WRITE_HdrEXT_BACKWARD_DIR(hdr_ext);
-            }
+            write_bitsfield_into_u16(hdr_ext, true, MASK_NEAR_FLAG);
+            write_bitsfield_into_u16(hdr_ext, dist.blk_cnt, MASK_JMP_OFFSET);
+            write_bitsfield_into_u16(hdr_ext, dist.is_backwards, MASK_BACKWARD_DIR);
 
             // Now hdr_ext is complete: write it to disk
             assert_write_room_and_consume(sizeof(hdr_ext), &remain_sz);
@@ -377,11 +374,11 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
 
         } else {
             // Split the block number in two parts
-            uint16_t hi_blk_nr = (ext.blk_nr() >> 16) & 0x3ff;  // 10 bits
-            uint16_t lo_blk_nr = ext.blk_nr() & 0xffff;         // 16 bits
+            uint16_t hi_blk_nr = (ext.blk_nr() >> 16) & MASK_HI_BLK_NR;  // 10 bits
+            uint16_t lo_blk_nr = ext.blk_nr() & 0xffff;                  // 16 bits
 
             // Save the highest bits in the header
-            hdr_ext = WRITE_HdrEXT_HI_BLK_NR(hdr_ext, hi_blk_nr);
+            write_bitsfield_into_u16(hdr_ext, hi_blk_nr, MASK_HI_BLK_NR);
 
             // Now hdr_ext and lo_blk_nr are complete: write both to disk
             assert_write_room_and_consume(sizeof(hdr_ext) + sizeof(lo_blk_nr), &remain_sz);
@@ -414,9 +411,9 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
 
         // The first (highest) 2 bytes
         uint16_t hdr_ext = 0;
-        hdr_ext = WRITE_HdrEXT_SUBALLOC_FLAG(hdr_ext);
-        hdr_ext = WRITE_HdrEXT_INLINE_FLAG(hdr_ext);
-        hdr_ext = WRITE_HdrEXT_INLINE_SZ(hdr_ext, inline_sz);
+        write_bitsfield_into_u16(hdr_ext, true, MASK_SUBALLOC_FLAG);
+        write_bitsfield_into_u16(hdr_ext, true, MASK_INLINE_FLAG);
+        write_bitsfield_into_u16(hdr_ext, inline_sz, MASK_INLINE_SZ);
 
         uint8_t last = 0x00;
 
@@ -428,7 +425,7 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
         }
 
         // the last byte of raw or 0x00 as padding
-        hdr_ext = WRITE_HdrEXT_INLINE_LAST(hdr_ext, last);
+        write_bitsfield_into_u16(hdr_ext, last, MASK_INLINE_LAST);
 
         // Now hdr_ext is complete: write it to disk
         assert_write_room_and_consume(sizeof(hdr_ext) + inline_sz, &remain_sz);
