@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bit>
+#include <cassert>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -93,3 +94,18 @@ constexpr inline void write_u16_to_le(char** dataptr, uint16_t x) {
 inline std::span<const char> viewof(const std::vector<char>& datavec) { return {datavec.data(), datavec.size()}; }
 
 inline std::span<char> viewof(std::vector<char>& datavec) { return {datavec.data(), datavec.size()}; }
+
+
+template <typename T>
+constexpr inline T read_bitsfield_from_u16(uint16_t field, uint16_t mask) {
+    assert(mask);
+    int shift = std::countr_zero(mask);
+    return T((field & mask) >> shift);
+}
+
+template <typename T>
+constexpr inline void write_bitsfield_into_u16(uint16_t& field, T val, uint16_t mask) {
+    assert(mask);
+    int shift = std::countr_zero(mask);
+    field |= uint16_t((val << shift) & mask);
+}
