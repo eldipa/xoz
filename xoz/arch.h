@@ -96,6 +96,12 @@ inline std::span<const char> viewof(const std::vector<char>& datavec) { return {
 inline std::span<char> viewof(std::vector<char>& datavec) { return {datavec.data(), datavec.size()}; }
 
 
+/*
+ * Read the selected bits specified by mask from the given field. The value returned
+ * is cast to the return type T.
+ *
+ * Note: mask must be non-zero.
+ * */
 template <typename T>
 constexpr inline T read_bitsfield_from_u16(uint16_t field, uint16_t mask) {
     assert(mask);
@@ -103,6 +109,11 @@ constexpr inline T read_bitsfield_from_u16(uint16_t field, uint16_t mask) {
     return T((field & mask) >> shift);
 }
 
+/*
+ * Write the value of type T into the selected bits specified by mask of the given field.
+ *
+ * Note: mask must be non-zero.
+ * */
 template <typename T>
 constexpr inline void write_bitsfield_into_u16(uint16_t& field, T val, uint16_t mask) {
     assert(mask);
