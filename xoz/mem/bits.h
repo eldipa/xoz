@@ -51,3 +51,18 @@ constexpr inline void write_bitsfield_into_u16(uint16_t& field, T val, uint16_t 
     int shift = std::countr_zero(mask);
     field |= uint16_t((val << shift) & mask);
 }
+
+
+template <typename T>
+constexpr inline T read_bitsfield_from_u32(uint32_t field, uint32_t mask) {
+    assert(mask);
+    int shift = std::countr_zero(mask);
+    return T((field & mask) >> shift);
+}
+
+template <typename T>
+constexpr inline void write_bitsfield_into_u32(uint32_t& field, T val, uint32_t mask) {
+    assert(mask);
+    int shift = std::countr_zero(mask);
+    field |= uint32_t((val << shift) & mask);
+}
