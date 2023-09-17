@@ -33,32 +33,11 @@ std::vector<uint32_t> create_ext_index(const Segment& sg, const uint32_t sg_no_i
 
 
 IOSegment::IOSegment(Repository& repo, const Segment& sg):
+        IOBase(sg.calc_usable_space_size(repo.blk_sz_order())),
         repo(repo),
         sg(sg),
-        sg_sz(sg.calc_usable_space_size(repo.blk_sz_order())),
-        sg_no_inline_sz(sg_sz - sg.inline_data_sz()),
-        begin_positions(create_ext_index(sg, sg_no_inline_sz, repo.blk_sz_order())),
-        rd(0),
-        wr(0) {}
-
-void IOSegment::rw_operation_exact_sz(const bool is_read_op, char* data, const uint32_t exact_sz) {
-    const uint32_t remain_sz = is_read_op ? remain_rd() : remain_wr();
-    if (remain_sz < exact_sz) {
-        throw NotEnoughRoom(exact_sz, remain_sz,
-                            F() << (is_read_op ? "Read " : "Write ") << "exact-byte-count operation at position "
-                                << (is_read_op ? rd : wr) << " failed; detected before the "
-                                << (is_read_op ? "read." : "write."));
-    }
-
-    const uint32_t rw_total_sz = rw_operation(is_read_op, data, exact_sz);
-    if (rw_total_sz != exact_sz) {
-        throw UnexpectedShorten(exact_sz, remain_sz, rw_total_sz,
-                                F() << (is_read_op ? "Read " : "Write ")
-                                    << "exact-byte-count operation failed due a short "
-                                    << (is_read_op ? "read " : "write ") << "(pointer left at position "
-                                    << (is_read_op ? rd : wr) << " ).");
-    }
-}
+        sg_no_inline_sz(src_sz - sg.inline_data_sz()),
+        begin_positions(create_ext_index(sg, sg_no_inline_sz, repo.blk_sz_order())) {}
 
 uint32_t IOSegment::rw_operation(const bool is_read_op, char* data, const uint32_t max_data_sz) {
     uint32_t remain_sz = max_data_sz;
@@ -89,8 +68,10 @@ uint32_t IOSegment::rw_operation(const bool is_read_op, char* data, const uint32
         rwptr += n;
     }
 
-    if (remain_sz and sg_no_inline_sz <= rwptr and rwptr < sg_sz) {
-        const uint8_t remain_inline_sz = assert_u8(sg_sz - rwptr);
+    // Note: src_sz is the size of the Segment including the inline space (if any)
+    // while sg_no_inline_sz is the size but excluding it
+    if (remain_sz and sg_no_inline_sz <= rwptr and rwptr < src_sz) {
+        const uint8_t remain_inline_sz = assert_u8(src_sz - rwptr);
         assert(remain_inline_sz <= sg.inline_data_sz());
 
         const uint8_t batch_sz = assert_u8(std::min((uint32_t)remain_inline_sz, remain_sz));
