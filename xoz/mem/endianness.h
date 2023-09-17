@@ -1,10 +1,7 @@
 #pragma once
 
 #include <bit>
-#include <cassert>
 #include <cstdint>
-#include <span>
-#include <vector>
 
 constexpr uint16_t u16_byteswap(uint16_t x) noexcept { return (uint16_t)((x >> 8) | (x << 8)); }
 
@@ -57,26 +54,6 @@ constexpr inline uint64_t u64_to_le(uint64_t x) {
 #define u32_from_le(X) u32_to_le(X)
 #define u64_from_le(X) u64_to_le(X)
 
-// Calculate the log2 of a uint16_t or uint32_t values
-constexpr inline int u16_log2_floor(uint16_t x) { return (16 - std::countl_zero(x) - 1); }
-constexpr inline int u32_log2_floor(uint32_t x) { return (32 - std::countl_zero(x) - 1); }
-
-constexpr inline uint8_t u16_count_bits(uint16_t x) { return (uint8_t)std::popcount(x); }
-
-constexpr inline bool u16_add_will_overflow(uint16_t a, uint16_t b) {
-    uint16_t tmp = a + b;
-    return tmp < a;
-}
-
-constexpr inline bool u32_add_will_overflow(uint32_t a, uint32_t b) {
-    uint32_t tmp = a + b;
-    return tmp < a;
-}
-
-constexpr inline bool u64_add_will_overflow(uint64_t a, uint64_t b) {
-    uint64_t tmp = a + b;
-    return tmp < a;
-}
 
 constexpr inline uint16_t read_u16_from_le(const char** dataptr) {
     uint16_t x = *(uint16_t*)(*dataptr);
@@ -89,34 +66,4 @@ constexpr inline void write_u16_to_le(char** dataptr, uint16_t x) {
     x = u16_to_le(x);
     *(uint16_t*)(*dataptr) = x;
     *dataptr += sizeof(uint16_t);
-}
-
-inline std::span<const char> viewof(const std::vector<char>& datavec) { return {datavec.data(), datavec.size()}; }
-
-inline std::span<char> viewof(std::vector<char>& datavec) { return {datavec.data(), datavec.size()}; }
-
-
-/*
- * Read the selected bits specified by mask from the given field. The value returned
- * is cast to the return type T.
- *
- * Note: mask must be non-zero.
- * */
-template <typename T>
-constexpr inline T read_bitsfield_from_u16(uint16_t field, uint16_t mask) {
-    assert(mask);
-    int shift = std::countr_zero(mask);
-    return T((field & mask) >> shift);
-}
-
-/*
- * Write the value of type T into the selected bits specified by mask of the given field.
- *
- * Note: mask must be non-zero.
- * */
-template <typename T>
-constexpr inline void write_bitsfield_into_u16(uint16_t& field, T val, uint16_t mask) {
-    assert(mask);
-    int shift = std::countr_zero(mask);
-    field |= uint16_t((val << shift) & mask);
 }

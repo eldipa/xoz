@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 
-#include "xoz/arch.h"
 #include "xoz/ext/extent.h"
 #include "xoz/parameters.h"
 

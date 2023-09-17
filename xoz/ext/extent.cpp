@@ -4,7 +4,6 @@
 #include <iomanip>
 #include <numeric>
 
-#include "xoz/arch.h"
 #include "xoz/exceptions.h"
 
 void PrintTo(const Extent& ext, std::ostream* out) {

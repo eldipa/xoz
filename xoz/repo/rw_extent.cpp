@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cstring>
 
-#include "xoz/arch.h"
 #include "xoz/exceptions.h"
 #include "xoz/repo/repo.h"
 

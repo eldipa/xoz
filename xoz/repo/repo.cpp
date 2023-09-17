@@ -2,7 +2,6 @@
 
 #include <utility>
 
-#include "xoz/arch.h"
 #include "xoz/exceptions.h"
 
 Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos): fpath(fpath), fp(disk_fp), closed(true) {

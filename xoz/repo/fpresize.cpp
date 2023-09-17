@@ -1,5 +1,5 @@
-#include "xoz/arch.h"
 #include "xoz/exceptions.h"
+#include "xoz/mem/bits.h"
 #include "xoz/repo/repo.h"
 
 void Repository::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff offset, std::ios_base::seekdir way) {

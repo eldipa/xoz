@@ -1,7 +1,6 @@
 #include <cstdint>
 #include <filesystem>
 
-#include "xoz/arch.h"
 #include "xoz/exceptions.h"
 #include "xoz/repo/repo.h"
 

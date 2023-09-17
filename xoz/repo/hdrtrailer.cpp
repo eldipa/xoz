@@ -1,7 +1,7 @@
 #include <cstring>
 
-#include "xoz/arch.h"
 #include "xoz/exceptions.h"
+#include "xoz/mem/endianness.h"
 #include "xoz/repo/repo.h"
 
 namespace {

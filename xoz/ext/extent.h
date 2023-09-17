@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 
-#include "xoz/arch.h"
+#include "xoz/mem/bits.h"
 
 // An extent defines a contiguous array of <blk_cnt> full  blocks
 // starting from <blk_nr>

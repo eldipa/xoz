@@ -1,10 +1,12 @@
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
 #include "xoz/exceptions.h"
+#include "xoz/mem/viewof.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "test/testing_xoz.h"
+
 
 #include <numeric>
 
