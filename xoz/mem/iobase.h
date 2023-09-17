@@ -138,7 +138,7 @@ protected:
      * The count of bytes read/written is returned.
      *
      * */
-    virtual uint32_t rw_operation(const bool is_read_op, char* data, const uint32_t max_data_sz) = 0;
+    virtual uint32_t rw_operation(const bool is_read_op, char* data, const uint32_t data_sz) = 0;
 
     /*
      * The given buffer must have enough space to hold exact_sz bytes.

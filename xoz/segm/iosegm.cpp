@@ -39,8 +39,8 @@ IOSegment::IOSegment(Repository& repo, const Segment& sg):
         sg_no_inline_sz(src_sz - sg.inline_data_sz()),
         begin_positions(create_ext_index(sg, sg_no_inline_sz, repo.blk_sz_order())) {}
 
-uint32_t IOSegment::rw_operation(const bool is_read_op, char* data, const uint32_t max_data_sz) {
-    uint32_t remain_sz = max_data_sz;
+uint32_t IOSegment::rw_operation(const bool is_read_op, char* data, const uint32_t data_sz) {
+    uint32_t remain_sz = data_sz;
     char* dataptr = data;
 
     uint32_t rwptr = is_read_op ? rd : wr;
