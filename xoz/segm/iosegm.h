@@ -8,6 +8,16 @@
 #include "xoz/segm/segment.h"
 
 
+/*
+ * Read/write the data hold by a Segment handling all the details
+ * required to provide a continuous byte stream from a discontinuos
+ * unordered set of Extents in the Repository.
+ *
+ * The read/write operation will have a direct impact on the repository
+ * (so also in the file in disk). IOSegment may offer buffering for
+ * performance reasons but it must be assumed that each operation
+ * is a I/O disk operation.
+ * */
 class IOSegment final: public IOBase {
 private:
     Repository& repo;
