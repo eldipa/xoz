@@ -9,7 +9,7 @@
 #include "xoz/chk.h"
 #include "xoz/exceptions.h"
 #include "xoz/ext/extent.h"
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 #include "xoz/segm/segment.h"
 
 namespace {

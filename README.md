@@ -31,7 +31,7 @@ and written to a C++ file.
 
 ### Repository - `xoz/repo/` folder
 
-The `Repository` (in `repo.h`) is an abstraction of the underlying
+The `Repository` (in `repository.h`) is an abstraction of the underlying
 file which may be a disk-based file or an in-memory file.
 
 `openclose.cpp` deals how to create, open and close a repository

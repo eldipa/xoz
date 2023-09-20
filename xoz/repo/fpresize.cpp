@@ -1,6 +1,6 @@
 #include "xoz/exceptions.h"
 #include "xoz/mem/bits.h"
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 
 void Repository::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff offset, std::ios_base::seekdir way) {
     if ((way == std::ios_base::cur and offset > 0) or way == std::ios_base::beg) {

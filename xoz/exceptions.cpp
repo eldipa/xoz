@@ -7,7 +7,7 @@
 #include <string>
 
 #include "xoz/ext/extent.h"
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 
 OpenXOZError::OpenXOZError(const char* fpath, const std::string& msg) {
     std::stringstream ss;

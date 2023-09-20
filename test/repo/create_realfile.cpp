@@ -1,4 +1,4 @@
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 #include "xoz/exceptions.h"
 
 #include "gtest/gtest.h"

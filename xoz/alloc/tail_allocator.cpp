@@ -6,7 +6,7 @@
 
 #include "xoz/alloc/internals.h"
 #include "xoz/ext/extent.h"
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 
 using namespace xoz::alloc::internals;  // NOLINT
 

@@ -1,4 +1,4 @@
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
 #include "xoz/segm/iosegment.h"

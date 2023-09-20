@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "xoz/ext/extent.h"
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 
 class TailAllocator {
 private:

@@ -2,7 +2,7 @@
 
 #include "xoz/exceptions.h"
 #include "xoz/mem/endianness.h"
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 
 namespace {
 

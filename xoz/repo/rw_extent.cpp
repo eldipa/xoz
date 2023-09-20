@@ -2,7 +2,7 @@
 #include <cstring>
 
 #include "xoz/exceptions.h"
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 
 uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) {
     if (ext.is_null()) {

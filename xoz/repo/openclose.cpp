@@ -2,7 +2,7 @@
 #include <filesystem>
 
 #include "xoz/exceptions.h"
-#include "xoz/repo/repo.h"
+#include "xoz/repo/repository.h"
 
 void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
     if (std::addressof(fp) != std::addressof(disk_fp)) {
