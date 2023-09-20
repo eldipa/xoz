@@ -1,5 +1,4 @@
 #include "xoz/mem/iospan.h"
-#include "xoz/mem/viewof.h"
 #include "xoz/exceptions.h"
 
 #include "gtest/gtest.h"
@@ -28,7 +27,7 @@ namespace {
         std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
         std::vector<char> rdbuf;
 
-        IOSpan iospan1(viewof(buf));
+        IOSpan iospan1(buf);
         iospan1.writeall(wrbuf, 4);
 
         EXPECT_EQ(iospan1.remain_wr(), uint32_t(64 - 4));
@@ -38,7 +37,7 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        IOSpan iospan2(viewof(buf));
+        IOSpan iospan2(buf);
         iospan2.readall(rdbuf, 4);
 
         EXPECT_EQ(iospan2.remain_rd(), uint32_t(64 - 4));
@@ -59,7 +58,7 @@ namespace {
 
         std::vector<char> rdbuf;
 
-        IOSpan iospan1(viewof(buf));
+        IOSpan iospan1(buf);
         iospan1.writeall(wrbuf);
 
         EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
@@ -69,7 +68,7 @@ namespace {
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
 
-        IOSpan iospan2(viewof(buf));
+        IOSpan iospan2(buf);
         iospan2.readall(rdbuf, (uint32_t)64);
 
         EXPECT_EQ(iospan2.remain_rd(), uint32_t(0));
@@ -107,7 +106,7 @@ namespace {
 
         std::vector<char> rdbuf;
 
-        IOSpan iospan1(viewof(buf));
+        IOSpan iospan1(buf);
         uint32_t n = iospan1.writesome(wrbuf); // try to write 65 bytes, but write only 64
 
         EXPECT_EQ(n, (uint32_t)64);
@@ -127,7 +126,7 @@ namespace {
         EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
         EXPECT_EQ(iospan1.tell_wr(), uint32_t(64));
 
-        IOSpan iospan2(viewof(buf));
+        IOSpan iospan2(buf);
         n = iospan2.readsome(rdbuf, 65); // try to read 65 but read only 64
 
         EXPECT_EQ(n, (uint32_t)64);
@@ -153,7 +152,7 @@ namespace {
     TEST(IOSpanTest, Seek) {
         std::vector<char> buf(64);
 
-        IOSpan iospan1(viewof(buf));
+        IOSpan iospan1(buf);
 
         // Initial positions
         EXPECT_EQ(iospan1.remain_wr(), uint32_t(64));
@@ -288,7 +287,7 @@ namespace {
 
         std::vector<char> rdbuf(128, 0); // initialize to 0 so we can check later that nobody written on it
 
-        IOSpan iospan1(viewof(buf));
+        IOSpan iospan1(buf);
         EXPECT_THAT(
             [&]() { iospan1.writeall(wrbuf); },  // try to write 65 bytes, but 64 is max and fail
             ThrowsMessage<NotEnoughRoom>(
@@ -315,7 +314,7 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        IOSpan iospan2(viewof(buf));
+        IOSpan iospan2(buf);
         EXPECT_THAT(
             [&]() { iospan2.readall(rdbuf, 65); },  // try to read 65 bytes, but 64 is max and fail
             ThrowsMessage<NotEnoughRoom>(
