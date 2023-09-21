@@ -149,7 +149,9 @@ constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, 
     *available_sz -= requested_sz;
 }
 
-void Segment::read_struct_from(const std::span<const char> dataview) {
+void Segment::read_struct_from(const std::span<const char> dataview, uint32_t segm_len) {
+    const bool segm_len_is_explicit = segm_len != uint32_t(-1);
+    // const uint32_t initial_segm_len = segm_len;
 
     const char* dataptr = dataview.data();
     const uint64_t initial_sz = dataview.size();
@@ -159,7 +161,7 @@ void Segment::read_struct_from(const std::span<const char> dataview) {
     Extent prev(0, 0, false);
     Segment segm;
 
-    while (available_sz >= 2) {
+    while (available_sz >= 2 and segm_len > 0) {
         // assert(available_sz % 2 == 0);
 
         uint16_t hdr_ext;
@@ -196,6 +198,7 @@ void Segment::read_struct_from(const std::span<const char> dataview) {
 
             // inline data *is* the last element of a segment
             // regardless of the caller's provided initial_sz
+            --segm_len;
             break;
 
         } else {
@@ -290,12 +293,21 @@ void Segment::read_struct_from(const std::span<const char> dataview) {
             segm.arr.emplace_back(blk_nr, blk_cnt, is_suballoc);
 
             prev = segm.arr.back();
+            --segm_len;
         }
     }
 
-    // Or consumed everything *or* we stop earlier because
+    // Or read everything *or* we stop earlier because
     // we found an inline data
-    assert(/*remain_sz == 0 or*/ segm.inline_present);
+    assert(segm_len == 0 or segm.inline_present);
+
+    if (not segm_len_is_explicit and not segm.inline_present) {
+        throw "expected to read until inline";
+    }
+
+    if (segm_len_is_explicit and segm_len > 0) {
+        throw "expected to read a segment of length N";
+    }
 
     // Override this segment with the loaded one
     this->arr = std::move(segm.arr);

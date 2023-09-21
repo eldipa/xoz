@@ -79,13 +79,13 @@ public:
         return inline_present ? uint8_t(raw.size()) : 0;
     }
 
-    static Segment load_struct_from(const std::span<const char> dataview) {
+    static Segment load_struct_from(const std::span<const char> dataview, uint32_t segm_len = uint32_t(-1)) {
         Segment segm;
-        segm.read_struct_from(dataview);
+        segm.read_struct_from(dataview, segm_len);
         return segm;
     }
 
-    void read_struct_from(const std::span<const char> dataview);
+    void read_struct_from(const std::span<const char> dataview, uint32_t segm_len = uint32_t(-1));
     void write_struct_into(const std::span<char> dataview) const;
 
     uint32_t calc_footprint_disk_size() const;
