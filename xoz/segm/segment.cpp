@@ -135,13 +135,13 @@ constexpr void assert_write_room_and_consume(uint64_t requested_sz, uint64_t* av
 }
 
 constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, uint64_t* available_sz,
-                                                         uint64_t segm_sz, const char* reason) {
+                                                         uint64_t initial_sz, const char* reason) {
     // This is an error in the data during the read:
     //  - may be the caller gave us the incorrect size to read
     //  - may be the XOZ file is corrupted with an invalid size
     if (requested_sz > *available_sz) {
         throw NotEnoughRoom(requested_sz, *available_sz,
-                            F() << "The read operation set an initial size of " << segm_sz
+                            F() << "The read operation set an initial size of " << initial_sz
                                 << " bytes but they were consumed leaving only " << *available_sz
                                 << " bytes available. This is not enough to proceed "
                                 << "reading (segment reading is incomplete: " << reason << ").");
@@ -149,33 +149,21 @@ constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, 
     *available_sz -= requested_sz;
 }
 
-void Segment::read_struct_from(const std::span<const char> dataview, const uint64_t segm_sz) {
-    // Check that the segment size to read (aka remain_sz)
-    // is multiple of the segment size
-    // NOTE: in a future version we may accept segm_sz == (uint64_t)(-1)
-    // to signal "read until the end-of-segment marker"
-    uint64_t remain_sz = segm_sz;
-    if (remain_sz % 2 != 0) {
-        throw std::runtime_error((F() << "the size to read " << segm_sz << " must be a multiple of 2.").str());
-    }
-
-    // Check that the segment size to read (aka remain_sz)
-    // is smaller than the available size in the file.
-    auto available_sz = dataview.size();
-    if (segm_sz > available_sz) {
-        throw NotEnoughRoom(segm_sz, available_sz, F() << "Read segment structure from buffer failed.");
-    }
+void Segment::read_struct_from(const std::span<const char> dataview) {
 
     const char* dataptr = dataview.data();
+    const uint64_t initial_sz = dataview.size();
+
+    uint64_t available_sz = initial_sz;
 
     Extent prev(0, 0, false);
     Segment segm;
 
-    while (remain_sz >= 2) {
-        assert(remain_sz % 2 == 0);
+    while (available_sz >= 2) {
+        // assert(available_sz % 2 == 0);
 
         uint16_t hdr_ext;
-        fail_remain_exhausted_during_partial_read(sizeof(hdr_ext), &remain_sz, segm_sz,
+        fail_remain_exhausted_during_partial_read(sizeof(hdr_ext), &available_sz, initial_sz,
                                                   "stop before reading extent header");
 
         hdr_ext = read_u16_from_le(&dataptr);
@@ -200,14 +188,14 @@ void Segment::read_struct_from(const std::span<const char> dataview, const uint6
             }
 
             if (inline_sz > 0) {
-                fail_remain_exhausted_during_partial_read(inline_sz, &remain_sz, segm_sz,
+                fail_remain_exhausted_during_partial_read(inline_sz, &available_sz, initial_sz,
                                                           "inline data is partially read");
                 memcpy((char*)segm.raw.data(), dataptr, inline_sz);
                 dataptr += inline_sz;
             }
 
             // inline data *is* the last element of a segment
-            // regardless of the caller's provided segm_sz
+            // regardless of the caller's provided initial_sz
             break;
 
         } else {
@@ -223,7 +211,7 @@ void Segment::read_struct_from(const std::span<const char> dataview, const uint6
                 uint16_t hi_blk_nr = read_bitsfield_from_u16<uint16_t>(hdr_ext, MASK_HI_BLK_NR);
                 uint16_t lo_blk_nr;
 
-                fail_remain_exhausted_during_partial_read(sizeof(lo_blk_nr), &remain_sz, segm_sz,
+                fail_remain_exhausted_during_partial_read(sizeof(lo_blk_nr), &available_sz, initial_sz,
                                                           "cannot read LSB block number");
 
                 lo_blk_nr = read_u16_from_le(&dataptr);
@@ -247,7 +235,7 @@ void Segment::read_struct_from(const std::span<const char> dataview, const uint6
                     throw InconsistentXOZ("Extent with non-zero smallcnt block. Is inline flag missing?");
                 }
 
-                fail_remain_exhausted_during_partial_read(sizeof(blk_cnt), &remain_sz, segm_sz,
+                fail_remain_exhausted_during_partial_read(sizeof(blk_cnt), &available_sz, initial_sz,
                                                           "cannot read block count");
                 blk_cnt = read_u16_from_le(&dataptr);
             }
@@ -305,14 +293,14 @@ void Segment::read_struct_from(const std::span<const char> dataview, const uint6
         }
     }
 
+    // Or consumed everything *or* we stop earlier because
+    // we found an inline data
+    assert(/*remain_sz == 0 or*/ segm.inline_present);
+
     // Override this segment with the loaded one
     this->arr = std::move(segm.arr);
     this->raw = std::move(segm.raw);
     this->inline_present = segm.inline_present;
-
-    // Or consumed everything *or* we stop earlier because
-    // we found an inline data
-    assert(remain_sz == 0 or segm.inline_present);
 }
 
 void Segment::write_struct_into(const std::span<char> dataview) const {
