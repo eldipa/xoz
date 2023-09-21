@@ -40,7 +40,8 @@ public:
      * If a std::vector is used for reading, the vector is resized to
      * make room for the reading (either the given size of how much to read
      * or the size of the data available in the source, whatever is the
-     * smaller)
+     * smaller). If the size of the std::vector is large enough,
+     * no resize happens (aka no shrink).
      *
      * If a std::vector is used and the size is not given, all the remaining
      * unread data in the source is read or all the available data in the vector
@@ -55,7 +56,9 @@ public:
 
     void readall(std::vector<char>& data, const uint32_t exact_sz = uint32_t(-1)) {
         const uint32_t reserve_sz = exact_sz == uint32_t(-1) ? remain_rd() : exact_sz;
-        data.resize(reserve_sz);
+        if (data.size() < reserve_sz) {
+            data.resize(reserve_sz);
+        }
         rw_operation_exact_sz(true, data.data(), reserve_sz);
     }
 
@@ -63,7 +66,9 @@ public:
 
     uint32_t readsome(std::vector<char>& data, const uint32_t sz = uint32_t(-1)) {
         const uint32_t reserve_sz = sz == uint32_t(-1) ? remain_rd() : sz;
-        data.resize(reserve_sz);
+        if (data.size() < reserve_sz) {
+            data.resize(reserve_sz);
+        }
         return rw_operation(true, data.data(), reserve_sz);
     }
 

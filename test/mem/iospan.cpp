@@ -40,6 +40,7 @@ namespace {
         IOSpan iospan2(buf);
         iospan2.readall(rdbuf, 4);
 
+        EXPECT_EQ(rdbuf.size(), (size_t)4);
         EXPECT_EQ(iospan2.remain_rd(), uint32_t(64 - 4));
         EXPECT_EQ(iospan2.tell_rd(), uint32_t(4));
         XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
@@ -71,6 +72,7 @@ namespace {
         IOSpan iospan2(buf);
         iospan2.readall(rdbuf, (uint32_t)64);
 
+        EXPECT_EQ(rdbuf.size(), (size_t)64);
         EXPECT_EQ(iospan2.remain_rd(), uint32_t(0));
         EXPECT_EQ(iospan2.tell_rd(), uint32_t(64));
         XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
@@ -83,10 +85,12 @@ namespace {
         // Call read_extent again but let read_extent to figure out how many bytes needs to read
         // (the size of the extent in bytes)
         rdbuf.clear();
+        rdbuf.resize(0);
         iospan2.seek_rd(0);
         EXPECT_EQ(iospan2.remain_rd(), uint32_t(64));
 
         iospan2.readall(rdbuf);
+        EXPECT_EQ(rdbuf.size(), (size_t)64);
         EXPECT_EQ(iospan2.remain_rd(), uint32_t(0));
         EXPECT_EQ(iospan2.tell_rd(), uint32_t(64));
         XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
@@ -95,6 +99,38 @@ namespace {
                 );
 
         EXPECT_EQ(wrbuf, rdbuf);
+    }
+
+    TEST(IOSpanTest, NoShrink) {
+        std::vector<char> buf(64);
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf = {'E', 'F', 'G', 'H', 'I', 'J'};
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(wrbuf, 4);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        IOSpan iospan2(buf);
+        iospan2.readall(rdbuf, 4);
+
+        EXPECT_EQ(rdbuf.size(), (size_t)6);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        EXPECT_EQ(wrbuf, subvec(rdbuf, 0, 4));
+        EXPECT_EQ(rdbuf[4], 'I');
+        EXPECT_EQ(rdbuf[5], 'J');
     }
 
 
