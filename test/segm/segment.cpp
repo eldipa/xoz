@@ -45,16 +45,24 @@ const size_t FP_SZ = 64;
 #define XOZ_EXPECT_DESERIALIZATION(fp, segm) do {                        \
     std::vector<char> buf2;                                              \
     XOZ_RESET_FP(buf2, FP_SZ);                                           \
-    /*auto segm_sz = (segm).calc_footprint_disk_size();*/                \
+    auto segm_len = (segm).length();                                     \
                                                                          \
-    Segment segm2 = Segment::load_struct_from(((fp)));             \
-    segm2.write_struct_into((buf2));                               \
+    Segment segm2 = Segment::load_struct_from((fp), segm_len);           \
+    segm2.write_struct_into((buf2));                                     \
+    EXPECT_EQ((fp), buf2);                                               \
+} while (0)
+
+#define XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm) do {           \
+    std::vector<char> buf2;                                              \
+    XOZ_RESET_FP(buf2, FP_SZ);                                           \
+                                                                         \
+    Segment segm2 = Segment::load_struct_from((fp));                     \
+    segm2.write_struct_into((buf2));                                     \
     EXPECT_EQ((fp), buf2);                                               \
 } while (0)
 
 namespace {
-#if 0
-    TEST(SegmentTest, ValidEmptyZeroBytes) { // TODO it should be ValidEmptyZeroCount
+    TEST(SegmentTest, ValidEmptyZeroLength) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -75,7 +83,6 @@ namespace {
         // are the same
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
-#endif
 
     TEST(SegmentTest, ValidEmptyZeroInline) {
         const uint8_t blk_sz_order = 10;
@@ -170,7 +177,7 @@ namespace {
 
         segm.write_struct_into((fp));
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c0");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Remove the inline data, add an extent
@@ -191,7 +198,7 @@ namespace {
 
         segm.write_struct_into((fp));
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ff02 00c0");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Remove the extent and inline data, add a non-zero length inline data
@@ -218,7 +225,7 @@ namespace {
 
         segm.write_struct_into((fp));
         XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
     }
 
@@ -291,8 +298,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
 
-#if 0
-    TEST(SegmentTest, OneExtentFullBlockOnly) { // TODO it should set "array_length=1"
+    TEST(SegmentTest, OneExtentFullBlockOnly) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -399,10 +405,8 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab0f 0080");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
-#endif
 
-#if 0
-    TEST(SegmentTest, OneExtentSubAllocOnly) { // TODO it should use array_length=1
+    TEST(SegmentTest, OneExtentSubAllocOnly) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -483,10 +487,8 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0684 ffff");
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
     }
-#endif
 
-#if 0
-    TEST(SegmentTest, SeveralExtentsAndInline) { // TODO it must set array_length correctly in each case
+    TEST(SegmentTest, SeveralExtentsAndInline) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -641,6 +643,7 @@ namespace {
                 "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Add an extent that it is near of the previous extent
@@ -675,8 +678,8 @@ namespace {
                 "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
     }
-#endif
 
 
     TEST(SegmentTest, FileOverflowNotEnoughRoom) {
