@@ -3,10 +3,10 @@
 #include <cstdint>
 #include <iostream>
 #include <numeric>
-#include <span>
 #include <vector>
 
 #include "xoz/ext/extent.h"
+#include "xoz/mem/iobase.h"
 
 class Segment {
 private:
@@ -84,14 +84,24 @@ public:
         return inline_present ? uint8_t(raw.size()) : 0;
     }
 
-    static Segment load_struct_from(const std::span<const char> dataview, uint32_t segm_len = uint32_t(-1)) {
+    static Segment load_struct_from(IOBase& io, uint32_t segm_len = uint32_t(-1)) {
         Segment segm;
-        segm.read_struct_from(dataview, segm_len);
+        segm.read_struct_from(io, segm_len);
         return segm;
     }
 
-    void read_struct_from(const std::span<const char> dataview, uint32_t segm_len = uint32_t(-1));
-    void write_struct_into(const std::span<char> dataview) const;
+
+    void read_struct_from(IOBase& io, uint32_t segm_len = uint32_t(-1));
+    void write_struct_into(IOBase& io) const;
+
+
+    static Segment load_struct_from(IOBase&& io, uint32_t segm_len = uint32_t(-1)) {
+        return load_struct_from(io, segm_len);
+    }
+
+    void read_struct_from(IOBase&& io, uint32_t segm_len = uint32_t(-1)) { read_struct_from(io, segm_len); }
+    void write_struct_into(IOBase&& io) const { write_struct_into(io); }
+
 
     uint32_t calc_footprint_disk_size() const;
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;

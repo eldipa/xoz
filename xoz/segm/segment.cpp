@@ -149,12 +149,11 @@ constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, 
     *available_sz -= requested_sz;
 }
 
-void Segment::read_struct_from(const std::span<const char> dataview, uint32_t segm_len) {
+void Segment::read_struct_from(IOBase& io, uint32_t segm_len) {
     const bool segm_len_is_explicit = segm_len != uint32_t(-1);
     // const uint32_t initial_segm_len = segm_len;
 
-    const char* dataptr = dataview.data();
-    const uint64_t initial_sz = dataview.size();
+    const uint64_t initial_sz = io.remain_rd();
 
     uint64_t available_sz = initial_sz;
 
@@ -168,7 +167,7 @@ void Segment::read_struct_from(const std::span<const char> dataview, uint32_t se
         fail_remain_exhausted_during_partial_read(sizeof(hdr_ext), &available_sz, initial_sz,
                                                   "stop before reading extent header");
 
-        hdr_ext = read_u16_from_le(&dataptr);
+        hdr_ext = io.read_u16_from_le();
 
         bool is_suballoc = read_bitsfield_from_u16<bool>(hdr_ext, MASK_SUBALLOC_FLAG);
         bool is_inline = read_bitsfield_from_u16<bool>(hdr_ext, MASK_INLINE_FLAG);
@@ -192,8 +191,7 @@ void Segment::read_struct_from(const std::span<const char> dataview, uint32_t se
             if (inline_sz > 0) {
                 fail_remain_exhausted_during_partial_read(inline_sz, &available_sz, initial_sz,
                                                           "inline data is partially read");
-                memcpy((char*)segm.raw.data(), dataptr, inline_sz);
-                dataptr += inline_sz;
+                io.readall(segm.raw, inline_sz);
             }
 
             // inline data *is* the last element of a segment
@@ -217,7 +215,7 @@ void Segment::read_struct_from(const std::span<const char> dataview, uint32_t se
                 fail_remain_exhausted_during_partial_read(sizeof(lo_blk_nr), &available_sz, initial_sz,
                                                           "cannot read LSB block number");
 
-                lo_blk_nr = read_u16_from_le(&dataptr);
+                lo_blk_nr = io.read_u16_from_le();
 
                 blk_nr = ((uint32_t(hi_blk_nr & MASK_HI_BLK_NR) << 16) | lo_blk_nr);
 
@@ -240,7 +238,7 @@ void Segment::read_struct_from(const std::span<const char> dataview, uint32_t se
 
                 fail_remain_exhausted_during_partial_read(sizeof(blk_cnt), &available_sz, initial_sz,
                                                           "cannot read block count");
-                blk_cnt = read_u16_from_le(&dataptr);
+                blk_cnt = io.read_u16_from_le();
             }
 
             // If it is a near extent, we know now its block count so we can
@@ -315,18 +313,16 @@ void Segment::read_struct_from(const std::span<const char> dataview, uint32_t se
     this->inline_present = segm.inline_present;
 }
 
-void Segment::write_struct_into(const std::span<char> dataview) const {
+void Segment::write_struct_into(IOBase& io) const {
     const Segment& segm = *this;
     Extent prev(0, 0, false);
 
     // Track how many bytes we written so far
     uint64_t remain_sz = segm.calc_footprint_disk_size();
-    auto available_sz = dataview.size();
+    auto available_sz = io.remain_wr();
     if (remain_sz > available_sz) {
         throw NotEnoughRoom(remain_sz, available_sz, F() << "Write segment structure into buffer failed.");
     }
-
-    char* dataptr = dataview.data();
 
     // We track how many extents remain_cnt in the list
     size_t remain_cnt = segm.arr.size();
@@ -371,7 +367,7 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
 
             // Now hdr_ext is complete: write it to disk
             assert_write_room_and_consume(sizeof(hdr_ext), &remain_sz);
-            write_u16_to_le(&dataptr, hdr_ext);
+            io.write_u16_to_le(hdr_ext);
 
         } else {
             // Split the block number in two parts
@@ -384,8 +380,8 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
             // Now hdr_ext and lo_blk_nr are complete: write both to disk
             assert_write_room_and_consume(sizeof(hdr_ext) + sizeof(lo_blk_nr), &remain_sz);
 
-            write_u16_to_le(&dataptr, hdr_ext);
-            write_u16_to_le(&dataptr, lo_blk_nr);
+            io.write_u16_to_le(hdr_ext);
+            io.write_u16_to_le(lo_blk_nr);
         }
 
         assert(not(is_suballoc and smallcnt));
@@ -393,7 +389,7 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
             // write blk_cnt/bitmap
             uint16_t blk_cnt_bitmap = is_suballoc ? u16_to_le(ext.blk_bitmap()) : u16_to_le(ext.blk_cnt());
             assert_write_room_and_consume(sizeof(blk_cnt_bitmap), &remain_sz);
-            write_u16_to_le(&dataptr, blk_cnt_bitmap);
+            io.write_u16_to_le(blk_cnt_bitmap);
         }
 
         prev = ext;
@@ -430,12 +426,11 @@ void Segment::write_struct_into(const std::span<char> dataview) const {
 
         // Now hdr_ext is complete: write it to disk
         assert_write_room_and_consume(sizeof(hdr_ext) + inline_sz, &remain_sz);
-        write_u16_to_le(&dataptr, hdr_ext);
+        io.write_u16_to_le(hdr_ext);
 
         // After the uint8_t raw follows, if any
         if (inline_sz > 0) {
-            memcpy(dataptr, segm.raw.data(), inline_sz);
-            dataptr += inline_sz;
+            io.writeall(segm.raw, inline_sz);
         }
     }
 
