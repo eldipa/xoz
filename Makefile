@@ -25,7 +25,7 @@ mirror:
 	find xoz/ test/ \( -name '*.h' -o -name '*.cpp' \) -exec ln -sr {} build-debug/{} \;
 
 unmirror:
-	find build-debug/xoz/ build-debug/test/ \( -name '*.h' -o -name '*.cpp' \) -exec rm {} \;
+	find build-debug/xoz/ build-debug/test/ \( -name '*.h' -o -name '*.cpp' \) -exec rm {} \; || true
 
 clean:
 	rm -Rf build-*/
