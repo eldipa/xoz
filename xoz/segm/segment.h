@@ -13,7 +13,7 @@ private:
     std::vector<Extent> arr;
 
     bool inline_present;
-    std::vector<uint8_t> raw;
+    std::vector<char> raw;
 
 public:
     static const uint32_t MaxInlineSize = (1 << 6) - 1;
@@ -27,7 +27,7 @@ public:
     }
 
     // TODO offer a "borrow" variant
-    void set_inline_data(const std::vector<uint8_t>& data) {
+    void set_inline_data(const std::vector<char>& data) {
         inline_present = true;
         raw = data;
     }
@@ -69,7 +69,7 @@ public:
         });
     }
 
-    std::vector<uint8_t>& inline_data() {
+    std::vector<char>& inline_data() {
         assert(inline_present);
         return raw;
     }

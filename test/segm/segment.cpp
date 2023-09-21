@@ -227,7 +227,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
         Segment segm;
 
-        segm.set_inline_data(std::vector<uint8_t>(Segment::MaxInlineSize + 1));
+        segm.set_inline_data(std::vector<char>(Segment::MaxInlineSize + 1));
 
         // Inline data size has a limit
         EXPECT_THAT(
@@ -257,7 +257,7 @@ namespace {
         EXPECT_EQ(are_all_zeros(fp), (bool)true);
 
         // This check the maximum allowed
-        segm.set_inline_data(std::vector<uint8_t>((1 << 6) - 1));
+        segm.set_inline_data(std::vector<char>((1 << 6) - 1));
         segm.inline_data()[0] = 0x41;
         segm.inline_data()[segm.inline_data().size()-1] = 0x78;
 
@@ -274,7 +274,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // This check the maximum allowed minus 1
-        segm.set_inline_data(std::vector<uint8_t>((1 << 6) - 2));
+        segm.set_inline_data(std::vector<char>((1 << 6) - 2));
         segm.inline_data()[0] = 0x41;
         segm.inline_data()[segm.inline_data().size()-1] = 0x78;
 
@@ -613,7 +613,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Add inline: 2 for the header and +4 of the data (6 in total)
-        segm.set_inline_data({0xaa, 0xbb, 0xcc, 0xdd}); // 4 bytes of inline data
+        segm.set_inline_data({char(0xaa), char(0xbb), char(0xcc), char(0xdd)}); // 4 bytes of inline data
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6+4+2+6+4+6, /* disc size */
                 /* allocated size */
@@ -679,7 +679,7 @@ namespace {
         Segment segm;
 
         // Large but perfectly valid inline data
-        segm.set_inline_data(std::vector<uint8_t>(FP_SZ / 2));
+        segm.set_inline_data(std::vector<char>(FP_SZ / 2));
         std::iota (std::begin(segm.inline_data()), std::end(segm.inline_data()), 0); // fill with numbers
 
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
@@ -861,7 +861,7 @@ namespace {
         );
 
         // Let's add inline of 4 bytes (+2 header)
-        segm.set_inline_data({0xaa, 0xbb, 0xcc, 0xdd}); // size: 16 bytes
+        segm.set_inline_data({char(0xaa), char(0xbb), char(0xcc), char(0xdd)}); // size: 16 bytes
 
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6 + 4 + 6, /* disc size */
