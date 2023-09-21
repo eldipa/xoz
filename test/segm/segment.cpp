@@ -698,21 +698,7 @@ namespace {
                 32 /* allocated size */
                 );
 
-        // The read/write however exceeds the file size
-        /*
-        EXPECT_THAT(
-            [&]() { Segment::load_struct_from(IOSpan(fp), segm.calc_footprint_disk_size()); },
-            ThrowsMessage<NotEnoughRoom>(
-                AllOf(
-                    HasSubstr(
-                        "Requested 34 bytes but only 32 bytes are available. "
-                        "Read segment structure from buffer failed."
-                        )
-                    )
-                )
-        );
-        */
-
+        // The write however exceeds the file size
         EXPECT_THAT(
             [&]() { segm.write_struct_into(IOSpan(fp)); },
             ThrowsMessage<NotEnoughRoom>(
@@ -742,20 +728,7 @@ namespace {
                 6 << blk_sz_order /* allocated size */
                 );
 
-        // The read/write however exceeds the file size
-        /*
-        EXPECT_THAT(
-            [&]() { Segment::load_struct_from(IOSpan(fp), segm.calc_footprint_disk_size()); },
-            ThrowsMessage<NotEnoughRoom>(
-                AllOf(
-                    HasSubstr(
-                        "Requested 36 bytes but only 32 bytes are available. "
-                        "Read segment structure from buffer failed."
-                        )
-                    )
-                )
-        );
-        */
+        // The write however exceeds the file size
         EXPECT_THAT(
             [&]() { segm.write_struct_into(IOSpan(fp)); },
             ThrowsMessage<NotEnoughRoom>(
@@ -772,28 +745,7 @@ namespace {
         EXPECT_EQ(are_all_zeros(fp), (bool)true);
     }
 
-    TEST(SegmentTest, ReadSegmSizeNotMultipleOfTwo) {
-        std::vector<char> fp;
-        XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
-
-        // Read size must be a multiple of 2
-        /*
-        EXPECT_THAT(
-            [&]() { Segment::load_struct_from(IOSpan(fp), 3); },
-            ThrowsMessage<std::runtime_error>(
-                AllOf(
-                    HasSubstr(
-                        "the size to read 3 must be a multiple of 2."
-                        )
-                    )
-                )
-        );
-        */
-    }
-
-#if 0
-    TEST(SegmentTest, PartialReadError) { // TODO
+    TEST(SegmentTest, PartialReadError) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -830,6 +782,8 @@ namespace {
                 )
         );
 
+        XOZ_RESET_FP(fp, FP_SZ);
+        segm.write_struct_into(IOSpan(fp));
 
         // The same but with 4 bytes
         fp.resize(4);
@@ -918,6 +872,9 @@ namespace {
         );
 
 
+        XOZ_RESET_FP(fp, FP_SZ);
+        segm.write_struct_into(IOSpan(fp));
+
         // The same but only 2 bytes are available, not enough for
         // completing the 4 bytes inline payload
         fp.resize(14);
@@ -938,7 +895,6 @@ namespace {
                 )
         );
     }
-#endif
 
     TEST(SegmentTest, CorruptedData) {
         std::vector<char> fp;
