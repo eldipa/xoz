@@ -230,6 +230,61 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
     }
 
+    TEST(SegmentTest, InlineDataAsEndOfSegmentButFail) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        Segment segm;
+        segm.add_extent(Extent(0x2ff, 1, false)); // 1-block extent
+        segm.add_end_of_segment();
+
+        // Expect the same as a segment with one extent + 0-bytes inline data
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                6, /* disc size */
+                1 << blk_sz_order /* allocated size */
+                );
+
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
+
+        segm.write_struct_into(IOSpan(fp));
+
+        // Now we expect a segment of length 3 which obviously will not happen
+        // (the segment has a length of 2)
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), 3); }),
+            ThrowsMessage<InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "Repository seems inconsistent/corrupt. "
+                        "Expected to read a segment that of length 3 "
+                        "but an inline-extent was found before and "
+                        "made the segment shorter of length 2."
+
+                        )
+                    )
+                )
+        );
+
+        // Now we try to load until the inline data but we shrink the fp (truncate)
+        // such the inline data is missing
+        // (but the first 1-block extent is intact so no half/partial read happens)
+        fp.resize(4);
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
+            ThrowsMessage<InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "Repository seems inconsistent/corrupt. "
+                        "Expected to read a segment that ends "
+                        "in an inline-extent but such was not found "
+                        "and the segment got a length of 1."
+                        )
+                    )
+                )
+        );
+    }
+
     TEST(SegmentTest, InlineDataBadSize) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
