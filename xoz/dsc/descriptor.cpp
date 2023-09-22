@@ -6,8 +6,8 @@
 #include "xoz/mem/bits.h"
 #include "xoz/segm/iosegment.h"
 
-struct Descriptor::header_t Descriptor::read_struct_header(IOBase& iobase) {
-    uint16_t firstfield = iobase.read_u16_from_le();
+struct Descriptor::header_t Descriptor::read_struct_header(IOBase& io) {
+    uint16_t firstfield = io.read_u16_from_le();
 
     bool is_obj = read_bitsfield_from_u16<bool>(firstfield, MASK_IS_OBJ_FLAG);
     bool has_id = read_bitsfield_from_u16<bool>(firstfield, MASK_HAS_ID_FLAG);
@@ -19,7 +19,7 @@ struct Descriptor::header_t Descriptor::read_struct_header(IOBase& iobase) {
     uint32_t obj_id = 0;
     uint8_t hi_dsize = 0;
     if (is_obj or has_id) {
-        uint32_t idfield = iobase.read_u32_from_le();
+        uint32_t idfield = io.read_u32_from_le();
 
         hi_dsize = read_bitsfield_from_u32<uint8_t>(idfield, MASK_HI_DSIZE);
         obj_id = read_bitsfield_from_u32<uint32_t>(idfield, MASK_OBJ_ID);
@@ -33,13 +33,13 @@ struct Descriptor::header_t Descriptor::read_struct_header(IOBase& iobase) {
 
     uint32_t lo_size = 0, hi_size = 0;
     if (is_obj) {
-        uint16_t sizefield = iobase.read_u16_from_le();
+        uint16_t sizefield = io.read_u16_from_le();
 
         bool large = read_bitsfield_from_u16<bool>(sizefield, MASK_LARGE_FLAG);
         lo_size = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_OBJ_LO_SIZE);
 
         if (large) {
-            uint16_t largefield = iobase.read_u16_from_le();
+            uint16_t largefield = io.read_u16_from_le();
             hi_size = read_bitsfield_from_u16<uint32_t>(largefield, MASK_OBJ_HI_SIZE);
         }
     }
@@ -52,7 +52,7 @@ struct Descriptor::header_t Descriptor::read_struct_header(IOBase& iobase) {
 }
 
 
-void Descriptor::write_struct_header(IOBase& iobase, const struct Descriptor::header_t& hdr) {
+void Descriptor::write_struct_header(IOBase& io, const struct Descriptor::header_t& hdr) {
     assert(hdr.dsize % 2 == 0);
 
     bool has_id = false;
@@ -90,7 +90,7 @@ void Descriptor::write_struct_header(IOBase& iobase, const struct Descriptor::he
     }
 
     // Write the first field
-    iobase.write_u16_to_le(firstfield);
+    io.write_u16_to_le(firstfield);
 
     // Write the second, if present
     if (has_id) {
@@ -98,7 +98,7 @@ void Descriptor::write_struct_header(IOBase& iobase, const struct Descriptor::he
         bool hi_dsize_msb = hdr.dsize >> (1 + 5);  // discard 5 lower bits of dsize
         write_bitsfield_into_u32(idfield, hi_dsize_msb, MASK_HI_DSIZE);
 
-        iobase.write_u32_to_le(idfield);
+        io.write_u32_to_le(idfield);
     } else {
         assert(hdr.dsize <= (32 << 1));
     }
@@ -111,7 +111,7 @@ void Descriptor::write_struct_header(IOBase& iobase, const struct Descriptor::he
             write_bitsfield_into_u16(sizefield, false, MASK_LO_DSIZE);
             write_bitsfield_into_u16(sizefield, hdr.size, MASK_OBJ_LO_SIZE);
 
-            iobase.write_u16_to_le(sizefield);
+            io.write_u16_to_le(sizefield);
         } else {
             assert(hdr.size < uint32_t(1) << 31);
 
@@ -121,8 +121,8 @@ void Descriptor::write_struct_header(IOBase& iobase, const struct Descriptor::he
             uint16_t largefield = 0;
             write_bitsfield_into_u16(largefield, hdr.size >> 16, MASK_OBJ_HI_SIZE);
 
-            iobase.write_u16_to_le(sizefield);
-            iobase.write_u16_to_le(largefield);
+            io.write_u16_to_le(sizefield);
+            io.write_u16_to_le(largefield);
         }
     }
 }

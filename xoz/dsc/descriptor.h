@@ -16,6 +16,6 @@ private:
         uint32_t size;  // in bytes
     };
 
-    struct header_t read_struct_header(IOBase& iobase);
-    void write_struct_header(IOBase& iobase, const struct header_t& hdr);
+    struct header_t read_struct_header(IOBase& io);
+    void write_struct_header(IOBase& io, const struct header_t& hdr);
 };
