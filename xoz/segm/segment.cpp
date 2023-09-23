@@ -82,12 +82,12 @@ uint32_t Segment::calc_struct_footprint_size() const {
 }
 
 
-uint32_t Segment::calc_usable_space_size(uint8_t blk_sz_order) const {
+uint32_t Segment::calc_data_space_size(uint8_t blk_sz_order) const {
     const Segment& segm = *this;
 
     uint32_t sz = std::accumulate(
             segm.arr.cbegin(), segm.arr.cend(), 0,
-            [&blk_sz_order](uint32_t sz, const Extent& ext) { return sz + ext.calc_usable_space_size(blk_sz_order); });
+            [&blk_sz_order](uint32_t sz, const Extent& ext) { return sz + ext.calc_data_space_size(blk_sz_order); });
 
     if (segm.inline_present) {
         segm.fail_if_bad_inline_sz();
@@ -98,7 +98,7 @@ uint32_t Segment::calc_usable_space_size(uint8_t blk_sz_order) const {
         // before
         uint16_t inline_sz = uint16_t(segm.raw.size());
 
-        // Note: calc_usable_space_size means how many bytes are allocated
+        // Note: calc_data_space_size means how many bytes are allocated
         // for user data so we register all the inline data as such
         // (not matter if the size is an even or an odd number)
         sz += inline_sz;

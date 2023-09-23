@@ -128,7 +128,9 @@ public:
         return Extent(blk_nr(), 1, false);
     }
 
-    uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
+    // Return the size in bytes of the space referenced by the
+    // blocks (or subblocks) of this extent.
+    uint32_t calc_data_space_size(uint8_t blk_sz_order) const;
 
     struct blk_distance_t {
         const uint32_t blk_cnt;

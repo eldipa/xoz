@@ -162,7 +162,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     assert(inline_sz == 0);
     assert(sz_remain == 0);
 
-    avail_sz = segm.calc_usable_space_size(repo.blk_sz_order());
+    avail_sz = segm.calc_data_space_size(repo.blk_sz_order());
     in_use_by_user_sz += avail_sz;
     in_use_ext_cnt += segm.ext_cnt();
     in_use_inlined_sz += segm.inline_data_sz();
@@ -180,7 +180,7 @@ no_free_space:
 }
 
 void SegmentAllocator::dealloc(const Segment& segm) {
-    auto sz = segm.calc_usable_space_size(repo.blk_sz_order());
+    auto sz = segm.calc_data_space_size(repo.blk_sz_order());
 
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
     TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
@@ -222,7 +222,7 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
     for (const auto& segm: allocated_segms) {
         allocated.insert(allocated.end(), segm.exts().begin(), segm.exts().end());
 
-        in_use_by_user_sz += segm.calc_usable_space_size(repo.blk_sz_order());
+        in_use_by_user_sz += segm.calc_data_space_size(repo.blk_sz_order());
         in_use_ext_cnt += segm.ext_cnt();
         in_use_inlined_sz += segm.inline_data_sz();
         in_use_blk_cnt += segm.full_blk_cnt();

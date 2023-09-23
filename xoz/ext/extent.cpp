@@ -107,7 +107,7 @@ Extent::blk_distance_t Extent::distance_in_blks(const Extent& ref, const Extent&
     };
 }
 
-uint32_t Extent::calc_usable_space_size(uint8_t blk_sz_order) const {
+uint32_t Extent::calc_data_space_size(uint8_t blk_sz_order) const {
     const Extent& ext = *this;
     if (ext.is_null()) {
         return 0;

@@ -22,7 +22,7 @@ std::vector<uint32_t> create_ext_index(const Segment& sg, const uint32_t sg_no_i
     uint32_t pos = 0;
     for (const Extent& ext: sg.exts()) {
         begin_positions.push_back(pos);
-        pos += ext.calc_usable_space_size(blk_sz_order);
+        pos += ext.calc_data_space_size(blk_sz_order);
     }
 
     assert(pos == sg_no_inline_sz);
@@ -33,7 +33,7 @@ std::vector<uint32_t> create_ext_index(const Segment& sg, const uint32_t sg_no_i
 
 
 IOSegment::IOSegment(Repository& repo, const Segment& sg):
-        IOBase(sg.calc_usable_space_size(repo.blk_sz_order())),
+        IOBase(sg.calc_data_space_size(repo.blk_sz_order())),
         repo(repo),
         sg(sg),
         sg_no_inline_sz(src_sz - sg.inline_data_sz()),
@@ -125,7 +125,7 @@ const struct IOSegment::ext_ptr_t IOSegment::abs_pos_to_ext(const uint32_t pos) 
 
     ptr.ext = sg.exts()[ix];
     ptr.offset = pos - begin_positions[ix];
-    ptr.remain = ptr.ext.calc_usable_space_size(repo.blk_sz_order()) - ptr.offset;
+    ptr.remain = ptr.ext.calc_data_space_size(repo.blk_sz_order()) - ptr.offset;
 
     return ptr;
 }

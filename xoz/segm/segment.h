@@ -108,7 +108,10 @@ public:
     // space referenced by the extents' blocks
     uint32_t calc_struct_footprint_size() const;
 
-    uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
+    // Return the size in bytes of all the space usable (aka data).
+    // This is the sum of the space referenced by the extents' blocks and
+    // the inline data.
+    uint32_t calc_data_space_size(uint8_t blk_sz_order) const;
 
     uint32_t estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const;
 

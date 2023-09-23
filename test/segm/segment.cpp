@@ -30,7 +30,7 @@ const size_t FP_SZ = 64;
 // to store the extents and how much they are pointing (allocated)
 #define XOZ_EXPECT_SIZES(segm, blk_sz_order, disk_sz, allocated_sz) do {                  \
     EXPECT_EQ((segm).calc_struct_footprint_size(), (unsigned)(disk_sz));                    \
-    EXPECT_EQ((segm).calc_usable_space_size((blk_sz_order)), (unsigned)(allocated_sz));   \
+    EXPECT_EQ((segm).calc_data_space_size((blk_sz_order)), (unsigned)(allocated_sz));   \
 } while (0)
 
 // Check that the serialization of the extents in fp match
@@ -303,7 +303,7 @@ namespace {
                 )
         );
         EXPECT_THAT(
-            [&]() { segm.calc_usable_space_size(blk_sz_order); },
+            [&]() { segm.calc_data_space_size(blk_sz_order); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr("Inline data too large: it has 64 bytes but only up to 63 bytes are allowed.")
