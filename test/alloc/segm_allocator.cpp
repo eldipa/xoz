@@ -21,7 +21,7 @@ using ::testing_xoz::helpers::subvec;
 using ::testing_xoz::helpers::ensure_called_once;
 
 // Check that the serialization of the extents in fp are of the
-// expected size (call calc_footprint_disk_size) and they match
+// expected size (call calc_struct_footprint_size) and they match
 // byte-by-byte with the expected data (in hexdump)
 #define XOZ_EXPECT_REPO_SERIALIZATION(repo, at, len, data) do {           \
     EXPECT_EQ(hexdump((repo).expose_mem_fp(), (at), (len)), (data));              \

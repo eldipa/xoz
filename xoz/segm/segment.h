@@ -103,7 +103,11 @@ public:
     void write_struct_into(IOBase&& io) const { write_struct_into(io); }
 
 
-    uint32_t calc_footprint_disk_size() const;
+    // Return the size in bytes to represent the Segment structure in disk.
+    // This includes the size of the inline data but it does not include the
+    // space referenced by the extents' blocks
+    uint32_t calc_struct_footprint_size() const;
+
     uint32_t calc_usable_space_size(uint8_t blk_sz_order) const;
 
     uint32_t estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const;

@@ -29,7 +29,7 @@ const size_t FP_SZ = 64;
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
 #define XOZ_EXPECT_SIZES(segm, blk_sz_order, disk_sz, allocated_sz) do {                  \
-    EXPECT_EQ((segm).calc_footprint_disk_size(), (unsigned)(disk_sz));                    \
+    EXPECT_EQ((segm).calc_struct_footprint_size(), (unsigned)(disk_sz));                    \
     EXPECT_EQ((segm).calc_usable_space_size((blk_sz_order)), (unsigned)(allocated_sz));   \
 } while (0)
 
@@ -37,8 +37,8 @@ const size_t FP_SZ = 64;
 // byte-by-byte with the expected data (in hexdump) in the first
 // N bytes and the rest of fp are zeros
 #define XOZ_EXPECT_SERIALIZATION(fp, segm, data) do {                               \
-    EXPECT_EQ(hexdump((fp), 0, (segm).calc_footprint_disk_size()), (data));         \
-    EXPECT_EQ(are_all_zeros((fp), (segm).calc_footprint_disk_size()), (bool)true);  \
+    EXPECT_EQ(hexdump((fp), 0, (segm).calc_struct_footprint_size()), (data));         \
+    EXPECT_EQ(are_all_zeros((fp), (segm).calc_struct_footprint_size()), (bool)true);  \
 } while (0)
 
 // Load from fp the extents and serialize it back again into
@@ -295,7 +295,7 @@ namespace {
 
         // Inline data size has a limit
         EXPECT_THAT(
-            [&]() { segm.calc_footprint_disk_size(); },
+            [&]() { segm.calc_struct_footprint_size(); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr("Inline data too large: it has 64 bytes but only up to 63 bytes are allowed.")

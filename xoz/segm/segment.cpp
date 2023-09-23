@@ -26,7 +26,7 @@ std::ostream& operator<<(std::ostream& out, const Segment& segm) {
     return out;
 }
 
-uint32_t Segment::calc_footprint_disk_size() const {
+uint32_t Segment::calc_struct_footprint_size() const {
     const Segment& segm = *this;
 
     Extent prev(0, 0, false);
@@ -321,7 +321,7 @@ void Segment::write_struct_into(IOBase& io) const {
     Extent prev(0, 0, false);
 
     // Track how many bytes we written so far
-    uint64_t remain_sz = segm.calc_footprint_disk_size();
+    uint64_t remain_sz = segm.calc_struct_footprint_size();
     auto available_sz = io.remain_wr();
     if (remain_sz > available_sz) {
         throw NotEnoughRoom(remain_sz, available_sz, F() << "Write segment structure into buffer failed.");
