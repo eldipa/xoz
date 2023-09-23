@@ -1,12 +1,78 @@
 #include "xoz/dsc/descriptor.h"
 
+#include <cassert>
 #include <cstdint>
 
+#include "xoz/dsc/default.h"
 #include "xoz/dsc/internals.h"
 #include "xoz/mem/bits.h"
 #include "xoz/segm/iosegment.h"
 
-struct Descriptor::header_t Descriptor::read_struct_header(IOBase& io) {
+namespace {
+std::map<uint16_t, descriptor_create_fn> _priv_non_obj_descriptors;
+std::map<uint16_t, descriptor_create_fn> _priv_obj_descriptors;
+
+bool _priv_descriptor_mapping_initialized = false;
+
+// Given if the descriptor is or not an object descriptor and give its type
+// return a function to create such descriptors.
+// If not suitable function is found, return a function to create
+// a default descriptor that has the minimum logic to work
+// (this enables XOZ to be forward compatible)
+descriptor_create_fn descriptor_create_lookup(bool is_obj, uint16_t type) {
+    if (is_obj) {
+        auto it = _priv_obj_descriptors.find(type);
+        if (it == _priv_obj_descriptors.end()) {
+            return DefaultDescriptor::create;
+        }
+
+        return it->second;
+    } else {
+        auto it = _priv_non_obj_descriptors.find(type);
+        if (it == _priv_non_obj_descriptors.end()) {
+            return DefaultDescriptor::create;
+        }
+
+        return it->second;
+    }
+
+    assert(false);
+}
+
+void throw_if_descriptor_mapping_not_initialized() {
+    if (not _priv_descriptor_mapping_initialized) {
+        throw "";
+    }
+}
+}  // namespace
+
+void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& non_obj_descriptors,
+                                   const std::map<uint16_t, descriptor_create_fn>& obj_descriptors) {
+
+    if (_priv_descriptor_mapping_initialized) {
+        throw "";
+    }
+
+    _priv_non_obj_descriptors = non_obj_descriptors;
+    _priv_obj_descriptors = obj_descriptors;
+
+    _priv_descriptor_mapping_initialized = true;
+}
+
+void deinitialize_descriptor_mapping() {
+
+    // Note: we don't check if the mapping was initialized or not,
+    // we just do the clearing and leave the mapping in a known state
+
+    _priv_non_obj_descriptors.clear();
+    _priv_obj_descriptors.clear();
+
+    _priv_descriptor_mapping_initialized = false;
+}
+
+
+std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
+    throw_if_descriptor_mapping_not_initialized();
     uint16_t firstfield = io.read_u16_from_le();
 
     bool is_obj = read_bitsfield_from_u16<bool>(firstfield, MASK_IS_OBJ_FLAG);
@@ -46,13 +112,28 @@ struct Descriptor::header_t Descriptor::read_struct_header(IOBase& io) {
 
     uint32_t size = (hi_size << 16) | lo_size;
 
-    struct Descriptor::header_t ret = {.is_obj = is_obj, .type = type, .obj_id = obj_id, .dsize = dsize, .size = size};
+    Segment segm;
+    if (is_obj) {
+        segm = Segment::load_struct_from(io);
+    }
 
-    return ret;
+    struct Descriptor::header_t hdr = {
+            .is_obj = is_obj, .type = type, .obj_id = obj_id, .dsize = dsize, .size = size, .segm = segm};
+
+    descriptor_create_fn fn = descriptor_create_lookup(is_obj, type);
+    std::unique_ptr<Descriptor> dsc = fn(hdr);
+
+    if (!dsc) {
+        throw "";
+    }
+
+    dsc->read_struct_specifics_from(io);
+    return dsc;
 }
 
 
-void Descriptor::write_struct_header(IOBase& io, const struct Descriptor::header_t& hdr) {
+void Descriptor::write_struct_into(IOBase& io) {
+    throw_if_descriptor_mapping_not_initialized();
     assert(hdr.dsize % 2 == 0);
 
     bool has_id = false;
@@ -124,5 +205,10 @@ void Descriptor::write_struct_header(IOBase& io, const struct Descriptor::header
             io.write_u16_to_le(sizefield);
             io.write_u16_to_le(largefield);
         }
+
+
+        hdr.segm.write_struct_into(io);
     }
+
+    write_struct_specifics_into(io);
 }
