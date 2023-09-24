@@ -35,6 +35,33 @@ public:
     virtual void read_struct_specifics_from(IOBase& io) = 0;
     virtual void write_struct_specifics_into(IOBase& io) = 0;
 
+    // Return the size in bytes to represent the Descriptor structure in disk
+    // *including* the descriptor data (see calc_data_space_size)
+    uint32_t calc_struct_footprint_size() const;
+
+    // Return the size in bytes that this descriptor has. Such data space
+    // can be used by a Descriptor subclass to retrieve / store specifics
+    // fields.
+    // For the perspective of this method, such interpretation is transparent
+    // and the whole space is seen as a single consecutive chunk of space
+    // whose size is returned.
+    uint32_t calc_data_space_size() const { return hdr.dsize; }
+
+    // Return the size in bytes of that referenced by the segment and
+    // that represent the object's data (not the descriptor's data).
+    //
+    // The size may be larger than the object's size in the descriptor
+    // header if the object has more space allocated than the real
+    // object size. In this sense, calc_obj_segm_data_space_size() is the
+    // total usable space while hdr.size is the used space.
+    //
+    // For non-object descriptors returns always 0
+    uint32_t calc_obj_segm_data_space_size(uint8_t blk_sz_order) const {
+        return hdr.is_obj ? hdr.segm.calc_data_space_size(blk_sz_order) : 0;
+    }
+
+    uint32_t calc_obj_data_size() const { return hdr.is_obj ? hdr.size : 0; }
+
     virtual ~Descriptor() {}
 
 protected:

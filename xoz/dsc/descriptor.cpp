@@ -71,6 +71,27 @@ void deinitialize_descriptor_mapping() {
 }
 
 
+namespace {
+void chk_rw_specifics(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end, uint32_t data_sz) {
+    uint32_t data_end = data_begin + data_sz;  // descriptor truly end
+
+    if (data_begin > subclass_end) {
+        is_read_op ? io.seek_rd(data_end) : io.seek_wr(data_end);
+        throw "backward move";
+    }
+
+    if (subclass_end - data_begin > data_sz) {
+        is_read_op ? io.seek_rd(data_end) : io.seek_wr(data_end);
+        throw "overflow";
+    }
+
+    if (subclass_end - data_begin < data_sz) {
+        is_read_op ? io.seek_rd(data_end) : io.seek_wr(data_end);
+        throw "underflow";
+    }
+}
+}  // namespace
+
 std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
     throw_if_descriptor_mapping_not_initialized();
     uint16_t firstfield = io.read_u16_from_le();
@@ -110,11 +131,15 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
         }
     }
 
-    uint32_t size = (hi_size << 16) | lo_size;
+    uint32_t size = (hi_size << 15) | lo_size;
 
     Segment segm;
     if (is_obj) {
         segm = Segment::load_struct_from(io);
+    }
+
+    if (dsize > io.remain_rd()) {
+        throw "not enough room";
     }
 
     struct Descriptor::header_t hdr = {
@@ -127,7 +152,11 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
         throw "";
     }
 
+    uint32_t data_begin = io.tell_rd();
     dsc->read_struct_specifics_from(io);
+    uint32_t subclass_end = io.tell_rd();
+
+    chk_rw_specifics(true, io, data_begin, subclass_end, hdr.dsize);
     return dsc;
 }
 
@@ -150,7 +179,7 @@ void Descriptor::write_struct_into(IOBase& io) {
 
     if (hdr.is_obj) {
         has_id = true;
-        assert(hdr.type <= 1024);  // we have 1 more bit on top of the 9 bits for the type
+        assert(hdr.type < 1024);  // we have 1 more bit on top of the 9 bits for the type
 
         bool type_msb = hdr.type >> 9;                                     // discard 9 lower bits
         write_bitsfield_into_u16(firstfield, type_msb, MASK_HAS_ID_FLAG);  // 1 type's MSB as has_id
@@ -162,7 +191,7 @@ void Descriptor::write_struct_into(IOBase& io) {
 
         assert(hdr.type < 512);  // we only have 9 bits for non-object descriptors' types
 
-        has_id = hdr.obj_id != 0;  // we may or may not have an object id
+        has_id = hdr.obj_id != 0 or hdr.dsize >= (32 << 1);  // we may or may not have an object id
         write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
         if (has_id) {
@@ -175,13 +204,13 @@ void Descriptor::write_struct_into(IOBase& io) {
 
     // Write the second, if present
     if (has_id) {
-        assert(hdr.dsize <= (64 << 1));
+        assert(hdr.dsize < (64 << 1));
         bool hi_dsize_msb = hdr.dsize >> (1 + 5);  // discard 5 lower bits of dsize
         write_bitsfield_into_u32(idfield, hi_dsize_msb, MASK_HI_DSIZE);
 
         io.write_u32_to_le(idfield);
     } else {
-        assert(hdr.dsize <= (32 << 1));
+        assert(hdr.dsize < (32 << 1));
     }
 
 
@@ -189,18 +218,18 @@ void Descriptor::write_struct_into(IOBase& io) {
         uint16_t sizefield = 0;
 
         if (hdr.size < (1 << 15)) {
-            write_bitsfield_into_u16(sizefield, false, MASK_LO_DSIZE);
+            write_bitsfield_into_u16(sizefield, false, MASK_LARGE_FLAG);
             write_bitsfield_into_u16(sizefield, hdr.size, MASK_OBJ_LO_SIZE);
 
             io.write_u16_to_le(sizefield);
         } else {
-            assert(hdr.size < uint32_t(1) << 31);
+            assert(hdr.size < uint32_t(0x80000000));
 
-            write_bitsfield_into_u16(sizefield, true, MASK_LO_DSIZE);
+            write_bitsfield_into_u16(sizefield, true, MASK_LARGE_FLAG);
             write_bitsfield_into_u16(sizefield, hdr.size, MASK_OBJ_LO_SIZE);
 
             uint16_t largefield = 0;
-            write_bitsfield_into_u16(largefield, hdr.size >> 16, MASK_OBJ_HI_SIZE);
+            write_bitsfield_into_u16(largefield, hdr.size >> 15, MASK_OBJ_HI_SIZE);
 
             io.write_u16_to_le(sizefield);
             io.write_u16_to_le(largefield);
@@ -210,5 +239,53 @@ void Descriptor::write_struct_into(IOBase& io) {
         hdr.segm.write_struct_into(io);
     }
 
+    if (hdr.dsize > io.remain_wr()) {
+        throw "not enough room";
+    }
+
+    uint32_t data_begin = io.tell_wr();
     write_struct_specifics_into(io);
+    uint32_t subclass_end = io.tell_wr();
+
+    chk_rw_specifics(false, io, data_begin, subclass_end, hdr.dsize);
+}
+
+uint32_t Descriptor::calc_struct_footprint_size() const {
+    assert(hdr.dsize % 2 == 0);
+
+    uint32_t struct_sz = 0;
+
+    // Write the first field
+    struct_sz += 2;
+
+    // Write the idfield if present
+    bool has_id = hdr.is_obj or (hdr.obj_id != 0) or hdr.dsize >= (32 << 1);  // NOLINT
+    if (has_id) {
+        assert(hdr.dsize < (64 << 1));
+        struct_sz += 4;
+    } else {
+        assert(hdr.dsize < (32 << 1));
+    }
+
+
+    if (hdr.is_obj) {
+        if (hdr.size < (1 << 15)) {
+            // sizefield
+            struct_sz += 2;
+        } else {
+            assert(hdr.size < uint32_t(0x80000000));
+
+            // sizefield and largefield
+            struct_sz += 2;
+            struct_sz += 2;
+        }
+
+
+        // segment
+        struct_sz += hdr.segm.calc_struct_footprint_size();
+    }
+
+    struct_sz += hdr.dsize;  // hdr.dsize is in bytes too
+
+    return struct_sz;
 }
