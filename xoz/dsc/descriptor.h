@@ -26,6 +26,9 @@ public:
     static std::unique_ptr<Descriptor> load_struct_from(IOBase& io);
     void write_struct_into(IOBase& io);
 
+    static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io) { return load_struct_from(io); }
+    void write_struct_into(IOBase&& io) { return write_struct_into(io); }
+
     // Subclasses must override these methods to read/write specific data
     // from/into the iobase (repository) that read/write pointer is immediately
     // after the descriptor (common) header.
