@@ -747,4 +747,148 @@ namespace {
         // are the same
         XOZ_EXPECT_DESERIALIZATION(fp, dsc);
     }
+
+    TEST(DescriptorTest, NotEnoughRoomForRWNonObjectDescriptor) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+
+        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
+        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
+        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+
+        struct Descriptor::header_t hdr = {
+            .is_obj = false,
+            .type = 0xff,
+
+            .obj_id = 0,
+
+            .dsize = 0,
+            .size = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        dsc.set_data({1, 2}); // dsize = 2
+
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+2, /* struct size */
+                2,   /* descriptor data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        IOSpan io(fp);
+        io.seek_wr(2+2 - 1, IOSpan::Seekdir::end); // point 1 byte off (available = 3 bytes)
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { dsc.write_struct_into(io); }),
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 2 bytes but only 1 bytes are available. "
+                        "No enough room for writing descriptor's data of "
+                        "non-object descriptor {obj-id: 0, type: 255, dsize: 2}"
+                        )
+                    )
+                )
+        );
+
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Write a valid descriptor of data size 2
+        dsc.write_struct_into(IOSpan(fp));
+
+        // Now, truncate the file so the span will be shorter than the expected size
+        fp.resize(2+2 - 1); // shorter by 1 byte
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp)); }),
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 2 bytes but only 1 bytes are available. "
+                        "No enough room for reading descriptor's data of "
+                        "non-object descriptor {obj-id: 0, type: 255, dsize: 2}"
+                        )
+                    )
+                )
+        );
+    }
+
+    TEST(DescriptorTest, NotEnoughRoomForRWObjectDescriptor) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+
+        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
+        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
+        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+
+        struct Descriptor::header_t hdr = {
+            .is_obj = true,
+            .type = 0xff,
+
+            .obj_id = 15,
+
+            .dsize = 0,
+            .size = 42,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        dsc.set_data({1, 2}); // dsize = 2
+
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+4+2+2+2, /* struct size */
+                2,   /* descriptor data size */
+                0,  /* segment data size */
+                42  /* obj data size */
+                );
+
+        IOSpan io(fp);
+        io.seek_wr(2+4+2+2+2 - 1, IOSpan::Seekdir::end); // point 1 byte off (available = 11 bytes)
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { dsc.write_struct_into(io); }),
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 2 bytes but only 1 bytes are available. "
+                        "No enough room for writing descriptor's data of "
+                        "object descriptor {obj-id: 15, type: 255, dsize: 2, size: 42}"
+                        )
+                    )
+                )
+        );
+
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Write a valid descriptor of data size 2
+        dsc.write_struct_into(IOSpan(fp));
+
+        // Now, truncate the file so the span will be shorter than the expected size
+        fp.resize(2+4+2+2+2 - 1); // shorter by 1 byte
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp)); }),
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr(
+                        "Requested 2 bytes but only 1 bytes are available. "
+                        "No enough room for reading descriptor's data of "
+                        "object descriptor {obj-id: 15, type: 255, dsize: 2, size: 42}"
+                        )
+                    )
+                )
+        );
+    }
 }

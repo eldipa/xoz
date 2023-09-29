@@ -35,6 +35,9 @@ public:
     virtual void read_struct_specifics_from(IOBase& io) = 0;
     virtual void write_struct_specifics_into(IOBase& io) = 0;
 
+    void read_struct_specifics_from(IOBase&& io) { read_struct_specifics_from(io); }
+    void write_struct_specifics_into(IOBase&& io) { write_struct_specifics_into(io); }
+
     // Return the size in bytes to represent the Descriptor structure in disk
     // *including* the descriptor data (see calc_data_space_size)
     uint32_t calc_struct_footprint_size() const;
@@ -63,6 +66,9 @@ public:
     uint32_t calc_obj_data_size() const { return hdr.is_obj ? hdr.size : 0; }
 
     virtual ~Descriptor() {}
+
+    friend void PrintTo(const struct header_t& hdr, std::ostream* out);
+    friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);
 
 protected:
     struct header_t hdr;

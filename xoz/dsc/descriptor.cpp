@@ -2,10 +2,13 @@
 
 #include <cassert>
 #include <cstdint>
+#include <utility>
 
 #include "xoz/dsc/default.h"
 #include "xoz/dsc/internals.h"
+#include "xoz/exceptions.h"
 #include "xoz/mem/bits.h"
+#include "xoz/mem/ioslice.h"
 #include "xoz/segm/iosegment.h"
 
 namespace {
@@ -41,7 +44,7 @@ descriptor_create_fn descriptor_create_lookup(bool is_obj, uint16_t type) {
 
 void throw_if_descriptor_mapping_not_initialized() {
     if (not _priv_descriptor_mapping_initialized) {
-        throw "";
+        throw std::runtime_error("Descriptor mapping is not initialized.");
     }
 }
 }  // namespace
@@ -50,7 +53,21 @@ void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn
                                    const std::map<uint16_t, descriptor_create_fn>& obj_descriptors) {
 
     if (_priv_descriptor_mapping_initialized) {
-        throw "";
+        throw std::runtime_error("Descriptor mapping is already initialized.");
+    }
+
+    for (auto [type, fn]: non_obj_descriptors) {
+        if (!fn) {
+            throw std::runtime_error(
+                    (F() << "Descriptor mapping for non-object descriptor type " << type << " is null.").str());
+        }
+    }
+
+    for (auto [type, fn]: obj_descriptors) {
+        if (!fn) {
+            throw std::runtime_error(
+                    (F() << "Descriptor mapping for object descriptor type " << type << " is null.").str());
+        }
     }
 
     _priv_non_obj_descriptors = non_obj_descriptors;
@@ -74,20 +91,43 @@ void deinitialize_descriptor_mapping() {
 namespace {
 void chk_rw_specifics(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end, uint32_t data_sz) {
     uint32_t data_end = data_begin + data_sz;  // descriptor truly end
+    F errmsg;
 
     if (data_begin > subclass_end) {
-        is_read_op ? io.seek_rd(data_end) : io.seek_wr(data_end);
-        throw "backward move";
+        errmsg = std::move(F() << "The descriptor subclass moved the " << (is_read_op ? "read " : "write ")
+                               << "pointer backwards and left it at " << subclass_end
+                               << " that it is before the begin of the data section at " << data_begin << ".");
+        goto fail;
     }
 
     if (subclass_end - data_begin > data_sz) {
-        is_read_op ? io.seek_rd(data_end) : io.seek_wr(data_end);
-        throw "overflow";
+        errmsg = std::move(F() << "The descriptor subclass overflowed the " << (is_read_op ? "read " : "write ")
+                               << "pointer by " << subclass_end - data_begin - data_sz
+                               << " bytes (total available: " << data_sz << " bytes) "
+                               << "and left it at " << subclass_end
+                               << "that it is beyond the end of the data section at " << data_end << ".");
+        goto fail;
     }
 
     if (subclass_end - data_begin < data_sz) {
-        is_read_op ? io.seek_rd(data_end) : io.seek_wr(data_end);
-        throw "underflow";
+        errmsg = std::move(F() << "The descriptor subclass underflowed the " << (is_read_op ? "read " : "write ")
+                               << "pointer and processed " << subclass_end - data_begin << " bytes (left "
+                               << data_sz - (subclass_end - data_begin) << " bytes unprocessed of " << data_sz
+                               << " bytes available) "
+                               << "and left it at " << subclass_end
+                               << "that it is before the end of the data section at " << data_end << ".");
+        goto fail;
+    }
+
+    return;
+
+fail:
+    if (is_read_op) {
+        io.seek_rd(data_end);
+        throw InconsistentXOZ(errmsg);
+    } else {
+        io.seek_wr(data_end);
+        throw WouldEndUpInconsistentXOZ(errmsg);
     }
 }
 }  // namespace
@@ -138,22 +178,22 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
         segm = Segment::load_struct_from(io);
     }
 
-    if (dsize > io.remain_rd()) {
-        throw "not enough room";
-    }
-
     struct Descriptor::header_t hdr = {
             .is_obj = is_obj, .type = type, .obj_id = obj_id, .dsize = dsize, .size = size, .segm = segm};
+
+    if (dsize > io.remain_rd()) {
+        throw NotEnoughRoom(dsize, io.remain_rd(), F() << "No enough room for reading descriptor's data of " << hdr);
+    }
 
     descriptor_create_fn fn = descriptor_create_lookup(is_obj, type);
     std::unique_ptr<Descriptor> dsc = fn(hdr);
 
     if (!dsc) {
-        throw "";
+        throw std::runtime_error((F() << "Subclass create for " << hdr << " returned a null pointer").str());
     }
 
     uint32_t data_begin = io.tell_rd();
-    dsc->read_struct_specifics_from(io);
+    dsc->read_struct_specifics_from(IOSlice(io, true, dsize));
     uint32_t subclass_end = io.tell_rd();
 
     chk_rw_specifics(true, io, data_begin, subclass_end, hdr.dsize);
@@ -169,8 +209,6 @@ void Descriptor::write_struct_into(IOBase& io) {
 
     uint16_t firstfield = 0;
     uint32_t idfield = 0;
-
-    assert(hdr.dsize % 2 == 0);
 
     write_bitsfield_into_u16(firstfield, hdr.is_obj, MASK_IS_OBJ_FLAG);
     write_bitsfield_into_u16(firstfield, (hdr.dsize >> 1), MASK_LO_DSIZE);
@@ -240,11 +278,12 @@ void Descriptor::write_struct_into(IOBase& io) {
     }
 
     if (hdr.dsize > io.remain_wr()) {
-        throw "not enough room";
+        throw NotEnoughRoom(hdr.dsize, io.remain_wr(),
+                            F() << "No enough room for writing descriptor's data of " << hdr);
     }
 
     uint32_t data_begin = io.tell_wr();
-    write_struct_specifics_into(io);
+    write_struct_specifics_into(IOSlice(io, false, hdr.dsize));
     uint32_t subclass_end = io.tell_wr();
 
     chk_rw_specifics(false, io, data_begin, subclass_end, hdr.dsize);
@@ -288,4 +327,25 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
     struct_sz += hdr.dsize;  // hdr.dsize is in bytes too
 
     return struct_sz;
+}
+
+std::ostream& operator<<(std::ostream& out, const struct Descriptor::header_t& hdr) {
+    PrintTo(hdr, &out);
+    return out;
+}
+
+void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
+    std::ios_base::fmtflags ioflags = out->flags();
+
+    (*out) << (hdr.is_obj ? "object " : "non-object ") << "descriptor {"
+           << "obj-id: " << hdr.obj_id << ", type: " << hdr.type << ", dsize: " << (unsigned)hdr.dsize;
+
+    if (hdr.is_obj) {
+        (*out) << ", size: " << hdr.size << "}"
+               << " " << hdr.segm;
+    } else {
+        (*out) << "}";
+    }
+
+    out->flags(ioflags);
 }
