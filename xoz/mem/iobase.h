@@ -130,11 +130,6 @@ public:
         writeall((char*)&num, sizeof(num));
     }
 
-protected:
-    const uint32_t src_sz;
-
-    uint32_t rd;
-    uint32_t wr;
 
     /*
      * The given buffer must have enough space to hold max_data_sz bytes The operation
@@ -143,7 +138,14 @@ protected:
      * The count of bytes read/written is returned.
      *
      * */
-    virtual uint32_t rw_operation(const bool is_read_op, char* data, const uint32_t data_sz) = 0;
+    virtual uint32_t /* protected; --not public-- */ rw_operation(const bool is_read_op, char* data,
+                                                                  const uint32_t data_sz) = 0;
+
+protected:
+    const uint32_t src_sz;
+
+    uint32_t rd;
+    uint32_t wr;
 
     /*
      * The given buffer must have enough space to hold exact_sz bytes.
