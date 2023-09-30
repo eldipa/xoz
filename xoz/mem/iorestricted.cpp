@@ -1,4 +1,4 @@
-#include "xoz/mem/ioslice.h"
+#include "xoz/mem/iorestricted.h"
 
 #include <algorithm>
 #include <cassert>
@@ -6,10 +6,10 @@
 #include <cstring>
 #include <vector>
 
-IOSlice::IOSlice(IOBase& io, bool is_read_mode, uint32_t sz):
+IORestricted::IORestricted(IOBase& io, bool is_read_mode, uint32_t sz):
         IOBase(std::min(sz, (is_read_mode ? io.remain_rd() : io.remain_wr()))), io(io), is_read_mode(is_read_mode) {}
 
-uint32_t IOSlice::rw_operation(const bool is_read_op, char* data, const uint32_t data_sz) {
+uint32_t IORestricted::rw_operation(const bool is_read_op, char* data, const uint32_t data_sz) {
     if (is_read_op != this->is_read_mode) {
         throw "";
     }
@@ -21,3 +21,7 @@ uint32_t IOSlice::rw_operation(const bool is_read_op, char* data, const uint32_t
 
     return io.rw_operation(is_read_op, data, rw_total_sz);
 }
+
+ReadOnly::ReadOnly(IOBase& io, uint32_t sz): IORestricted(io, true, sz) {}
+
+WriteOnly::WriteOnly(IOBase& io, uint32_t sz): IORestricted(io, false, sz) {}

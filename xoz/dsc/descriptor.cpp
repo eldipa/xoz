@@ -8,7 +8,7 @@
 #include "xoz/dsc/internals.h"
 #include "xoz/exceptions.h"
 #include "xoz/mem/bits.h"
-#include "xoz/mem/ioslice.h"
+#include "xoz/mem/iorestricted.h"
 #include "xoz/segm/iosegment.h"
 
 namespace {
@@ -93,10 +93,12 @@ void chk_rw_specifics(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t
     uint32_t data_end = data_begin + data_sz;  // descriptor truly end
     F errmsg;
 
+    // Case 1 and 2 should never happen if the called used ReadOnly and WriteOnly wrappers
+    // to restrict the size of the io.
     if (data_begin > subclass_end) {
         errmsg = std::move(F() << "The descriptor subclass moved the " << (is_read_op ? "read " : "write ")
-                               << "pointer backwards and left it at " << subclass_end
-                               << " that it is before the begin of the data section at " << data_begin << ".");
+                               << "pointer backwards and left it at position " << subclass_end
+                               << " that it is before the begin of the data section at position " << data_begin << ".");
         goto fail;
     }
 
@@ -104,18 +106,19 @@ void chk_rw_specifics(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t
         errmsg = std::move(F() << "The descriptor subclass overflowed the " << (is_read_op ? "read " : "write ")
                                << "pointer by " << subclass_end - data_begin - data_sz
                                << " bytes (total available: " << data_sz << " bytes) "
-                               << "and left it at " << subclass_end
-                               << "that it is beyond the end of the data section at " << data_end << ".");
+                               << "and left it at position " << subclass_end
+                               << " that it is beyond the end of the data section at position " << data_end << ".");
         goto fail;
     }
 
+    // This is the only case that may happen.
     if (subclass_end - data_begin < data_sz) {
         errmsg = std::move(F() << "The descriptor subclass underflowed the " << (is_read_op ? "read " : "write ")
                                << "pointer and processed " << subclass_end - data_begin << " bytes (left "
                                << data_sz - (subclass_end - data_begin) << " bytes unprocessed of " << data_sz
                                << " bytes available) "
-                               << "and left it at " << subclass_end
-                               << "that it is before the end of the data section at " << data_end << ".");
+                               << "and left it at position " << subclass_end
+                               << " that it is before the end of the data section at position " << data_end << ".");
         goto fail;
     }
 
@@ -193,7 +196,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
     }
 
     uint32_t data_begin = io.tell_rd();
-    dsc->read_struct_specifics_from(IOSlice(io, true, dsize));
+    dsc->read_struct_specifics_from(ReadOnly(io, dsize));
     uint32_t subclass_end = io.tell_rd();
 
     chk_rw_specifics(true, io, data_begin, subclass_end, hdr.dsize);
@@ -283,7 +286,7 @@ void Descriptor::write_struct_into(IOBase& io) {
     }
 
     uint32_t data_begin = io.tell_wr();
-    write_struct_specifics_into(IOSlice(io, false, hdr.dsize));
+    write_struct_specifics_into(WriteOnly(io, hdr.dsize));
     uint32_t subclass_end = io.tell_wr();
 
     chk_rw_specifics(false, io, data_begin, subclass_end, hdr.dsize);

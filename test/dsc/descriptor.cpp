@@ -891,4 +891,88 @@ namespace {
                 )
         );
     }
+
+    class DescriptorSubRW : public DefaultDescriptor {
+    public:
+        DescriptorSubRW(const struct Descriptor::header_t& hdr) : DefaultDescriptor(hdr) {}
+        void read_struct_specifics_from(IOBase&) override {
+            return; // 0 read
+        }
+        void write_struct_specifics_into(IOBase&) override {
+            return; // 0 write
+        }
+        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr) {
+            return std::make_unique<DescriptorSubRW>(hdr);
+        }
+    };
+
+    TEST(DescriptorTest, DescriptorReadOrWriteLess) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+
+        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
+        std::map<uint16_t, descriptor_create_fn> obj_descriptors = {
+            {0xff, DescriptorSubRW::create }
+        };
+        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+
+        struct Descriptor::header_t hdr = {
+            .is_obj = true,
+            .type = 0xff,
+
+            .obj_id = 15,
+
+            .dsize = 0,
+            .size = 42,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        DescriptorSubRW dsc = DescriptorSubRW(hdr);
+        dsc.set_data({1, 2}); // dsize = 2
+
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+4+2+2+2, /* struct size */
+                2,   /* descriptor data size */
+                0,  /* segment data size */
+                42  /* obj data size */
+                );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { dsc.write_struct_into(IOSpan(fp)); }),
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "The descriptor subclass underflowed the write pointer and "
+                        "processed 0 bytes (left 2 bytes unprocessed of 2 bytes available) and "
+                        "left it at position 10 that it is before the end of the data section at position 12."
+                        )
+                    )
+                )
+        );
+
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Write a valid descriptor of data size 2
+        DefaultDescriptor dsc2 = DefaultDescriptor(hdr);
+        dsc2.set_data({1, 2});
+        dsc2.write_struct_into(IOSpan(fp));
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp)); }),
+            ThrowsMessage<InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "The descriptor subclass underflowed the read pointer and "
+                        "processed 0 bytes (left 2 bytes unprocessed of 2 bytes available) and "
+                        "left it at position 10 that it is before the end of the data section at position 12."
+                        )
+                    )
+                )
+        );
+    }
 }
