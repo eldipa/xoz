@@ -7,9 +7,8 @@
 #include "xoz/dsc/default.h"
 #include "xoz/dsc/internals.h"
 #include "xoz/exceptions.h"
+#include "xoz/io/iorestricted.h"
 #include "xoz/mem/bits.h"
-#include "xoz/mem/iorestricted.h"
-#include "xoz/segm/iosegment.h"
 
 namespace {
 std::map<uint16_t, descriptor_create_fn> _priv_non_obj_descriptors;

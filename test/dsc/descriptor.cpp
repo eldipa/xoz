@@ -1,6 +1,6 @@
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
-#include "xoz/mem/iospan.h"
+#include "xoz/io/iospan.h"
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/default.h"
 #include "xoz/exceptions.h"

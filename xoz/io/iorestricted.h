@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <span>
 
-#include "xoz/mem/iobase.h"
+#include "xoz/io/iobase.h"
 
 /*
  * Wrap an IOBase object to restrict the operation (read/write) and its available size

@@ -1,4 +1,4 @@
-#include "xoz/mem/iospan.h"
+#include "xoz/io/iospan.h"
 #include "xoz/exceptions.h"
 
 #include "gtest/gtest.h"

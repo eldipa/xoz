@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "xoz/mem/iobase.h"
+#include "xoz/io/iobase.h"
 #include "xoz/repo/repository.h"
 #include "xoz/segm/segment.h"
 

@@ -3,7 +3,7 @@
 #include <map>
 #include <memory>
 
-#include "xoz/mem/iobase.h"
+#include "xoz/io/iobase.h"
 #include "xoz/segm/segment.h"
 
 class Descriptor {

@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "xoz/dsc/descriptor.h"
-#include "xoz/mem/iobase.h"
+#include "xoz/io/iobase.h"
 
 // Default descriptor: it is the most basic descriptor possible that just
 // carries the data read from a XOZ file about a descriptor and writes into

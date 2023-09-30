@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "xoz/ext/extent.h"
-#include "xoz/mem/iobase.h"
+#include "xoz/io/iobase.h"
 
 class Segment {
 private:

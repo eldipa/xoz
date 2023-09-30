@@ -1,4 +1,4 @@
-#include "xoz/segm/iosegment.h"
+#include "xoz/io/iosegment.h"
 
 #include <algorithm>
 #include <cassert>

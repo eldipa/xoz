@@ -1,4 +1,4 @@
-#include "xoz/mem/iorestricted.h"
+#include "xoz/io/iorestricted.h"
 
 #include <algorithm>
 #include <cassert>

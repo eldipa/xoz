@@ -1,7 +1,7 @@
 #include "xoz/repo/repository.h"
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
-#include "xoz/segm/iosegment.h"
+#include "xoz/io/iosegment.h"
 #include "xoz/exceptions.h"
 
 #include "gtest/gtest.h"

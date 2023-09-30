@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <span>
 
-#include "xoz/mem/iobase.h"
+#include "xoz/io/iobase.h"
 
 /*
  * Read/write bytes into/from a span of bytes. This class
