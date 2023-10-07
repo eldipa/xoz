@@ -176,12 +176,16 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
     uint32_t size = (hi_size << 15) | lo_size;
 
     Segment segm;
-    if (is_obj) {
-        segm = Segment::load_struct_from(io);
-    }
-
     struct Descriptor::header_t hdr = {
             .is_obj = is_obj, .type = type, .obj_id = obj_id, .dsize = dsize, .size = size, .segm = segm};
+
+    if (is_obj) {
+        if (obj_id == 0) {
+            throw InconsistentXOZ(F() << "Object id of an object-descriptor is zero, detected with partially loaded "
+                                      << hdr);
+        }
+        hdr.segm = Segment::load_struct_from(io);
+    }
 
     if (dsize > io.remain_rd()) {
         throw NotEnoughRoom(dsize, io.remain_rd(), F() << "No enough room for reading descriptor's data of " << hdr);
@@ -205,7 +209,9 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
 
 void Descriptor::write_struct_into(IOBase& io) {
     throw_if_descriptor_mapping_not_initialized();
-    assert(hdr.dsize % 2 == 0);
+    if (hdr.dsize % 2 != 0) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is not multiple of 2 in " << hdr);
+    }
 
     bool has_id = false;
 
@@ -219,7 +225,16 @@ void Descriptor::write_struct_into(IOBase& io) {
 
     if (hdr.is_obj) {
         has_id = true;
-        assert(hdr.type < 1024);  // we have 1 more bit on top of the 9 bits for the type
+
+        // we have 1 more bit on top of the 9 bits for the type
+        if (hdr.type >= 1024) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor type is larger than the maximum representable (1024) in "
+                                                << hdr);
+        }
+
+        if (hdr.obj_id == 0) {
+            throw WouldEndUpInconsistentXOZ(F() << "Object id for object-descriptor is zero in " << hdr);
+        }
 
         bool type_msb = hdr.type >> 9;                                     // discard 9 lower bits
         write_bitsfield_into_u16(firstfield, type_msb, MASK_HAS_ID_FLAG);  // 1 type's MSB as has_id
@@ -229,7 +244,11 @@ void Descriptor::write_struct_into(IOBase& io) {
     } else {
         // non-object descriptor
 
-        assert(hdr.type < 512);  // we only have 9 bits for non-object descriptors' types
+        // we only have 9 bits for non-object descriptors' types
+        if (hdr.type >= 512) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor type is larger than the maximum representable (512) in "
+                                                << hdr);
+        }
 
         has_id = hdr.obj_id != 0 or hdr.dsize >= (32 << 1);  // we may or may not have an object id
         write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
@@ -244,13 +263,20 @@ void Descriptor::write_struct_into(IOBase& io) {
 
     // Write the second, if present
     if (has_id) {
-        assert(hdr.dsize < (64 << 1));
+        if (hdr.dsize >= (64 << 1)) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
+                                                << (64 << 1) << ") in " << hdr);
+        }
+
         bool hi_dsize_msb = hdr.dsize >> (1 + 5);  // discard 5 lower bits of dsize
         write_bitsfield_into_u32(idfield, hi_dsize_msb, MASK_HI_DSIZE);
 
         io.write_u32_to_le(idfield);
     } else {
-        assert(hdr.dsize < (32 << 1));
+        if (hdr.dsize >= (32 << 1)) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
+                                                << (32 << 1) << ") in " << hdr);
+        }
     }
 
 
@@ -263,7 +289,11 @@ void Descriptor::write_struct_into(IOBase& io) {
 
             io.write_u16_to_le(sizefield);
         } else {
-            assert(hdr.size < uint32_t(0x80000000));
+            if (hdr.size >= uint32_t(0x80000000)) {
+                throw WouldEndUpInconsistentXOZ(F()
+                                                << "Descriptor object size is larger than the maximum representable ("
+                                                << uint32_t(0x80000000) << ") in " << hdr);
+            }
 
             write_bitsfield_into_u16(sizefield, true, MASK_LARGE_FLAG);
             write_bitsfield_into_u16(sizefield, hdr.size, MASK_OBJ_LO_SIZE);
@@ -292,7 +322,9 @@ void Descriptor::write_struct_into(IOBase& io) {
 }
 
 uint32_t Descriptor::calc_struct_footprint_size() const {
-    assert(hdr.dsize % 2 == 0);
+    if (hdr.dsize % 2 != 0) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is not multiple of 2 in " << hdr);
+    }
 
     uint32_t struct_sz = 0;
 
@@ -302,10 +334,16 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
     // Write the idfield if present
     bool has_id = hdr.is_obj or (hdr.obj_id != 0) or hdr.dsize >= (32 << 1);  // NOLINT
     if (has_id) {
-        assert(hdr.dsize < (64 << 1));
+        if (hdr.dsize >= (64 << 1)) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
+                                                << (64 << 1) << ") in " << hdr);
+        }
         struct_sz += 4;
     } else {
-        assert(hdr.dsize < (32 << 1));
+        if (hdr.dsize >= (32 << 1)) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
+                                                << (32 << 1) << ") in " << hdr);
+        }
     }
 
 
@@ -314,7 +352,11 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
             // sizefield
             struct_sz += 2;
         } else {
-            assert(hdr.size < uint32_t(0x80000000));
+            if (hdr.size >= uint32_t(0x80000000)) {
+                throw WouldEndUpInconsistentXOZ(F()
+                                                << "Descriptor object size is larger than the maximum representable ("
+                                                << uint32_t(0x80000000) << ") in " << hdr);
+            }
 
             // sizefield and largefield
             struct_sz += 2;

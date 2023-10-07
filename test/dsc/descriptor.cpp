@@ -975,4 +975,74 @@ namespace {
                 )
         );
     }
+
+    TEST(DescriptorTest, ObjWithZeroId) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+
+        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
+        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
+        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+
+        struct Descriptor::header_t hdr = {
+            .is_obj = true,
+            .type = 0xff,
+
+            .obj_id = 0,
+
+            .dsize = 0,
+            .size = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+4+2+2, /* struct size */
+                0,   /* descriptor data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { dsc.write_struct_into(IOSpan(fp)); }),
+            ThrowsMessage<WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "Object id for object-descriptor is zero in object descriptor "
+                        "{obj-id: 0, type: 255, dsize: 0, size: 0}"
+                        )
+                    )
+                )
+        );
+
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        hdr.obj_id = 0xffff;
+        DefaultDescriptor dsc2 = DefaultDescriptor(hdr);
+        dsc2.write_struct_into(IOSpan(fp));
+
+        // nullify the object id
+        fp[2] = fp[3] = 0;
+        XOZ_EXPECT_SERIALIZATION(fp, dsc2,
+                "ff80 0000 0000 0000 00c0"
+                );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp)); }),
+            ThrowsMessage<InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "Repository seems inconsistent/corrupt. "
+                        "Object id of an object-descriptor is zero, detected with partially loaded object descriptor "
+                        "{obj-id: 0, type: 255, dsize: 0, size: 0}"
+                        )
+                    )
+                )
+        );
+    }
 }
