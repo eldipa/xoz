@@ -70,6 +70,9 @@ public:
     friend void PrintTo(const struct header_t& hdr, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);
 
+    friend void PrintTo(const Descriptor& dsc, std::ostream* out);
+    friend std::ostream& operator<<(std::ostream& out, const Descriptor& dsc);
+
 protected:
     struct header_t hdr;
 };

@@ -393,3 +393,10 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
 
     out->flags(ioflags);
 }
+
+std::ostream& operator<<(std::ostream& out, const Descriptor& dsc) {
+    PrintTo(dsc, &out);
+    return out;
+}
+
+void PrintTo(const Descriptor& dsc, std::ostream* out) { PrintTo(dsc.hdr, out); }
