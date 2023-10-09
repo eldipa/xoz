@@ -12,12 +12,12 @@ GTESTFLAGS += -I../$(GTESTPATH)/include/ -L../$(GTESTPATH)/lib/
 
 GTESTLIBS = -lgtest -lpthread
 
-!compile = |> ^ compile %f^ g++ -c $(CXXFLAGS) %f -o %o |> %B.o  | %O.gcno
+!compile = |> ^ compile %f^ @(COMPILER) -c $(CXXFLAGS) %f -o %o |> %B.o  | %O.gcno
 !build-static-lib = |> ar -rc %o %f |>
 
-!compile-test = |> ^ compile-test %f^ g++ -c $(CXXFLAGS) $(GTESTFLAGS) %f -o %o |> %B.o  | %O.gcno
-!build-runtests = |>^ build-runtests %f^ g++ $(CXXFLAGS) $(GTESTFLAGS) %f -o %o $(GTESTLIBS) $(CXXLIBS) |>
+!compile-test = |> ^ compile-test %f^ @(COMPILER) -c $(CXXFLAGS) $(GTESTFLAGS) %f -o %o |> %B.o  | %O.gcno
+!build-runtests = |>^ build-runtests %f^ @(COMPILER) $(CXXFLAGS) $(GTESTFLAGS) %f -o %o $(GTESTLIBS) $(CXXLIBS) |>
 
-!build-prog = |> ^ build-prog %f^ g++ $(CXXFLAGS) %f -o %o $(CXXLIBS) |>
+!build-prog = |> ^ build-prog %f^ @(COMPILER) $(CXXFLAGS) %f -o %o $(CXXLIBS) |>
 
 !coverage = |> ^ coverage %f^ gcov %f --stdout > %o |>

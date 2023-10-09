@@ -1,6 +1,6 @@
 .PHONY: all test clean coverage
 
-builddebugdir ?= build-debug
+builddebugdir ?= build-debug-gcc
 
 all: test
 
