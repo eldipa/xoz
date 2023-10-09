@@ -1,31 +1,33 @@
 .PHONY: all test clean coverage
 
+builddebugdir ?= build-debug
+
 all: test
 
 compile: unmirror
 	tup
 
 test: compile
-	./build-debug/test/runtests
+	./$(builddebugdir)/test/runtests
 
 debug:
-	gdb -x .gdbinit --args build-debug/test/runtests
+	gdb -x .gdbinit --args $(builddebugdir)/test/runtests
 
 coverage: mirror
 	mkdir -p coverage/
-	lcov  --directory build-debug/xoz/ --no-external --capture > coverage/coverage.info
+	lcov  --directory $(builddebugdir)/xoz/ --no-external --capture > coverage/coverage.info
 	cd coverage && genhtml coverage.info
 
 valgrind: compile
-	valgrind ./build-debug/test/runtests
+	valgrind ./$(builddebugdir)/test/runtests
 
 #-ftime-report -ftime-report-details -H
 
 mirror:
-	find xoz/ test/ \( -name '*.h' -o -name '*.cpp' \) -exec ln -sr {} build-debug/{} \;
+	find xoz/ test/ \( -name '*.h' -o -name '*.cpp' \) -exec ln -sr {} $(builddebugdir)/{} \;
 
 unmirror:
-	find build-debug/xoz/ build-debug/test/ \( -name '*.h' -o -name '*.cpp' \) -exec rm {} \; || true
+	find $(builddebugdir)/xoz/ $(builddebugdir)/test/ \( -name '*.h' -o -name '*.cpp' \) -exec rm {} \; || true
 
 clean:
 	rm -Rf build-*/
