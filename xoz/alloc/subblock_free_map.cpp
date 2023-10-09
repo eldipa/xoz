@@ -161,7 +161,7 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
 
     // Alloc from MSB to LSB
     for (int i = Extent::SUBBLK_CNT_PER_BLK - 1; i >= 0 and subblk_cnt > 0; --i) {
-        uint16_t bitsel = (1 << i);
+        uint16_t bitsel = uint16_t(1 << i);
         // If set, it means free to use:
         //  - remove it from free_bitmask
         //  - add it to allocated_bitmask
