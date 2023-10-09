@@ -155,5 +155,5 @@ public:
 
     // Copy are allowed
     Extent(const Extent&) = default;
-    constexpr Extent& operator=(const Extent&) = default;
+    Extent& operator=(const Extent&) = default;
 };
