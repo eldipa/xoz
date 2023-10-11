@@ -75,6 +75,8 @@ public:
 
 protected:
     struct header_t hdr;
+
+    static void chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 };
 
 // Signature that a function must honor to be used as a descriptor-create function

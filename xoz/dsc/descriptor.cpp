@@ -262,21 +262,12 @@ void Descriptor::write_struct_into(IOBase& io) {
     io.write_u16_to_le(firstfield);
 
     // Write the second, if present
+    chk_dsize_fit_or_fail(has_id, hdr);
     if (has_id) {
-        if (hdr.dsize >= (64 << 1)) {
-            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
-                                                << (64 << 1) << ") in " << hdr);
-        }
-
         bool hi_dsize_msb = hdr.dsize >> (1 + 5);  // discard 5 lower bits of dsize
         write_bitsfield_into_u32(idfield, hi_dsize_msb, MASK_HI_DSIZE);
 
         io.write_u32_to_le(idfield);
-    } else {
-        if (hdr.dsize >= (32 << 1)) {
-            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
-                                                << (32 << 1) << ") in " << hdr);
-        }
     }
 
 
@@ -333,17 +324,9 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
 
     // Write the idfield if present
     bool has_id = hdr.is_obj or (hdr.obj_id != 0) or hdr.dsize >= (32 << 1);  // NOLINT
+    chk_dsize_fit_or_fail(has_id, hdr);
     if (has_id) {
-        if (hdr.dsize >= (64 << 1)) {
-            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
-                                                << (64 << 1) << ") in " << hdr);
-        }
         struct_sz += 4;
-    } else {
-        if (hdr.dsize >= (32 << 1)) {
-            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
-                                                << (32 << 1) << ") in " << hdr);
-        }
     }
 
 
@@ -400,3 +383,17 @@ std::ostream& operator<<(std::ostream& out, const Descriptor& dsc) {
 }
 
 void PrintTo(const Descriptor& dsc, std::ostream* out) { PrintTo(dsc.hdr, out); }
+
+void Descriptor::chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr) {
+    if (has_id) {
+        if (hdr.dsize >= (64 << 1)) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
+                                                << (64 << 1) << ") in " << hdr);
+        }
+    } else {
+        if (hdr.dsize >= (32 << 1)) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
+                                                << (32 << 1) << ") in " << hdr);
+        }
+    }
+}
