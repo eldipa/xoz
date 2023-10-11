@@ -130,6 +130,40 @@ public:
         writeall((char*)&num, sizeof(num));
     }
 
+    class RewindGuard {
+    private:
+        IOBase& io;
+        uint32_t rd;
+        uint32_t wr;
+        bool disabled;
+
+    public:
+        explicit RewindGuard(IOBase& io): io(io), rd(io.tell_rd()), wr(io.tell_wr()), disabled(false) {}
+        ~RewindGuard() {
+            if (not disabled) {
+                io.seek_rd(rd);
+                io.seek_wr(wr);
+            }
+        }
+
+        void dont_rewind() { disabled = true; }
+
+        RewindGuard(const RewindGuard&) = delete;
+        RewindGuard& operator=(const RewindGuard&) = delete;
+    };
+
+    /*
+     * Create a RAII object that will rewind the read/write pointers
+     * to their values at the moment of this call.
+     *
+     * The object has a dont_rewind() method that if called it will
+     * disable the rewind.
+     *
+     * This RewindGuard object is handy to implement mechanism where
+     * the io is rewind if something went wrong (exception) or leave
+     * it unchanged otherwise.
+     * */
+    RewindGuard auto_rewind() { return RewindGuard(*this); }
 
     /*
      * The given buffer must have enough space to hold max_data_sz bytes The operation
