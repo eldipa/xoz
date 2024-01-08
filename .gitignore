@@ -10,3 +10,4 @@ build-*/
 *.gcda
 coverage/
 .gdbinit
+scratch

@@ -8,6 +8,7 @@ compile: unmirror
 	tup
 
 test: compile
+	mkdir -p scratch/mem/
 	./$(builddebugdir)/test/runtests
 
 debug:
