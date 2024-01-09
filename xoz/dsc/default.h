@@ -15,10 +15,11 @@ private:
 public:
     explicit DefaultDescriptor(const struct Descriptor::header_t& hdr);
 
-    void read_struct_specifics_from(IOBase& io) override;
-    void write_struct_specifics_into(IOBase& io) override;
-
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr);
 
     void set_data(const std::vector<char>& data);
+
+protected:
+    void read_struct_specifics_from(IOBase& io) override;
+    void write_struct_specifics_into(IOBase& io) override;
 };

@@ -29,15 +29,6 @@ public:
     static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io) { return load_struct_from(io); }
     void write_struct_into(IOBase&& io) { return write_struct_into(io); }
 
-    // Subclasses must override these methods to read/write specific data
-    // from/into the iobase (repository) that read/write pointer is immediately
-    // after the descriptor (common) header.
-    virtual void read_struct_specifics_from(IOBase& io) = 0;
-    virtual void write_struct_specifics_into(IOBase& io) = 0;
-
-    void read_struct_specifics_from(IOBase&& io) { read_struct_specifics_from(io); }
-    void write_struct_specifics_into(IOBase&& io) { write_struct_specifics_into(io); }
-
     // Return the size in bytes to represent the Descriptor structure in disk
     // *including* the descriptor data (see calc_data_space_size)
     uint32_t calc_struct_footprint_size() const;
@@ -77,6 +68,18 @@ protected:
     struct header_t hdr;
 
     static void chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
+
+    // Subclasses must override these methods to read/write specific data
+    // from/into the iobase (repository) where the read/write pointer of io object
+    // is immediately after the descriptor (common) header.
+    //
+    // See load_struct_from and write_struct_into methods for more context.
+    virtual void read_struct_specifics_from(IOBase& io) = 0;
+    virtual void write_struct_specifics_into(IOBase& io) = 0;
+
+private:
+    void read_struct_specifics_from(IOBase&& io) { read_struct_specifics_from(io); }
+    void write_struct_specifics_into(IOBase&& io) { write_struct_specifics_into(io); }
 };
 
 // Signature that a function must honor to be used as a descriptor-create function
