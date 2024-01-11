@@ -92,7 +92,7 @@ and its length is not explicit in the header. Instead, the segment ends
 when an inline-data extent is found so the segment must be *inline-data ended*.
 
 
-# Descriptors invariants
+## Descriptors invariants
 
 For a *non-object descriptor*:
 
@@ -111,22 +111,55 @@ For an *object descriptor*:
 In both cases, the descriptor size is always a multiple of 2;
 object data (external) is not required to be a multiple of 2.
 
+## Descriptor size is fixed
 
-The `dtype` 0 is special:
+Once a descriptor is present in the `xoz` file, its size cannot be
+changed (aka `lo_dsize` and `hi_dsize` is fixed).
 
- - if `lo_dsize` is 0 and `has_id` is unset, the descriptor works
-   as 2 bytes padding (zeros).
- - otherwise, the meaning of the descriptor is reserved but
-   the semantics of `lo_dsize` and `has_id` holds therefore it is
-   known how many bytes the header and the descriptor occupy.
+Growing the descriptor it is not possible because the descriptors
+are packed tight in the stream and there is no room to grow.
+
+Only if the application wants to store less data in the descriptor,
+it may update the descriptor in place, pad with zeros the unused space
+and adjust `lo_dsize` and `hi_dsize` accordingly.
+
+In any case, if a resize is required, the application can just write
+a new descriptor with the same type and object id than the former
+to override it (this of course comes at expenses of wasted space).
 
 
-```cpp
-struct obj_descr_t {
-    struct descr_hdr_t hdr;  // hdr.is_obj == 1
+## Descriptor Type 0: padding
+
+For a `dtype` of 0, if `is_obj`, `lo_dsize` and `has_id` are also 0,
+the descriptor works as 2 bytes padding (zeros).
+
+If `dtype` is 0 but the other conditions are not hold,
+the meaning of the descriptor is reserved but
+the semantics of `lo_dsize` and `has_id` holds therefore it is
+known how many bytes the header and the descriptor occupy.
 
 
+## Descriptor Type 1: end of stream
+
+For a `dtype` of 1, if `is_obj` and `has_id` are also 0,
+the descriptor marks the end of the current stream of descriptor.
+
+TODO: checksum
+
+
+
+
+
+ ```cpp
+struct dsc_position_t {
+    uint16_t x;
+    uint16_t y;
+    uint16_t {
+        uint has_more : 1;
+        uint z        : 15;
+    }
+
+    /* if has_more == 1 */
+    .. rotate / flip / mirror / skew
 };
 ```
-
-
