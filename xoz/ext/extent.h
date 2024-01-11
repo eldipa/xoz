@@ -7,19 +7,23 @@
 
 #include "xoz/mem/bits.h"
 
-// An extent defines a contiguous array of <blk_cnt> full  blocks
-// starting from <blk_nr>
+// An extent can have 2 mutually exclusive interpretations:
 //
-// The <blk_nr> may point not to the begin of the array but to
-// a single *shared* block which it is sub-divided in sub-blocks.
-//
-// Which sub-blocks belong to this extent is determinate by
-// <blk_cnt> that act as a bitmap.
+//  - it either defines a contiguous array of <blk_cnt>
+//    full blocks starting from <blk_nr>
+//  - or it defines which sub-blocks inside of a single block
+//    pointed by <blk_nr> belong to the extent (in this case,
+//    <blk_cnt> is not a count but a bitmask that selects
+//    the sub-blocks.
 //
 // A blk_nr is a 26-bits unsigned number in a uint32_t.
 // We encode in the higher unused bits if the extent points
 // to an array of full blocks or to a single shared block
 // for sub-allocation.
+//
+// The count of sub-blocks that a single block has is entirely defined
+// by SUBBLK_CNT_PER_BLK (and SUBBLK_SIZE_ORDER) and it is independent
+// of the size (in bytes) of the block.
 //
 class Extent {
 private:
@@ -45,7 +49,7 @@ public:
     //    which sub-blocks belong to this extent
     Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc): _blk_nr(blk_nr & 0x03ffffff), _blk_cnt(blk_cnt) {
         if (blk_nr & (~0x03ffffff)) {
-            // TODO? throw std::runtime_error("bad blk nr (more than 26 bits)");
+            throw std::runtime_error("bad blk nr (more than 26 bits)");
         }
 
         if (is_suballoc) {
