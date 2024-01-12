@@ -29,11 +29,6 @@ void Repository::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff off
 }
 
 uint32_t Repository::impl_grow_by_blocks(uint16_t blk_cnt) {
-    if (blk_cnt == 0)
-        throw std::runtime_error("alloc of 0 blocks is not allowed");
-
-    assert(not u32_add_will_overflow(blk_total_cnt, blk_cnt));
-
     uint64_t sz = (blk_cnt << gp.blk_sz_order);
 
     may_grow_file_due_seek_phy(fp, phy_repo_end_pos + sz);
@@ -46,17 +41,6 @@ uint32_t Repository::impl_grow_by_blocks(uint16_t blk_cnt) {
 }
 
 void Repository::impl_shrink_by_blocks(uint32_t blk_cnt) {
-    if (blk_cnt == 0) {
-        throw std::runtime_error("free of 0 blocks is not allowed");
-    }
-
-    assert(blk_total_cnt >= 1);
-    if (blk_cnt > blk_total_cnt - 1) {
-        throw std::runtime_error((F() << "free of " << blk_cnt << " blocks is not allowed because at most "
-                                      << blk_total_cnt - 1 << " blocks can be freed.")
-                                         .str());
-    }
-
     uint64_t sz = (blk_cnt << gp.blk_sz_order);
 
     // Update the stats but do not truncate the file

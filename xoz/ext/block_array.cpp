@@ -18,12 +18,29 @@ BlockArray::BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t blk_cnt)
 BlockArray::BlockArray(): BlockArray(0, 0, 0) {}
 
 uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
+    if (blk_cnt == 0)
+        throw std::runtime_error("alloc of 0 blocks is not allowed");
+
+    assert(not u32_add_will_overflow(_blk_cnt, blk_cnt));
+
     auto blk_nr = impl_grow_by_blocks(blk_cnt);
+    assert(blk_nr == past_end_blk_nr());
+
     _blk_cnt += blk_cnt;
     return blk_nr;
 }
 
 void BlockArray::shrink_by_blocks(uint32_t blk_cnt) {
+    if (blk_cnt == 0) {
+        throw std::runtime_error("free of 0 blocks is not allowed");
+    }
+
+    if (blk_cnt > _blk_cnt) {
+        throw std::runtime_error((F() << "free of " << blk_cnt << " blocks is not allowed because at most " << _blk_cnt
+                                      << " blocks can be freed.")
+                                         .str());
+    }
+
     impl_shrink_by_blocks(blk_cnt);
     _blk_cnt -= blk_cnt;
 }
