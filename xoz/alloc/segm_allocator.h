@@ -7,15 +7,16 @@
 #include "xoz/alloc/subblock_free_map.h"
 #include "xoz/alloc/tail_allocator.h"
 #include "xoz/ext/extent.h"
-#include "xoz/repo/repository.h"
 #include "xoz/segm/segment.h"
+
+class BlockArray;
 
 class SegmentAllocator {
 public:
     const static uint8_t StatsExtPerSegmLen = 8;
 
 private:
-    Repository& repo;
+    BlockArray& blkarr;
 
     TailAllocator tail;
 
@@ -40,7 +41,7 @@ private:
     uint64_t in_use_ext_per_segm[StatsExtPerSegmLen];
 
 public:
-    explicit SegmentAllocator(Repository& repo, bool coalescing_enabled = true, uint16_t split_above_threshold = 0);
+    explicit SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled = true, uint16_t split_above_threshold = 0);
 
     struct req_t {
         uint16_t segm_frag_threshold;

@@ -12,8 +12,8 @@
 #include "xoz/alloc/free_map.h"
 #include "xoz/alloc/subblock_free_map.h"
 #include "xoz/alloc/tail_allocator.h"
+#include "xoz/ext/block_array.h"
 #include "xoz/ext/extent.h"
-#include "xoz/repo/repository.h"
 #include "xoz/segm/segment.h"
 #include "xoz/trace.h"
 
@@ -22,9 +22,9 @@
 #define TRACE_SECTION(x) TRACE << (x) << " "
 #define TRACE_LINE TRACE << "    "
 
-SegmentAllocator::SegmentAllocator(Repository& repo, bool coalescing_enabled, uint16_t split_above_threshold):
-        repo(repo),
-        tail(repo),
+SegmentAllocator::SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled, uint16_t split_above_threshold):
+        blkarr(blkarr),
+        tail(blkarr),
         fr_map(coalescing_enabled, split_above_threshold),
         subfr_map(),
         coalescing_enabled(coalescing_enabled),
@@ -74,14 +74,14 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     uint32_t avail_sz = 0;
 
     // How many blocks are needed?
-    uint32_t blk_cnt_remain = sz_remain / repo.blk_sz();
-    sz_remain = sz_remain % repo.blk_sz();
+    uint32_t blk_cnt_remain = sz_remain / blkarr.blk_sz();
+    sz_remain = sz_remain % blkarr.blk_sz();
 
     // How many sub blocks are needed?
     uint32_t subblk_cnt_remain;
     if (req.allow_suballoc) {
-        subblk_cnt_remain = sz_remain / repo.subblk_sz();
-        sz_remain = sz_remain % repo.subblk_sz();
+        subblk_cnt_remain = sz_remain / blkarr.subblk_sz();
+        sz_remain = sz_remain % blkarr.subblk_sz();
     } else {
         subblk_cnt_remain = 0;
     }
@@ -95,10 +95,10 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     // In this case the inline must be 0 (unused)
     if (inline_sz > req.max_inline_sz) {
         if (req.allow_suballoc) {
-            assert(inline_sz <= repo.subblk_sz());
+            assert(inline_sz <= blkarr.subblk_sz());
             ++subblk_cnt_remain;
         } else {
-            assert(inline_sz <= repo.blk_sz());
+            assert(inline_sz <= blkarr.blk_sz());
             ++blk_cnt_remain;
         }
         inline_sz = 0;
@@ -162,7 +162,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     assert(inline_sz == 0);
     assert(sz_remain == 0);
 
-    avail_sz = segm.calc_data_space_size(repo.blk_sz_order());
+    avail_sz = segm.calc_data_space_size(blkarr.blk_sz_order());
     in_use_by_user_sz += avail_sz;
     in_use_ext_cnt += segm.ext_cnt();
     in_use_inlined_sz += segm.inline_data_sz();
@@ -171,7 +171,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
 
     calc_ext_per_segm_stats(segm, true);
 
-    internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(repo.blk_sz_order());
+    internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(blkarr.blk_sz_order());
 
     ++alloc_call_cnt;
     return segm;
@@ -180,7 +180,7 @@ no_free_space:
 }
 
 void SegmentAllocator::dealloc(const Segment& segm) {
-    auto sz = segm.calc_data_space_size(repo.blk_sz_order());
+    auto sz = segm.calc_data_space_size(blkarr.blk_sz_order());
 
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
     TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
@@ -206,7 +206,7 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     calc_ext_per_segm_stats(segm, false);
     ++dealloc_call_cnt;
 
-    internal_frag_avg_sz -= segm.estimate_on_avg_internal_frag_sz(repo.blk_sz_order());
+    internal_frag_avg_sz -= segm.estimate_on_avg_internal_frag_sz(blkarr.blk_sz_order());
 
     reclaim_free_space_from_subfr_map();
 }
@@ -222,14 +222,14 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
     for (const auto& segm: allocated_segms) {
         allocated.insert(allocated.end(), segm.exts().begin(), segm.exts().end());
 
-        in_use_by_user_sz += segm.calc_data_space_size(repo.blk_sz_order());
+        in_use_by_user_sz += segm.calc_data_space_size(blkarr.blk_sz_order());
         in_use_ext_cnt += segm.ext_cnt();
         in_use_inlined_sz += segm.inline_data_sz();
         in_use_blk_cnt += segm.full_blk_cnt();
         in_use_subblk_cnt += segm.subblk_cnt();
 
         calc_ext_per_segm_stats(segm, true);
-        internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(repo.blk_sz_order());
+        internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(blkarr.blk_sz_order());
     }
 
     // Sort them by block number
@@ -267,7 +267,7 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
 
     // Find the gaps between consecutive allocated extents.
     // These gaps are the free extents to initialize the free maps
-    uint32_t cur_nr = repo.begin_blk_nr();
+    uint32_t cur_nr = blkarr.begin_blk_nr();
     for (const auto& ext: allocated) {
         if (ext.is_suballoc()) {
             // already handled
@@ -302,8 +302,8 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
 
     // Provide the last free extent (if any) that lies after the last
     // allocated extent and the end of the data section
-    if (repo.past_end_blk_nr() > cur_nr) {
-        uint32_t gap = repo.past_end_blk_nr() - cur_nr;
+    if (blkarr.past_end_blk_nr() > cur_nr) {
+        uint32_t gap = blkarr.past_end_blk_nr() - cur_nr;
 
         while (gap) {
             uint16_t len = uint16_t(std::min<uint32_t>(gap, 0xffff));
@@ -313,7 +313,7 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
             cur_nr += len;
         }
 
-        assert(cur_nr == repo.past_end_blk_nr());
+        assert(cur_nr == blkarr.past_end_blk_nr());
     }
 }
 
@@ -323,9 +323,9 @@ void SegmentAllocator::release() {
 }
 
 SegmentAllocator::stats_t SegmentAllocator::stats() const {
-    uint64_t repo_data_sz = (repo.blk_cnt() << repo.blk_sz_order());
+    uint64_t repo_data_sz = (blkarr.blk_cnt() << blkarr.blk_sz_order());
 
-    uint64_t external_frag_sz = (repo.blk_cnt() - in_use_blk_cnt) << repo.blk_sz_order();
+    uint64_t external_frag_sz = (blkarr.blk_cnt() - in_use_blk_cnt) << blkarr.blk_sz_order();
     double external_frag_sz_kb = double(external_frag_sz) / double(1024.0);
     double external_frag_rel = repo_data_sz == 0 ? 0 : (double(external_frag_sz) / double(repo_data_sz));
 
@@ -334,13 +334,14 @@ SegmentAllocator::stats_t SegmentAllocator::stats() const {
     double internal_frag_avg_rel =
             in_use_by_user_sz == 0 ? 0 : (double(internal_frag_avg_sz) / double(in_use_by_user_sz));
 
-    uint64_t allocable_internal_frag_sz = ((in_use_blk_for_suballoc_cnt << repo.blk_sz_order()) -
-                                           ((in_use_subblk_cnt << (repo.blk_sz_order() - Extent::SUBBLK_SIZE_ORDER))));
+    uint64_t allocable_internal_frag_sz =
+            ((in_use_blk_for_suballoc_cnt << blkarr.blk_sz_order()) -
+             ((in_use_subblk_cnt << (blkarr.blk_sz_order() - Extent::SUBBLK_SIZE_ORDER))));
     double allocable_internal_frag_sz_kb = double(allocable_internal_frag_sz) / double(1024.0);
-    double allocable_internal_frag_rel =
-            in_use_blk_for_suballoc_cnt == 0 ?
-                    0 :
-                    (double(allocable_internal_frag_sz) / double((in_use_blk_for_suballoc_cnt << repo.blk_sz_order())));
+    double allocable_internal_frag_rel = in_use_blk_for_suballoc_cnt == 0 ?
+                                                 0 :
+                                                 (double(allocable_internal_frag_sz) /
+                                                  double((in_use_blk_for_suballoc_cnt << blkarr.blk_sz_order())));
 
 
     uint64_t in_use_segment_cnt = alloc_call_cnt - dealloc_call_cnt;

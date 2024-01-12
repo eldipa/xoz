@@ -2,15 +2,15 @@
 
 #include <cstdint>
 
+#include "xoz/ext/block_array.h"
 #include "xoz/ext/extent.h"
-#include "xoz/repo/repository.h"
 
 class TailAllocator {
 private:
-    Repository& repo;
+    BlockArray& blkarr;
 
 public:
-    explicit TailAllocator(Repository& repo);
+    explicit TailAllocator(BlockArray& blkarr);
 
     // Result of an allocation.
     struct alloc_result_t {
