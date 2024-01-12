@@ -8,8 +8,8 @@
 
 #include "xoz/chk.h"
 #include "xoz/exceptions.h"
+#include "xoz/ext/block_array.h"
 #include "xoz/ext/extent.h"
-#include "xoz/repo/repository.h"
 #include "xoz/segm/segment.h"
 
 namespace {
@@ -32,12 +32,12 @@ std::vector<uint32_t> create_ext_index(const Segment& sg, const uint32_t sg_no_i
 }  // namespace
 
 
-IOSegment::IOSegment(Repository& repo, const Segment& sg):
-        IOBase(sg.calc_data_space_size(repo.blk_sz_order())),
-        repo(repo),
+IOSegment::IOSegment(BlockArray& blkarr, const Segment& sg):
+        IOBase(sg.calc_data_space_size(blkarr.blk_sz_order())),
+        blkarr(blkarr),
         sg(sg),
         sg_no_inline_sz(src_sz - sg.inline_data_sz()),
-        begin_positions(create_ext_index(sg, sg_no_inline_sz, repo.blk_sz_order())) {}
+        begin_positions(create_ext_index(sg, sg_no_inline_sz, blkarr.blk_sz_order())) {}
 
 uint32_t IOSegment::rw_operation(const bool is_read_op, char* data, const uint32_t data_sz) {
     uint32_t remain_sz = data_sz;
@@ -56,9 +56,9 @@ uint32_t IOSegment::rw_operation(const bool is_read_op, char* data, const uint32
 
         uint32_t n = 0;
         if (is_read_op) {
-            n = repo.read_extent(ptr.ext, dataptr, batch_sz, ptr.offset);
+            n = blkarr.read_extent(ptr.ext, dataptr, batch_sz, ptr.offset);
         } else {
-            n = repo.write_extent(ptr.ext, dataptr, batch_sz, ptr.offset);
+            n = blkarr.write_extent(ptr.ext, dataptr, batch_sz, ptr.offset);
         }
 
         remain_sz -= n;
@@ -125,7 +125,7 @@ const struct IOSegment::ext_ptr_t IOSegment::abs_pos_to_ext(const uint32_t pos) 
 
     ptr.ext = sg.exts()[ix];
     ptr.offset = pos - begin_positions[ix];
-    ptr.remain = ptr.ext.calc_data_space_size(repo.blk_sz_order()) - ptr.offset;
+    ptr.remain = ptr.ext.calc_data_space_size(blkarr.blk_sz_order()) - ptr.offset;
 
     return ptr;
 }

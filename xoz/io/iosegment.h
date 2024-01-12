@@ -4,14 +4,14 @@
 #include <vector>
 
 #include "xoz/io/iobase.h"
-#include "xoz/repo/repository.h"
 #include "xoz/segm/segment.h"
 
+class BlockArray;
 
 /*
  * Read/write the data hold by a Segment handling all the details
  * required to provide a continuous byte stream from a discontinuos
- * unordered set of Extents in the Repository.
+ * unordered set of Extents in the BlockArray.
  *
  * The read/write operation will have a direct impact on the repository
  * (so also in the file in disk). IOSegment may offer buffering for
@@ -20,7 +20,7 @@
  * */
 class IOSegment final: public IOBase {
 private:
-    Repository& repo;
+    BlockArray& blkarr;
     Segment sg;
 
     const uint32_t sg_no_inline_sz;
@@ -28,7 +28,7 @@ private:
     const std::vector<uint32_t> begin_positions;
 
 public:
-    IOSegment(Repository& repo, const Segment& sg);
+    IOSegment(BlockArray& blkarr, const Segment& sg);
 
 private:
     struct ext_ptr_t {
