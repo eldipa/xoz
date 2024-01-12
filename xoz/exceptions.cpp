@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "xoz/ext/block_array.h"
 #include "xoz/ext/extent.h"
 #include "xoz/repo/repository.h"
 
@@ -55,7 +56,7 @@ NullBlockAccess::NullBlockAccess(const F& msg): NullBlockAccess(msg.ss.str()) {}
 
 const char* NullBlockAccess::what() const noexcept { return msg.data(); }
 
-ExtentOutOfBounds::ExtentOutOfBounds(const Repository& repo, const Extent& ext, const std::string& msg) {
+ExtentOutOfBounds::ExtentOutOfBounds(const BlockArray& blkarr, const Extent& ext, const std::string& msg) {
     std::stringstream ss;
 
     if (ext.is_suballoc()) {
@@ -74,21 +75,21 @@ ExtentOutOfBounds::ExtentOutOfBounds(const Repository& repo, const Extent& ext, 
         }
     }
 
-    if (ext.blk_nr() >= repo.blk_total_cnt) {
+    if (ext.blk_nr() >= blkarr.past_end_blk_nr()) {
         ss << " completely falls out of bounds. ";
     } else {
         ss << " partially falls out of bounds. ";
     }
 
-    ss << "The block " << (repo.blk_total_cnt - 1) << " is the last valid before the end. ";
+    ss << "The block " << (blkarr.past_end_blk_nr() - 1) << " is the last valid before the end. ";
 
     ss << msg;
 
     this->msg = ss.str();
 }
 
-ExtentOutOfBounds::ExtentOutOfBounds(const Repository& repo, const Extent& ext, const F& msg):
-        ExtentOutOfBounds(repo, ext, msg.ss.str()) {}
+ExtentOutOfBounds::ExtentOutOfBounds(const BlockArray& blkarr, const Extent& ext, const F& msg):
+        ExtentOutOfBounds(blkarr, ext, msg.ss.str()) {}
 
 const char* ExtentOutOfBounds::what() const noexcept { return msg.data(); }
 

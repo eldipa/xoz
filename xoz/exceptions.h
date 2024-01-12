@@ -6,6 +6,7 @@
 
 class Repository;
 class Extent;
+class BlockArray;
 
 struct F {
     std::stringstream ss;
@@ -76,8 +77,8 @@ private:
     std::string msg;
 
 public:
-    ExtentOutOfBounds(const Repository& repo, const Extent& ext, const std::string& msg);
-    ExtentOutOfBounds(const Repository& repo, const Extent& ext, const F& msg);
+    ExtentOutOfBounds(const BlockArray& blkarr, const Extent& ext, const std::string& msg);
+    ExtentOutOfBounds(const BlockArray& blkarr, const Extent& ext, const F& msg);
 
     const char* what() const noexcept override;
 };

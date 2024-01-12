@@ -40,5 +40,5 @@ bool TailAllocator::is_at_the_end(const Extent& ext) const {
     // of the repository, checking the extent's past_end_blk_nr
     // is enough to know that the extent is exactly at the
     // end of the repository (aka, the tail).
-    return (ext.past_end_blk_nr() == repo.past_end_data_blk_nr());
+    return (ext.past_end_blk_nr() == repo.past_end_blk_nr());
 }

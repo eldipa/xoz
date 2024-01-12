@@ -8,10 +8,11 @@
 #include <string>
 #include <vector>
 
+#include "xoz/ext/block_array.h"
 #include "xoz/ext/extent.h"
 #include "xoz/parameters.h"
 
-class Repository {
+class Repository: public BlockArray {
 private:
     std::string fpath;
 
@@ -121,45 +122,6 @@ public:
 
     inline const GlobalParameters& params() const { return gp; }
 
-    inline uint32_t subblk_sz() const { return gp.blk_sz >> Extent::SUBBLK_SIZE_ORDER; }
-
-    inline uint32_t blk_sz() const { return gp.blk_sz; }
-
-    inline uint8_t blk_sz_order() const { return gp.blk_sz_order; }
-
-    // Main primitive to allocate / free blocks
-    //
-    // This expands/shrinks the underlying physical file.
-    //
-    // grow_by_blocks() returns the block number of the first
-    // new allocated blocks.
-    uint32_t grow_by_blocks(uint16_t blk_cnt);
-    void shrink_by_blocks(uint32_t blk_cnt);
-
-    // Return the block number of the first block with data
-    // (after the header) and the past-the-end data section
-    // (before the trailer)
-    //
-    // The total count of readable/writable data blocks by
-    // the callers is (past_end_data_blk_nr() - begin_data_blk_nr())
-    // and it may be zero.
-    inline uint32_t begin_data_blk_nr() const { return 1; }
-
-    inline uint32_t past_end_data_blk_nr() const {
-        assert(blk_total_cnt >= begin_data_blk_nr());
-        return blk_total_cnt;
-    }
-
-    inline uint32_t data_blk_cnt() const { return past_end_data_blk_nr() - begin_data_blk_nr(); }
-
-    inline bool is_extent_within_boundaries(const Extent& ext) const {
-        return not(ext.blk_nr() < begin_data_blk_nr() or ext.blk_nr() >= past_end_data_blk_nr() or
-                   ext.past_end_blk_nr() > past_end_data_blk_nr());
-    }
-
-    // Call is_extent_within_boundaries(ext) and if it is false
-    // raise ExtentOutOfBounds with the given optionally message
-    void fail_if_out_of_boundaries(const Extent& ext, const std::string& msg) const;
 
     // Pretty print stats
     std::ostream& print_stats(std::ostream& out) const;
@@ -313,4 +275,7 @@ private:
     friend class ExtentOutOfBounds;
 
     constexpr static const char* IN_MEMORY_FPATH = "@in-memory";
+
+    uint32_t impl_grow_by_blocks(uint16_t blk_cnt) override;
+    void impl_shrink_by_blocks(uint32_t blk_cnt) override;
 };

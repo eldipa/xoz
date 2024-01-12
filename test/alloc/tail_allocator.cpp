@@ -39,9 +39,9 @@ namespace {
                 "0000 0000"
                 );
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
 
         auto result1 = alloc.alloc(3);
 
@@ -57,9 +57,9 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         auto result2 = alloc.alloc(2);
 
@@ -79,9 +79,9 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)6);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)5);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)6);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)5);
     }
 
     TEST(TailAllocatorTest, DeallocAndShrink) {
@@ -122,16 +122,16 @@ namespace {
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)6);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)5);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)6);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)5);
 
         bool ok = alloc.dealloc(Extent(4, 2, false));
         EXPECT_EQ(ok, (bool)true);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         repo.close();
         cpy.str(repo.expose_mem_fp().str());
@@ -150,9 +150,9 @@ namespace {
         ok = alloc.dealloc(Extent(2, 2, false));
         EXPECT_EQ(ok, (bool)true);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)1);
 
         repo.close();
         cpy.str(repo.expose_mem_fp().str());
@@ -167,9 +167,9 @@ namespace {
         ok = alloc.dealloc(Extent(1, 1, false));
         EXPECT_EQ(ok, (bool)true);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
 
         repo.close();
         cpy.str(repo.expose_mem_fp().str());
@@ -217,9 +217,9 @@ namespace {
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)6);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)5);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)6);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)5);
 
         // Valid Extent but it is not at the end of the file so the TailAllocator
         // will ignore the dealloc and return false
@@ -227,9 +227,9 @@ namespace {
         EXPECT_EQ(ok, (bool)false);
 
         // Therefore no block was freed and the repo content is unchanged.
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)6);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)5);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)6);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)5);
 
         repo.close();
 
@@ -270,9 +270,9 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         EXPECT_THAT(
                 // Blk number past the end of the file

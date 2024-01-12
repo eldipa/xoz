@@ -37,7 +37,7 @@ class Demo {
             segm_by_id[next_segm_id] = segm;
 
             TRACE_BEGIN {
-                std::cerr << "Ret: blocks in repo " << repo.data_blk_cnt() << "; ";
+                std::cerr << "Ret: blocks in repo " << repo.blk_cnt() << "; ";
                 std::cerr << "segment assigned " << next_segm_id << ", ";
                 std::cerr << segm.ext_cnt() << " exts: ";
             } TRACE_END;
@@ -46,7 +46,7 @@ class Demo {
             std::cout << next_segm_id << " ";
             ++next_segm_id;
 
-            std::cout << repo.data_blk_cnt() << " " << segm.ext_cnt() << " ";
+            std::cout << repo.blk_cnt() << " " << segm.ext_cnt() << " ";
             for (auto const& ext : segm.exts()) {
                 std::cout << ext.is_suballoc() << " " << ext.blk_nr() << " ";
                 if (ext.is_suballoc()) {
@@ -97,10 +97,10 @@ class Demo {
             sg_alloc.dealloc(segm);
             segm_by_id.erase(it);
 
-            std::cout << repo.data_blk_cnt() << " ";
+            std::cout << repo.blk_cnt() << " ";
 
             TRACE_BEGIN {
-                std::cerr << "Ret: blocks in repo: " << repo.data_blk_cnt() << "\n";
+                std::cerr << "Ret: blocks in repo: " << repo.blk_cnt() << "\n";
             } TRACE_END;
 
             // format:
@@ -115,10 +115,10 @@ class Demo {
 
             sg_alloc.release();
 
-            std::cout << repo.data_blk_cnt() << " ";
+            std::cout << repo.blk_cnt() << " ";
 
             TRACE_BEGIN {
-                std::cerr << "Ret: blocks in repo: " << repo.data_blk_cnt() << "\n";
+                std::cerr << "Ret: blocks in repo: " << repo.blk_cnt() << "\n";
             } TRACE_END;
 
             // format:

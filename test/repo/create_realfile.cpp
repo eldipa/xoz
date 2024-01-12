@@ -64,9 +64,9 @@ namespace {
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
         EXPECT_EQ(repo.params().blk_init_cnt, (uint32_t)1);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
 
         // Close and check what we have on disk.
         repo.close();
@@ -117,9 +117,9 @@ namespace {
         EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
 
         // Close and check that the file in disk still exists
         // Note: in CreateNewDefaults test we create-close-check, here
@@ -162,9 +162,9 @@ namespace {
         EXPECT_EQ(new_repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(new_repo.params().blk_init_cnt, gp.blk_init_cnt);
 
-        EXPECT_EQ(new_repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(new_repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(new_repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(new_repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(new_repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(new_repo.blk_cnt(), (uint32_t)3);
 
         new_repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -202,9 +202,9 @@ namespace {
         EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -261,9 +261,9 @@ namespace {
         EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -321,9 +321,9 @@ namespace {
         EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -394,9 +394,9 @@ namespace {
         EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -434,9 +434,9 @@ namespace {
         auto old_top_nr = repo.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         std::stringstream ss;
         repo.print_stats(ss);
@@ -452,9 +452,9 @@ namespace {
         old_top_nr = repo.grow_by_blocks(6);
         EXPECT_EQ(old_top_nr, (uint32_t)4);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)9);
 
         ss.str("");
         repo.print_stats(ss);
@@ -497,9 +497,9 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)9);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -538,9 +538,9 @@ namespace {
         auto old_top_nr = repo.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         std::stringstream ss;
         repo.print_stats(ss);
@@ -555,9 +555,9 @@ namespace {
         // Now "revert" freeing those 3 blocks
         repo.shrink_by_blocks(3);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
 
         ss.str("");
         repo.print_stats(ss);
@@ -599,9 +599,9 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -640,9 +640,9 @@ namespace {
         auto old_top_nr = repo.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
 
         std::stringstream ss;
         repo.print_stats(ss);
@@ -681,9 +681,9 @@ namespace {
         repo.open(SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
         repo.shrink_by_blocks(3);
 
-        EXPECT_EQ(repo.begin_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_data_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.data_blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
 
         ss.str("");
         repo.print_stats(ss);

@@ -28,7 +28,7 @@ void Repository::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff off
     }
 }
 
-uint32_t Repository::grow_by_blocks(uint16_t blk_cnt) {
+uint32_t Repository::impl_grow_by_blocks(uint16_t blk_cnt) {
     if (blk_cnt == 0)
         throw std::runtime_error("alloc of 0 blocks is not allowed");
 
@@ -45,7 +45,7 @@ uint32_t Repository::grow_by_blocks(uint16_t blk_cnt) {
     return blk_total_cnt - blk_cnt;
 }
 
-void Repository::shrink_by_blocks(uint32_t blk_cnt) {
+void Repository::impl_shrink_by_blocks(uint32_t blk_cnt) {
     if (blk_cnt == 0) {
         throw std::runtime_error("free of 0 blocks is not allowed");
     }

@@ -44,12 +44,6 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
     return to_read_write_sz;
 }
 
-void Repository::fail_if_out_of_boundaries(const Extent& ext, const std::string& msg) const {
-    if (not is_extent_within_boundaries(ext)) {
-        throw ExtentOutOfBounds(*this, ext, msg);
-    }
-}
-
 uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz,
                                             uint32_t start) {
     const uint32_t subblk_sz = gp.blk_sz >> Extent::SUBBLK_SIZE_ORDER;

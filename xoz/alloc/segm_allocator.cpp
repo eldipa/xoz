@@ -267,7 +267,7 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
 
     // Find the gaps between consecutive allocated extents.
     // These gaps are the free extents to initialize the free maps
-    uint32_t cur_nr = repo.begin_data_blk_nr();
+    uint32_t cur_nr = repo.begin_blk_nr();
     for (const auto& ext: allocated) {
         if (ext.is_suballoc()) {
             // already handled
@@ -302,8 +302,8 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
 
     // Provide the last free extent (if any) that lies after the last
     // allocated extent and the end of the data section
-    if (repo.past_end_data_blk_nr() > cur_nr) {
-        uint32_t gap = repo.past_end_data_blk_nr() - cur_nr;
+    if (repo.past_end_blk_nr() > cur_nr) {
+        uint32_t gap = repo.past_end_blk_nr() - cur_nr;
 
         while (gap) {
             uint16_t len = uint16_t(std::min<uint32_t>(gap, 0xffff));
@@ -313,7 +313,7 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
             cur_nr += len;
         }
 
-        assert(cur_nr == repo.past_end_data_blk_nr());
+        assert(cur_nr == repo.past_end_blk_nr());
     }
 }
 
@@ -323,9 +323,9 @@ void SegmentAllocator::release() {
 }
 
 SegmentAllocator::stats_t SegmentAllocator::stats() const {
-    uint64_t repo_data_sz = (repo.data_blk_cnt() << repo.blk_sz_order());
+    uint64_t repo_data_sz = (repo.blk_cnt() << repo.blk_sz_order());
 
-    uint64_t external_frag_sz = (repo.data_blk_cnt() - in_use_blk_cnt) << repo.blk_sz_order();
+    uint64_t external_frag_sz = (repo.blk_cnt() - in_use_blk_cnt) << repo.blk_sz_order();
     double external_frag_sz_kb = double(external_frag_sz) / double(1024.0);
     double external_frag_rel = repo_data_sz == 0 ? 0 : (double(external_frag_sz) / double(repo_data_sz));
 
