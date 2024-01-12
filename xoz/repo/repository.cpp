@@ -7,6 +7,7 @@
 Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos): fpath(fpath), fp(disk_fp), closed(true) {
     open(fpath, phy_repo_start_pos);
     assert(not closed);
+    assert(blk_total_cnt >= 1);
 
     initialize_block_array(gp.blk_sz, 1, blk_total_cnt);
 }
@@ -14,6 +15,7 @@ Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos): fpath(fp
 Repository::Repository(std::stringstream&& mem, uint64_t phy_repo_start_pos): fp(mem_fp), closed(true) {
     open_internal(Repository::IN_MEMORY_FPATH, std::move(mem), phy_repo_start_pos);
     assert(not closed);
+    assert(blk_total_cnt >= 1);
 
     initialize_block_array(gp.blk_sz, 1, blk_total_cnt);
 }

@@ -8,7 +8,7 @@
 
 class BlockArray {
 protected:
-    void initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t blk_cnt);
+    void initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr);
 
     virtual uint32_t impl_grow_by_blocks(uint16_t blk_cnt) = 0;
     virtual void impl_shrink_by_blocks(uint32_t blk_cnt) = 0;
@@ -16,11 +16,11 @@ protected:
 private:
     uint32_t _blk_sz;
     uint32_t _begin_blk_nr;
-    uint32_t _blk_cnt;
+    uint32_t _past_end_blk_nr;
 
 
 public:
-    BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t blk_cnt);
+    BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr);
 
     BlockArray();
 
@@ -54,10 +54,7 @@ public:
     // and it may be zero (blk_cnt)
     inline uint32_t begin_blk_nr() const { return _begin_blk_nr; }
 
-    inline uint32_t past_end_blk_nr() const {
-        assert(_blk_cnt >= begin_blk_nr());
-        return _blk_cnt;
-    }
+    inline uint32_t past_end_blk_nr() const { return _past_end_blk_nr; }
 
     inline uint32_t blk_cnt() const { return past_end_blk_nr() - begin_blk_nr(); }
 

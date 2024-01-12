@@ -31,6 +31,8 @@ void Repository::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff off
 uint32_t Repository::impl_grow_by_blocks(uint16_t blk_cnt) {
     uint64_t sz = (blk_cnt << gp.blk_sz_order);
 
+    assert(not u32_add_will_overflow(blk_total_cnt, blk_cnt));
+
     may_grow_file_due_seek_phy(fp, phy_repo_end_pos + sz);
 
     // Update the stats
@@ -42,6 +44,9 @@ uint32_t Repository::impl_grow_by_blocks(uint16_t blk_cnt) {
 
 void Repository::impl_shrink_by_blocks(uint32_t blk_cnt) {
     uint64_t sz = (blk_cnt << gp.blk_sz_order);
+
+    assert(blk_total_cnt >= 1);
+    assert(blk_total_cnt > blk_cnt);
 
     // Update the stats but do not truncate the file
     // (do that on close())
