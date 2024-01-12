@@ -144,17 +144,8 @@ uint32_t Repository::rw_fully_allocated_extent(bool is_read_op, const Extent& ex
     return to_rw_sz;
 }
 
-uint32_t Repository::read_extent(const Extent& ext, std::vector<char>& data, uint32_t max_data_sz, uint32_t start) {
-    const uint32_t usable_sz = ext.calc_data_space_size(gp.blk_sz_order);
-    const uint32_t reserve_sz = std::min(usable_sz, max_data_sz);
-    data.resize(reserve_sz);
 
-    const uint32_t read_ok = read_extent(ext, data.data(), reserve_sz, start);
-    data.resize(read_ok);
-    return read_ok;
-}
-
-uint32_t Repository::read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) {
+uint32_t Repository::impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) {
     const uint32_t to_read_sz = chk_extent_for_rw(true, ext, max_data_sz, start);
     if (to_read_sz == 0) {
         return 0;
@@ -167,17 +158,7 @@ uint32_t Repository::read_extent(const Extent& ext, char* data, uint32_t max_dat
     }
 }
 
-uint32_t Repository::write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz,
-                                  uint32_t start) {
-    static_assert(sizeof(uint32_t) <= sizeof(size_t));
-    if (data.size() > uint32_t(-1)) {
-        throw std::runtime_error("");
-    }
-
-    return write_extent(ext, data.data(), uint32_t(std::min(data.size(), size_t(max_data_sz))), start);
-}
-
-uint32_t Repository::write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) {
+uint32_t Repository::impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) {
     const uint32_t to_write_sz = chk_extent_for_rw(false, ext, max_data_sz, start);
     if (to_write_sz == 0) {
         return 0;

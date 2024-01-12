@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "xoz/ext/extent.h"
 #include "xoz/mem/bits.h"
@@ -12,6 +13,9 @@ protected:
 
     virtual uint32_t impl_grow_by_blocks(uint16_t blk_cnt) = 0;
     virtual void impl_shrink_by_blocks(uint32_t blk_cnt) = 0;
+
+    virtual uint32_t impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) = 0;
+    virtual uint32_t impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) = 0;
 
 private:
     uint32_t _blk_sz;
@@ -67,6 +71,36 @@ public:
     // Call is_extent_within_boundaries(ext) and if it is false
     // raise ExtentOutOfBounds with the given message
     void fail_if_out_of_boundaries(const Extent& ext, const std::string& msg) const;
+
+    // Read / write <blk_cnt> consecutive blocks starting from the given
+    // <blk_nr> with <start> bytes offset (default 0)
+    //
+    // The data's buffer to read into / write from <blk_data> must be
+    // allocated by the caller.
+    //
+    // On reading, if a std::vector is given, the vector
+    // will be resized to reserve enough bytes to store the content
+    // read up to <max_data_sz> bytes.
+    //
+    // If <max_data_sz> is given, no more than <max_data_sz> bytes
+    // will be read/written.
+    //
+    // The space in-disk from which we are reading / writing must
+    // be previously allocated.
+    //
+    // Reading / writing out of bounds may succeed *but* it is undefined
+    // and it will probably lead to corruption.
+    //
+    // Returns the count of bytes effectively read/written.  A value of
+    // 0 means the end of the stream (it could happen if <start> is past
+    // the end of the extent or if <blk_cnt> is 0)
+    uint32_t read_extent(const Extent& ext, char* data, uint32_t max_data_sz = uint32_t(-1), uint32_t start = 0);
+    uint32_t read_extent(const Extent& ext, std::vector<char>& data, uint32_t max_data_sz = uint32_t(-1),
+                         uint32_t start = 0);
+
+    uint32_t write_extent(const Extent& ext, const char* data, uint32_t max_data_sz = uint32_t(-1), uint32_t start = 0);
+    uint32_t write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz = uint32_t(-1),
+                          uint32_t start = 0);
 
     virtual ~BlockArray() {}
 };
