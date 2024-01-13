@@ -394,7 +394,7 @@ namespace {
                               "[bitmap: 0100000100010001] "
                               "at block 2 "
                               "completely falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a write operation.")
                     )
                 )
@@ -408,7 +408,7 @@ namespace {
                               "[bitmap: 0100000100010001] "
                               "at block 2 "
                               "completely falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a read operation.")
                     )
                 )
@@ -441,7 +441,7 @@ namespace {
                               "(empty) "
                               "at block 2 "
                               "completely falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a write operation.")
                     )
                 )
@@ -455,7 +455,7 @@ namespace {
                               "(empty) "
                               "at block 2 "
                               "completely falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a read operation.")
                     )
                 )

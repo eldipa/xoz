@@ -81,7 +81,8 @@ ExtentOutOfBounds::ExtentOutOfBounds(const BlockArray& blkarr, const Extent& ext
         ss << " partially falls out of bounds. ";
     }
 
-    ss << "The block " << (blkarr.past_end_blk_nr() - 1) << " is the last valid before the end. ";
+    ss << "The blocks from " << blkarr.begin_blk_nr() << " to " << (blkarr.past_end_blk_nr() - 1)
+       << " (inclusive) are within the bounds and allowed. ";
 
     ss << msg;
 

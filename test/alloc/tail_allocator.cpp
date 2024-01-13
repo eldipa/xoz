@@ -282,7 +282,7 @@ namespace {
                     HasSubstr(
                         "The extent of 1 blocks that starts at block 4 and "
                         "ends at block 4 completely falls out of bounds. "
-                        "The block 3 is the last valid before the end. "
+                        "The blocks from 1 to 3 (inclusive) are within the bounds and allowed. "
                         "Detected on TailAllocator::dealloc"
                         )
                     )
@@ -298,7 +298,7 @@ namespace {
                     HasSubstr(
                         "The extent of 2 blocks that starts at block 3 and "
                         "ends at block 4 partially falls out of bounds. "
-                        "The block 3 is the last valid before the end. "
+                        "The blocks from 1 to 3 (inclusive) are within the bounds and allowed. "
                         "Detected on TailAllocator::dealloc"
                         )
                     )
@@ -313,7 +313,7 @@ namespace {
                     HasSubstr(
                         "The extent of 2 blocks that starts at block 0 and "
                         "ends at block 1 partially falls out of bounds. "
-                        "The block 3 is the last valid before the end. "
+                        "The blocks from 1 to 3 (inclusive) are within the bounds and allowed. "
                         "Detected on TailAllocator::dealloc"
                         )
                     )

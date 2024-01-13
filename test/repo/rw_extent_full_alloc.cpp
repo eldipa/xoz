@@ -444,7 +444,7 @@ namespace {
                     HasSubstr("The extent of 1 blocks "
                               "that starts at block 2 and ends at block 2 "
                               "completely falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a write operation.")
                     )
                 )
@@ -457,7 +457,7 @@ namespace {
                     HasSubstr("The extent of 1 blocks "
                               "that starts at block 2 and ends at block 2 "
                               "completely falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a read operation.")
                     )
                 )
@@ -489,7 +489,7 @@ namespace {
                     HasSubstr("The extent of 0 blocks (empty) "
                               "at block 2 "
                               "completely falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a write operation.")
                     )
                 )
@@ -502,7 +502,7 @@ namespace {
                     HasSubstr("The extent of 0 blocks (empty) "
                               "at block 2 "
                               "completely falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a read operation.")
                     )
                 )
@@ -527,7 +527,7 @@ namespace {
                     HasSubstr("The extent of 2 blocks "
                               "that starts at block 1 and ends at block 2 "
                               "partially falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a write operation.")
                     )
                 )
@@ -540,7 +540,7 @@ namespace {
                     HasSubstr("The extent of 2 blocks "
                               "that starts at block 1 and ends at block 2 "
                               "partially falls out of bounds. "
-                              "The block 1 is the last valid before the end. "
+                              "The blocks from 1 to 1 (inclusive) are within the bounds and allowed. "
                               "Detected on a read operation.")
                     )
                 )
