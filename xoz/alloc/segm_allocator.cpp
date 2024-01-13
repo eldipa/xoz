@@ -282,6 +282,9 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
         //
         // In the for-loop below we are going to ignore any Extent for suballocation
         // so the only one that will count is this one we are creating here.
+        //
+        // This has the nice additional effect of checking out-of-bounds and overlap errors
+        // in one single place
         allocated.push_back(Extent(blk_nr, 1, false));
     }
 
@@ -299,7 +302,7 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
             continue;
         }
 
-        blkarr.fail_if_out_of_boundaries(ext, "");
+        blkarr.fail_if_out_of_boundaries(ext, "error found during SegmentAllocator initialization");
 
         // Technically this overlap check is not needed because fr_map.provide will
         // do it for us. Nevertheless, I prefer to double check and make an explicit

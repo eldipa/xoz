@@ -2960,7 +2960,6 @@ namespace {
         // the repo's data space
         allocated.back().add_extent(Extent(main_ext.blk_nr() - 1, 2, false));
 
-        // TODO add ExtentOutOfBounds the start position to the message
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc1.initialize(allocated); }),
             ThrowsMessage<ExtentOutOfBounds>(
