@@ -12,6 +12,7 @@
 #include "xoz/alloc/free_map.h"
 #include "xoz/alloc/subblock_free_map.h"
 #include "xoz/alloc/tail_allocator.h"
+#include "xoz/exceptions.h"
 #include "xoz/ext/block_array.h"
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
@@ -214,10 +215,10 @@ void SegmentAllocator::dealloc(const Segment& segm) {
 
 void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
     if (alloc_call_cnt or dealloc_call_cnt) {
-        throw "Segment allocator already been used.";
+        throw std::runtime_error("Segment allocator already been used.");
     }
 
-    // Collect all the allocated extents of all the segments
+    // Collect all the allocated extents of all the segments (this includes full and suballoc'd blocks)
     std::list<Extent> allocated;
     for (const auto& segm: allocated_segms) {
         allocated.insert(allocated.end(), segm.exts().begin(), segm.exts().end());
@@ -235,10 +236,19 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
     // Sort them by block number
     allocated.sort(Extent::cmp_by_blk_nr);
 
+    // Now, track the subblocks in use
     std::map<uint32_t, uint16_t> suballocated_bitmap_by_nr;
     for (const auto& ext: allocated) {
         if (not ext.is_suballoc()) {
             continue;
+        }
+
+        const uint16_t suballocated_bitmap = suballocated_bitmap_by_nr[ext.blk_nr()];
+
+        if (suballocated_bitmap & ext.blk_bitmap()) {
+            const Extent ref(ext.blk_nr(), suballocated_bitmap, true);
+            throw ExtentOverlapError("allocated", ref, "pending to allocate", ext,
+                                     "error found during SegmentAllocator initialization");
         }
 
         // We must collect and merge all the suballocated bitmaps before
@@ -256,26 +266,50 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
             subfr_map.provide(Extent(blk_nr, free_bitmap, true));
         }
 
-        allocated.push_back(Extent(blk_nr, 1, false));
+        // Count here how many blocks are for suballocation because
+        // suballocated_bitmap_by_nr will have one and only one entry
+        // per block for suballoction.
         ++in_use_blk_for_suballoc_cnt;
+
+        // Also, add the blocks for suballoction to the in_use_blk_cnt total count.
+        // This count was underestimated in the first for-loop because there we used
+        // segm.full_blk_cnt() that consideres only blocks for non-suballocation.
         ++in_use_blk_cnt;
+
+        // The allocated list already has an Extent in this blk_nr, in fact, it
+        // may have multiple Extents in this same blk_nr, all of them for suballocation.
+        // Here we add another Extent of 1 block-length marked for non-suballocation.
+        //
+        // In the for-loop below we are going to ignore any Extent for suballocation
+        // so the only one that will count is this one we are creating here.
+        allocated.push_back(Extent(blk_nr, 1, false));
     }
 
     // Sort them by block number, again
     allocated.sort(Extent::cmp_by_blk_nr);
 
 
-    // Find the gaps between consecutive allocated extents.
+    // Find the gaps between consecutive allocated extents (ignoring the ones for suballocation)
     // These gaps are the free extents to initialize the free maps
     uint32_t cur_nr = blkarr.begin_blk_nr();
+    Extent prev(0, 0, false);
     for (const auto& ext: allocated) {
         if (ext.is_suballoc()) {
             // already handled
             continue;
         }
 
+        blkarr.fail_if_out_of_boundaries(ext, "");
+
+        // Technically this overlap check is not needed because fr_map.provide will
+        // do it for us. Nevertheless, I prefer to double check and make an explicit
+        // check here.
+        Extent::fail_if_overlap(prev, ext);
+        prev = ext;
+
         if (ext.blk_nr() == cur_nr) {
-            // skip extent
+            // skip extent, there is no free blocks in between this and the previous extent
+            // to add the free_map (there is no gap)
             cur_nr = ext.past_end_blk_nr();
             continue;
         } else if (ext.blk_nr() < cur_nr) {
@@ -288,6 +322,8 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
 
         // Non-suballocated Extent can be provided right now
         // We may require multiple extents if the gap is larger than 0xffff
+        // This is because an Extent can handle only up to 0xffff free blocks
+        // and the gap may perfectly be larger than that. TODO test this
         while (gap) {
             uint16_t len = uint16_t(std::min<uint32_t>(gap, 0xffff));
             fr_map.provide(Extent(cur_nr, len, false));

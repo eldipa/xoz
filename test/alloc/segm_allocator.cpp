@@ -2800,6 +2800,34 @@ namespace {
         // Note that there are unused blocks at the begin and at the end
         // and some extent are for sub allocation (some share the same block,
         // others don't; some combined fully use the block, others don't)
+        //
+        // Segment A -> 5 Extents:
+        //  - 2 + 1 == 3 full blks
+        //  - 2 blks for sub alloc:
+        //      - 0x000f + 0x0f00 = 0x0f0f bitmap for 1 of those blocks
+        //      - 0x0fff bitmap for the other block
+        //
+        // Segment B -> 4 Extents:
+        //  - 1 + 2 == 3 full blks
+        //  - 2 blks for sub alloc:
+        //      - 0xf000 bitmap for one of those blocks
+        //      - 0xf000 bitmap for the other
+        //
+        // Total:
+        //  - 6 full blks
+        //  - 2 blks for suballoc
+        //      - 0xffff bitmap for one of those blks (full, no subblk is free)
+        //      - 0xff0f bitmap for the other (4 subblks remain free)
+        //  - 7 free blks
+        //
+        // free blks   v       v-v           v-----v
+        // blk nr      0 1 2 3 4 5 6 7 8 9 a b c d e  Repo of 15 blks (0 to e inclusive)
+        //               B C D           AAA          Segment 1 (Extents B and C are for suballoc)
+        //               E H       F GGG              Segment 2 (Extents E and H are for suballoc)
+        //               | |
+        //               | \-> bitmap 0xffff (full)
+        //               \-> bitmap 0xff0f
+        //
         std::list<Segment> allocated;
         allocated.push_back(Segment());
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 9, 2, false));
@@ -2848,9 +2876,9 @@ namespace {
 
         EXPECT_THAT(stats1.in_use_ext_per_segm, ElementsAre(0,0,0,0,1,1,0,0));
 
-        /*
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
                     Extent(1, 1, false),
+                    Extent(2, 0x00f0, true),
                     Extent(5, 2, false),
                     Extent(12, 4, false)
                     ));
@@ -2870,10 +2898,13 @@ namespace {
         EXPECT_EQ(segm1.exts()[0].blk_cnt(), (uint8_t)(3));
         EXPECT_EQ(segm1.exts()[0].blk_nr(), (uint32_t)(12));
 
+        auto segm2 = sg_alloc1.alloc(repo.subblk_sz());
+
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
                     Extent(1, 1, false),
+                    Extent(2, 0x0070, true), // took 1 subblock
                     Extent(5, 2, false),
-                    Extent(15, 1, false)
+                    Extent(15, 1, false) // took 3 blocks
                     ));
 
         // We can release the extents that can be reclaimed by the Tail allocator
@@ -2881,13 +2912,212 @@ namespace {
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)15);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)14);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)14); // released 1 block from the end of the repo
 
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
                     Extent(1, 1, false),
+                    Extent(2, 0x0070, true),
                     Extent(5, 2, false)
                     ));
-                    */
+    }
+
+    TEST(SegmentAllocatorTest, InitializeAllocatorWithErrors) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo, true);
+
+        // Alloc 15 blocks
+        auto main_segm = sg_alloc.alloc(repo.blk_sz() * 15);
+        auto main_ext = main_segm.exts().back();
+
+        // Hand-craft segments using those 15 blocks
+        std::list<Segment> allocated;
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0x000f, true));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0x0f00, true));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 0x0fff, true));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 3, 1, false));
+
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0xf000, true));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 1, false));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 7, 2, false));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 0xf000, true));
+
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)15);
+
+
+        SegmentAllocator sg_alloc1(repo, true);
+
+        // This one is buggy: it is positioned *before* the begin of
+        // the repo's data space
+        allocated.back().add_extent(Extent(main_ext.blk_nr() - 1, 2, false));
+
+        // TODO add ExtentOutOfBounds the start position to the message
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc1.initialize(allocated); }),
+            ThrowsMessage<ExtentOutOfBounds>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of 2 blocks that starts at block 0 "
+                        "and ends at block 1 partially falls out of bounds. "
+                        "The block 15 is the last valid before the end."
+                        )
+                    )
+                )
+        );
+        allocated.back().remove_last_extent();
+
+        // This one is also buggy: it is positioned *after* the end of
+        // the repo's data space
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 15, 2, false));
+
+        SegmentAllocator sg_alloc2(repo, true);
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc2.initialize(allocated); }),
+            ThrowsMessage<ExtentOutOfBounds>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of 2 blocks that starts at block 16 "
+                        "and ends at block 17 completely falls out of bounds. "
+                        "The block 15 is the last valid before the end."
+                        )
+                    )
+                )
+        );
+        allocated.back().remove_last_extent();
+
+        // This one is also buggy: it is larger than the original repo
+        allocated.back().add_extent(Extent(main_ext.blk_nr() - 1, 25, false));
+
+        SegmentAllocator sg_alloc3(repo, true);
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc3.initialize(allocated); }),
+            ThrowsMessage<ExtentOutOfBounds>(
+                AllOf(
+                    HasSubstr(
+                        "The extent of 25 blocks that starts at block 0 "
+                        "and ends at block 24 partially falls out of bounds. "
+                        "The block 15 is the last valid before the end."
+                        )
+                    )
+                )
+        );
+        allocated.back().remove_last_extent();
+
+        // This one is also buggy: it overlaps with a full block
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 1, false));
+
+        SegmentAllocator sg_alloc4(repo, true);
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc4.initialize(allocated); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent 00002 00003 [   1] overlaps "
+                        "with the extent 00002 00003 [   1] (reference extent): "
+                        "(at same start)"
+                        )
+                    )
+                )
+        );
+        allocated.back().remove_last_extent();
+
+        // This one is also buggy: it overlaps with another full block
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 5, 2, false));
+
+        SegmentAllocator sg_alloc5(repo, true);
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc5.initialize(allocated); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent 00007 00008 [   1] "
+                        "overlaps with the extent 00006 00008 [   2] (reference extent): "
+                        "(ext start is ahead ref)"
+                        )
+                    )
+                )
+        );
+        allocated.back().remove_last_extent();
+
+        // This one is also buggy: it overlaps with a block for suballocation
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 1, false));
+
+        SegmentAllocator sg_alloc7(repo, true);
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc7.initialize(allocated); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent 00003 00004 [   1] overlaps "
+                        "with the extent 00003 00004 [   1] (reference extent): "
+                        "(at same start)"
+                        )
+                    )
+                )
+        );
+        allocated.back().remove_last_extent();
+
+        // This one is also buggy: it overlaps with a block for suballocation
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 0xf000, true));
+
+        SegmentAllocator sg_alloc8(repo, true);
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc8.initialize(allocated); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The suballoc'd block 00003 [1111000000000000] (pending to allocate) "
+                        "overlaps with the suballoc'd block 00003 [1111111111111111] (allocated): "
+                        "error found during SegmentAllocator initialization"
+                        )
+                    )
+                )
+        );
+        allocated.back().remove_last_extent();
+
+        // This one is also buggy: it overlaps with a another block for suballocation
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0xf000, true));
+
+        SegmentAllocator sg_alloc9(repo, true);
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc9.initialize(allocated); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The suballoc'd block 00002 [1111000000000000] (pending to allocate) "
+                        "overlaps with the suballoc'd block 00002 [1111111100001111] (allocated): "
+                        "error found during SegmentAllocator initialization"
+                        )
+                    )
+                )
+        );
+        allocated.back().remove_last_extent();
+
+        // This one is also buggy: it overlaps with a full block
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 0xf000, true));
+
+        SegmentAllocator sg_allocA(repo, true);
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_allocA.initialize(allocated); }),
+            ThrowsMessage<ExtentOverlapError>(
+                AllOf(
+                    HasSubstr(
+                        "The extent 00007 00008 [   1] overlaps "
+                        "with the extent 00007 00008 [   1] (reference extent): "
+                        "(at same start)"
+                        )
+                    )
+                )
+        );
     }
 }
 

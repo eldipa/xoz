@@ -143,6 +143,7 @@ public:
     };
 
     static blk_distance_t distance_in_blks(const Extent& ref, const Extent& target);
+    static void fail_if_overlap(const Extent& ref, const Extent& target) { distance_in_blks(ref, target); }
 
     inline bool operator==(const Extent& other) const {
         return _blk_nr == other._blk_nr and _blk_cnt == other._blk_cnt;

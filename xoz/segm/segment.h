@@ -50,6 +50,8 @@ public:
 
     void add_extent(const Extent& ext) { arr.push_back(ext); }
 
+    void remove_last_extent() { arr.pop_back(); }
+
     void clear_extents() { arr.clear(); }
 
     uint32_t ext_cnt() const {
