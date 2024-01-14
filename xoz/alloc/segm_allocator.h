@@ -15,6 +15,27 @@ class SegmentAllocator {
 public:
     const static uint8_t StatsExtPerSegmLen = 8;
 
+    struct req_t {
+        // During an allocation, the allocator will try to allocate the requested
+        // bytes in a single contiguos Extent (no fragmentation) but it may not be possible.
+        // In this case, segm_frag_threshold says the maximum number of extents that
+        // the segment will be fragmented.
+        uint16_t segm_frag_threshold;
+
+        // Because the requested bytes for allocation may not be a multiple of the block size,
+        // the last bytes would fall in a partially empty block. This generates internal
+        // fragmentation and makes the performance of the allocator worse.
+        // If allow_suballoc is True, the last bytes will be put in a block *shared* with other
+        // allocations, hence minimizing the unfilled space.
+        // If max_inline_sz is non-zero, the last bytes will not be put in a block but in the
+        // same returned Segment object.
+        //
+        // Both allow_suballoc and max_inline_sz can be combined.
+        uint8_t max_inline_sz;
+        bool allow_suballoc;
+    };
+
+
 private:
     BlockArray& blkarr;
 
@@ -40,18 +61,22 @@ private:
 
     uint64_t in_use_ext_per_segm[StatsExtPerSegmLen];
 
+    struct req_t default_req;
+
 public:
-    explicit SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled = true, uint16_t split_above_threshold = 0);
+    constexpr static struct req_t XOZDefaultReq = {
+            .segm_frag_threshold = 2, .max_inline_sz = 8, .allow_suballoc = true};
 
-    struct req_t {
-        uint16_t segm_frag_threshold;
-        uint8_t max_inline_sz;
-        bool allow_suballoc;
-    };
+    constexpr static struct req_t StreamDefaultReq = {
+            .segm_frag_threshold = 0, .max_inline_sz = 0, .allow_suballoc = false};
 
-    constexpr static struct req_t DefaultReq = {.segm_frag_threshold = 2, .max_inline_sz = 8, .allow_suballoc = true};
+    explicit SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled = true, uint16_t split_above_threshold = 0,
+                              const struct req_t& default_req = XOZDefaultReq);
 
-    Segment alloc(const uint32_t sz, const struct req_t& req = SegmentAllocator::DefaultReq);
+    void set_default_alloc_requirements(const struct req_t& new_req) { default_req = new_req; }
+
+    Segment alloc(const uint32_t sz);
+    Segment alloc(const uint32_t sz, const struct req_t& req);
     void dealloc(const Segment& segm);
 
     void initialize(const std::list<Segment>& allocated_segms);

@@ -23,7 +23,8 @@
 #define TRACE_SECTION(x) TRACE << (x) << " "
 #define TRACE_LINE TRACE << "    "
 
-SegmentAllocator::SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled, uint16_t split_above_threshold):
+SegmentAllocator::SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled, uint16_t split_above_threshold,
+                                   const struct req_t& default_req):
         blkarr(blkarr),
         tail(blkarr),
         fr_map(coalescing_enabled, split_above_threshold),
@@ -37,9 +38,12 @@ SegmentAllocator::SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled, 
         in_use_inlined_sz(0),
         alloc_call_cnt(0),
         dealloc_call_cnt(0),
-        internal_frag_avg_sz(0) {
+        internal_frag_avg_sz(0),
+        default_req(default_req) {
     memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
 }
+
+Segment SegmentAllocator::alloc(const uint32_t sz) { return alloc(sz, default_req); }
 
 Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     //
@@ -69,7 +73,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     //                      \      |----------------------------|
     //                       \            inline data
     //                        \----------- /
-
+    //
     Segment segm;
     uint32_t sz_remain = sz;
     uint32_t avail_sz = 0;
@@ -211,7 +215,6 @@ void SegmentAllocator::dealloc(const Segment& segm) {
 
     reclaim_free_space_from_subfr_map();
 }
-
 
 void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
     if (alloc_call_cnt or dealloc_call_cnt) {
