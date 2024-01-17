@@ -6,6 +6,19 @@
 
 #include "xoz/exceptions.h"
 
+Extent::Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc): _blk_nr(blk_nr & 0x03ffffff), _blk_cnt(blk_cnt) {
+    if (blk_nr & (~0x03ffffff)) {
+        throw std::runtime_error((F() << "Invalid block number " << blk_nr << ", it is more than 26 bits. "
+                                      << "Error when creating a new extent of block count " << blk_cnt
+                                      << " (is suballoc: " << is_suballoc << ")")
+                                         .str());
+    }
+
+    if (is_suballoc) {
+        this->_blk_nr |= 0x80000000;
+    }
+}
+
 void PrintTo(const Extent& ext, std::ostream* out) {
     std::ios_base::fmtflags ioflags = out->flags();
 

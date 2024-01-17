@@ -47,15 +47,7 @@ public:
     //  - if is_suballoc is True, blk_nr points to a single
     //    blocks and blk_cnt is a 16-bits bitmap which tells
     //    which sub-blocks belong to this extent
-    Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc): _blk_nr(blk_nr & 0x03ffffff), _blk_cnt(blk_cnt) {
-        if (blk_nr & (~0x03ffffff)) {
-            throw std::runtime_error("bad blk nr (more than 26 bits)");
-        }
-
-        if (is_suballoc) {
-            this->_blk_nr |= 0x80000000;
-        }
-    }
+    Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc);
 
     static Extent NullExtent() { return Extent(0, 0, false); }
 

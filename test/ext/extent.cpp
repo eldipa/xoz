@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include "test/testing_xoz.h"
 
 #include "xoz/ext/extent.h"
 #include "xoz/exceptions.h"
@@ -7,28 +8,40 @@
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 using ::testing::AllOf;
+using ::testing_xoz::helpers::ensure_called_once;
 
 namespace {
     TEST(ExtentTest, BlockNumberBits) {
         // Block numbers are 26 bits long
         // This test check that the 25th bit is preserved (being 0th the lowest)
         // and the 26th is dropped (because it would require 27 bits)
-        Extent ext1((1 << 25) | (1 << 26), 1, false);
-        EXPECT_EQ(ext1.blk_nr(), (uint32_t)(1 << 25));
-        EXPECT_EQ(ext1.blk_nr() & 0xffff, (uint32_t)(0));
-        EXPECT_EQ(ext1.blk_nr() >> 16, (uint32_t)((1 << 25) >> 16));
+        EXPECT_THAT(
+            ensure_called_once([&]() { Extent ext1((1 << 25) | (1 << 26), 1, false); }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Invalid block number 100663296, it is more than 26 bits. "
+                        "Error when creating a new extent of block count 1 "
+                        "(is suballoc: 0)"
+                        )
+                    )
+                )
+        );
 
         // Suballoc'd does not change the above
-        Extent ext2((1 << 25) | (1 << 26), 1, true);
-        EXPECT_EQ(ext2.blk_nr(), (uint32_t)(1 << 25));
-        EXPECT_EQ(ext2.blk_nr() & 0xffff, (uint32_t)(0));
-        EXPECT_EQ(ext2.blk_nr() >> 16, (uint32_t)((1 << 25) >> 16));
+        EXPECT_THAT(
+            ensure_called_once([&]() { Extent ext2((1 << 25) | (1 << 26), 1, true); }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Invalid block number 100663296, it is more than 26 bits. "
+                        "Error when creating a new extent of block count 1 "
+                        "(is suballoc: 1)"
+                        )
+                    )
+                )
+        );
 
-        // Check higher bits are preserved when hi_blk_nr() is used
-        Extent ext3((1 << 25) | (1 << 26), 1, false);
-        EXPECT_EQ(ext3.blk_nr(), (uint32_t)(1 << 25));
-        EXPECT_EQ(ext3.blk_nr() & 0xffff, (uint16_t)(0));
-        EXPECT_EQ(ext3.blk_nr() >> 16, (uint16_t)((1 << 25) >> 16));
 
         // Check lower bits
         Extent ext4((1 << 15) | (1 << 3), 1, false);
