@@ -86,6 +86,15 @@ public:
         return rw_operation(false, (char*)data.data(), request_sz);
     }
 
+    /*
+     * Writes <sz> bytes all with the same value <c> from the starting
+     * point tell_wr().
+     *
+     * It is an error to try to write/fill more bytes than the are available.
+     * To write/fill up to the end, call fill(c, remain_wr()).
+     * */
+    void fill(const char c, const uint32_t sz);
+
     uint32_t tell_rd() const { return rd; }
 
     uint32_t tell_wr() const { return wr; }

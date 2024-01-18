@@ -689,4 +689,68 @@ namespace {
                 "454f 4600"
                 );
     }
+
+    TEST(IOSegmentTest, Fill) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+                "0000 0000"
+                );
+
+        auto old_top_nr = repo.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf;
+
+        Segment sg;
+        sg.add_extent(Extent(1, 1, false)); // one block
+
+        IOSegment iosg1(repo, sg);
+        iosg1.fill(0x41, 4);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(64 - 4));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(4));
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+                "4141 4141 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        iosg1.fill(0x42, 6);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(64 - 4 - 6));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(4 + 6));
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+                "4141 4141 4242 4242 4242 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        iosg1.seek_wr(2, IOBase::Seekdir::fwd);
+        iosg1.fill(0x44, 64 - 4 - 6 - 2);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(64));
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+                "4141 4141 4242 4242 4242 0000 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 "
+                "4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444"
+                );
+
+        repo.close();
+        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+                "4141 4141 4242 4242 4242 0000 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 "
+                "4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 "
+                "454f 4600"
+                );
+    }
 }

@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 #include "xoz/chk.h"
@@ -80,4 +81,14 @@ uint32_t IOBase::chk_write_request_sizes(const std::vector<char>& data, const ui
     }
 
     return request_sz;
+}
+
+void IOBase::fill(const char c, const uint32_t sz) {
+    const auto hole = sz;
+    char pad[64];
+    memset(pad, c, sizeof(pad));
+    for (unsigned batch = 0; batch < hole / sizeof(pad); ++batch) {
+        writeall(pad, sizeof(pad));
+    }
+    writeall(pad, hole % sizeof(pad));
 }
