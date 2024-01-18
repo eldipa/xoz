@@ -95,6 +95,24 @@ public:
         _blk_cnt += cnt;
     }
 
+    /*
+     * Split the extent into two: the first (this) extent points to the same
+     * block number as before and its block count is updated to new_cnt;
+     * the second (return) extent points to immediately after the first and
+     * it has the remaining blocks.
+     *
+     * This method is only for non-suballocated extents.
+     * */
+    Extent split(uint16_t new_cnt) {
+        assert(not is_suballoc());
+        assert(_blk_cnt >= new_cnt);
+
+        Extent ext2((uint32_t)(_blk_nr + new_cnt), (uint16_t)(_blk_cnt - new_cnt), false);
+
+        _blk_cnt = new_cnt;
+        return ext2;
+    }
+
     inline void move_to(uint32_t blk_nr) { _blk_nr = (blk_nr & 0x03ffffff) | (_blk_nr & 0xfc000000); }
 
     inline void set_bitmap(uint16_t bitmap) {

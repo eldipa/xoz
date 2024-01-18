@@ -335,6 +335,62 @@ namespace {
                     )
                 )
         );
+    }
 
+    TEST(ExtentTest, SplitExtent) {
+        Extent left1(1, 12, false);
+        Extent right1 = left1.split(6); // half
+
+        EXPECT_EQ(left1.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(left1.blk_cnt(), (uint16_t)(6));
+
+        EXPECT_EQ(right1.blk_nr(), (uint32_t)(0x7));
+        EXPECT_EQ(right1.blk_cnt(), (uint16_t)(6));
+
+        EXPECT_EQ(left1.blk_cnt() + right1.blk_cnt(), (uint16_t)(12));
+
+        Extent left2(1, 12, false);
+        Extent right2 = left2.split(0); // left gets 0 blocks
+
+        EXPECT_EQ(left2.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(left2.blk_cnt(), (uint16_t)(0));
+
+        EXPECT_EQ(right2.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(right2.blk_cnt(), (uint16_t)(12));
+
+        EXPECT_EQ(left2.blk_cnt() + right2.blk_cnt(), (uint16_t)(12));
+
+        Extent left3(1, 12, false);
+        Extent right3 = left3.split(12); // right gets 0 blocks
+
+        EXPECT_EQ(left3.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(left3.blk_cnt(), (uint16_t)(12));
+
+        EXPECT_EQ(right3.blk_nr(), (uint32_t)(0x1 + 12));
+        EXPECT_EQ(right3.blk_cnt(), (uint16_t)(0));
+
+        EXPECT_EQ(left3.blk_cnt() + right3.blk_cnt(), (uint16_t)(12));
+
+        Extent left4(1, 1, false);
+        Extent right4 = left4.split(0); // left gets 0 blocks
+
+        EXPECT_EQ(left4.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(left4.blk_cnt(), (uint16_t)(0));
+
+        EXPECT_EQ(right4.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(right4.blk_cnt(), (uint16_t)(1));
+
+        EXPECT_EQ(left4.blk_cnt() + right4.blk_cnt(), (uint16_t)(1));
+
+        Extent left5(1, 1, false);
+        Extent right5 = left5.split(1); // right gets 0 blocks
+
+        EXPECT_EQ(left5.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(left5.blk_cnt(), (uint16_t)(1));
+
+        EXPECT_EQ(right5.blk_nr(), (uint32_t)(0x1 + 1));
+        EXPECT_EQ(right5.blk_cnt(), (uint16_t)(0));
+
+        EXPECT_EQ(left5.blk_cnt() + right5.blk_cnt(), (uint16_t)(1));
     }
 }
