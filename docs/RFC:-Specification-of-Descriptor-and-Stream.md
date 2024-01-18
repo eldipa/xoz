@@ -23,11 +23,11 @@ struct descriptor_t {
     /* present if owns_segm == 1 */
     uint16_t {
         uint large    : 1;      // mask: 0x8000
-        uint lo_osize : 15;     // mask: 0x7fff
+        uint lo_esize : 15;     // mask: 0x7fff
     };
 
     /* present if owns_segm == 1 && large == 1 */
-    uint16_t hi_osize;
+    uint16_t hi_esize;
 
     /* present if owns_segm == 1 */
     struct segment_t segm;
@@ -61,9 +61,9 @@ When a descriptor owns a segment it implies that if the descriptor
 is deleted from the stream, the segment is freed and, if the descriptor
 is not deleted, the segments must be allocated.
 
-How much of the owned segment is in use (has meaningful data) is given
-by `lo_osize` (lower 15 bits) and if `large` is 1, by `hi_osize` (16
-most significat bits). This gives an upper limit to how much data the
+How much of the owned segment is in use (has meaningful external data) is given
+by `lo_esize` (lower 15 bits) and if `large` is 1, by `hi_esize` (16
+most significat bits). This gives an upper limit to how much external data the
 segment can hold of 2GB (31 bits).
 
 The `segm` is the segment the indicates where the data is stored
