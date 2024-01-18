@@ -8,29 +8,28 @@
  ```cpp
 struct descriptor_t {
     uint16_t {
-        uint is_obj    : 1;    // mask: 0x8000
+        uint owns_segm : 1;    // mask: 0x8000
         uint lo_dsize  : 5;    // mask: 0x7c00
         uint has_id    : 1;    // mask: 0x0200
         uint type      : 9;    // mask: 0x01ff
     };
 
-    /* present if
-        is_obj == 1 || (is_obj == 0 && has_id == 1) */
+    /* present if has_id == 1 */
     uint32_t {
         uint hi_dsize : 1;      // mask: 0x80000000
-        uint obj_id   : 31;     // mask: 0x7fffffff
+        uint id       : 31;     // mask: 0x7fffffff
     };
 
-    /* present if is_obj == 1 */
+    /* present if owns_segm == 1 */
     uint16_t {
         uint large    : 1;      // mask: 0x8000
         uint lo_osize : 15;     // mask: 0x7fff
     };
 
-    /* present if is_obj == 1 && large == 1 */
+    /* present if owns_segm == 1 && large == 1 */
     uint16_t hi_osize;
 
-    /* present if is_obj == 1 */
+    /* present if owns_segm == 1 */
     struct segment_t segm;
 
     /* to be interpreted based on descriptor/object type;
@@ -40,81 +39,78 @@ struct descriptor_t {
 };
 ```
 
-The `struct descriptor_t` can refer either to an *object descriptor*
-(`is_obj` is 1) or to a *non-object descriptor* (`is_obj` is 0).
-The former defines the existence
-of an object while the latter just has a reference to an object
-that it is defined somewhere else.
-
-### Non-object descriptors
-
-When `is_obj` is 0 (a *non-object descriptor*), the `obj_id` is
-the object identifier that descriptor is referring to. It is set
-explicit when `has_id` is 1; if it is 0, the descriptor refers
-to same object that the previous descriptor in the *stream*.
-
-`type` is the descriptor type; there can be up to 512 different types.
-This RFC defines only a few.
-
 The size of the descriptor's `data` is given words of 2 bytes by the `lo_dsize` field
 and if `hi_dsize` is present, `lo_dsize` is extended with `hi_dsize` as its MSB.
 The maximum size of a descriptor without counting its header
 is therefore 64 bytes (32 * 2) or 128 bytes (64 * 2).
 How `data` is interpreted depends on the descriptor `type`.
 
-### Object descriptors
+`type` is the descriptor type; there can be up to 512 different types.
+This RFC defines only a few:
 
-When `is_obj` is 1 (an *object descriptor*), the `obj_id` is
-the object identifier that descriptor is defining and it is a mandatory
-field.
+ - `0x00`: padding or end-of-stream descriptor
+ - `0x1ff`: reserved for adding more types if the 512 are not enough.
 
-The field `has_id` is then repurposed as the MSB of `type`: the object
-type then is represented by `has_id` (MSB) and `type` lower bits giving
-a maximum of 1024 different types.
-This RFC defines only a few.
+## Descriptors that own a segment
 
-The size of the descriptor's `data` is given words of 2 bytes by
-the `lo_dsize` and `hi_dsize` fields
-and it has the same meaning than for the *non-object descriptors*.
+The `struct descriptor_t` can refer either to a descriptor
+that *owns* blocks of data referenced by `segm` (`owns_segm` is 1)
+or to a descriptor that does not owns any segment (`owns_segm` is 0).
 
-An *object descriptor* defines an object with data outside of the
-descriptor; potentially very large data, much larger than a descriptor
-could hold (`lo_dsize` and `hi_dsize`).
+When a descriptor owns a segment it implies that if the descriptor
+is deleted from the stream, the segment is freed and, if the descriptor
+is not deleted, the segments must be allocated.
 
-`lo_osize` is the size in bytes of the object external data (the size of the
-*descriptor* is not included). If the data is
-larger than 32 kilobytes minus 1, the flag `large` is set to 1 and the size
-is the combination of `lo_osize` (lower 15 bits) and `hi_osize` (higher
-16 bits). Therefore, the maximum size is 2GB.
+How much of the owned segment is in use (has meaningful data) is given
+by `lo_osize` (lower 15 bits) and if `large` is 1, by `hi_osize` (16
+most significat bits). This gives an upper limit to how much data the
+segment can hold of 2GB (31 bits).
 
-The `segm` is the segment the indicates where the object data is stored
+The `segm` is the segment the indicates where the data is stored
 and its length is not explicit in the header. Instead, the segment ends
 when an inline-data extent is found so the segment must be *inline-data ended*.
 
+## Descriptor id
+
+Every descriptor has an unique id: it may be given by the field `id` if
+`has_id` is 1 or it may be generated in runtime by the `xoz` library if
+`has_id` is 0 or if `id` is 0.
+
+An id generated in runtime is called *temporal id* and it is generated
+and assigned to the descriptor in an unspecified order so such
+descriptors cannot be referenced by others (because its id may change).
+An id explicitly given when `has_id` is 1 and `id` is not 0 is called
+*persistent id*.
+
+In runtime, the `xoz` library will distinguish both with the MSB of the
+32 bits number that the id has: if the MSB is 1, it is a *temporal id*,
+if not, it is a *persistent id*. Hence the id to be stored in the file
+requires only 31 bits (the `id` field).
+
+In runtime, in no case a descriptor can have an id of 0.
 
 ## Descriptors invariants
 
-For a *non-object descriptor*:
+For a *descriptor* that *does not own* a segment:
 
- - it has a minimum size of 2 bytes (`has_id` and `lo_dsize` of 0)
- - it has a maximum size of 70 bytes (`has_id` is 1 and `lo_dsize` is 32)
-   with up to 64 bytes for usable data within the descriptor.
+ - it has a minimum size of 2 bytes (when `has_id` and `lo_dsize` of 0)
+ - it has a maximum size of 132 bytes (when `has_id` is 1 and the size of `data` is (64-1)*2)
 
-For an *object descriptor*:
+For a *descriptor* that *owns* a segment:
 
- - it has a minimum size of 8 bytes for objects of zero bytes data
- - large data objects has a minimum descriptor size of 10 bytes.
- - the maximum size of the descriptor is of 138 bytes with up to
-   128 bytes for usable data within the descriptor.
- - object data (external) can be up to 2GB bytes
+ - it has a minimum size of 6 bytes (`has_id` is 0, size of `data` is 0
+     and the `segm` has the minimum of 2 bytes, no space allocated)
+ - there is no maximum size as `segm` is unbound; the descriptor may have up to 136 bytes
+   if `segm` is not counted however.
+ - the owned data can be up to 2GB bytes
 
 In both cases, the descriptor size is always a multiple of 2;
-object data (external) is not required to be a multiple of 2.
+the owned data is not required to be a multiple of 2.
 
 ## Descriptor size is fixed
 
 Once a descriptor is present in the `xoz` file, its size cannot be
-changed (aka `lo_dsize` and `hi_dsize` is fixed).
+changed (aka `lo_dsize` and `hi_dsize` are fixed).
 
 Growing the descriptor it is not possible because the descriptors
 are packed tight in the stream and there is no room to grow.
@@ -123,26 +119,22 @@ Only if the application wants to store less data in the descriptor,
 it may update the descriptor in place, pad with zeros the unused space
 and adjust `lo_dsize` and `hi_dsize` accordingly.
 
-In any case, if a resize is required, the application can just write
-a new descriptor with the same type and object id than the former
+In any case, if a resize is required, the `xoz` library will just write
+a new descriptor with the same type and id than the former
 to override it (this of course comes at expenses of wasted space).
 
 
-## Descriptor Type 0: padding
+## Descriptor Type 0: padding and end of stream
 
-For a `dtype` of 0, if `is_obj`, `lo_dsize` and `has_id` are also 0,
-the descriptor works as 2 bytes padding (zeros).
+The `dtype` of 0 has a special meaning:
 
-If `dtype` is 0 but the other conditions are not hold,
-the meaning of the descriptor is reserved but
-the semantics of `lo_dsize` and `has_id` holds therefore it is
-known how many bytes the header and the descriptor occupy.
-
-
-## Descriptor Type 1: end of stream
-
-For a `dtype` of 1, if `is_obj` and `has_id` are also 0,
-the descriptor marks the end of the current stream of descriptor.
+ - if `owns_segm`, `has_id` and `lo_dsize` are 0, the descriptor
+   works as 2 bytes padding (zeros).
+ - if `owns_segm` and `has_id` are 0 *but* `lo_dsize` is not, the
+   descriptor works as *the end of the stream* marker.
+ - under other settings, the meaning of the descriptor is reserved but
+   the semantics of `lo_dsize` and `has_id` holds therefore it is
+   known how many bytes the header and the descriptor occupy.
 
 TODO: checksum
 
