@@ -13,7 +13,7 @@
  * will *not* be modified outside while this wrapper exists.
  *
  * So the caller must not modify the wrapped object and it must assume that during and after
- * the existence of the IOX instance, the wrapped io will change.
+ * the existence of the IORestricted instance, the wrapped io will change.
  * */
 class IORestricted: public IOBase {
 private:
