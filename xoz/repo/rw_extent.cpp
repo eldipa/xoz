@@ -5,7 +5,7 @@
 #include "xoz/repo/repository.h"
 
 uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) {
-    if (ext.is_null()) {
+    if (ext.blk_nr() == 0x0) {
         throw NullBlockAccess(F() << "The block 0x00 cannot be " << (is_read_op ? "read" : "written"));
     }
 

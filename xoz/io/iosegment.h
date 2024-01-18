@@ -35,6 +35,7 @@ private:
         Extent ext;
         uint32_t offset;
         uint32_t remain;
+        bool end;
     };
 
     const struct ext_ptr_t abs_pos_to_ext(const uint32_t pos) const;

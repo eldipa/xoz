@@ -48,7 +48,7 @@ uint32_t IOSegment::rw_operation(const bool is_read_op, char* data, const uint32
     uint32_t rw_total_sz = 0;
     while (remain_sz) {
         const struct ext_ptr_t ptr = abs_pos_to_ext(rwptr);
-        if (ptr.ext.is_null()) {
+        if (ptr.end) {
             break;
         }
 
@@ -106,7 +106,7 @@ uint32_t IOSegment::rw_operation(const bool is_read_op, char* data, const uint32
 
 
 const struct IOSegment::ext_ptr_t IOSegment::abs_pos_to_ext(const uint32_t pos) const {
-    struct ext_ptr_t ptr = {.ext = Extent::NullExtent(), .offset = 0, .remain = 0};
+    struct ext_ptr_t ptr = {.ext = Extent(0, 0, false), .offset = 0, .remain = 0, .end = true};
 
     if (begin_positions.size() == 0 or pos >= sg_no_inline_sz) {
         return ptr;
@@ -126,6 +126,7 @@ const struct IOSegment::ext_ptr_t IOSegment::abs_pos_to_ext(const uint32_t pos) 
     ptr.ext = sg.exts()[ix];
     ptr.offset = pos - begin_positions[ix];
     ptr.remain = ptr.ext.calc_data_space_size(blkarr.blk_sz_order()) - ptr.offset;
+    ptr.end = false;
 
     return ptr;
 }

@@ -49,8 +49,6 @@ public:
     //    which sub-blocks belong to this extent
     Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc);
 
-    static Extent NullExtent() { return Extent(0, 0, false); }
-
     inline uint32_t blk_nr() const { return _blk_nr & 0x03ffffff; }
 
     inline uint16_t blk_cnt() const {
@@ -81,7 +79,7 @@ public:
 
     inline bool is_suballoc() const { return (bool)(_blk_nr & 0x80000000); }
 
-    inline bool is_null() const { return blk_nr() == 0x0; }
+    inline bool is_empty() const { return is_suballoc() ? blk_bitmap() == 0 : blk_cnt() == 0; }
 
     inline void shrink_by(uint16_t cnt) {
         assert(not is_suballoc());

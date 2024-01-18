@@ -333,7 +333,8 @@ namespace {
                 )
         );
 
-        EXPECT_EQ(std::vector<char>(), rdbuf);
+        std::vector<char> zeros(64>>4, 0);
+        EXPECT_EQ(zeros, rdbuf);
 
         repo.close();
 
