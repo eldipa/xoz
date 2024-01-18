@@ -33,8 +33,8 @@ const size_t FP_SZ = 224;
 #define XOZ_EXPECT_SIZES(dsc, blk_sz_order, disk_sz, data_sz, segm_data_sz, obj_data_sz) do {      \
     EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
     EXPECT_EQ((dsc).calc_data_space_size(), (unsigned)(data_sz));                                  \
-    EXPECT_EQ((dsc).calc_obj_segm_data_space_size((blk_sz_order)), (unsigned)(segm_data_sz));      \
-    EXPECT_EQ((dsc).calc_obj_data_size(), (unsigned)(obj_data_sz));       \
+    EXPECT_EQ((dsc).calc_external_data_space_size((blk_sz_order)), (unsigned)(segm_data_sz));      \
+    EXPECT_EQ((dsc).calc_external_data_size(), (unsigned)(obj_data_sz));       \
 } while (0)
 
 // Check that the serialization of the obj in fp match
@@ -73,10 +73,10 @@ namespace {
             .is_obj = false,
             .type = 0xff,
 
-            .obj_id = 0,
+            .id = 0,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -116,10 +116,10 @@ namespace {
             .is_obj = false,
             .type = 0xff,
 
-            .obj_id = 0,
+            .id = 0,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -161,10 +161,10 @@ namespace {
             .is_obj = false,
             .type = 0x1ff,
 
-            .obj_id = 0,
+            .id = 0,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -206,10 +206,10 @@ namespace {
             .is_obj = false,
             .type = 0xff,
 
-            .obj_id = 0,
+            .id = 0,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -256,10 +256,10 @@ namespace {
             .is_obj = false,
             .type = 0xff,
 
-            .obj_id = 0,
+            .id = 0,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -306,10 +306,10 @@ namespace {
             .is_obj = false,
             .type = 0xff,
 
-            .obj_id = 0,
+            .id = 0,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -358,10 +358,10 @@ namespace {
             .is_obj = false,
             .type = 0xff,
 
-            .obj_id = 1,
+            .id = 1,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -409,10 +409,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 1,
+            .id = 1,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -452,10 +452,10 @@ namespace {
             .is_obj = true,
             .type = 0x3ff,
 
-            .obj_id = 1,
+            .id = 1,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -495,10 +495,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 1,
+            .id = 1,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -546,10 +546,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 1,
+            .id = 1,
 
             .dsize = 0,
-            .size = 1,
+            .esize = 1,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -589,10 +589,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 1,
+            .id = 1,
 
             .dsize = 0,
-            .size = (1 << 15) - 1,
+            .esize = (1 << 15) - 1,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -632,10 +632,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 1,
+            .id = 1,
 
             .dsize = 0,
-            .size = (1 << 15),
+            .esize = (1 << 15),
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -675,10 +675,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 1,
+            .id = 1,
 
             .dsize = 0,
-            .size = uint32_t(1 << 31) - 1,
+            .esize = uint32_t(1 << 31) - 1,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -718,10 +718,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 1,
+            .id = 1,
 
             .dsize = 0,
-            .size = 1,
+            .esize = 1,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -763,10 +763,10 @@ namespace {
             .is_obj = false,
             .type = 0xff,
 
-            .obj_id = 0,
+            .id = 0,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -835,10 +835,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 15,
+            .id = 15,
 
             .dsize = 0,
-            .size = 42,
+            .esize = 42,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -864,7 +864,7 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for writing descriptor's data of "
-                        "object descriptor {obj-id: 15, type: 255, dsize: 2, size: 42}"
+                        "object descriptor {obj-id: 15, type: 255, dsize: 2, esize: 42}"
                         )
                     )
                 )
@@ -885,7 +885,7 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for reading descriptor's data of "
-                        "object descriptor {obj-id: 15, type: 255, dsize: 2, size: 42}"
+                        "object descriptor {obj-id: 15, type: 255, dsize: 2, esize: 42}"
                         )
                     )
                 )
@@ -923,10 +923,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 15,
+            .id = 15,
 
             .dsize = 0,
-            .size = 42,
+            .esize = 42,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -991,10 +991,10 @@ namespace {
             .is_obj = true,
             .type = 0xff,
 
-            .obj_id = 0,
+            .id = 0,
 
             .dsize = 0,
-            .size = 0,
+            .esize = 0,
             .segm = Segment::create_empty_zero_inline()
         };
 
@@ -1014,7 +1014,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Object id for object-descriptor is zero in object descriptor "
-                        "{obj-id: 0, type: 255, dsize: 0, size: 0}"
+                        "{obj-id: 0, type: 255, dsize: 0, esize: 0}"
                         )
                     )
                 )
@@ -1022,7 +1022,7 @@ namespace {
 
         XOZ_RESET_FP(fp, FP_SZ);
 
-        hdr.obj_id = 0xffff;
+        hdr.id = 0xffff;
         DefaultDescriptor dsc2 = DefaultDescriptor(hdr);
         dsc2.write_struct_into(IOSpan(fp));
 
@@ -1039,7 +1039,7 @@ namespace {
                     HasSubstr(
                         "Repository seems inconsistent/corrupt. "
                         "Object id of an object-descriptor is zero, detected with partially loaded object descriptor "
-                        "{obj-id: 0, type: 255, dsize: 0, size: 0}"
+                        "{obj-id: 0, type: 255, dsize: 0, esize: 0}"
                         )
                     )
                 )

@@ -7,9 +7,9 @@
 #define MASK_TYPE (uint16_t)0x01ff
 
 #define MASK_HI_DSIZE (uint32_t)0x80000000
-#define MASK_OBJ_ID (uint32_t)0x7fffffff
+#define MASK_ID (uint32_t)0x7fffffff
 
 #define MASK_LARGE_FLAG (uint16_t)0x8000
 
-#define MASK_OBJ_LO_SIZE (uint16_t)0x7fff
-#define MASK_OBJ_HI_SIZE (uint16_t)0xffff
+#define MASK_LO_ESIZE (uint16_t)0x7fff
+#define MASK_HI_ESIZE (uint16_t)0xffff

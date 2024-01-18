@@ -145,13 +145,13 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
 
     uint16_t type = read_bitsfield_from_u16<uint16_t>(firstfield, MASK_TYPE);
 
-    uint32_t obj_id = 0;
+    uint32_t id = 0;
     uint8_t hi_dsize = 0;
     if (is_obj or has_id) {
         uint32_t idfield = io.read_u32_from_le();
 
         hi_dsize = read_bitsfield_from_u32<uint8_t>(idfield, MASK_HI_DSIZE);
-        obj_id = read_bitsfield_from_u32<uint32_t>(idfield, MASK_OBJ_ID);
+        id = read_bitsfield_from_u32<uint32_t>(idfield, MASK_ID);
     }
 
     if (is_obj) {
@@ -160,27 +160,27 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
 
     uint8_t dsize = uint8_t((uint8_t(hi_dsize << 5) | lo_dsize) << 1);
 
-    uint32_t lo_size = 0, hi_size = 0;
+    uint32_t lo_esize = 0, hi_esize = 0;
     if (is_obj) {
         uint16_t sizefield = io.read_u16_from_le();
 
         bool large = read_bitsfield_from_u16<bool>(sizefield, MASK_LARGE_FLAG);
-        lo_size = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_OBJ_LO_SIZE);
+        lo_esize = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_LO_ESIZE);
 
         if (large) {
             uint16_t largefield = io.read_u16_from_le();
-            hi_size = read_bitsfield_from_u16<uint32_t>(largefield, MASK_OBJ_HI_SIZE);
+            hi_esize = read_bitsfield_from_u16<uint32_t>(largefield, MASK_HI_ESIZE);
         }
     }
 
-    uint32_t size = (hi_size << 15) | lo_size;
+    uint32_t esize = (hi_esize << 15) | lo_esize;
 
     Segment segm;
     struct Descriptor::header_t hdr = {
-            .is_obj = is_obj, .type = type, .obj_id = obj_id, .dsize = dsize, .size = size, .segm = segm};
+            .is_obj = is_obj, .type = type, .id = id, .dsize = dsize, .esize = esize, .segm = segm};
 
     if (is_obj) {
-        if (obj_id == 0) {
+        if (id == 0) {
             throw InconsistentXOZ(F() << "Object id of an object-descriptor is zero, detected with partially loaded "
                                       << hdr);
         }
@@ -232,14 +232,14 @@ void Descriptor::write_struct_into(IOBase& io) {
                                                 << hdr);
         }
 
-        if (hdr.obj_id == 0) {
+        if (hdr.id == 0) {
             throw WouldEndUpInconsistentXOZ(F() << "Object id for object-descriptor is zero in " << hdr);
         }
 
         bool type_msb = hdr.type >> 9;                                     // discard 9 lower bits
         write_bitsfield_into_u16(firstfield, type_msb, MASK_HAS_ID_FLAG);  // 1 type's MSB as has_id
 
-        write_bitsfield_into_u32(idfield, hdr.obj_id, MASK_OBJ_ID);
+        write_bitsfield_into_u32(idfield, hdr.id, MASK_ID);
 
     } else {
         // non-object descriptor
@@ -250,11 +250,11 @@ void Descriptor::write_struct_into(IOBase& io) {
                                                 << hdr);
         }
 
-        has_id = hdr.obj_id != 0 or hdr.dsize >= (32 << 1);  // we may or may not have an object id
+        has_id = hdr.id != 0 or hdr.dsize >= (32 << 1);  // we may or may not have an object id
         write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
         if (has_id) {
-            write_bitsfield_into_u32(idfield, hdr.obj_id, MASK_OBJ_ID);
+            write_bitsfield_into_u32(idfield, hdr.id, MASK_ID);
         }
     }
 
@@ -274,23 +274,23 @@ void Descriptor::write_struct_into(IOBase& io) {
     if (hdr.is_obj) {
         uint16_t sizefield = 0;
 
-        if (hdr.size < (1 << 15)) {
+        if (hdr.esize < (1 << 15)) {
             write_bitsfield_into_u16(sizefield, false, MASK_LARGE_FLAG);
-            write_bitsfield_into_u16(sizefield, hdr.size, MASK_OBJ_LO_SIZE);
+            write_bitsfield_into_u16(sizefield, hdr.esize, MASK_LO_ESIZE);
 
             io.write_u16_to_le(sizefield);
         } else {
-            if (hdr.size >= uint32_t(0x80000000)) {
+            if (hdr.esize >= uint32_t(0x80000000)) {
                 throw WouldEndUpInconsistentXOZ(F()
                                                 << "Descriptor object size is larger than the maximum representable ("
                                                 << uint32_t(0x80000000) << ") in " << hdr);
             }
 
             write_bitsfield_into_u16(sizefield, true, MASK_LARGE_FLAG);
-            write_bitsfield_into_u16(sizefield, hdr.size, MASK_OBJ_LO_SIZE);
+            write_bitsfield_into_u16(sizefield, hdr.esize, MASK_LO_ESIZE);
 
             uint16_t largefield = 0;
-            write_bitsfield_into_u16(largefield, hdr.size >> 15, MASK_OBJ_HI_SIZE);
+            write_bitsfield_into_u16(largefield, hdr.esize >> 15, MASK_HI_ESIZE);
 
             io.write_u16_to_le(sizefield);
             io.write_u16_to_le(largefield);
@@ -323,7 +323,7 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
     struct_sz += 2;
 
     // Write the idfield if present
-    bool has_id = hdr.is_obj or (hdr.obj_id != 0) or hdr.dsize >= (32 << 1);  // NOLINT
+    bool has_id = hdr.is_obj or (hdr.id != 0) or hdr.dsize >= (32 << 1);  // NOLINT
     chk_dsize_fit_or_fail(has_id, hdr);
     if (has_id) {
         struct_sz += 4;
@@ -331,11 +331,11 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
 
 
     if (hdr.is_obj) {
-        if (hdr.size < (1 << 15)) {
+        if (hdr.esize < (1 << 15)) {
             // sizefield
             struct_sz += 2;
         } else {
-            if (hdr.size >= uint32_t(0x80000000)) {
+            if (hdr.esize >= uint32_t(0x80000000)) {
                 throw WouldEndUpInconsistentXOZ(F()
                                                 << "Descriptor object size is larger than the maximum representable ("
                                                 << uint32_t(0x80000000) << ") in " << hdr);
@@ -365,10 +365,10 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
     std::ios_base::fmtflags ioflags = out->flags();
 
     (*out) << (hdr.is_obj ? "object " : "non-object ") << "descriptor {"
-           << "obj-id: " << hdr.obj_id << ", type: " << hdr.type << ", dsize: " << (unsigned)hdr.dsize;
+           << "obj-id: " << hdr.id << ", type: " << hdr.type << ", dsize: " << (unsigned)hdr.dsize;
 
     if (hdr.is_obj) {
-        (*out) << ", size: " << hdr.size << "}"
+        (*out) << ", esize: " << hdr.esize << "}"
                << " " << hdr.segm;
     } else {
         (*out) << "}";
