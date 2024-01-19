@@ -184,7 +184,13 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
         hdr.segm = Segment::load_struct_from(io);
     }
 
-    // TODO check hdr.segm.calc_data_space_size(???) >= hdr.esize
+    /* TODO
+    const auto segm_sz = hdr.segm.calc_data_space_size(???);
+    if (segm_sz < hdr.esize) {
+        throw InconsistentXOZ(F() << "Descriptor claims at least " << hdr.esize << " bytes of external data but it has
+    allocated only " << segm_sz << ": " << hdr);
+    }
+    */
 
     // alternative-type (for types that require full 16 bits)
     if (type == ALTERNATIVE_TYPE_VAL) {
@@ -226,6 +232,28 @@ void Descriptor::write_struct_into(IOBase& io) {
     if (hdr.id == 0) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor id is zero in " << hdr);
     }
+
+    // TODO test
+    if (not hdr.segm.is_empty_space() and not hdr.own_edata) {
+        throw WouldEndUpInconsistentXOZ(
+                F() << "Descriptor does not claim to be owner of external data but it has allocated a segment "
+                    << hdr.segm << "; " << hdr);
+    }
+
+    // TODO test
+    if (hdr.esize and not hdr.own_edata) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.esize
+                                            << " bytes of external data but it is not an owner; " << hdr);
+    }
+
+    /* TODO
+    const auto segm_sz = hdr.segm.calc_data_space_size(????);
+    if (segm_sz < hdr.esize) {
+        assert(hdr.own_edata);
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.esize << " bytes of external data
+    but it has allocated only " << segm_sz << ": " << hdr);
+    }
+    */
 
     // If the id is persistent we must store it. It may not be persistent but we may require
     // store hi_dsize so in that case we still need the idfield (but with an id of 0)
@@ -373,7 +401,7 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
            << "id: " << hdr.id << ", type: " << hdr.type << ", dsize: " << (unsigned)hdr.dsize;
 
     if (hdr.own_edata) {
-        (*out) << ", esize: " << hdr.esize << ", owns: " << hdr.segm.calc_data_space_size(7 /*TODO*/) << "}"
+        (*out) << ", esize: " << hdr.esize << ", owns: " << hdr.segm.calc_data_space_size(9 /*TODO*/) << "}"
                << " " << hdr.segm;
     } else {
         (*out) << "}";
