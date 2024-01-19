@@ -8,7 +8,7 @@
  ```cpp
 struct descriptor_t {
     uint16_t {
-        uint owns_segm : 1;    // mask: 0x8000
+        uint own_edata : 1;    // mask: 0x8000
         uint lo_dsize  : 5;    // mask: 0x7c00
         uint has_id    : 1;    // mask: 0x0200
         uint type      : 9;    // mask: 0x01ff
@@ -20,17 +20,20 @@ struct descriptor_t {
         uint id       : 31;     // mask: 0x7fffffff
     };
 
-    /* present if owns_segm == 1 */
+    /* present if own_edata == 1 */
     uint16_t {
         uint large    : 1;      // mask: 0x8000
         uint lo_esize : 15;     // mask: 0x7fff
     };
 
-    /* present if owns_segm == 1 && large == 1 */
+    /* present if own_edata == 1 && large == 1 */
     uint16_t hi_esize;
 
-    /* present if owns_segm == 1 */
+    /* present if own_edata == 1 */
     struct segment_t segm;
+
+    /* present if type == 0x1ff */
+    uint16_t alt_type;
 
     /* to be interpreted based on descriptor/object type;
          dsize = lo_dsize if hi_dsize is not present
@@ -45,17 +48,21 @@ The maximum size of a descriptor without counting its header
 is therefore 64 bytes (32 * 2) or 128 bytes (64 * 2).
 How `data` is interpreted depends on the descriptor `type`.
 
-`type` is the descriptor type; there can be up to 512 different types.
-This RFC defines only a few:
+`type` is the descriptor type; there can be up to 511 different types.
+This RFC defines `0x00`: padding or end-of-stream descriptor
 
- - `0x00`: padding or end-of-stream descriptor
- - `0x1ff`: reserved for adding more types if the 512 are not enough.
+If `type` is 0x1ff, the field `alt_type` is present and it becomes the
+type of the descriptor. Therefore there are two possible ways to encode
+the first 511 types either with `type` or with `type = 0x1ff` and
+`alt_type`.
 
-## Descriptors that own a segment
+## Descriptors that own external data
 
 The `struct descriptor_t` can refer either to a descriptor
-that *owns* blocks of data referenced by `segm` (`owns_segm` is 1)
-or to a descriptor that does not owns any segment (`owns_segm` is 0).
+that *owns* blocks of data referenced by `segm` (`own_edata` is 1)
+or to a descriptor that does not owns any segment (`own_edata` is 0).
+The term *external* data is to distinguis it from the `data` field
+embebbed in `struct descriptor_t`.
 
 When a descriptor owns a segment it implies that if the descriptor
 is deleted from the stream, the segment is freed and, if the descriptor
@@ -128,9 +135,9 @@ to override it (this of course comes at expenses of wasted space).
 
 The `dtype` of 0 has a special meaning:
 
- - if `owns_segm`, `has_id` and `lo_dsize` are 0, the descriptor
+ - if `own_edata`, `has_id` and `lo_dsize` are 0, the descriptor
    works as 2 bytes padding (zeros).
- - if `owns_segm` and `has_id` are 0 *but* `lo_dsize` is not, the
+ - if `own_edata` and `has_id` are 0 *but* `lo_dsize` is not, the
    descriptor works as *the end of the stream* marker.
  - under other settings, the meaning of the descriptor is reserved but
    the semantics of `lo_dsize` and `has_id` holds therefore it is
