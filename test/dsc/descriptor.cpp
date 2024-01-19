@@ -192,6 +192,154 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeWithAlt) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0x1ff,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        dsc.set_data({1, 2, 3, 4}); // dsize = 4
+
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+2+4, /* struct size */
+                4,   /* descriptor data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump
+        dsc.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff09 ff01 0102 0304"
+                );
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+    }
+
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithAlt) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xffff,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        dsc.set_data({1, 2, 3, 4}); // dsize = 4
+
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+2+4, /* struct size */
+                4,   /* descriptor data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump
+        dsc.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff09 ffff 0102 0304"
+                );
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+    }
+
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeButWithAlt) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xffff, // fake a type that requires alt_type
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        dsc.set_data({1, 2, 3, 4}); // dsize = 4
+
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+2+4, /* struct size */
+                4,   /* descriptor data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write
+        dsc.write_struct_into(IOSpan(fp));
+
+        // Now patch the string to make the alt_id smaller than the ALTERNATIVE_TYPE_VAL
+        fp[3] = 0; fp[2] = 0xa; // the new type should be 10 or 0x0a
+
+        // Check that we did the patch correctly
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff09 0a00 0102 0304"
+                );
+
+        // Load it and serializate it back again. We expect that the serialization
+        // is shorter because alt_type is not needed.
+        std::vector<char> buf2;
+        XOZ_RESET_FP(buf2, FP_SZ);
+        idmgr.reset(0x80000001);
+
+        auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), idmgr);
+        dsc2_ptr->write_struct_into(IOSpan(buf2));
+        XOZ_EXPECT_SERIALIZATION(buf2, *dsc2_ptr,
+                "0a08 0102 0304"
+                );
+    }
+
     TEST(DescriptorTest, NoOwnsTempIdMaxLoData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
@@ -524,6 +672,92 @@ namespace {
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "fe83 0100 0000 0000 00c0"
+                );
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+    }
+
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinTypeWithAlt) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = true,
+            .type = 0x1ff,
+
+            .id = 1,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+4+2+2+2, /* struct size */
+                0,   /* descriptor data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump
+        dsc.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff83 0100 0000 0000 00c0 ff01"
+                );
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+    }
+
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithAlt) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = true,
+            .type = 0xffff,
+
+            .id = 1,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+4+2+2+2, /* struct size */
+                0,   /* descriptor data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump
+        dsc.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff83 0100 0000 0000 00c0 ffff"
                 );
 
         // Load, write it back and check both byte-strings

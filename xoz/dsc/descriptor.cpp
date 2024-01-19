@@ -195,6 +195,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     // alternative-type (for types that require full 16 bits)
     if (type == ALTERNATIVE_TYPE_VAL) {
         type = io.read_u16_from_le();
+        hdr.type = type;
     }
 
     if (dsize > io.remain_rd()) {
@@ -221,12 +222,6 @@ void Descriptor::write_struct_into(IOBase& io) {
     throw_if_descriptor_mapping_not_initialized();
     if (hdr.dsize % 2 != 0) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is not multiple of 2 in " << hdr);
-    }
-
-    // check that we can represent the decriptor type with 9 bits
-    if (hdr.type >= 512) {
-        throw WouldEndUpInconsistentXOZ(F()
-                                        << "Descriptor type is larger than the maximum representable (512) in " << hdr);
     }
 
     if (hdr.id == 0) {
@@ -265,10 +260,10 @@ void Descriptor::write_struct_into(IOBase& io) {
     write_bitsfield_into_u16(firstfield, (hdr.dsize >> 1), MASK_LO_DSIZE);
     write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
-    if (hdr.type < 0x1ff) {
+    if (hdr.type < ALTERNATIVE_TYPE_VAL) {
         write_bitsfield_into_u16(firstfield, hdr.type, MASK_TYPE);
     } else {
-        write_bitsfield_into_u16(firstfield, 0x1ff, MASK_TYPE);
+        write_bitsfield_into_u16(firstfield, ALTERNATIVE_TYPE_VAL, MASK_TYPE);
     }
 
     // Write the first field
@@ -378,8 +373,14 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
             struct_sz += 2;
             struct_sz += 2;
         }
+    }
 
+    if (hdr.type >= ALTERNATIVE_TYPE_VAL) {
+        // alt_type field
+        struct_sz += 2;
+    }
 
+    if (hdr.own_edata) {
         // segment
         struct_sz += hdr.segm.calc_struct_footprint_size();
     }
