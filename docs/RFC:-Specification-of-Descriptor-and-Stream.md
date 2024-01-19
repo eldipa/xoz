@@ -56,6 +56,8 @@ If `type` is 0x1ff, the field `ex_type` is present and it becomes the
 the first 511 types either with `type` or with `type = 0x1ff` and
 `ex_type`.
 
+The `type` 0xffff is reserved.
+
 ## Descriptors that own external data
 
 The `struct descriptor_t` can refer either to a descriptor
