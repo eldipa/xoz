@@ -33,7 +33,7 @@ struct descriptor_t {
     struct segment_t segm;
 
     /* present if type == 0x1ff */
-    uint16_t alt_type;
+    uint16_t ex_type;
 
     /* to be interpreted based on descriptor/object type;
          dsize = lo_dsize if hi_dsize is not present
@@ -51,10 +51,10 @@ How `data` is interpreted depends on the descriptor `type`.
 `type` is the descriptor type; there can be up to 511 different types.
 This RFC defines `0x00`: padding or end-of-stream descriptor
 
-If `type` is 0x1ff, the field `alt_type` is present and it becomes the
-type of the descriptor. Therefore there are two possible ways to encode
+If `type` is 0x1ff, the field `ex_type` is present and it becomes the
+(extended) type of the descriptor. Therefore there are two possible ways to encode
 the first 511 types either with `type` or with `type = 0x1ff` and
-`alt_type`.
+`ex_type`.
 
 ## Descriptors that own external data
 

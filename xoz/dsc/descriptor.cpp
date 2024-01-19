@@ -192,8 +192,8 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     }
     */
 
-    // alternative-type (for types that require full 16 bits)
-    if (type == ALTERNATIVE_TYPE_VAL) {
+    // extended-type (for types that require full 16 bits)
+    if (type == EXTENDED_TYPE_VAL_THRESHOLD) {
         type = io.read_u16_from_le();
         hdr.type = type;
     }
@@ -260,10 +260,10 @@ void Descriptor::write_struct_into(IOBase& io) {
     write_bitsfield_into_u16(firstfield, (hdr.dsize >> 1), MASK_LO_DSIZE);
     write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
-    if (hdr.type < ALTERNATIVE_TYPE_VAL) {
+    if (hdr.type < EXTENDED_TYPE_VAL_THRESHOLD) {
         write_bitsfield_into_u16(firstfield, hdr.type, MASK_TYPE);
     } else {
-        write_bitsfield_into_u16(firstfield, ALTERNATIVE_TYPE_VAL, MASK_TYPE);
+        write_bitsfield_into_u16(firstfield, EXTENDED_TYPE_VAL_THRESHOLD, MASK_TYPE);
     }
 
     // Write the first field
@@ -321,10 +321,10 @@ void Descriptor::write_struct_into(IOBase& io) {
         hdr.segm.write_struct_into(io);
     }
 
-    // alternative type
-    // note: a type of exactly ALTERNATIVE_TYPE_VAL is valid and it requires
-    // to store it in the alt_type field, hence the '>='
-    if (hdr.type >= ALTERNATIVE_TYPE_VAL) {
+    // extended-type
+    // note: a type of exactly EXTENDED_TYPE_VAL_THRESHOLD is valid and it requires
+    // to store it in the ex_type field, hence the '>='
+    if (hdr.type >= EXTENDED_TYPE_VAL_THRESHOLD) {
         io.write_u16_to_le(hdr.type);
     }
 
@@ -375,8 +375,8 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
         }
     }
 
-    if (hdr.type >= ALTERNATIVE_TYPE_VAL) {
-        // alt_type field
+    if (hdr.type >= EXTENDED_TYPE_VAL_THRESHOLD) {
+        // ex_type field
         struct_sz += 2;
     }
 

@@ -14,4 +14,4 @@
 #define MASK_LO_ESIZE (uint16_t)0x7fff
 #define MASK_HI_ESIZE (uint16_t)0xffff
 
-#define ALTERNATIVE_TYPE_VAL (uint16_t)0x1ff
+#define EXTENDED_TYPE_VAL_THRESHOLD (uint16_t)0x1ff

@@ -147,7 +147,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithoutAlt) {
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithoutExtendedType) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -192,7 +192,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeWithAlt) {
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeWithExtendedType) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -237,7 +237,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithAlt) {
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithExtendedType) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -282,7 +282,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeButWithAlt) {
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeButWithExtendedType) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -295,7 +295,7 @@ namespace {
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
-            .type = 0xffff, // fake a type that requires alt_type
+            .type = 0xffff, // fake a type that requires ex_type
 
             .id = 0x80000001,
 
@@ -319,7 +319,7 @@ namespace {
         // Write
         dsc.write_struct_into(IOSpan(fp));
 
-        // Now patch the string to make the alt_id smaller than the ALTERNATIVE_TYPE_VAL
+        // Now patch the string to make the ex_type smaller than the EXTENDED_TYPE_VAL_THRESHOLD
         fp[3] = 0; fp[2] = 0xa; // the new type should be 10 or 0x0a
 
         // Check that we did the patch correctly
@@ -328,7 +328,7 @@ namespace {
                 );
 
         // Load it and serializate it back again. We expect that the serialization
-        // is shorter because alt_type is not needed.
+        // is shorter because ex_type is not needed.
         std::vector<char> buf2;
         XOZ_RESET_FP(buf2, FP_SZ);
         idmgr.reset(0x80000001);
@@ -636,7 +636,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithoutAlt) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithoutExtendedType) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -679,7 +679,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinTypeWithAlt) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinTypeWithExtendedType) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -722,7 +722,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithAlt) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithExtendedType) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
