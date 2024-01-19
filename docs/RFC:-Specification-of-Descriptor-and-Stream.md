@@ -79,15 +79,22 @@ when an inline-data extent is found so the segment must be *inline-data ended*.
 
 ## Descriptor id
 
-Every descriptor has an unique id: it may be given by the field `id` if
-`has_id` is 1 or it may be generated in runtime by the `xoz` library if
-`has_id` is 0 or if `id` is 0.
+Every descriptor has an unique id: it may be given by the field `id`
+or it may be generated in runtime by the `xoz` library.
 
 An id generated in runtime is called *temporal id* and it is generated
-and assigned to the descriptor in an unspecified order so such
-descriptors cannot be referenced by others (because its id may change).
-An id explicitly given when `has_id` is 1 and `id` is not 0 is called
-*persistent id*.
+and assigned to the descriptor on loading. Such
+descriptors cannot be referenced by others (because its id may change
+between sessions of the application).
+
+Because of this a *temporal id* does not have to be stored in the `xoz`
+file so `has_id` should be false. An exception is when the descriptor
+size is large enough that the `hi_dsize` bit must be set that implies
+that `has_id` must also be set. In this case the `id` must be 0 to
+signal that there is no id really stored in the file.
+
+An id explicitly stored `id` given  when `has_id` is 1 and `id` is not 0
+is called *persistent id*.
 
 In runtime, the `xoz` library will distinguish both with the MSB of the
 32 bits number that the id has: if the MSB is 1, it is a *temporal id*,
