@@ -4,6 +4,7 @@
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/default.h"
 #include "xoz/exceptions.h"
+#include "xoz/repo/id_manager.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -47,33 +48,33 @@ const size_t FP_SZ = 224;
 
 // Load from fp the obj and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
-#define XOZ_EXPECT_DESERIALIZATION(fp, dsc) do {                         \
+#define XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr) do {                         \
     std::vector<char> buf2;                                              \
     XOZ_RESET_FP(buf2, FP_SZ);                                           \
                                                                          \
-    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp));            \
+    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (idmgr));   \
     dsc2_ptr->write_struct_into(IOSpan(buf2));                           \
     EXPECT_EQ((fp), buf2);                                               \
 } while (0)
 
 
 namespace {
-    TEST(DescriptorTest, NoObjNoIdZeroData) {
+    TEST(DescriptorTest, NoOwnsTempIdZeroData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = false,
+            .own_edata = false,
             .type = 0xff,
 
-            .id = 0,
+            .id = 0x80000001,
 
             .dsize = 0,
             .esize = 0,
@@ -98,25 +99,25 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoObjNoIdSomeData) {
+    TEST(DescriptorTest, NoOwnsTempIdSomeData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = false,
+            .own_edata = false,
             .type = 0xff,
 
-            .id = 0,
+            .id = 0x80000001,
 
             .dsize = 0,
             .esize = 0,
@@ -143,25 +144,25 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoObjNoIdSomeDataMaxType) {
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithoutAlt) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = false,
-            .type = 0x1ff,
+            .own_edata = false,
+            .type = 0x1fe,
 
-            .id = 0,
+            .id = 0x80000001,
 
             .dsize = 0,
             .esize = 0,
@@ -183,30 +184,30 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff09 0102 0304"
+                "fe09 0102 0304"
                 );
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoObjNoIdMaxLoData) {
+    TEST(DescriptorTest, NoOwnsTempIdMaxLoData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = false,
+            .own_edata = false,
             .type = 0xff,
 
-            .id = 0,
+            .id = 0x80000001,
 
             .dsize = 0,
             .esize = 0,
@@ -238,25 +239,25 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoObjNoIdOneMoreLoData) {
+    TEST(DescriptorTest, NoOwnsTempIdOneMoreLoData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = false,
+            .own_edata = false,
             .type = 0xff,
 
-            .id = 0,
+            .id = 0x80000001,
 
             .dsize = 0,
             .esize = 0,
@@ -288,25 +289,25 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoObjNoIdMaxHiData) {
+    TEST(DescriptorTest, NoOwnsTempIdMaxHiData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = false,
+            .own_edata = false,
             .type = 0xff,
 
-            .id = 0,
+            .id = 0x80000001,
 
             .dsize = 0,
             .esize = 0,
@@ -340,22 +341,22 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NoObjWithIdMaxLoData) {
+    TEST(DescriptorTest, NoOwnsPersistentIdMaxLoData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = false,
+            .own_edata = false,
             .type = 0xff,
 
             .id = 1,
@@ -390,23 +391,73 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
 
-    TEST(DescriptorTest, ObjZeroDataEmptySegm) {
+    TEST(DescriptorTest, NoOwnsPersistentMaximumIdMaxLoData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = false,
+            .type = 0xff,
+
+            .id = 0x7fffffff,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        std::vector<char> data(64-2);
+        std::iota (std::begin(data), std::end(data), 0); // fill with numbers
+
+        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        dsc.set_data(data); // dsize = 64-2
+
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc, blk_sz_order,
+                2+4+64-2, /* struct size */
+                64-2,   /* descriptor data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump
+        dsc.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff7e ffff ff7f 0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 "
+                "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 "
+                "3233 3435 3637 3839 3a3b 3c3d"
+                );
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+    }
+
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegm) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = true,
             .type = 0xff,
 
             .id = 1,
@@ -429,28 +480,28 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff80 0100 0000 0000 00c0"
+                "ff82 0100 0000 0000 00c0"
                 );
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, ObjZeroDataEmptySegmMaxType) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithoutAlt) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
-            .type = 0x3ff,
+            .own_edata = true,
+            .type = 0x1fe,
 
             .id = 1,
 
@@ -472,27 +523,27 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff83 0100 0000 0000 00c0"
+                "fe83 0100 0000 0000 00c0"
                 );
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, ObjOneMoreLoDataEmptySegm) {
+    TEST(DescriptorTest, OwnsPersistentIdOneMoreLoDataEmptySegm) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = true,
             .type = 0xff,
 
             .id = 1,
@@ -520,7 +571,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff80 0100 0080 0000 00c0 "
+                "ff82 0100 0080 0000 00c0 "
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 "
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f "
                 "3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
@@ -528,22 +579,22 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, ObjZeroDataEmptySegmSomeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmSomeObjData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = true,
             .type = 0xff,
 
             .id = 1,
@@ -566,27 +617,27 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff80 0100 0000 0100 00c0"
+                "ff82 0100 0000 0100 00c0"
                 );
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, ObjZeroDataEmptySegmMaxNonLargeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxNonLargeObjData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = true,
             .type = 0xff,
 
             .id = 1,
@@ -609,27 +660,27 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff80 0100 0000 ff7f 00c0"
+                "ff82 0100 0000 ff7f 00c0"
                 );
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, ObjZeroDataEmptySegmOneMoreNonLargeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmOneMoreNonLargeObjData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = true,
             .type = 0xff,
 
             .id = 1,
@@ -652,27 +703,27 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff80 0100 0000 0080 0100 00c0"
+                "ff82 0100 0000 0080 0100 00c0"
                 );
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, ObjZeroDataEmptySegmMaxLargeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxLargeObjData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = true,
             .type = 0xff,
 
             .id = 1,
@@ -695,27 +746,27 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff80 0100 0000 ffff ffff 00c0"
+                "ff82 0100 0000 ffff ffff 00c0"
                 );
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, ObjZeroDataSegmInlineSomeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataSegmInlineSomeObjData) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = true,
             .type = 0xff,
 
             .id = 1,
@@ -740,30 +791,30 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff80 0100 0000 0100 03c3 0102"
+                "ff82 0100 0000 0100 03c3 0102"
                 );
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
     }
 
-    TEST(DescriptorTest, NotEnoughRoomForRWNonObjectDescriptor) {
+    TEST(DescriptorTest, NotEnoughRoomForRWNonOwnerTemporalId) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = false,
+            .own_edata = false,
             .type = 0xff,
 
-            .id = 0,
+            .id = 0x80000001,
 
             .dsize = 0,
             .esize = 0,
@@ -792,13 +843,14 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for writing descriptor's data of "
-                        "non-object descriptor {obj-id: 0, type: 255, dsize: 2}"
+                        "descriptor {id: 2147483649, type: 255, dsize: 2}"
                         )
                     )
                 )
         );
 
         XOZ_RESET_FP(fp, FP_SZ);
+        idmgr.reset(0x80000001); // ensure that the descriptor loaded will have the same id than 'dsc'
 
         // Write a valid descriptor of data size 2
         dsc.write_struct_into(IOSpan(fp));
@@ -807,32 +859,32 @@ namespace {
         fp.resize(2+2 - 1); // shorter by 1 byte
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for reading descriptor's data of "
-                        "non-object descriptor {obj-id: 0, type: 255, dsize: 2}"
+                        "descriptor {id: 2147483649, type: 255, dsize: 2}"
                         )
                     )
                 )
         );
     }
 
-    TEST(DescriptorTest, NotEnoughRoomForRWObjectDescriptor) {
+    TEST(DescriptorTest, NotEnoughRoomForRWOwnsWithPersistentId) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = true,
             .type = 0xff,
 
             .id = 15,
@@ -864,7 +916,7 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for writing descriptor's data of "
-                        "object descriptor {obj-id: 15, type: 255, dsize: 2, esize: 42}"
+                        "descriptor {id: 15, type: 255, dsize: 2, esize: 42, owns: 0}"
                         )
                     )
                 )
@@ -879,13 +931,13 @@ namespace {
         fp.resize(2+4+2+2+2 - 1); // shorter by 1 byte
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for reading descriptor's data of "
-                        "object descriptor {obj-id: 15, type: 255, dsize: 2, esize: 42}"
+                        "descriptor {id: 15, type: 255, dsize: 2, esize: 42, owns: 0}"
                         )
                     )
                 )
@@ -912,15 +964,15 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors = {
+        std::map<uint16_t, descriptor_create_fn> descriptors_map {
             {0xff, DescriptorSubRW::create }
         };
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = true,
             .type = 0xff,
 
             .id = 15,
@@ -963,7 +1015,7 @@ namespace {
         dsc2.write_struct_into(IOSpan(fp));
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -976,19 +1028,19 @@ namespace {
         );
     }
 
-    TEST(DescriptorTest, ObjWithZeroId) {
+    TEST(DescriptorTest, DescriptorWithExplicitZeroId) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
         deinitialize_descriptor_mapping();
+        IDManager idmgr;
 
-        std::map<uint16_t, descriptor_create_fn> non_obj_descriptors;
-        std::map<uint16_t, descriptor_create_fn> obj_descriptors;
-        initialize_descriptor_mapping(non_obj_descriptors, obj_descriptors);
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
-            .is_obj = true,
+            .own_edata = true,
             .type = 0xff,
 
             .id = 0,
@@ -1008,13 +1060,16 @@ namespace {
                 0  /* obj data size */
                 );
 
+        // Writing a descriptor with id = 0 is incorrect. No descriptor should
+        // have id of 0 unless it has a temporal id *and* it requires the hi_dsize field
+        // (not this case so an exception is expected)
         EXPECT_THAT(
             ensure_called_once([&]() { dsc.write_struct_into(IOSpan(fp)); }),
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr(
-                        "Object id for object-descriptor is zero in object descriptor "
-                        "{obj-id: 0, type: 255, dsize: 0, esize: 0}"
+                        "Descriptor id is zero in descriptor "
+                        "{id: 0, type: 255, dsize: 0, esize: 0, owns: 0}"
                         )
                     )
                 )
@@ -1022,27 +1077,57 @@ namespace {
 
         XOZ_RESET_FP(fp, FP_SZ);
 
+        // this will make the write_struct_into to set the has_id to true...
         hdr.id = 0xffff;
         DefaultDescriptor dsc2 = DefaultDescriptor(hdr);
         dsc2.write_struct_into(IOSpan(fp));
 
-        // nullify the object id
+        // ...and now we nullify the id field so it would look like a descriptor
+        // that has_id but it has a id = 0
         fp[2] = fp[3] = 0;
         XOZ_EXPECT_SERIALIZATION(fp, dsc2,
-                "ff80 0000 0000 0000 00c0"
+                "ff82 0000 0000 0000 00c0"
                 );
 
+        // Because the dsize of the descriptor is small, there is no reason to have
+        // an id = 0.
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
                         "Repository seems inconsistent/corrupt. "
-                        "Object id of an object-descriptor is zero, detected with partially loaded object descriptor "
-                        "{obj-id: 0, type: 255, dsize: 0, esize: 0}"
+                        "Descriptor id is zero, detected with partially loaded descriptor "
+                        "{id: 0, type: 255, dsize: 0, esize: 0, owns: 0}"
                         )
                     )
                 )
         );
+
+        XOZ_RESET_FP(fp, FP_SZ);
+        idmgr.reset(0x80000001); // ensure that the descriptor loaded will have the same id than 'dsc3'
+
+        // We repeat again has_id = true but we also make the descriptor very large so
+        // we force to and id of 0 (because the temporal id is not stored)
+        hdr.id = 0x80000001;
+        DefaultDescriptor dsc3 = DefaultDescriptor(hdr);
+
+        std::vector<char> data(64);
+        std::iota (std::begin(data), std::end(data), 0); // fill with numbers
+        dsc3.set_data(data);
+
+        dsc3.write_struct_into(IOSpan(fp));
+
+        // the id should be 0, see also how the hi_dsize bit is set (0080)
+        XOZ_EXPECT_SERIALIZATION(fp, dsc3,
+                "ff82 0000 0080 0000 00c0 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+
+        // Load should be ok even if the id is 0 in the string. A temporal id should be then
+        // set to the loaded descriptor.
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc3, idmgr);
     }
 }

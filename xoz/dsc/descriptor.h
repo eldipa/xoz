@@ -6,11 +6,13 @@
 #include "xoz/io/iobase.h"
 #include "xoz/segm/segment.h"
 
+class IDManager;
+
 class Descriptor {
 
 public:
     struct header_t {
-        bool is_obj;
+        bool own_edata;
         uint16_t type;
 
         uint32_t id;
@@ -18,15 +20,17 @@ public:
         uint8_t dsize;   // in bytes
         uint32_t esize;  // in bytes
 
-        Segment segm;  // data segment, only for obj descriptors
+        Segment segm;  // data segment, only for own_edata descriptors
     };
 
     explicit Descriptor(const struct header_t& hdr): hdr(hdr) {}
 
-    static std::unique_ptr<Descriptor> load_struct_from(IOBase& io);
+    static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, IDManager& idmgr);
     void write_struct_into(IOBase& io);
 
-    static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io) { return load_struct_from(io); }
+    static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io, IDManager& idmgr) {
+        return load_struct_from(io, idmgr);
+    }
     void write_struct_into(IOBase&& io) { return write_struct_into(io); }
 
     // Return the size in bytes to represent the Descriptor structure in disk
@@ -46,15 +50,15 @@ public:
     //
     // The size may be larger than calc_external_data_size() (the esize field in the descriptor
     // header) if the descriptor has more space allocated than the declared in esize.
-    // In this sense, calc_obj_segm_data_space_size() is the
-    // total usable space while hdr.esize is the used space.
+    // In this sense, calc_external_data_space_size() is the
+    // total usable space while hdr.esize (or calc_external_data_size) is the used space.
     //
     // For non-owner descriptors returns always 0
     uint32_t calc_external_data_space_size(uint8_t blk_sz_order) const {
-        return hdr.is_obj ? hdr.segm.calc_data_space_size(blk_sz_order) : 0;
+        return hdr.own_edata ? hdr.segm.calc_data_space_size(blk_sz_order) : 0;
     }
 
-    uint32_t calc_external_data_size() const { return hdr.is_obj ? hdr.esize : 0; }
+    uint32_t calc_external_data_size() const { return hdr.own_edata ? hdr.esize : 0; }
 
     virtual ~Descriptor() {}
 
@@ -80,6 +84,10 @@ protected:
 private:
     void read_struct_specifics_from(IOBase&& io) { read_struct_specifics_from(io); }
     void write_struct_specifics_into(IOBase&& io) { write_struct_specifics_into(io); }
+
+    constexpr inline bool is_id_temporal(const uint32_t id) const { return bool(id & 0x80000000); }
+
+    constexpr inline bool is_id_persistent(const uint32_t id) const { return not is_id_temporal(id); }
 };
 
 // Signature that a function must honor to be used as a descriptor-create function
@@ -90,7 +98,6 @@ private:
 // of the subclass descriptor
 typedef std::unique_ptr<Descriptor> (*descriptor_create_fn)(const struct Descriptor::header_t& hdr);
 
-void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& non_obj_descriptors,
-                                   const std::map<uint16_t, descriptor_create_fn>& obj_descriptors);
+void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& descriptors);
 
 void deinitialize_descriptor_mapping();

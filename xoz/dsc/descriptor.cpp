@@ -9,34 +9,24 @@
 #include "xoz/exceptions.h"
 #include "xoz/io/iorestricted.h"
 #include "xoz/mem/bits.h"
+#include "xoz/repo/id_manager.h"
 
 namespace {
-std::map<uint16_t, descriptor_create_fn> _priv_non_obj_descriptors;
-std::map<uint16_t, descriptor_create_fn> _priv_obj_descriptors;
+std::map<uint16_t, descriptor_create_fn> _priv_descriptors_map;
 
 bool _priv_descriptor_mapping_initialized = false;
 
-// Given if the descriptor is or not an object descriptor and give its type
-// return a function to create such descriptors.
+// Given its type returns a function to create such descriptor.
 // If not suitable function is found, return a function to create
 // a default descriptor that has the minimum logic to work
 // (this enables XOZ to be forward compatible)
-descriptor_create_fn descriptor_create_lookup(bool is_obj, uint16_t type) {
-    if (is_obj) {
-        auto it = _priv_obj_descriptors.find(type);
-        if (it == _priv_obj_descriptors.end()) {
-            return DefaultDescriptor::create;
-        }
-
-        return it->second;
-    } else {
-        auto it = _priv_non_obj_descriptors.find(type);
-        if (it == _priv_non_obj_descriptors.end()) {
-            return DefaultDescriptor::create;
-        }
-
-        return it->second;
+descriptor_create_fn descriptor_create_lookup(uint16_t type) {
+    auto it = _priv_descriptors_map.find(type);
+    if (it == _priv_descriptors_map.end()) {
+        return DefaultDescriptor::create;
     }
+
+    return it->second;
 
     assert(false);
 }
@@ -48,29 +38,19 @@ void throw_if_descriptor_mapping_not_initialized() {
 }
 }  // namespace
 
-void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& non_obj_descriptors,
-                                   const std::map<uint16_t, descriptor_create_fn>& obj_descriptors) {
+void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& descriptors_map) {
 
     if (_priv_descriptor_mapping_initialized) {
         throw std::runtime_error("Descriptor mapping is already initialized.");
     }
 
-    for (auto [type, fn]: non_obj_descriptors) {
+    for (auto [type, fn]: descriptors_map) {
         if (!fn) {
-            throw std::runtime_error(
-                    (F() << "Descriptor mapping for non-object descriptor type " << type << " is null.").str());
+            throw std::runtime_error((F() << "Descriptor mapping for type " << type << " is null.").str());
         }
     }
 
-    for (auto [type, fn]: obj_descriptors) {
-        if (!fn) {
-            throw std::runtime_error(
-                    (F() << "Descriptor mapping for object descriptor type " << type << " is null.").str());
-        }
-    }
-
-    _priv_non_obj_descriptors = non_obj_descriptors;
-    _priv_obj_descriptors = obj_descriptors;
+    _priv_descriptors_map = descriptors_map;
 
     _priv_descriptor_mapping_initialized = true;
 }
@@ -79,9 +59,7 @@ void deinitialize_descriptor_mapping() {
 
     // Note: we don't check if the mapping was initialized or not,
     // we just do the clearing and leave the mapping in a known state
-
-    _priv_non_obj_descriptors.clear();
-    _priv_obj_descriptors.clear();
+    _priv_descriptors_map.clear();
 
     _priv_descriptor_mapping_initialized = false;
 }
@@ -134,34 +112,29 @@ fail:
 }
 }  // namespace
 
-std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
+std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& idmgr) {
     throw_if_descriptor_mapping_not_initialized();
     uint16_t firstfield = io.read_u16_from_le();
 
-    bool is_obj = read_bitsfield_from_u16<bool>(firstfield, MASK_IS_OBJ_FLAG);
-    bool has_id = read_bitsfield_from_u16<bool>(firstfield, MASK_HAS_ID_FLAG);
-
+    bool own_edata = read_bitsfield_from_u16<bool>(firstfield, MASK_OWN_EDATA_FLAG);
     uint8_t lo_dsize = read_bitsfield_from_u16<uint8_t>(firstfield, MASK_LO_DSIZE);
-
+    bool has_id = read_bitsfield_from_u16<bool>(firstfield, MASK_HAS_ID_FLAG);
     uint16_t type = read_bitsfield_from_u16<uint16_t>(firstfield, MASK_TYPE);
 
     uint32_t id = 0;
     uint8_t hi_dsize = 0;
-    if (is_obj or has_id) {
+
+    if (has_id) {
         uint32_t idfield = io.read_u32_from_le();
 
         hi_dsize = read_bitsfield_from_u32<uint8_t>(idfield, MASK_HI_DSIZE);
         id = read_bitsfield_from_u32<uint32_t>(idfield, MASK_ID);
     }
 
-    if (is_obj) {
-        type = uint16_t(uint16_t(has_id) << 9) | type;
-    }
-
-    uint8_t dsize = uint8_t((uint8_t(hi_dsize << 5) | lo_dsize) << 1);
+    uint8_t dsize = uint8_t((uint8_t(hi_dsize << 5) | lo_dsize) << 1);  // in bytes
 
     uint32_t lo_esize = 0, hi_esize = 0;
-    if (is_obj) {
+    if (own_edata) {
         uint16_t sizefield = io.read_u16_from_le();
 
         bool large = read_bitsfield_from_u16<bool>(sizefield, MASK_LARGE_FLAG);
@@ -173,25 +146,56 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io) {
         }
     }
 
-    uint32_t esize = (hi_esize << 15) | lo_esize;
+    uint32_t esize = (hi_esize << 15) | lo_esize;  // in bytes
 
     Segment segm;
     struct Descriptor::header_t hdr = {
-            .is_obj = is_obj, .type = type, .id = id, .dsize = dsize, .esize = esize, .segm = segm};
+            .own_edata = own_edata, .type = type, .id = 0, .dsize = dsize, .esize = esize, .segm = segm};
 
-    if (is_obj) {
-        if (id == 0) {
-            throw InconsistentXOZ(F() << "Object id of an object-descriptor is zero, detected with partially loaded "
-                                      << hdr);
+    // ID of zero is not an error, it just means that the descriptor will have a temporal id
+    // assigned in runtime.
+    if (has_id and id == 0) {
+        if (dsize >= (32 << 1)) {
+            // Ok, the has_id was set to true because the descriptor has a large dsize
+            // so it was required have the hi_dsize bit set and to fill the remaining
+            // slot, the id field was set to 0.
+            //
+            // In this context, the id should be a temporal one and not an error
+            assert(hi_dsize != 0);
+            id = idmgr.request_temporal_id();
+        } else {
+            // No ok. The has_id was set but it was not because the hi_dsize was required
+            // so it should because the descriptor has a persistent id but such cannot
+            // be zero.
+            //
+            // This is an error
+            assert(hi_dsize == 0);
+            throw InconsistentXOZ(F() << "Descriptor id is zero, detected with partially loaded " << hdr);
         }
+    } else if (not has_id) {
+        assert(id == 0);
+        id = idmgr.request_temporal_id();
+    }
+
+    assert(id != 0);
+    hdr.id = id;
+
+    if (own_edata) {
         hdr.segm = Segment::load_struct_from(io);
+    }
+
+    // TODO check hdr.segm.calc_data_space_size(???) >= hdr.esize
+
+    // alternative-type (for types that require full 16 bits)
+    if (type == ALTERNATIVE_TYPE_VAL) {
+        type = io.read_u16_from_le();
     }
 
     if (dsize > io.remain_rd()) {
         throw NotEnoughRoom(dsize, io.remain_rd(), F() << "No enough room for reading descriptor's data of " << hdr);
     }
 
-    descriptor_create_fn fn = descriptor_create_lookup(is_obj, type);
+    descriptor_create_fn fn = descriptor_create_lookup(type);
     std::unique_ptr<Descriptor> dsc = fn(hdr);
 
     if (!dsc) {
@@ -213,49 +217,30 @@ void Descriptor::write_struct_into(IOBase& io) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is not multiple of 2 in " << hdr);
     }
 
-    bool has_id = false;
+    // check that we can represent the decriptor type with 9 bits
+    if (hdr.type >= 512) {
+        throw WouldEndUpInconsistentXOZ(F()
+                                        << "Descriptor type is larger than the maximum representable (512) in " << hdr);
+    }
+
+    if (hdr.id == 0) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor id is zero in " << hdr);
+    }
+
+    // If the id is persistent we must store it. It may not be persistent but we may require
+    // store hi_dsize so in that case we still need the idfield (but with an id of 0)
+    bool has_id = is_id_persistent(hdr.id) or hdr.dsize >= (32 << 1);
 
     uint16_t firstfield = 0;
-    uint32_t idfield = 0;
 
-    write_bitsfield_into_u16(firstfield, hdr.is_obj, MASK_IS_OBJ_FLAG);
+    write_bitsfield_into_u16(firstfield, hdr.own_edata, MASK_OWN_EDATA_FLAG);
     write_bitsfield_into_u16(firstfield, (hdr.dsize >> 1), MASK_LO_DSIZE);
-    write_bitsfield_into_u16(firstfield, hdr.type, MASK_TYPE);
+    write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
-
-    if (hdr.is_obj) {
-        has_id = true;
-
-        // we have 1 more bit on top of the 9 bits for the type
-        if (hdr.type >= 1024) {
-            throw WouldEndUpInconsistentXOZ(F() << "Descriptor type is larger than the maximum representable (1024) in "
-                                                << hdr);
-        }
-
-        if (hdr.id == 0) {
-            throw WouldEndUpInconsistentXOZ(F() << "Object id for object-descriptor is zero in " << hdr);
-        }
-
-        bool type_msb = hdr.type >> 9;                                     // discard 9 lower bits
-        write_bitsfield_into_u16(firstfield, type_msb, MASK_HAS_ID_FLAG);  // 1 type's MSB as has_id
-
-        write_bitsfield_into_u32(idfield, hdr.id, MASK_ID);
-
+    if (hdr.type < 0x1ff) {
+        write_bitsfield_into_u16(firstfield, hdr.type, MASK_TYPE);
     } else {
-        // non-object descriptor
-
-        // we only have 9 bits for non-object descriptors' types
-        if (hdr.type >= 512) {
-            throw WouldEndUpInconsistentXOZ(F() << "Descriptor type is larger than the maximum representable (512) in "
-                                                << hdr);
-        }
-
-        has_id = hdr.id != 0 or hdr.dsize >= (32 << 1);  // we may or may not have an object id
-        write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
-
-        if (has_id) {
-            write_bitsfield_into_u32(idfield, hdr.id, MASK_ID);
-        }
+        write_bitsfield_into_u16(firstfield, 0x1ff, MASK_TYPE);
     }
 
     // Write the first field
@@ -264,25 +249,37 @@ void Descriptor::write_struct_into(IOBase& io) {
     // Write the second, if present
     chk_dsize_fit_or_fail(has_id, hdr);
     if (has_id) {
+        uint32_t idfield = 0;
         bool hi_dsize_msb = hdr.dsize >> (1 + 5);  // discard 5 lower bits of dsize
         write_bitsfield_into_u32(idfield, hi_dsize_msb, MASK_HI_DSIZE);
+
+        if (is_id_temporal(hdr.id)) {
+            // for temporal ids we are not required to have an idfield unless
+            // we have to write hi_dsize_msb too.
+            // so if we are here, hi_dsize_msb must be 1.
+            assert(hi_dsize_msb);
+            write_bitsfield_into_u32(idfield, 0, MASK_ID);
+        } else {
+            write_bitsfield_into_u32(idfield, hdr.id, MASK_ID);
+        }
 
         io.write_u32_to_le(idfield);
     }
 
 
-    if (hdr.is_obj) {
+    if (hdr.own_edata) {
         uint16_t sizefield = 0;
 
+        // Write the sizefield and optionally the largefield
         if (hdr.esize < (1 << 15)) {
             write_bitsfield_into_u16(sizefield, false, MASK_LARGE_FLAG);
             write_bitsfield_into_u16(sizefield, hdr.esize, MASK_LO_ESIZE);
 
             io.write_u16_to_le(sizefield);
         } else {
-            if (hdr.esize >= uint32_t(0x80000000)) {
+            if (hdr.esize >= uint32_t(0x80000000)) {  // TODO test
                 throw WouldEndUpInconsistentXOZ(F()
-                                                << "Descriptor object size is larger than the maximum representable ("
+                                                << "Descriptor external size is larger than the maximum representable ("
                                                 << uint32_t(0x80000000) << ") in " << hdr);
             }
 
@@ -297,7 +294,15 @@ void Descriptor::write_struct_into(IOBase& io) {
         }
 
 
+        // Write the segment
         hdr.segm.write_struct_into(io);
+    }
+
+    // alternative type
+    // note: a type of exactly ALTERNATIVE_TYPE_VAL is valid and it requires
+    // to store it in the alt_type field, hence the '>='
+    if (hdr.type >= ALTERNATIVE_TYPE_VAL) {
+        io.write_u16_to_le(hdr.type);
     }
 
     if (hdr.dsize > io.remain_wr()) {
@@ -323,21 +328,21 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
     struct_sz += 2;
 
     // Write the idfield if present
-    bool has_id = hdr.is_obj or (hdr.id != 0) or hdr.dsize >= (32 << 1);  // NOLINT
+    bool has_id = is_id_persistent(hdr.id) or hdr.dsize >= (32 << 1);
     chk_dsize_fit_or_fail(has_id, hdr);
     if (has_id) {
         struct_sz += 4;
     }
 
 
-    if (hdr.is_obj) {
+    if (hdr.own_edata) {
         if (hdr.esize < (1 << 15)) {
             // sizefield
             struct_sz += 2;
         } else {
-            if (hdr.esize >= uint32_t(0x80000000)) {
+            if (hdr.esize >= uint32_t(0x80000000)) {  // TODO test
                 throw WouldEndUpInconsistentXOZ(F()
-                                                << "Descriptor object size is larger than the maximum representable ("
+                                                << "Descriptor external size is larger than the maximum representable ("
                                                 << uint32_t(0x80000000) << ") in " << hdr);
             }
 
@@ -364,11 +369,11 @@ std::ostream& operator<<(std::ostream& out, const struct Descriptor::header_t& h
 void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
     std::ios_base::fmtflags ioflags = out->flags();
 
-    (*out) << (hdr.is_obj ? "object " : "non-object ") << "descriptor {"
-           << "obj-id: " << hdr.id << ", type: " << hdr.type << ", dsize: " << (unsigned)hdr.dsize;
+    (*out) << "descriptor {"
+           << "id: " << hdr.id << ", type: " << hdr.type << ", dsize: " << (unsigned)hdr.dsize;
 
-    if (hdr.is_obj) {
-        (*out) << ", esize: " << hdr.esize << "}"
+    if (hdr.own_edata) {
+        (*out) << ", esize: " << hdr.esize << ", owns: " << hdr.segm.calc_data_space_size(7 /*TODO*/) << "}"
                << " " << hdr.segm;
     } else {
         (*out) << "}";
