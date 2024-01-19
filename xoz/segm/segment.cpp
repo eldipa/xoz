@@ -15,9 +15,18 @@
 #include "xoz/segm/internals.h"
 
 void PrintTo(const Segment& segm, std::ostream* out) {
-    for (auto const& ext: segm.exts()) {
-        PrintTo(ext, out);
-        (*out) << " ";
+    if (segm.exts().size() == 0) {
+        (*out) << "[] ";
+
+    } else {
+        for (auto const& ext: segm.exts()) {
+            PrintTo(ext, out);
+            (*out) << " ";
+        }
+    }
+
+    if (segm.inline_present) {
+        (*out) << "(+" << segm.raw.size() << " bytes) ";
     }
 }
 
