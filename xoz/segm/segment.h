@@ -76,6 +76,24 @@ public:
         });
     }
 
+    bool is_empty_space() const {
+        if (inline_present and raw.size() > 0) {
+            return false;
+        }
+
+        for (const auto& ext: arr) {
+            if (ext.is_suballoc() and ext.subblk_cnt() > 0) {
+                return false;
+            }
+
+            if (not ext.is_suballoc() and ext.blk_cnt() > 0) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     std::vector<char>& inline_data() {
         assert(inline_present);
         return raw;
