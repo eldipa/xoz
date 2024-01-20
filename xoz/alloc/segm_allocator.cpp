@@ -98,6 +98,10 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     // Backpressure: if inline sz is greater than the limit,
     // put it into its own subblock
     // In this case the inline must be 0 (unused)
+    //
+    // By contruction inline_sz is less than a subblk sz, if subblk is allowed,
+    // or less than a blk sz otherwise. So if we reach the maximum inline, all
+    // the inline can be perfectly put into a new subblk/blk.
     if (inline_sz > req.max_inline_sz) {
         if (req.allow_suballoc) {
             assert(inline_sz <= blkarr.subblk_sz());
@@ -111,10 +115,23 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
 
     // Backpressure: if subblk count can fill an entire block
     // do it
+    //
+    // The subblk_cnt_remain should be always less than SUBBLK_CNT_PER_BLK
+    // due how the count is initialized. However, a +1 may happen due
+    // the backpressure of the inline and the count may reach
+    // SUBBLK_CNT_PER_BLK. In this case we can fill an entire block
     if (subblk_cnt_remain == Extent::SUBBLK_CNT_PER_BLK) {
         ++blk_cnt_remain;
         subblk_cnt_remain = 0;
     }
+
+    // sanity checks: these should hold if we didn't have a mistake
+    // in the computation above.
+    assert(inline_sz <= req.max_inline_sz);
+    assert(subblk_cnt_remain <= Extent::SUBBLK_CNT_PER_BLK);
+
+    // due rounding/backpressure we may going to allocate more than the requested, hence the '>='
+    assert(blk_cnt_remain * blkarr.blk_sz() + subblk_cnt_remain * blkarr.subblk_sz() + inline_sz >= sz);
 
     TRACE_SECTION("A") << std::setw(5) << sz << " b" << TRACE_ENDL;
 
@@ -168,6 +185,14 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     assert(sz_remain == 0);
 
     avail_sz = segm.calc_data_space_size(blkarr.blk_sz_order());
+
+    // sanity check: we may allocate more if the user requeste to have no-inline
+    // and the sz requested is not multiple of subblk_sz *or* to have no-inline
+    // and no subblk and sz not multiple of blk_sz *or* some other combination.
+    // In any case we must had allocated *enough* to store at least sz bytes
+    assert(avail_sz >= sz);
+
+    // update stats
     in_use_by_user_sz += avail_sz;
     in_use_ext_cnt += segm.ext_cnt();
     in_use_inlined_sz += segm.inline_data_sz();
