@@ -173,7 +173,8 @@ int main(int argc, char* argv[]) {
     const SegmentAllocator::req_t req = {
         .segm_frag_threshold = segm_frag_threshold,
         .max_inline_sz = allow_inline ? inline_sz : (uint8_t)0,
-        .allow_suballoc = allow_suballoc
+        .allow_suballoc = allow_suballoc,
+        .single_extent = false
     };
 
     Repository repo = Repository::create_mem_based(0, gp);

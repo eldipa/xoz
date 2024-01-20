@@ -20,6 +20,9 @@ public:
         // bytes in a single contiguos Extent (no fragmentation) but it may not be possible.
         // In this case, segm_frag_threshold says the maximum number of extents that
         // the segment will be fragmented.
+        //
+        // This is a suggestion and the segment returned may have more extents than this
+        // threshold says.
         uint16_t segm_frag_threshold;
 
         // Because the requested bytes for allocation may not be a multiple of the block size,
@@ -33,6 +36,18 @@ public:
         // Both allow_suballoc and max_inline_sz can be combined.
         uint8_t max_inline_sz;
         bool allow_suballoc;
+
+        // If set, the allocator will allow and return a segment of one single extent
+        // of contiguos blocks even if that requires to expand the underlying blk array.
+        //
+        // If set,
+        //  - segm_frag_threshold must be 1
+        //  - max_inline_sz must be 0
+        //  - allow_suballoc must be false.
+        //
+        // Note: alloc of sizes larger than what a single Extent can handle will
+        // throw error.
+        bool single_extent;
     };
 
 
@@ -65,10 +80,10 @@ private:
 
 public:
     constexpr static struct req_t XOZDefaultReq = {
-            .segm_frag_threshold = 2, .max_inline_sz = 8, .allow_suballoc = true};
+            .segm_frag_threshold = 2, .max_inline_sz = 8, .allow_suballoc = true, .single_extent = false};
 
     constexpr static struct req_t StreamDefaultReq = {
-            .segm_frag_threshold = 0, .max_inline_sz = 0, .allow_suballoc = false};
+            .segm_frag_threshold = 1, .max_inline_sz = 0, .allow_suballoc = false, .single_extent = true};
 
     explicit SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled = true, uint16_t split_above_threshold = 0,
                               const struct req_t& default_req = XOZDefaultReq);
@@ -78,6 +93,9 @@ public:
     Segment alloc(const uint32_t sz);
     Segment alloc(const uint32_t sz, const struct req_t& req);
     void dealloc(const Segment& segm);
+
+    Extent alloc_single_extent(const uint32_t sz);
+    void dealloc_single_extent(const Extent& ext);
 
     void initialize(const std::list<Segment>& allocated_segms);
     void release();
@@ -183,6 +201,13 @@ public:
     };
 
     struct stats_t stats() const;
+
+    // Block definition, from the underlying BlockArray
+    inline uint32_t subblk_sz() const { return blkarr.subblk_sz(); }
+
+    inline uint32_t blk_sz() const { return blkarr.blk_sz(); }
+
+    inline uint8_t blk_sz_order() const { return blkarr.blk_sz_order(); }
 
 
     typedef xoz::alloc::internals::ConstExtentMergeIterator<FreeMap::const_iterator_by_blk_nr_t,

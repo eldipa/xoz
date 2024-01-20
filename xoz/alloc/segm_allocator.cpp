@@ -78,6 +78,13 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     uint32_t sz_remain = sz;
     uint32_t avail_sz = 0;
 
+    if (req.single_extent) {
+        if (req.allow_suballoc or req.segm_frag_threshold != 1 or req.max_inline_sz != 0) {
+            throw std::runtime_error("Alloc requirements allow_suballoc/segm_frag_threshold/max_inline_sz are "
+                                     "incompatible with single_extent.");
+        }
+    }
+
     // How many blocks are needed?
     uint32_t blk_cnt_remain = sz_remain / blkarr.blk_sz();
     sz_remain = sz_remain % blkarr.blk_sz();
@@ -138,7 +145,9 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     // Allocate extents trying to not expand the repository
     // but instead reusing free space already present even if
     // that means to fragment the segment a little more
-    if (blk_cnt_remain) {
+    //
+    // If single_extent, skip this as it may require expand the repository
+    if (blk_cnt_remain and not req.single_extent) {
         TRACE_LINE << "to alloc,not grow -> " << blk_cnt_remain << "+" << subblk_cnt_remain << "+" << inline_sz
                    << "   -----v" << TRACE_ENDL;
         blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, req.segm_frag_threshold, false, false);
@@ -149,7 +158,14 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     if (blk_cnt_remain) {
         TRACE_LINE << "to alloc,may grow -> " << blk_cnt_remain << "+" << subblk_cnt_remain << "+" << inline_sz
                    << "   -----v" << TRACE_ENDL;
-        blk_cnt_remain = allocate_extents(segm, blk_cnt_remain, req.segm_frag_threshold, true, true);
+
+        // At this point we may give up the fragmentation threshold and split/fragment even
+        // more than the threshold in order to fulfill the alloc.
+        // However, if single_extent is set, we will not do that and we hope that we can alloc
+        // in a single try, including expand the repo if necessary.
+        const bool ignore_segm_frag_threshold = not req.single_extent;
+        blk_cnt_remain =
+                allocate_extents(segm, blk_cnt_remain, req.segm_frag_threshold, ignore_segm_frag_threshold, true);
     }
 
     if (blk_cnt_remain) {
@@ -206,7 +222,27 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     ++alloc_call_cnt;
     return segm;
 no_free_space:
+    // TODO catch and do free (revert any partially allocated extent)
     throw "no free space";
+}
+
+Extent SegmentAllocator::alloc_single_extent(const uint32_t sz) {
+    if (sz == 0) {
+        // We can allocate a Segment of zero bytes, it is just an empty Segment
+        // but we cannot allocate an Extent of zero bytes because it is not well defined
+        // What would be its blk nr? Any number may introduce problems so it is better
+        // an exception here and prevent any futher problem.
+        throw std::runtime_error("Cannot allocate a single extent of zero bytes");
+    }
+
+    struct req_t req = {.segm_frag_threshold = 1, .max_inline_sz = 0, .allow_suballoc = false, .single_extent = true};
+
+    Segment segm = this->alloc(sz, req);
+    assert(segm.subblk_cnt() == 0);
+    assert(segm.inline_data_sz() == 0);
+    assert(segm.exts().size() == 1);
+
+    return segm.exts().front();
 }
 
 void SegmentAllocator::dealloc(const Segment& segm) {
@@ -239,6 +275,12 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     internal_frag_avg_sz -= segm.estimate_on_avg_internal_frag_sz(blkarr.blk_sz_order());
 
     reclaim_free_space_from_subfr_map();
+}
+
+void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
+    Segment segm;
+    segm.add_extent(ext);
+    this->dealloc(segm);
 }
 
 void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {

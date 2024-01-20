@@ -870,7 +870,8 @@ namespace {
         const SegmentAllocator::req_t req = {
             .segm_frag_threshold = 2,
             .max_inline_sz = 4,
-            .allow_suballoc = false
+            .allow_suballoc = false,
+            .single_extent = false
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
@@ -1690,7 +1691,8 @@ namespace {
         const SegmentAllocator::req_t req = {
             .segm_frag_threshold = 2,
             .max_inline_sz = 4,
-            .allow_suballoc = true
+            .allow_suballoc = true,
+            .single_extent = false
         };
 
         const uint8_t MaxInlineSize = req.max_inline_sz;
@@ -1892,7 +1894,8 @@ namespace {
         const SegmentAllocator::req_t req = {
             .segm_frag_threshold = 1,
             .max_inline_sz = 8,
-            .allow_suballoc = true
+            .allow_suballoc = true,
+            .single_extent = false
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
@@ -1985,7 +1988,8 @@ namespace {
         const SegmentAllocator::req_t req = {
             .segm_frag_threshold = 1,
             .max_inline_sz = 8,
-            .allow_suballoc = true
+            .allow_suballoc = true,
+            .single_extent = false
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
@@ -2066,7 +2070,8 @@ namespace {
         const SegmentAllocator::req_t req = {
             .segm_frag_threshold = 2,
             .max_inline_sz = 8,
-            .allow_suballoc = true
+            .allow_suballoc = true,
+            .single_extent = false
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
@@ -2196,7 +2201,8 @@ namespace {
         const SegmentAllocator::req_t req = {
             .segm_frag_threshold = 3,
             .max_inline_sz = 8,
-            .allow_suballoc = true
+            .allow_suballoc = true,
+            .single_extent = false
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
@@ -2321,7 +2327,8 @@ namespace {
         const SegmentAllocator::req_t req = {
             .segm_frag_threshold = 3,
             .max_inline_sz = 8,
-            .allow_suballoc = true
+            .allow_suballoc = true,
+            .single_extent = false
         };
         */
 
@@ -3117,6 +3124,89 @@ namespace {
                     )
                 )
         );
+    }
+
+    TEST(SegmentAllocatorTest, AllocSingleExtent) {
+        const GlobalParameters gp = {
+            .blk_sz = 64,
+            .blk_sz_order = 6,
+            .blk_init_cnt = 1
+        };
+
+        Repository repo = Repository::create_mem_based(0, gp);
+        SegmentAllocator sg_alloc(repo);
+
+        // Alloc a single extent of some size. No suballoc is allowed so full blks are allocated
+        Extent ext = sg_alloc.alloc_single_extent(23);
+
+        // Just for reusing the testing engine of this test suite,
+        // I will create a segment.
+        Segment segm;
+        segm.add_extent(ext);
+
+        // Full block was required to fulfill the requested size
+        EXPECT_EQ(segm.calc_data_space_size(repo.params().blk_sz_order), (uint32_t)(repo.blk_sz()));
+        EXPECT_EQ((repo.subblk_sz() * Extent::SUBBLK_CNT_PER_BLK), repo.blk_sz());
+
+        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.blk_cnt(), (uint32_t)1);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)0);
+
+        EXPECT_EQ(segm.exts()[0].is_suballoc(), (bool)false);
+        EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)1);
+        EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(1));
+
+        // The allocator is "tight" or "conservative" and allocated 1 block only
+        // as this was the minimum to fulfill the request.
+        // There are no free space left.
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
+
+        auto stats = sg_alloc.stats();
+
+        EXPECT_EQ(stats.in_use_by_user_sz, uint64_t(repo.blk_sz()));
+        EXPECT_EQ(stats.in_use_blk_cnt, uint64_t(1));
+        EXPECT_EQ(stats.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats.in_use_ext_cnt, uint64_t(1));
+        EXPECT_EQ(stats.in_use_inlined_sz, uint64_t(0));
+
+        EXPECT_EQ(stats.alloc_call_cnt, uint64_t(1));
+        EXPECT_EQ(stats.dealloc_call_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats.external_frag_sz, uint64_t(0));
+        EXPECT_EQ(stats.internal_frag_avg_sz, uint64_t(32));
+        EXPECT_EQ(stats.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
+
+        sg_alloc.dealloc_single_extent(ext);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
+                    Extent(1, 1, false)
+                    ));
+
+        auto stats2 = sg_alloc.stats();
+
+        EXPECT_EQ(stats2.in_use_by_user_sz, uint64_t(0));
+        EXPECT_EQ(stats2.in_use_blk_cnt, uint64_t(0));
+        EXPECT_EQ(stats2.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats2.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats2.in_use_ext_cnt, uint64_t(0));
+        EXPECT_EQ(stats2.in_use_inlined_sz, uint64_t(0));
+
+        EXPECT_EQ(stats2.alloc_call_cnt, uint64_t(1));
+        EXPECT_EQ(stats2.dealloc_call_cnt, uint64_t(1));
+
+        EXPECT_EQ(stats2.external_frag_sz, uint64_t(repo.blk_sz()));
+        EXPECT_EQ(stats2.internal_frag_avg_sz, uint64_t(0));
+        EXPECT_EQ(stats2.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats2.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
     }
 }
 
