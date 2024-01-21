@@ -331,7 +331,7 @@ void FreeMap::fail_if_overlap(const Extent& ext) const {
     for (; i > 0;) {
         it = to_chk[--i];
         try {
-            Extent::distance_in_blks(Extent(blk_nr_of(it), blk_cnt_of(it), false), ext);
+            Extent::fail_if_overlap(Extent(blk_nr_of(it), blk_cnt_of(it), false), ext);
         } catch (const ExtentOverlapError& err) {
             throw ExtentOverlapError("already freed", Extent(blk_nr_of(it), blk_cnt_of(it), false), "to be freed", ext,
                                      (F() << "possible double free detected").str());
