@@ -13,14 +13,20 @@ std::unique_ptr<Descriptor> DefaultDescriptor::create(const struct Descriptor::h
 }
 
 void DefaultDescriptor::set_data(const std::vector<char>& data) {
+    // chk for overflow
     if (data.size() > uint8_t(-1)) {
         throw "";
     }
 
-    hdr.dsize = uint8_t(data.size());
-    if (hdr.dsize % 2 != 0) {
+    auto dsize = uint8_t(data.size());
+    if (dsize % 2 != 0) {
         throw "";
     }
 
+    if (is_dsize_greater_than_allowed(dsize)) {
+        throw "";
+    }
+
+    hdr.dsize = dsize;
     dsc_data = data;
 }
