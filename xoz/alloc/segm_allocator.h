@@ -82,9 +82,6 @@ public:
     constexpr static struct req_t XOZDefaultReq = {
             .segm_frag_threshold = 2, .max_inline_sz = 8, .allow_suballoc = true, .single_extent = false};
 
-    constexpr static struct req_t StreamDefaultReq = {
-            .segm_frag_threshold = 1, .max_inline_sz = 0, .allow_suballoc = false, .single_extent = true};
-
     explicit SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled = true, uint16_t split_above_threshold = 0,
                               const struct req_t& default_req = XOZDefaultReq);
 
