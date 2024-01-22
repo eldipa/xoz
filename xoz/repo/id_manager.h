@@ -1,5 +1,9 @@
 #pragma once
 
+#include <set>
+
+#include "xoz/exceptions.h"
+
 class IDManager {
 public:
     IDManager() { reset(); }
@@ -12,6 +16,17 @@ public:
         next_temporal_id = init;
     }
 
+    bool register_persistent_id(uint32_t id) {
+        if (id & 0x80000000) {
+            throw std::runtime_error("Temporal ids cannot be registered.");
+        }
+
+        auto [_, ok] = persistent_ids.insert(id);
+        return ok;
+    }
+
 private:
     uint32_t next_temporal_id;
+
+    std::set<uint32_t> persistent_ids;
 };
