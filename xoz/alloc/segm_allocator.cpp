@@ -278,6 +278,10 @@ void SegmentAllocator::dealloc(const Segment& segm) {
 }
 
 void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
+    if (ext.is_empty()) {
+        throw std::runtime_error("The extent to be deallocated cannot be empty.");
+    }
+
     Segment segm;
     segm.add_extent(ext);
     this->dealloc(segm);
