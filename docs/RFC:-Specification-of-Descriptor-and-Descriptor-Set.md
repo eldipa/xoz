@@ -1,4 +1,4 @@
-# RFC: Specification of Segment, Extent and Block Size
+# RFC: Specification of Descriptor and Descriptor Set
 
  - **Author:** Martin Di Paola
  - **Status:** Draft
@@ -49,14 +49,17 @@ is therefore 64 bytes (32 * 2) or 128 bytes (64 * 2).
 How `data` is interpreted depends on the descriptor `type`.
 
 `type` is the descriptor type; there can be up to 511 different types.
-This RFC defines `0x00`: padding or end-of-stream descriptor
+This RFC defines some types:
 
-If `type` is 0x1ff, the field `ex_type` is present and it becomes the
-(extended) type of the descriptor. Therefore there are two possible ways to encode
-the first 511 types either with `type` or with `type = 0x1ff` and
-`ex_type`.
+ - `type` 0x00 signals that the descriptor works as padding (some other
+   conditions must hold too, see below)
 
-The `type` 0xffff is reserved.
+ - when `type` is 0x1ff, the field `ex_type` is present and it becomes the
+   (extended) type of the descriptor. Therefore there are two possible ways to encode
+   the first 511 types either with `type` or with `type = 0x1ff` and
+   `ex_type`.
+
+ - `type` 0xffff is reserved.
 
 ## Descriptors that own external data
 
@@ -67,7 +70,7 @@ The term *external* data is to distinguis it from the `data` field
 embebbed in `struct descriptor_t`.
 
 When a descriptor owns a segment it implies that if the descriptor
-is deleted from the stream, the segment is freed and, if the descriptor
+is deleted from the descriptor set, the segment is freed and, if the descriptor
 is not deleted, the segments must be allocated.
 
 How much of the owned segment is in use (has meaningful external data) is given
@@ -129,7 +132,7 @@ Once a descriptor is present in the `xoz` file, its size cannot be
 changed (aka `lo_dsize` and `hi_dsize` are fixed).
 
 Growing the descriptor it is not possible because the descriptors
-are packed tight in the stream and there is no room to grow.
+are packed tight in the *descriptor set* and there is no room to grow.
 
 Only if the application wants to store less data in the descriptor,
 it may update the descriptor in place, pad with zeros the unused space
@@ -140,17 +143,14 @@ a new descriptor with the same type and id than the former
 to override it (this of course comes at expenses of wasted space).
 
 
-## Descriptor Type 0: padding and end of stream
+## Descriptor Type 0: padding
 
-The `dtype` of 0 has a special meaning:
+The `type` 0x00 has a special meaning: if `own_edata`, `has_id` and `lo_dsize` are 0,
+the descriptor works as 2 bytes padding (zeros), any other setting is
+reserved but the semantics of `lo_dsize` and `has_id` holds therefore it is
+known how many bytes the header and the descriptor occupy.
 
- - if `own_edata`, `has_id` and `lo_dsize` are 0, the descriptor
-   works as 2 bytes padding (zeros).
- - if `own_edata` and `has_id` are 0 *but* `lo_dsize` is not, the
-   descriptor works as *the end of the stream* marker.
- - under other settings, the meaning of the descriptor is reserved but
-   the semantics of `lo_dsize` and `has_id` holds therefore it is
-   known how many bytes the header and the descriptor occupy.
+
 
 TODO: checksum
 
