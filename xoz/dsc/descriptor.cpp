@@ -172,6 +172,14 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
             assert(hi_dsize == 0);
             throw InconsistentXOZ(F() << "Descriptor id is zero, detected with partially loaded " << hdr);
         }
+    } else if (has_id and id != 0) {
+        auto ok = idmgr.register_persistent_id(id);  // TODO test
+        if (not ok) {
+            throw InconsistentXOZ(
+                    F() << "Descriptor persistent id already registered, a duplicated descriptor found somewhere else; "
+                        << hdr);
+        }
+
     } else if (not has_id) {
         assert(id == 0);
         id = idmgr.request_temporal_id();
@@ -224,6 +232,11 @@ void Descriptor::write_struct_into(IOBase& io) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is not multiple of 2 in " << hdr);
     }
 
+    // TODO
+    if (is_dsize_greater_than_allowed(hdr.dsize)) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than allowed " << hdr);
+    }
+
     if (hdr.id == 0) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor id is zero in " << hdr);
     }
@@ -239,6 +252,10 @@ void Descriptor::write_struct_into(IOBase& io) {
     if (hdr.esize and not hdr.own_edata) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.esize
                                             << " bytes of external data but it is not an owner; " << hdr);
+    }
+
+    if (is_esize_greater_than_allowed(hdr.esize)) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor esize is larger than allowed " << hdr);
     }
 
     /* TODO

@@ -80,10 +80,12 @@ protected:
     // See load_struct_from and write_struct_into methods for more context.
     virtual void read_struct_specifics_from(IOBase& io) = 0;
     virtual void write_struct_specifics_into(IOBase& io) = 0;
-
-private:
     void read_struct_specifics_from(IOBase&& io) { read_struct_specifics_from(io); }
     void write_struct_specifics_into(IOBase&& io) { write_struct_specifics_into(io); }
+
+    constexpr inline bool is_dsize_greater_than_allowed(uint8_t dsize) { return dsize > 127; }
+
+    constexpr inline bool is_esize_greater_than_allowed(uint32_t esize) { return esize > 0x7fffffff; }
 
     constexpr inline bool is_id_temporal(const uint32_t id) const { return bool(id & 0x80000000); }
 
