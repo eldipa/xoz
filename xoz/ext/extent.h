@@ -41,6 +41,8 @@ public:
 
     constexpr static unsigned MAX_BLK_CNT = (1 << 16) - 1;
 
+    static Extent EmptyExtent() { return Extent(0, 0, false); }
+
     // Create an extent:
     //  - if is_suballoc is False, blk_nr points to the first
     //    block of a contiguous array of blk_cnt blocks
