@@ -10,38 +10,7 @@ uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
     }
 
     assert(ext.blk_nr() != 0x0);
-
-    // Checking for an OOB here *before* doing the calculate
-    // of the usable space allows us to capture OOB with extent
-    // of block count of 0 which otherwise would be silenced
-    // (because a count of 0 means 0 usable space and the method
-    // would return 0 (EOF) instead of detecting the bogus extent)
-    fail_if_out_of_boundaries(ext, (F() << "Detected on a " << (is_read_op ? "read" : "write") << " operation.").str());
-
-    const uint32_t usable_sz = ext.calc_data_space_size(gp.blk_sz_order);
-
-    // If the caller wants to read/write beyond the usable space, return EOF
-    if (usable_sz <= start) {
-        return 0;  // EOF
-    }
-
-    // How much is readable/writeable and how much the caller is willing to
-    // read/write?
-    const uint32_t read_writeable_sz = usable_sz - start;
-    const uint32_t to_read_write_sz = std::min(read_writeable_sz, max_data_sz);
-
-    if (to_read_write_sz == 0) {
-        // This could happen because the 'start' is at the
-        // end of the usable space so there is no readable/writeable bytes
-        // (aka read_writeable_sz == 0) which translates to EOF
-        //
-        // Or it could happen because max_data_sz is 0.
-        // We return EOF and the caller should distinguish this
-        // from a real EOF (this is how POSIX read() and write() works)
-        return 0;
-    }
-
-    return to_read_write_sz;
+    return BlockArray::chk_extent_for_rw(is_read_op, ext, max_data_sz, start);
 }
 
 uint32_t Repository::rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz,

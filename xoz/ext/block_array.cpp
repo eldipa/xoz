@@ -11,6 +11,7 @@ void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, 
         throw std::runtime_error("begin_blk_nr > past_end_blk_nr is incorrect");
 
     _blk_sz = blk_sz;
+    _blk_sz_order = (uint8_t)u32_log2_floor(_blk_sz);
     _begin_blk_nr = begin_blk_nr;
     _past_end_blk_nr = past_end_blk_nr;
 }
@@ -86,4 +87,38 @@ uint32_t BlockArray::write_extent(const Extent& ext, const std::vector<char>& da
     }
 
     return write_extent(ext, data.data(), uint32_t(std::min(data.size(), size_t(max_data_sz))), start);
+}
+
+uint32_t BlockArray::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) {
+    // Checking for an OOB here *before* doing the calculate
+    // of the usable space allows us to capture OOB with extent
+    // of block count of 0 which otherwise would be silenced
+    // (because a count of 0 means 0 usable space and the method
+    // would return 0 (EOF) instead of detecting the bogus extent)
+    fail_if_out_of_boundaries(ext, (F() << "Detected on a " << (is_read_op ? "read" : "write") << " operation.").str());
+
+    const uint32_t usable_sz = ext.calc_data_space_size(_blk_sz_order);
+
+    // If the caller wants to read/write beyond the usable space, return EOF
+    if (usable_sz <= start) {
+        return 0;  // EOF
+    }
+
+    // How much is readable/writeable and how much the caller is willing to
+    // read/write?
+    const uint32_t read_writeable_sz = usable_sz - start;
+    const uint32_t to_read_write_sz = std::min(read_writeable_sz, max_data_sz);
+
+    if (to_read_write_sz == 0) {
+        // This could happen because the 'start' is at the
+        // end of the usable space so there is no readable/writeable bytes
+        // (aka read_writeable_sz == 0) which translates to EOF
+        //
+        // Or it could happen because max_data_sz is 0.
+        // We return EOF and the caller should distinguish this
+        // from a real EOF (this is how POSIX read() and write() works)
+        return 0;
+    }
+
+    return to_read_write_sz;
 }

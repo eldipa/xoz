@@ -17,8 +17,29 @@ protected:
     virtual uint32_t impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) = 0;
     virtual uint32_t impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) = 0;
 
+    /*
+     * Check that the read/write operation is within the bounds of this BlockArray and that the
+     * start/max_data_sz are ok.
+     *
+     * The operation is interpreted as read (is_read_op) or write (not is_read_op). The extent ext is the
+     * extent where the read/write takes place and it is checked for being within the bounds of the array.
+     *
+     * The start is the start position within the extent in bytes units. And max_data_sz is the maximum
+     * in bytes to read/write. The maximum may be larger than the available in the extent (that's not an error).
+     *
+     * Any incompatibility will throw.
+     *
+     * If everything is ok, return exactly how much can be read/write in bytes (this may be less than the
+     * max_data_sz if for example there is less space in the extent).
+     *
+     * Subclasses may extend this method to add additional checks.
+     * */
+    virtual uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start);
+
 private:
     uint32_t _blk_sz;
+    uint8_t _blk_sz_order;
+
     uint32_t _begin_blk_nr;
     uint32_t _past_end_blk_nr;
 
@@ -43,7 +64,7 @@ public:
 
     inline uint32_t blk_sz() const { return _blk_sz; }
 
-    inline uint8_t blk_sz_order() const { return (uint8_t)u32_log2_floor(_blk_sz); }
+    inline uint8_t blk_sz_order() const { return _blk_sz_order; }
 
     // Main primitive to allocate / free blocks
     //

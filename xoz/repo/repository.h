@@ -230,8 +230,6 @@ private:
     // with the given memory stringstream.
     void open_internal(const char* fpath, std::stringstream&& mem, uint64_t phy_repo_start_pos);
 
-    uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start);
-
     // Read a fully alloc'd and suballoc'd extent.
     // Called from impl_read_extent()
     uint32_t rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_read_sz,
@@ -250,4 +248,6 @@ private:
 
     uint32_t impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) override;
     uint32_t impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) override;
+
+    uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) override;
 };
