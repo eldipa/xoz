@@ -3,10 +3,12 @@
 #include <map>
 #include <memory>
 
+#include "xoz/ext/extent.h"
 #include "xoz/io/iobase.h"
 #include "xoz/segm/segment.h"
 
 class IDManager;
+class DescriptorSet;
 
 class Descriptor {
 
@@ -23,7 +25,7 @@ public:
         Segment segm;  // data segment, only for own_edata descriptors
     };
 
-    explicit Descriptor(const struct header_t& hdr): hdr(hdr) {}
+    explicit Descriptor(const struct header_t& hdr): hdr(hdr), ext(Extent::EmptyExtent()), owner(nullptr) {}
 
     static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, IDManager& idmgr);
     void write_struct_into(IOBase& io);
@@ -68,6 +70,13 @@ public:
     friend void PrintTo(const Descriptor& dsc, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const Descriptor& dsc);
 
+    uint32_t id() const {
+        assert(hdr.id != 0);
+        return hdr.id;
+    }
+
+    friend class DescriptorSet;
+
 protected:
     struct header_t hdr;
 
@@ -92,9 +101,24 @@ protected:
     constexpr inline bool is_id_persistent(const uint32_t id) const { return not is_id_temporal(id); }
 
 private:
+    // This field is meant to be filled and controlled by the DescriptorSet that owns
+    // this descriptor
+    //
+    // It is the place/location where the descriptor was loaded. It may be an
+    // EmptyExtent if the descriptor was never loaded from disk.
+    Extent ext;
 
-    static void chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end, uint32_t data_sz);
-    static void chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end, const Descriptor* const dsc, bool ex_type_used);
+
+    // Which descriptor set owns this descriptor? nullptr if none.
+    //
+    // This field is set by the DescriptorSet
+    DescriptorSet* owner;
+
+private:
+    static void chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end,
+                                         uint32_t data_sz);
+    static void chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end,
+                                     const Descriptor* const dsc, bool ex_type_used);
 };
 
 // Signature that a function must honor to be used as a descriptor-create function
