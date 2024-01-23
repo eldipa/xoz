@@ -171,3 +171,15 @@ UnexpectedShorten::UnexpectedShorten(uint64_t requested_sz, uint64_t available_s
         UnexpectedShorten(requested_sz, available_sz, short_sz, msg.ss.str()) {}
 
 const char* UnexpectedShorten::what() const noexcept { return msg.data(); }
+
+
+InternalError::InternalError(const std::string& msg) {
+    std::stringstream ss;
+    ss << "[Possible bug detected] ";
+
+    this->msg = ss.str();
+}
+
+InternalError::InternalError(const F& msg): InternalError(msg.ss.str()) {}
+
+const char* InternalError::what() const noexcept { return msg.data(); }

@@ -9,11 +9,13 @@ DescriptorSet::DescriptorSet(BlockArray& blkarr /* TODO */): sg_alloc_dsc(blkarr
 
 void DescriptorSet::load_descriptors(IOBase& io, IDManager& idmgr) {
     if (io.remain_rd() % 2 != 0) {
-        throw "";
+        throw InconsistentXOZ(F() << "The remaining for reading is not multiple of 2 at loading descriptors: "
+                                  << io.remain_rd() << " bytes remains");
     }
 
     if (io.tell_rd() % 2 != 0) {
-        throw "";
+        throw InconsistentXOZ(F() << "The reading position is not aligned to 2 at loading descriptors: " << io.tell_rd()
+                                  << " bytes position");
     }
 
     while (io.remain_rd()) {
@@ -41,7 +43,8 @@ void DescriptorSet::load_descriptors(IOBase& io, IDManager& idmgr) {
         // and it should be understood as a bug in the load_struct_from or descriptor
         // subclass
         if (dsc_end_pos % 2 != 0) {
-            throw "";
+            throw InternalError(F() << "The reading position was not left aligned to 2 after a descripto load: left at "
+                                    << dsc_end_pos << " bytes position");
         }
 
         // Set the Extent that corresponds to the place where the descriptor
@@ -65,7 +68,9 @@ void DescriptorSet::load_descriptors(IOBase& io, IDManager& idmgr) {
         // not duplicated against other descriptor in other stream. That's why the check
         // is performed in IDManager that has a global view.
         if (dsc_by_id.count(id) != 0) {
-            throw std::runtime_error("Descriptor id found duplicated within the stream. This should never had happen.");
+            throw InternalError(F() << "Descriptor id " << id
+                                    << " found duplicated within the stream. This should never had happen. Mostly "
+                                       "likely an internal bug");
         }
 
         dsc_by_id[id] = std::move(dsc);
