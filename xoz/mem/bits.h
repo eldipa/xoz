@@ -26,6 +26,8 @@ constexpr inline bool u64_add_will_overflow(uint64_t a, uint64_t b) {
     return tmp < a;
 }
 
+constexpr inline bool u32_fits_into_u16(uint32_t a) { return a == (uint16_t(a)); }
+
 
 /*
  * Read the selected bits specified by mask from the given field. The value returned
