@@ -1,6 +1,6 @@
 #include <cstring>
 
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/mem/endianness.h"
 #include "xoz/repo/repository.h"
 

@@ -6,7 +6,7 @@
 #include <map>
 #include <utility>
 
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/ext/extent.h"
 
 namespace xoz::alloc::internals {

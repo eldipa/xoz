@@ -3,7 +3,7 @@
 #include "test/testing_xoz.h"
 
 #include "xoz/ext/extent.h"
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;

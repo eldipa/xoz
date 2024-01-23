@@ -2,7 +2,7 @@
 
 #include <set>
 
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 
 class IDManager {
 public:

@@ -19,6 +19,8 @@ public:
 
     void set_data(const std::vector<char>& data);
 
+    void set_edata(const std::vector<char>& data);
+
 protected:
     void read_struct_specifics_from(IOBase& io) override;
     void write_struct_specifics_into(IOBase& io) override;

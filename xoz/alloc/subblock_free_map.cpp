@@ -3,7 +3,7 @@
 #include <cassert>
 #include <utility>
 
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/trace.h"
 
 using namespace xoz::alloc::internals;  // NOLINT

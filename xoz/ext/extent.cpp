@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <numeric>
 
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 
 Extent::Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc): _blk_nr(blk_nr & 0x03ffffff), _blk_cnt(blk_cnt) {
     if (blk_nr & (~0x03ffffff)) {

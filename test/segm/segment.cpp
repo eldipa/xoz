@@ -1,7 +1,7 @@
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
 #include "xoz/io/iospan.h"
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"

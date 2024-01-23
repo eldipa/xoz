@@ -3,7 +3,7 @@
 #include "xoz/io/iospan.h"
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/default.h"
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/repo/id_manager.h"
 
 #include "gtest/gtest.h"

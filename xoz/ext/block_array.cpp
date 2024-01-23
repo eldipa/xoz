@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <string>
 
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/ext/extent.h"
 
 void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr) {

@@ -8,7 +8,7 @@
 #include <ostream>
 #include <utility>
 
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/ext/extent.h"
 #include "xoz/mem/bits.h"
 #include "xoz/mem/endianness.h"

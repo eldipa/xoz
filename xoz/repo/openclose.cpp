@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <filesystem>
 
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/repo/repository.h"
 
 void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {

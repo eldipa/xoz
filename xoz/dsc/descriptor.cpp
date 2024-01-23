@@ -6,7 +6,7 @@
 
 #include "xoz/dsc/default.h"
 #include "xoz/dsc/internals.h"
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/io/iorestricted.h"
 #include "xoz/mem/bits.h"
 #include "xoz/repo/id_manager.h"
@@ -67,9 +67,11 @@ void deinitialize_descriptor_mapping() {
  * Check the positions in the io that the data field begins (before calling descriptor subclass)
  * and ends (after calling the descriptor subclass) and compares the difference with the data_sz (in bytes).
  *
- * If there is any anomaly, throw an error: InconsistentXOZ (if is_read_op) or WouldEndUpInconsistentXOZ (if not is_read_op)
+ * If there is any anomaly, throw an error: InconsistentXOZ (if is_read_op) or WouldEndUpInconsistentXOZ (if not
+ * is_read_op)
  * */
-void Descriptor::chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end, uint32_t data_sz) {
+void Descriptor::chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end,
+                                          uint32_t data_sz) {
     uint32_t data_end = data_begin + data_sz;  // descriptor truly end
     F errmsg;
 
@@ -118,9 +120,11 @@ fail:
  * Check that what we read/write from/to the io is what the descriptor says that we will read/write
  * based on its own footprint calculation.
  * */
-void Descriptor::chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end, const Descriptor* const dsc, bool ex_type_used) {
+void Descriptor::chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end,
+                                      const Descriptor* const dsc, bool ex_type_used) {
     uint32_t dsc_sz_based_io = dsc_end - dsc_begin;  // descriptor truly size based on what we read/write
-    uint32_t calc_footprint = dsc->calc_struct_footprint_size(); // what the descriptor says that it should be read/write
+    uint32_t calc_footprint =
+            dsc->calc_struct_footprint_size();  // what the descriptor says that it should be read/write
 
     F errmsg;
 
@@ -140,22 +144,23 @@ void Descriptor::chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_
     }
 
     if (dsc_sz_based_io != calc_footprint) {
-        if (ex_type_used and dsc_sz_based_io > calc_footprint and dsc_sz_based_io - calc_footprint == 2 and dsc->hdr.type < EXTENDED_TYPE_VAL_THRESHOLD and is_read_op) {
+        if (ex_type_used and dsc_sz_based_io > calc_footprint and dsc_sz_based_io - calc_footprint == 2 and
+            dsc->hdr.type < EXTENDED_TYPE_VAL_THRESHOLD and is_read_op) {
             // ok, this is an exception to the rule:
             //
-            //  If during reading (is_read_op) we read an ex_type (ex_type_used) *but* the resulting type (dsc->hdr.type)
-            //  is less than the threshold, it means that the descriptor can have a smaller footprint because the type
-            //  can be stored without requiring the "extension type".
+            //  If during reading (is_read_op) we read an ex_type (ex_type_used) *but* the resulting type
+            //  (dsc->hdr.type) is less than the threshold, it means that the descriptor can have a smaller footprint
+            //  because the type can be stored without requiring the "extension type".
             //
             //  Hence, it should be expected that the calculated footprint (calc_footprint) is less than the
-            //  data actually read (dsc_sz_based_io), in particular, it should 2 bytes off (dsc_sz_based_io - calc_footprint).
+            //  data actually read (dsc_sz_based_io), in particular, it should 2 bytes off (dsc_sz_based_io -
+            //  calc_footprint).
 
             // no error, false alarm
         } else {
-            errmsg = std::move(F() << "Mismatch what the descriptor calculates its footprint ("
-                    << calc_footprint << " bytes) and what actually was " << (is_read_op ? "read " : "written ")
-                    << "(" << dsc_sz_based_io << " bytes)"
-                    );
+            errmsg = std::move(F() << "Mismatch what the descriptor calculates its footprint (" << calc_footprint
+                                   << " bytes) and what actually was " << (is_read_op ? "read " : "written ") << "("
+                                   << dsc_sz_based_io << " bytes)");
             goto fail;
         }
     }

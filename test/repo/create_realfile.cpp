@@ -1,5 +1,5 @@
 #include "xoz/repo/repository.h"
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"

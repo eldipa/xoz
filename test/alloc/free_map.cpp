@@ -1,6 +1,6 @@
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/alloc/free_map.h"
 
 #include "gtest/gtest.h"

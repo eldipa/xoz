@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/repo/id_manager.h"
 
 DescriptorSet::DescriptorSet(BlockArray& blkarr /* TODO */): sg_alloc_dsc(blkarr) {}

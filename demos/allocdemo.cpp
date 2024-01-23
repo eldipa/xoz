@@ -1,7 +1,7 @@
 #include <iostream>
 #include "xoz/repo/repository.h"
 #include "xoz/ext/extent.h"
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/alloc/segm_allocator.h"
 #include "xoz/trace.h"
 

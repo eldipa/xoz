@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "xoz/chk.h"
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 
 
 IOBase::IOBase(const uint32_t src_sz): src_sz(src_sz), rd(0), wr(0) {}

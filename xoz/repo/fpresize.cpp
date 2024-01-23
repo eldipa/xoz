@@ -1,4 +1,4 @@
-#include "xoz/exceptions.h"
+#include "xoz/err/exceptions.h"
 #include "xoz/mem/bits.h"
 #include "xoz/repo/repository.h"
 
