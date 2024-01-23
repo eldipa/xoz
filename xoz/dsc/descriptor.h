@@ -90,6 +90,11 @@ protected:
     constexpr inline bool is_id_temporal(const uint32_t id) const { return bool(id & 0x80000000); }
 
     constexpr inline bool is_id_persistent(const uint32_t id) const { return not is_id_temporal(id); }
+
+private:
+
+    static void chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end, uint32_t data_sz);
+    static void chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end, const Descriptor* const dsc, bool ex_type_used);
 };
 
 // Signature that a function must honor to be used as a descriptor-create function

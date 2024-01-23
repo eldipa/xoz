@@ -63,8 +63,13 @@ void deinitialize_descriptor_mapping() {
 }
 
 
-namespace {
-void chk_rw_specifics(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end, uint32_t data_sz) {
+/*
+ * Check the positions in the io that the data field begins (before calling descriptor subclass)
+ * and ends (after calling the descriptor subclass) and compares the difference with the data_sz (in bytes).
+ *
+ * If there is any anomaly, throw an error: InconsistentXOZ (if is_read_op) or WouldEndUpInconsistentXOZ (if not is_read_op)
+ * */
+void Descriptor::chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end, uint32_t data_sz) {
     uint32_t data_end = data_begin + data_sz;  // descriptor truly end
     F errmsg;
 
@@ -108,10 +113,68 @@ fail:
         throw WouldEndUpInconsistentXOZ(errmsg);
     }
 }
-}  // namespace
+
+/*
+ * Check that what we read/write from/to the io is what the descriptor says that we will read/write
+ * based on its own footprint calculation.
+ * */
+void Descriptor::chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end, const Descriptor* const dsc, bool ex_type_used) {
+    uint32_t dsc_sz_based_io = dsc_end - dsc_begin;  // descriptor truly size based on what we read/write
+    uint32_t calc_footprint = dsc->calc_struct_footprint_size(); // what the descriptor says that it should be read/write
+
+    F errmsg;
+
+    if (dsc_begin > dsc_end) {
+        errmsg = std::move(F() << "The descriptor moved the " << (is_read_op ? "read " : "write ")
+                               << "pointer backwards and left it at position " << dsc_end
+                               << " that it is before the begin at position " << dsc_begin << ".");
+        goto fail;
+    }
+
+    if (dsc_end % 2 != 0) {
+        assert(dsc_begin % 2 == 0);
+        errmsg = std::move(F() << "The descriptor moved the " << (is_read_op ? "read " : "write ")
+                               << "pointer and left it misaligned at position " << dsc_end
+                               << " where the begin of the operation was at an aligned position " << dsc_begin << ".");
+        goto fail;
+    }
+
+    if (dsc_sz_based_io != calc_footprint) {
+        if (ex_type_used and dsc_sz_based_io > calc_footprint and dsc_sz_based_io - calc_footprint == 2 and dsc->hdr.type < EXTENDED_TYPE_VAL_THRESHOLD and is_read_op) {
+            // ok, this is an exception to the rule:
+            //
+            //  If during reading (is_read_op) we read an ex_type (ex_type_used) *but* the resulting type (dsc->hdr.type)
+            //  is less than the threshold, it means that the descriptor can have a smaller footprint because the type
+            //  can be stored without requiring the "extension type".
+            //
+            //  Hence, it should be expected that the calculated footprint (calc_footprint) is less than the
+            //  data actually read (dsc_sz_based_io), in particular, it should 2 bytes off (dsc_sz_based_io - calc_footprint).
+
+            // no error, false alarm
+        } else {
+            errmsg = std::move(F() << "Mismatch what the descriptor calculates its footprint ("
+                    << calc_footprint << " bytes) and what actually was " << (is_read_op ? "read " : "written ")
+                    << "(" << dsc_sz_based_io << " bytes)"
+                    );
+            goto fail;
+        }
+    }
+
+    return;
+
+fail:
+    if (is_read_op) {
+        io.seek_rd(dsc_end);
+        throw InconsistentXOZ(errmsg);
+    } else {
+        io.seek_wr(dsc_end);
+        throw WouldEndUpInconsistentXOZ(errmsg);
+    }
+}
 
 std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& idmgr) {
     throw_if_descriptor_mapping_not_initialized();
+    uint32_t dsc_begin_pos = io.tell_rd();
     uint16_t firstfield = io.read_u16_from_le();
 
     bool own_edata = read_bitsfield_from_u16<bool>(firstfield, MASK_OWN_EDATA_FLAG);
@@ -199,9 +262,11 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     */
 
     // extended-type (for types that require full 16 bits)
+    bool ex_type_used = false;
     if (type == EXTENDED_TYPE_VAL_THRESHOLD) {
         type = io.read_u16_from_le();
         hdr.type = type;
+        ex_type_used = true;
     }
 
     if (dsize > io.remain_rd()) {
@@ -215,17 +280,21 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
         throw std::runtime_error((F() << "Subclass create for " << hdr << " returned a null pointer").str());
     }
 
-    uint32_t data_begin = io.tell_rd();
+    uint32_t data_begin_pos = io.tell_rd();
     dsc->read_struct_specifics_from(ReadOnly(io, dsize));
-    uint32_t subclass_end = io.tell_rd();
+    uint32_t dsc_end_pos = io.tell_rd();
 
-    chk_rw_specifics(true, io, data_begin, subclass_end, hdr.dsize);
+    chk_rw_specifics_on_data(true, io, data_begin_pos, dsc_end_pos, hdr.dsize);
+    chk_struct_footprint(true, io, dsc_begin_pos, dsc_end_pos, dsc.get(), ex_type_used);
+
     return dsc;
 }
 
 
 void Descriptor::write_struct_into(IOBase& io) {
     throw_if_descriptor_mapping_not_initialized();
+    uint32_t dsc_begin_pos = io.tell_wr();
+
     if (hdr.dsize % 2 != 0) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is not multiple of 2 in " << hdr);
     }
@@ -339,8 +408,10 @@ void Descriptor::write_struct_into(IOBase& io) {
     // extended-type
     // note: a type of exactly EXTENDED_TYPE_VAL_THRESHOLD is valid and it requires
     // to store it in the ex_type field, hence the '>='
+    bool ex_type_used = false;
     if (hdr.type >= EXTENDED_TYPE_VAL_THRESHOLD) {
         io.write_u16_to_le(hdr.type);
+        ex_type_used = true;
     }
 
     if (hdr.dsize > io.remain_wr()) {
@@ -348,11 +419,12 @@ void Descriptor::write_struct_into(IOBase& io) {
                             F() << "No enough room for writing descriptor's data of " << hdr);
     }
 
-    uint32_t data_begin = io.tell_wr();
+    uint32_t data_begin_pos = io.tell_wr();
     write_struct_specifics_into(WriteOnly(io, hdr.dsize));
-    uint32_t subclass_end = io.tell_wr();
+    uint32_t dsc_end_pos = io.tell_wr();
 
-    chk_rw_specifics(false, io, data_begin, subclass_end, hdr.dsize);
+    chk_rw_specifics_on_data(false, io, data_begin_pos, dsc_end_pos, hdr.dsize);
+    chk_struct_footprint(false, io, dsc_begin_pos, dsc_end_pos, this, ex_type_used);
 }
 
 uint32_t Descriptor::calc_struct_footprint_size() const {
@@ -388,9 +460,7 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
             struct_sz += 2;
             struct_sz += 2;
         }
-    }
 
-    if (hdr.own_edata) {
         // segment
         struct_sz += hdr.segm.calc_struct_footprint_size();
     }
