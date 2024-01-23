@@ -24,6 +24,16 @@ private:
 
 
 public:
+    /*
+     * Define a block array with block of the given size <blk_sz>.
+     * The array begins at the given block number and spans to <past_end_blk_nr>
+     * (the <begin_blk_nr> is inclusive but <past_end_blk_nr> is not).
+     *
+     * The subclasses of BlockArray must provide an implementation that support
+     * adding/removing more blocks (impl_grow_by_blocks / impl_shrink_by_blocks)
+     * and read/write extents of blocks from/to the array
+     * (impl_read_extent / impl_write_extent)
+     * */
     BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr);
 
     BlockArray();

@@ -9,6 +9,9 @@
  * Read/write bytes into/from a span of bytes. This class
  * offers and more ergonomic interface to work with these
  * streams of bytes (see IOBase).
+ *
+ * This is mostly for testing where the underlying data (span of bytes)
+ * is in memory and not meant to be persistent.
  * */
 class IOSpan final: public IOBase {
 private:
