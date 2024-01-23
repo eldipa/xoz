@@ -1,4 +1,4 @@
 include_rules
 :foreach *.cpp |> !compile -I../ |>
-: *.o ../xoz/libxoz.a |> !build-prog |> allocdemo
+:foreach *.o | ../xoz/libxoz.a |> !build-prog ../xoz/libxoz.a |> %B
 
