@@ -27,8 +27,6 @@ descriptor_create_fn descriptor_create_lookup(uint16_t type) {
     }
 
     return it->second;
-
-    assert(false);
 }
 
 void throw_if_descriptor_mapping_not_initialized() {
@@ -392,14 +390,14 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
         }
     }
 
-    if (hdr.type >= EXTENDED_TYPE_VAL_THRESHOLD) {
-        // ex_type field
-        struct_sz += 2;
-    }
-
     if (hdr.own_edata) {
         // segment
         struct_sz += hdr.segm.calc_struct_footprint_size();
+    }
+
+    if (hdr.type >= EXTENDED_TYPE_VAL_THRESHOLD) {
+        // ex_type field
+        struct_sz += 2;
     }
 
     struct_sz += hdr.dsize;  // hdr.dsize is in bytes too
