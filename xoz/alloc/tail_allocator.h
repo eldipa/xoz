@@ -2,8 +2,9 @@
 
 #include <cstdint>
 
-#include "xoz/ext/block_array.h"
 #include "xoz/ext/extent.h"
+
+class BlockArray;
 
 class TailAllocator {
 private:
