@@ -44,15 +44,33 @@ public:
 
     std::vector<Extent> const& exts() const { return arr; }
 
-    bool has_end_of_segment() { return inline_present; }
+    bool has_end_of_segment() const { return inline_present; }
 
     void add_end_of_segment() { inline_present = true; }
 
-    void add_extent(const Extent& ext) { arr.push_back(ext); }
+    void add_extent(const Extent& ext) {
+        if (has_end_of_segment()) {
+            throw std::runtime_error("Segment with inline data/end of segment cannot be extended.");
+        }
 
-    void remove_last_extent() { arr.pop_back(); }
+        arr.push_back(ext);
+    }
 
-    void clear_extents() { arr.clear(); }
+    void remove_last_extent() {
+        if (has_end_of_segment()) {
+            throw std::runtime_error("Segment with inline data/end of segment cannot be reduced.");
+        }
+
+        arr.pop_back();
+    }
+
+    void clear_extents() {
+        if (has_end_of_segment()) {
+            throw std::runtime_error("Segment with inline data/end of segment cannot be reduced.");
+        }
+
+        arr.clear();
+    }
 
     uint32_t ext_cnt() const {
         // TODO check cast

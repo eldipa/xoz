@@ -204,8 +204,8 @@ namespace {
 
         // Remove the extent and inline data, add a non-zero length inline data
         // Check that that is enough to consider the segment ended
-        segm.clear_extents();
         segm.remove_inline_data();
+        segm.clear_extents();
         EXPECT_EQ(segm.has_end_of_segment(), (bool)false);
 
         segm.set_inline_data({0x41});
@@ -702,6 +702,23 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
+        // Adding another extent once we added inline data is not
+        // allowed (the inline work kind of a closure)
+        EXPECT_THAT(
+            [&]() { segm.add_extent(Extent(6, 8, false)); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Segment with inline data/end of segment cannot be extended."
+                        )
+                    )
+                )
+        );
+
+        // Remove the inline data temporally
+        auto inline_data_saved = segm.inline_data();
+        segm.remove_inline_data();
+
         // Add an extent that it is near of the previous extent
         // (note how it does matter that the last thing added
         // to the segment was an inline-data, it does not count)
@@ -711,6 +728,7 @@ namespace {
         //
         // Total: 2 bytes
         segm.add_extent(Extent(6, 8, false)); // 8 full blocks
+        segm.set_inline_data(inline_data_saved); // restore
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6+4+2+6+4+6+2, /* disc size */
                 /* allocated size */
