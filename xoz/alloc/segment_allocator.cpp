@@ -1,4 +1,4 @@
-#include "xoz/alloc/segm_allocator.h"
+#include "xoz/alloc/segment_allocator.h"
 
 #include <algorithm>
 #include <cassert>

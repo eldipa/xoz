@@ -6,7 +6,7 @@
 #include <set>
 #include <vector>
 
-#include "xoz/alloc/segm_allocator.h"
+#include "xoz/alloc/segment_allocator.h"
 #include "xoz/dsc/descriptor.h"
 #include "xoz/io/iobase.h"
 

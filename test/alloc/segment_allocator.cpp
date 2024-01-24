@@ -1,7 +1,7 @@
 #include "xoz/repo/repository.h"
 #include "xoz/ext/extent.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/alloc/segm_allocator.h"
+#include "xoz/alloc/segment_allocator.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
