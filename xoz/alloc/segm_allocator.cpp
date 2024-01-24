@@ -240,6 +240,7 @@ Extent SegmentAllocator::alloc_single_extent(const uint32_t sz) {
     Segment segm = this->alloc(sz, req);
     assert(segm.subblk_cnt() == 0);
     assert(segm.inline_data_sz() == 0);
+    assert(not segm.has_end_of_segment());
     assert(segm.exts().size() == 1);
 
     return segm.exts().front();
