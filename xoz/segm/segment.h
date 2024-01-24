@@ -9,12 +9,6 @@
 #include "xoz/io/iobase.h"
 
 class Segment {
-private:
-    std::vector<Extent> arr;
-
-    bool inline_present;
-    std::vector<char> raw;
-
 public:
     static const uint32_t MaxInlineSize = (1 << 6) - 1;
 
@@ -26,7 +20,6 @@ public:
         return segm;
     }
 
-    // TODO offer a "borrow" variant
     void set_inline_data(const std::vector<char>& data) {
         inline_present = true;
         raw = data;
@@ -42,11 +35,30 @@ public:
         raw.clear();
     }
 
-    std::vector<Extent> const& exts() const { return arr; }
+    std::vector<char>& inline_data() {
+        if (not has_end_of_segment()) {
+            throw std::runtime_error("Segment has not inline data.");
+        }
+        return raw;
+    }
+
+    /*
+     * Return the size in bytes of the inline data (if any).
+     * If the inline data is not present (not even empty), return 0.
+     *
+     * To truly check if the segment has or no inline data (even empty),
+     * call has_end_of_segment()
+     * */
+    uint8_t inline_data_sz() const {
+        // TODO check cast
+        return inline_present ? uint8_t(raw.size()) : 0;
+    }
 
     bool has_end_of_segment() const { return inline_present; }
 
     void add_end_of_segment() { inline_present = true; }
+
+    std::vector<Extent> const& exts() const { return arr; }
 
     void add_extent(const Extent& ext) {
         if (has_end_of_segment()) {
@@ -123,16 +135,6 @@ public:
         return true;
     }
 
-    std::vector<char>& inline_data() {
-        assert(inline_present);
-        return raw;
-    }
-
-    uint8_t inline_data_sz() const {
-        // TODO check cast
-        return inline_present ? uint8_t(raw.size()) : 0;
-    }
-
     static Segment load_struct_from(IOBase& io, uint32_t segm_len = uint32_t(-1)) {
         Segment segm;
         segm.read_struct_from(io, segm_len);
@@ -169,4 +171,10 @@ public:
 
 private:
     void fail_if_bad_inline_sz() const;
+
+private:
+    std::vector<Extent> arr;
+
+    bool inline_present;
+    std::vector<char> raw;
 };
