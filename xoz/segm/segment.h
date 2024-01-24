@@ -56,6 +56,17 @@ public:
         arr.push_back(ext);
     }
 
+    void extend(const Segment& segm) {
+        if (has_end_of_segment()) {
+            throw std::runtime_error("Segment with inline data/end of segment cannot be extended.");
+        }
+
+        // plain copy
+        arr = segm.arr;
+        raw = segm.raw;
+        inline_present = segm.inline_present or not raw.empty();
+    }
+
     void remove_last_extent() {
         if (has_end_of_segment()) {
             throw std::runtime_error("Segment with inline data/end of segment cannot be reduced.");

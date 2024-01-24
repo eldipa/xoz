@@ -755,6 +755,109 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
     }
 
+    TEST(SegmentTest, ExtendWithAnotherSegmentAndInline) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        Segment segm;
+        Segment src;
+
+        // Extent not-near the prev extent (+2 bytes) with a blk count
+        // that does not fit in smallcnt (+2 bytes) so raising a total
+        // of 6 bytes
+        //
+        // [                e00      e10        ] addr
+        // [                 XX...XX            ] blks
+        src.add_extent(Extent(0xe00, 16, false)); // 16 blocks
+        // Append a extent near to the prev extent (blk_nr 0xe00).
+        // It is immediately after the prev extent so the offset is 0
+        // The extent is for suballoc so it requires the bitmask (+2 bytes)
+        // despite alloc'ing 0 subblocks
+        //
+        // [                e00     e10        ] addr
+        // [                 XX...XX|Y         ] blks
+        src.add_extent(Extent(0xe10, 0, true));    // 0 subblocks
+        // Append an extent near the prev extent (blk_nr 0xe10) which was
+        // 1 block length (for suballocation). It is immediately after the
+        // previous extent (offset = 0)
+        // The current extent has also 1 block so it fits in a smallcnt
+        // with a total of 2 bytes only
+        //
+        // [                e00    e10 e11        ] addr
+        // [                 XX...XX|Y|Z|         ] blks
+        src.add_extent(Extent(0xe11, 1, false)); // 1 block count, fits in smallcnt
+        // Append an extent far from prev extent. This extent
+        // is 1 block length for suballocation (with 2 subblocks set)
+        // This gives a total of 6 bytes
+        //
+        // [     4           e00    e10 e11        ] addr
+        // [     X           XX...XX|Y|Z|         ] blks
+        src.add_extent(Extent(4, 0b00001001, true));    // 2 subblocks
+        // Append another extent, this has 0 block length
+        // (smallcnt cannot be used so, +2)
+        // and it is near the previous *but* backwards
+        //
+        // It is 1 block behind the previous extent: this is because
+        // the current extent is 0-blocks length so between blk nr 3
+        // and blk nr 4 there are 1 block "of gap" between the two extents
+        //
+        // [    34          e00    e10 e11        ] addr
+        // [    0X           XX...XX|Y|Z|         ] blks
+        src.add_extent(Extent(3, 0, false)); // 0 full block (large extent)
+        // Add inline: 2 for the header and +4 of the data (6 in total)
+        src.set_inline_data({char(0xaa), char(0xbb), char(0xcc), char(0xdd)}); // 4 bytes of inline data
+
+        // Add all the extents and inline from the source segment
+        segm.extend(src);
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                6+4+2+6+4+6, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4)) +
+                (0) +
+                (4)
+                );
+
+        segm.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0000 000e 1000 "
+                "0084 0000 "
+                "000c "
+                "0080 0400 0900 "
+                "0106 0000 "
+                "00c4 aabb ccdd"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Adding another extent once we added inline data is not
+        // allowed (the inline work kind of a closure)
+        EXPECT_THAT(
+            [&]() { segm.add_extent(Extent(6, 8, false)); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Segment with inline data/end of segment cannot be extended."
+                        )
+                    )
+                )
+        );
+
+        // The same goes extending from another segment
+        EXPECT_THAT(
+            [&]() { segm.extend(src); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Segment with inline data/end of segment cannot be extended."
+                        )
+                    )
+                )
+        );
+    }
 
     TEST(SegmentTest, FileOverflowNotEnoughRoom) {
         const uint8_t blk_sz_order = 10;
