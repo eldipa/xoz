@@ -3,9 +3,10 @@
 #include <utility>
 
 #include "xoz/err/exceptions.h"
+#include "xoz/ext/block_array.h"
 #include "xoz/repo/id_manager.h"
 
-DescriptorSet::DescriptorSet(BlockArray& blkarr /* TODO */): sg_alloc_dsc(blkarr) {}
+DescriptorSet::DescriptorSet(BlockArray& blkarr /* TODO */): sg_alloc_dsc() { sg_alloc_dsc.manage_block_array(blkarr); }
 
 void DescriptorSet::load_descriptors(IOBase& io, IDManager& idmgr) {
     if (io.remain_rd() % 2 != 0) {
@@ -82,7 +83,7 @@ void DescriptorSet::load_descriptors(IOBase& io, IDManager& idmgr) {
 
 
 void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
-    const auto blk_sz_order = sg_alloc_dsc.blk_sz_order();
+    const auto blk_sz_order = sg_alloc_dsc.blkarr().blk_sz_order();
     io.seek_wr(ext.blk_nr() << blk_sz_order);
     io.fill(0, ext.blk_cnt() << blk_sz_order);
 }
@@ -97,7 +98,7 @@ void DescriptorSet::_write_modified_descriptors(IOBase& io, SegmentAllocator& sg
     // can "split" the space and free a part.
     // Also, find any descriptor that grew so we remove it
     // and we re-add it later
-    const auto blk_sz_order = sg_alloc_dsc.blk_sz_order();
+    const auto blk_sz_order = sg_alloc_dsc.blkarr().blk_sz_order();
     for (const auto dsc: to_update) {
         auto cur_dsc_sz = dsc->calc_struct_footprint_size();
         auto alloc_dsc_sz = uint32_t(dsc->ext.blk_cnt()) << blk_sz_order;  // TODO byte_to_blk and blk_to_byte
@@ -123,7 +124,7 @@ void DescriptorSet::_write_modified_descriptors(IOBase& io, SegmentAllocator& sg
             // shrank, split and dealloc the unused part
             // Note: this split works because the descriptors sizes are a multiple
             // of the block size of the stream. By the RFC, this is a multiple of 2 bytes.
-            assert(cur_dsc_sz % sg_alloc_dsc.blk_sz() == 0);
+            assert(cur_dsc_sz % sg_alloc_dsc.blkarr().blk_sz() == 0);
             assert((cur_dsc_sz >> blk_sz_order) <= uint16_t(-1));
 
             auto ext2 = dsc->ext.split(uint16_t(cur_dsc_sz >> blk_sz_order));

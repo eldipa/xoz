@@ -8,10 +8,13 @@ class BlockArray;
 
 class TailAllocator {
 private:
-    BlockArray& blkarr;
+    BlockArray* blkarr;
+    void fail_if_block_array_not_initialized() const;
 
 public:
-    explicit TailAllocator(BlockArray& blkarr);
+    TailAllocator();
+
+    void manage_block_array(BlockArray& blkarr);
 
     // Result of an allocation.
     struct alloc_result_t {

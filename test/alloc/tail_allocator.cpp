@@ -33,7 +33,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        TailAllocator alloc(repo);
+        TailAllocator alloc;
+        alloc.manage_block_array(repo);
 
         XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000"
@@ -97,7 +98,8 @@ namespace {
         std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
 
         Repository repo = Repository::create_mem_based(0, gp);
-        TailAllocator alloc(repo);
+        TailAllocator alloc;
+        alloc.manage_block_array(repo);
 
         const uint16_t blk_allocated_test = 5;
         alloc.alloc(blk_allocated_test);
@@ -192,7 +194,8 @@ namespace {
         std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
 
         Repository repo = Repository::create_mem_based(0, gp);
-        TailAllocator alloc(repo);
+        TailAllocator alloc;
+        alloc.manage_block_array(repo);
 
         const uint16_t blk_allocated_test = 5;
         alloc.alloc(blk_allocated_test);
@@ -256,7 +259,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        TailAllocator alloc(repo);
+        TailAllocator alloc;
+        alloc.manage_block_array(repo);
 
         const uint16_t blk_allocated_test = 3;
         alloc.alloc(blk_allocated_test);
@@ -329,7 +333,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        TailAllocator alloc(repo);
+        TailAllocator alloc;
+        alloc.manage_block_array(repo);
 
         EXPECT_THAT(
             [&]() { alloc.alloc(0); },
@@ -349,7 +354,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        TailAllocator alloc(repo);
+        TailAllocator alloc;
+        alloc.manage_block_array(repo);
 
         EXPECT_THAT(
             [&]() { alloc.dealloc(Extent(4, 0, false)); },
@@ -369,7 +375,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        TailAllocator alloc(repo);
+        TailAllocator alloc;
+        alloc.manage_block_array(repo);
 
         EXPECT_THAT(
             [&]() { alloc.dealloc(Extent(4, 4, true)); },

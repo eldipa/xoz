@@ -42,7 +42,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         std::list<Extent> fr_extents;
         fr_extents.clear();
@@ -62,7 +63,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000"
@@ -98,7 +100,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 1 byte so we expect to have 0 blocks allocated
         // in the repository (and in the segment) and 1 byte
@@ -144,7 +147,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc N bytes that would completely fill a single subblk
         // so we expect to have 1 blocks allocated
@@ -199,7 +203,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc N bytes that would completely fill a 2 subblks
         // so we expect to have 1 blocks allocated
@@ -254,7 +259,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc N bytes that would completely fill a 2 subblks
         // so we expect to have 1 blocks allocated
@@ -302,7 +308,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc N bytes that would "almost" completely fill a single block
         // with only 1 byte missed.
@@ -360,7 +367,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc N bytes that would completely fill a single block,
         // no more, no less.
@@ -417,7 +425,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc N bytes that would completely fill a single block
         // with 1 additional byte.
@@ -470,7 +479,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc N bytes that would completely fill a single block
         // and 1 additional subblock.
@@ -532,7 +542,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // We expect to have 1 extent with  2 blocks allocated
         // and another extent for suballoc with 3 subblocks
@@ -591,7 +602,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -641,7 +653,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -691,7 +704,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -750,7 +764,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -804,7 +819,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -875,7 +891,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // This will not require a full block because it fits in the inline space
         Segment segm1 = sg_alloc.alloc(req.max_inline_sz, req);
@@ -937,7 +954,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 1 byte so we expect to have 0 blocks allocated
         // in the repository (and in the segment) and 1 byte
@@ -1004,7 +1022,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 3 segments of 1, 2 and 3 blocks each (6 blocks in total)
         Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 1);
@@ -1179,7 +1198,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, false);
+        SegmentAllocator sg_alloc(false);
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 3 segments of 1, 2 and 3 blocks each (6 blocks in total)
         Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 1);
@@ -1349,7 +1369,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 3 subblocks which requires allocate 1 block
         Segment segm1 = sg_alloc.alloc(repo.subblk_sz() * 3);
@@ -1515,7 +1536,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 2 blks + 3 subblocks which requires allocate 3 block
         // in total
@@ -1698,7 +1720,8 @@ namespace {
         const uint8_t MaxInlineSize = req.max_inline_sz;
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Sanity check: the point is that we are allocating
         // Max+1 and that trigger to do the allocation in a subblock
@@ -1795,7 +1818,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         Segment segm = sg_alloc.alloc(0);
 
@@ -1899,7 +1923,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, true);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -1993,7 +2018,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, false);
+        SegmentAllocator sg_alloc(false);
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2075,7 +2101,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, true);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2206,7 +2233,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, true);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2333,7 +2361,8 @@ namespace {
         */
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, true);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2388,7 +2417,8 @@ namespace {
                     Extent(15, 1, false)
                     ));
 
-        SegmentAllocator sg_alloc1(repo, true);
+        SegmentAllocator sg_alloc1(true);
+        sg_alloc1.manage_block_array(repo);
         sg_alloc1.initialize(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -2478,7 +2508,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, true);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * 15);
@@ -2501,7 +2532,8 @@ namespace {
         EXPECT_EQ(repo.blk_cnt(), (uint32_t)15);
 
 
-        SegmentAllocator sg_alloc1(repo, true);
+        SegmentAllocator sg_alloc1(true);
+        sg_alloc1.manage_block_array(repo);
         sg_alloc1.initialize(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -2577,7 +2609,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, true);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(repo);
 
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * (0xffff + 2));
 
@@ -2600,7 +2633,8 @@ namespace {
         allocated.back().add_extent(Extent(repo.past_end_blk_nr()-1, 1, false));
 
 
-        SegmentAllocator sg_alloc1(repo, true);
+        SegmentAllocator sg_alloc1(true);
+        sg_alloc1.manage_block_array(repo);
         sg_alloc1.initialize(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -2677,7 +2711,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, true);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(repo);
 
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * (0xffff + 2));
 
@@ -2700,7 +2735,8 @@ namespace {
         allocated.back().add_extent(Extent(repo.begin_blk_nr(), 1, false));
 
 
-        SegmentAllocator sg_alloc1(repo, true);
+        SegmentAllocator sg_alloc1(true);
+        sg_alloc1.manage_block_array(repo);
         sg_alloc1.initialize(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -2797,7 +2833,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, true);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * 15);
@@ -2855,7 +2892,8 @@ namespace {
         EXPECT_EQ(repo.blk_cnt(), (uint32_t)15);
 
 
-        SegmentAllocator sg_alloc1(repo, true);
+        SegmentAllocator sg_alloc1(true);
+        sg_alloc1.manage_block_array(repo);
         sg_alloc1.initialize(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -2936,7 +2974,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo, true);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(repo);
 
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * 15);
@@ -2961,7 +3000,8 @@ namespace {
         EXPECT_EQ(repo.blk_cnt(), (uint32_t)15);
 
 
-        SegmentAllocator sg_alloc1(repo, true);
+        SegmentAllocator sg_alloc1(true);
+        sg_alloc1.manage_block_array(repo);
 
         // This one is buggy: it is positioned *before* the begin of
         // the repo's data space
@@ -2985,7 +3025,8 @@ namespace {
         // the repo's data space
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 15, 2, false));
 
-        SegmentAllocator sg_alloc2(repo, true);
+        SegmentAllocator sg_alloc2(true);
+        sg_alloc2.manage_block_array(repo);
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc2.initialize(allocated); }),
             ThrowsMessage<ExtentOutOfBounds>(
@@ -3003,7 +3044,8 @@ namespace {
         // This one is also buggy: it is larger than the original repo
         allocated.back().add_extent(Extent(main_ext.blk_nr() - 1, 25, false));
 
-        SegmentAllocator sg_alloc3(repo, true);
+        SegmentAllocator sg_alloc3(true);
+        sg_alloc3.manage_block_array(repo);
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc3.initialize(allocated); }),
             ThrowsMessage<ExtentOutOfBounds>(
@@ -3021,7 +3063,8 @@ namespace {
         // This one is also buggy: it overlaps with a full block
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 1, false));
 
-        SegmentAllocator sg_alloc4(repo, true);
+        SegmentAllocator sg_alloc4(true);
+        sg_alloc4.manage_block_array(repo);
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc4.initialize(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
@@ -3039,7 +3082,8 @@ namespace {
         // This one is also buggy: it overlaps with another full block
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 5, 2, false));
 
-        SegmentAllocator sg_alloc5(repo, true);
+        SegmentAllocator sg_alloc5(true);
+        sg_alloc5.manage_block_array(repo);
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc5.initialize(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
@@ -3057,7 +3101,8 @@ namespace {
         // This one is also buggy: it overlaps with a block for suballocation
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 1, false));
 
-        SegmentAllocator sg_alloc7(repo, true);
+        SegmentAllocator sg_alloc7(true);
+        sg_alloc7.manage_block_array(repo);
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc7.initialize(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
@@ -3075,7 +3120,8 @@ namespace {
         // This one is also buggy: it overlaps with a block for suballocation
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 0xf000, true));
 
-        SegmentAllocator sg_alloc8(repo, true);
+        SegmentAllocator sg_alloc8(true);
+        sg_alloc8.manage_block_array(repo);
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc8.initialize(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
@@ -3093,7 +3139,8 @@ namespace {
         // This one is also buggy: it overlaps with a another block for suballocation
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0xf000, true));
 
-        SegmentAllocator sg_alloc9(repo, true);
+        SegmentAllocator sg_alloc9(true);
+        sg_alloc9.manage_block_array(repo);
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc9.initialize(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
@@ -3111,7 +3158,8 @@ namespace {
         // This one is also buggy: it overlaps with a full block
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 0xf000, true));
 
-        SegmentAllocator sg_allocA(repo, true);
+        SegmentAllocator sg_allocA(true);
+        sg_allocA.manage_block_array(repo);
         EXPECT_THAT(
             ensure_called_once([&]() { sg_allocA.initialize(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
@@ -3134,7 +3182,8 @@ namespace {
         };
 
         Repository repo = Repository::create_mem_based(0, gp);
-        SegmentAllocator sg_alloc(repo);
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(repo);
 
         // Alloc a single extent of some size. No suballoc is allowed so full blks are allocated
         Extent ext = sg_alloc.alloc_single_extent(23);

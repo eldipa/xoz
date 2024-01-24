@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
+#include "xoz/alloc/segment_allocator.h"
 #include "xoz/ext/extent.h"
 #include "xoz/mem/bits.h"
-
 
 class BlockArray {
 protected:
@@ -38,6 +38,9 @@ protected:
      * */
     virtual uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start);
 
+    BlockArray(bool coalescing_enabled = true, uint16_t split_above_threshold = 0,
+               const struct SegmentAllocator::req_t& default_req = SegmentAllocator::XOZDefaultReq);
+
 private:
     uint32_t _blk_sz;
     uint8_t _blk_sz_order;
@@ -45,6 +48,7 @@ private:
     uint32_t _begin_blk_nr;
     uint32_t _past_end_blk_nr;
 
+    SegmentAllocator sg_alloc;
 
 public:
     /*
@@ -57,9 +61,10 @@ public:
      * and read/write extents of blocks from/to the array
      * (impl_read_extent / impl_write_extent)
      * */
-    BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr);
+    BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr, bool coalescing_enabled = true,
+               uint16_t split_above_threshold = 0,
+               const struct SegmentAllocator::req_t& default_req = SegmentAllocator::XOZDefaultReq);
 
-    BlockArray();
 
     // Block definition
     inline uint32_t subblk_sz() const { return _blk_sz >> Extent::SUBBLK_SIZE_ORDER; }

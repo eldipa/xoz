@@ -23,10 +23,13 @@
 #define TRACE_SECTION(x) TRACE << (x) << " "
 #define TRACE_LINE TRACE << "    "
 
-SegmentAllocator::SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled, uint16_t split_above_threshold,
+SegmentAllocator::SegmentAllocator(bool coalescing_enabled, uint16_t split_above_threshold,
                                    const struct req_t& default_req):
-        blkarr(blkarr),
-        tail(blkarr),
+        _blkarr(nullptr),
+        blk_sz(0),
+        blk_sz_order(0),
+        subblk_sz(0),
+        tail(),
         fr_map(coalescing_enabled, split_above_threshold),
         subfr_map(),
         coalescing_enabled(coalescing_enabled),
@@ -41,6 +44,31 @@ SegmentAllocator::SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled, 
         internal_frag_avg_sz(0),
         default_req(default_req) {
     memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
+}
+
+void SegmentAllocator::manage_block_array(BlockArray& blkarr) {
+    if (_blkarr) {
+        throw std::runtime_error("The segment allocator is already managing a block array.");
+    }
+
+    if (blkarr.blk_sz() == 0 or blkarr.blk_sz_order() == 0) {
+        throw std::runtime_error(
+                "Block array is not properly initialized yet and cannot be used/managed by the segment allocator.");
+    }
+
+    if (blkarr.subblk_sz() == 0 and default_req.allow_suballoc) {
+        throw std::runtime_error("Block array has a sub-block size of 0 bytes and cannot be used for suballocation; "
+                                 "this conflicts with the default alloc requirements.");
+    }
+
+    // Keep a reference
+    _blkarr = &blkarr;
+
+    blk_sz = _blkarr->blk_sz();
+    blk_sz_order = _blkarr->blk_sz_order();
+    subblk_sz = _blkarr->subblk_sz();
+
+    tail.manage_block_array(blkarr);
 }
 
 Segment SegmentAllocator::alloc(const uint32_t sz) { return alloc(sz, default_req); }
@@ -74,6 +102,12 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     //                       \            inline data
     //                        \----------- /
     //
+    fail_if_block_array_not_initialized();
+
+    if (subblk_sz == 0 and req.allow_suballoc) {
+        throw std::runtime_error("Subblock size 0 cannot be used for suballocation");
+    }
+
     Segment segm;
     uint32_t sz_remain = sz;
     uint32_t avail_sz = 0;
@@ -86,14 +120,14 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     }
 
     // How many blocks are needed?
-    uint32_t blk_cnt_remain = sz_remain / blkarr.blk_sz();
-    sz_remain = sz_remain % blkarr.blk_sz();
+    uint32_t blk_cnt_remain = sz_remain / blk_sz;
+    sz_remain = sz_remain % blk_sz;
 
     // How many sub blocks are needed?
     uint32_t subblk_cnt_remain;
     if (req.allow_suballoc) {
-        subblk_cnt_remain = sz_remain / blkarr.subblk_sz();
-        sz_remain = sz_remain % blkarr.subblk_sz();
+        subblk_cnt_remain = sz_remain / subblk_sz;
+        sz_remain = sz_remain % subblk_sz;
     } else {
         subblk_cnt_remain = 0;
     }
@@ -111,10 +145,10 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     // the inline can be perfectly put into a new subblk/blk.
     if (inline_sz > req.max_inline_sz) {
         if (req.allow_suballoc) {
-            assert(inline_sz <= blkarr.subblk_sz());
+            assert(inline_sz <= subblk_sz);
             ++subblk_cnt_remain;
         } else {
-            assert(inline_sz <= blkarr.blk_sz());
+            assert(inline_sz <= blk_sz);
             ++blk_cnt_remain;
         }
         inline_sz = 0;
@@ -138,7 +172,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     assert(subblk_cnt_remain <= Extent::SUBBLK_CNT_PER_BLK);
 
     // due rounding/backpressure we may going to allocate more than the requested, hence the '>='
-    assert(blk_cnt_remain * blkarr.blk_sz() + subblk_cnt_remain * blkarr.subblk_sz() + inline_sz >= sz);
+    assert(blk_cnt_remain * blk_sz + subblk_cnt_remain * subblk_sz + inline_sz >= sz);
 
     TRACE_SECTION("A") << std::setw(5) << sz << " b" << TRACE_ENDL;
 
@@ -200,7 +234,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     assert(inline_sz == 0);
     assert(sz_remain == 0);
 
-    avail_sz = segm.calc_data_space_size(blkarr.blk_sz_order());
+    avail_sz = segm.calc_data_space_size(blk_sz_order);
 
     // sanity check: we may allocate more if the user requeste to have no-inline
     // and the sz requested is not multiple of subblk_sz *or* to have no-inline
@@ -217,7 +251,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
 
     calc_ext_per_segm_stats(segm, true);
 
-    internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(blkarr.blk_sz_order());
+    internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(blk_sz_order);
 
     ++alloc_call_cnt;
     return segm;
@@ -227,6 +261,7 @@ no_free_space:
 }
 
 Extent SegmentAllocator::alloc_single_extent(const uint32_t sz) {
+    fail_if_block_array_not_initialized();
     if (sz == 0) {
         // We can allocate a Segment of zero bytes, it is just an empty Segment
         // but we cannot allocate an Extent of zero bytes because it is not well defined
@@ -236,6 +271,7 @@ Extent SegmentAllocator::alloc_single_extent(const uint32_t sz) {
     }
 
     struct req_t req = {.segm_frag_threshold = 1, .max_inline_sz = 0, .allow_suballoc = false, .single_extent = true};
+    assert(subblk_sz != 0 or not req.allow_suballoc);  // sanity chk, this is double chk in alloc() method
 
     Segment segm = this->alloc(sz, req);
     assert(segm.subblk_cnt() == 0);
@@ -247,7 +283,8 @@ Extent SegmentAllocator::alloc_single_extent(const uint32_t sz) {
 }
 
 void SegmentAllocator::dealloc(const Segment& segm) {
-    auto sz = segm.calc_data_space_size(blkarr.blk_sz_order());
+    fail_if_block_array_not_initialized();
+    auto sz = segm.calc_data_space_size(blk_sz_order);
 
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
     TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
@@ -273,12 +310,13 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     calc_ext_per_segm_stats(segm, false);
     ++dealloc_call_cnt;
 
-    internal_frag_avg_sz -= segm.estimate_on_avg_internal_frag_sz(blkarr.blk_sz_order());
+    internal_frag_avg_sz -= segm.estimate_on_avg_internal_frag_sz(blk_sz_order);
 
     reclaim_free_space_from_subfr_map();
 }
 
 void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
+    fail_if_block_array_not_initialized();
     if (ext.is_empty()) {
         throw std::runtime_error("The extent to be deallocated cannot be empty.");
     }
@@ -289,6 +327,7 @@ void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
 }
 
 void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
+    fail_if_block_array_not_initialized();
     if (alloc_call_cnt or dealloc_call_cnt) {
         throw std::runtime_error("Segment allocator already been used.");
     }
@@ -298,14 +337,14 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
     for (const auto& segm: allocated_segms) {
         allocated.insert(allocated.end(), segm.exts().begin(), segm.exts().end());
 
-        in_use_by_user_sz += segm.calc_data_space_size(blkarr.blk_sz_order());
+        in_use_by_user_sz += segm.calc_data_space_size(blk_sz_order);
         in_use_ext_cnt += segm.ext_cnt();
         in_use_inlined_sz += segm.inline_data_sz();
         in_use_blk_cnt += segm.full_blk_cnt();
         in_use_subblk_cnt += segm.subblk_cnt();
 
         calc_ext_per_segm_stats(segm, true);
-        internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(blkarr.blk_sz_order());
+        internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(blk_sz_order);
     }
 
     // Sort them by block number
@@ -369,7 +408,7 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
 
     // Find the gaps between consecutive allocated extents (ignoring the ones for suballocation)
     // These gaps are the free extents to initialize the free maps
-    uint32_t cur_nr = blkarr.begin_blk_nr();
+    uint32_t cur_nr = _blkarr->begin_blk_nr();
     Extent prev(0, 0, false);
     for (const auto& ext: allocated) {
         if (ext.is_suballoc()) {
@@ -377,7 +416,7 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
             continue;
         }
 
-        blkarr.fail_if_out_of_boundaries(ext, "error found during SegmentAllocator initialization");
+        _blkarr->fail_if_out_of_boundaries(ext, "error found during SegmentAllocator initialization");
 
         // Technically this overlap check is not needed because fr_map.provide will
         // do it for us. Nevertheless, I prefer to double check and make an explicit
@@ -416,8 +455,8 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
 
     // Provide the last free extent (if any) that lies after the last
     // allocated extent and the end of the data section
-    if (blkarr.past_end_blk_nr() > cur_nr) {
-        uint32_t gap = blkarr.past_end_blk_nr() - cur_nr;
+    if (_blkarr->past_end_blk_nr() > cur_nr) {
+        uint32_t gap = _blkarr->past_end_blk_nr() - cur_nr;
 
         while (gap) {
             uint16_t len = uint16_t(std::min<uint32_t>(gap, 0xffff));
@@ -427,19 +466,21 @@ void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
             cur_nr += len;
         }
 
-        assert(cur_nr == blkarr.past_end_blk_nr());
+        assert(cur_nr == _blkarr->past_end_blk_nr());
     }
 }
 
 void SegmentAllocator::release() {
+    fail_if_block_array_not_initialized();
     reclaim_free_space_from_subfr_map();
     reclaim_free_space_from_fr_map();
 }
 
 SegmentAllocator::stats_t SegmentAllocator::stats() const {
-    uint64_t repo_data_sz = (blkarr.blk_cnt() << blkarr.blk_sz_order());
+    fail_if_block_array_not_initialized();
+    uint64_t repo_data_sz = (_blkarr->blk_cnt() << blk_sz_order);
 
-    uint64_t external_frag_sz = (blkarr.blk_cnt() - in_use_blk_cnt) << blkarr.blk_sz_order();
+    uint64_t external_frag_sz = (_blkarr->blk_cnt() - in_use_blk_cnt) << blk_sz_order;
     double external_frag_sz_kb = double(external_frag_sz) / double(1024.0);
     double external_frag_rel = repo_data_sz == 0 ? 0 : (double(external_frag_sz) / double(repo_data_sz));
 
@@ -448,14 +489,13 @@ SegmentAllocator::stats_t SegmentAllocator::stats() const {
     double internal_frag_avg_rel =
             in_use_by_user_sz == 0 ? 0 : (double(internal_frag_avg_sz) / double(in_use_by_user_sz));
 
-    uint64_t allocable_internal_frag_sz =
-            ((in_use_blk_for_suballoc_cnt << blkarr.blk_sz_order()) -
-             ((in_use_subblk_cnt << (blkarr.blk_sz_order() - Extent::SUBBLK_SIZE_ORDER))));
+    uint64_t allocable_internal_frag_sz = ((in_use_blk_for_suballoc_cnt << blk_sz_order) -
+                                           ((in_use_subblk_cnt << (blk_sz_order - Extent::SUBBLK_SIZE_ORDER))));
     double allocable_internal_frag_sz_kb = double(allocable_internal_frag_sz) / double(1024.0);
-    double allocable_internal_frag_rel = in_use_blk_for_suballoc_cnt == 0 ?
-                                                 0 :
-                                                 (double(allocable_internal_frag_sz) /
-                                                  double((in_use_blk_for_suballoc_cnt << blkarr.blk_sz_order())));
+    double allocable_internal_frag_rel =
+            in_use_blk_for_suballoc_cnt == 0 ?
+                    0 :
+                    (double(allocable_internal_frag_sz) / double((in_use_blk_for_suballoc_cnt << blk_sz_order)));
 
 
     uint64_t in_use_segment_cnt = alloc_call_cnt - dealloc_call_cnt;
@@ -748,4 +788,10 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
 
     out->flags(ioflags);
     assert(SegmentAllocator::StatsExtPerSegmLen == 8);
+}
+
+void SegmentAllocator::fail_if_block_array_not_initialized() const {
+    if (not _blkarr) {
+        throw std::runtime_error("Block array not initialized (managed). Missed call to manage_block_array?");
+    }
 }

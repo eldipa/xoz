@@ -52,7 +52,11 @@ public:
 
 
 private:
-    BlockArray& blkarr;
+    BlockArray* _blkarr;
+
+    uint32_t blk_sz;
+    uint8_t blk_sz_order;
+    uint32_t subblk_sz;
 
     TailAllocator tail;
 
@@ -82,10 +86,22 @@ public:
     constexpr static struct req_t XOZDefaultReq = {
             .segm_frag_threshold = 2, .max_inline_sz = 8, .allow_suballoc = true, .single_extent = false};
 
-    explicit SegmentAllocator(BlockArray& blkarr, bool coalescing_enabled = true, uint16_t split_above_threshold = 0,
+    /*
+     * Partially creates a SegmentAllocator. To be functional at all, caller must call
+     * manage_block_array() *once* with a BlockArray fully initialized. Once called,
+     * the method cannot be called again.
+     *
+     * This 2-step creation allows the user to defer the setup of the block array for later
+     * (perhaps because its parameters must be loaded from somewhere else and cannot be done
+     * in a contructor).
+     * */
+    explicit SegmentAllocator(bool coalescing_enabled = true, uint16_t split_above_threshold = 0,
                               const struct req_t& default_req = XOZDefaultReq);
 
+    void manage_block_array(BlockArray& blkarr);
+
     void set_default_alloc_requirements(const struct req_t& new_req) { default_req = new_req; }
+    const struct req_t& get_default_alloc_requirements() const { return default_req; }
 
     Segment alloc(const uint32_t sz);
     Segment alloc(const uint32_t sz, const struct req_t& req);
@@ -199,12 +215,10 @@ public:
 
     struct stats_t stats() const;
 
-    // Block definition, from the underlying BlockArray
-    inline uint32_t subblk_sz() const { return blkarr.subblk_sz(); }
-
-    inline uint32_t blk_sz() const { return blkarr.blk_sz(); }
-
-    inline uint8_t blk_sz_order() const { return blkarr.blk_sz_order(); }
+    inline const BlockArray& blkarr() const {
+        assert(_blkarr);
+        return *_blkarr;
+    }
 
 
     typedef xoz::alloc::internals::ConstExtentMergeIterator<FreeMap::const_iterator_by_blk_nr_t,
@@ -238,4 +252,6 @@ private:
     void reclaim_free_space_from_subfr_map();
 
     void calc_ext_per_segm_stats(const Segment& segm, bool is_alloc);
+
+    void fail_if_block_array_not_initialized() const;
 };

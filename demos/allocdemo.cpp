@@ -178,7 +178,8 @@ int main(int argc, char* argv[]) {
     };
 
     Repository repo = Repository::create_mem_based(0, gp);
-    SegmentAllocator sg_alloc(repo, coalescing_enabled, split_above_threshold);
+    SegmentAllocator sg_alloc(coalescing_enabled, split_above_threshold);
+    sg_alloc.manage_block_array(repo);
 
     Demo demo(repo, sg_alloc, req);
 

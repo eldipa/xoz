@@ -7,20 +7,47 @@
 #include "xoz/ext/extent.h"
 
 void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr) {
-    if (begin_blk_nr > past_end_blk_nr)
+    if (blk_sz == 0) {
+        throw std::runtime_error("blk_sz 0 is incorrect");
+    }
+
+    if (blk_sz < 16 or blk_sz % 16 != 0) {
+        if (sg_alloc.get_default_alloc_requirements().allow_suballoc) {
+            throw std::runtime_error("blk_sz too small/not multiple of 16 to be suballocated");
+        }
+    }
+
+    if (begin_blk_nr > past_end_blk_nr) {
         throw std::runtime_error("begin_blk_nr > past_end_blk_nr is incorrect");
+    }
 
     _blk_sz = blk_sz;
     _blk_sz_order = (uint8_t)u32_log2_floor(_blk_sz);
     _begin_blk_nr = begin_blk_nr;
     _past_end_blk_nr = past_end_blk_nr;
+
+    sg_alloc.manage_block_array(*this);
 }
 
-BlockArray::BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr) {
+BlockArray::BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr, bool coalescing_enabled,
+                       uint16_t split_above_threshold, const struct SegmentAllocator::req_t& default_req):
+        _blk_sz(blk_sz),
+        _blk_sz_order((uint8_t)u32_log2_floor(blk_sz)),
+        _begin_blk_nr(begin_blk_nr),
+        _past_end_blk_nr(past_end_blk_nr),
+        sg_alloc(coalescing_enabled, split_above_threshold, default_req) {
+
     initialize_block_array(blk_sz, begin_blk_nr, past_end_blk_nr);
 }
 
-BlockArray::BlockArray(): BlockArray(0, 0, 0) {}
+BlockArray::BlockArray(bool coalescing_enabled, uint16_t split_above_threshold,
+                       const struct SegmentAllocator::req_t& default_req):
+        _blk_sz(0),
+        _blk_sz_order(0),
+        _begin_blk_nr(0),
+        _past_end_blk_nr(0),
+        sg_alloc(coalescing_enabled, split_above_threshold, default_req) {}
+
 
 uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
     if (blk_cnt == 0)
