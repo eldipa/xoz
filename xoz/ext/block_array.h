@@ -11,6 +11,8 @@ class BlockArray {
 protected:
     void initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr);
 
+    // TODO it may be nice in the future to implement a grow strategy like ArrayList implements
+    // (generic O(1) amortized) or something more specific to the needs of the subclass
     virtual uint32_t impl_grow_by_blocks(uint16_t blk_cnt) = 0;
     virtual void impl_shrink_by_blocks(uint32_t blk_cnt) = 0;
 
