@@ -73,6 +73,8 @@ public:
 
     inline uint8_t blk_sz_order() const { return _blk_sz_order; }
 
+    SegmentAllocator& allocator() { return sg_alloc; }
+
     // Main primitive to allocate / free blocks
     //
     // This expands/shrinks the block array and the underlying
