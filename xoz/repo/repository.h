@@ -6,6 +6,7 @@
 #include <ios>
 #include <sstream>
 #include <string>
+#include <tuple>
 
 #include "xoz/ext/block_array.h"
 #include "xoz/ext/extent.h"
@@ -243,8 +244,9 @@ private:
 
     constexpr static const char* IN_MEMORY_FPATH = "@in-memory";
 
-    uint32_t impl_grow_by_blocks(uint16_t blk_cnt) override;
-    void impl_shrink_by_blocks(uint32_t blk_cnt) override;
+    std::tuple<uint32_t, uint16_t> impl_grow_by_blocks(uint16_t blk_cnt) override;
+    uint32_t impl_shrink_by_blocks(uint32_t blk_cnt) override;
+    uint32_t impl_release_blocks() override;
 
     uint32_t impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) override;
     uint32_t impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) override;

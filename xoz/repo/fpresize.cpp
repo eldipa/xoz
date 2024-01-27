@@ -28,7 +28,7 @@ void Repository::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff off
     }
 }
 
-uint32_t Repository::impl_grow_by_blocks(uint16_t blk_cnt) {
+std::tuple<uint32_t, uint16_t> Repository::impl_grow_by_blocks(uint16_t blk_cnt) {
     uint64_t sz = (blk_cnt << gp.blk_sz_order);
 
     assert(not u32_add_will_overflow(blk_total_cnt, blk_cnt));
@@ -39,10 +39,10 @@ uint32_t Repository::impl_grow_by_blocks(uint16_t blk_cnt) {
     phy_repo_end_pos += sz;
     blk_total_cnt += blk_cnt;
 
-    return blk_total_cnt - blk_cnt;
+    return {blk_total_cnt - blk_cnt, blk_cnt};
 }
 
-void Repository::impl_shrink_by_blocks(uint32_t blk_cnt) {
+uint32_t Repository::impl_shrink_by_blocks(uint32_t blk_cnt) {
     uint64_t sz = (blk_cnt << gp.blk_sz_order);
 
     assert(blk_total_cnt >= 1);
@@ -52,4 +52,12 @@ void Repository::impl_shrink_by_blocks(uint32_t blk_cnt) {
     // (do that on close())
     phy_repo_end_pos -= sz;
     blk_total_cnt -= blk_cnt;
+
+    return blk_cnt;
+}
+
+uint32_t Repository::impl_release_blocks() {
+    // Repository::impl_shrink_by_blocks always shrink as many blocks as requested
+    // so there is no pending block to be released.
+    return 0;
 }

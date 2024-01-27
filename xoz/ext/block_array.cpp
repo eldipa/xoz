@@ -26,6 +26,12 @@ void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, 
     _begin_blk_nr = begin_blk_nr;
     _past_end_blk_nr = past_end_blk_nr;
 
+    // The difference between _past_end_blk_nr and _real_past_end_blk_nr
+    // is an implementation detail of BlockArray, it is not something that
+    // the caller is aware so it is safe to assume that at the initialization moment
+    // _real_past_end_blk_nr and _past_end_blk_nr are the same.
+    _real_past_end_blk_nr = past_end_blk_nr;
+
     sg_alloc.manage_block_array(*this);
 }
 
@@ -35,6 +41,7 @@ BlockArray::BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end
         _blk_sz_order((uint8_t)u32_log2_floor(blk_sz)),
         _begin_blk_nr(begin_blk_nr),
         _past_end_blk_nr(past_end_blk_nr),
+        _real_past_end_blk_nr(past_end_blk_nr),
         sg_alloc(coalescing_enabled, split_above_threshold, default_req) {
 
     initialize_block_array(blk_sz, begin_blk_nr, past_end_blk_nr);
@@ -46,6 +53,7 @@ BlockArray::BlockArray(bool coalescing_enabled, uint16_t split_above_threshold,
         _blk_sz_order(0),
         _begin_blk_nr(0),
         _past_end_blk_nr(0),
+        _real_past_end_blk_nr(0),
         sg_alloc(coalescing_enabled, split_above_threshold, default_req) {}
 
 
@@ -54,11 +62,37 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
         throw std::runtime_error("alloc of 0 blocks is not allowed");
 
     assert(not u32_add_will_overflow(_past_end_blk_nr, blk_cnt));
+    assert(not u32_add_will_overflow(_real_past_end_blk_nr, blk_cnt));
 
-    auto blk_nr = impl_grow_by_blocks(blk_cnt);
-    assert(blk_nr == past_end_blk_nr());
+    assert(_begin_blk_nr <= _past_end_blk_nr);
+    assert(_past_end_blk_nr <= _real_past_end_blk_nr);
 
-    _past_end_blk_nr += blk_cnt;
+    if (_real_past_end_blk_nr - _past_end_blk_nr >= blk_cnt) {
+        // no need to grow, we can reuse the slack space
+        uint32_t blk_nr = _past_end_blk_nr;
+        _past_end_blk_nr += blk_cnt;
+        return blk_nr;
+    }
+
+    // ok, the slack space is not enough, we need to grow but, by how much?
+    // we may still use the remaining slack.
+    // note: the cast is OK because:
+    //
+    //  - _real_past_end_blk_nr >= _past_end_blk_nr to it is non-negative
+    //  - _real_past_end_blk_nr - _past_end_blk_nr < blk_cnt so fits in a uint16_t
+    //    and the blk_cnt -= ... does not underflow.
+    blk_cnt -= uint16_t(_real_past_end_blk_nr - _past_end_blk_nr);
+
+    auto [blk_nr, real_blk_cnt] = impl_grow_by_blocks(blk_cnt);
+    assert(real_blk_cnt >= blk_cnt);
+
+    assert(not u32_add_will_overflow(_past_end_blk_nr, real_blk_cnt));
+    assert(not u32_add_will_overflow(_real_past_end_blk_nr, real_blk_cnt));
+
+    // update the pointers
+    _real_past_end_blk_nr += real_blk_cnt;
+    _past_end_blk_nr = _real_past_end_blk_nr;
+
     return blk_nr;
 }
 
@@ -73,10 +107,32 @@ void BlockArray::shrink_by_blocks(uint32_t blk_cnt) {
                                          .str());
     }
 
-    impl_shrink_by_blocks(blk_cnt);
+    uint32_t real_blk_cnt = impl_shrink_by_blocks(blk_cnt);
+
+    // We update the past_end_blk_nr pointer by blk_cnt backwards *as if*
+    // all those blocks were truly released.
+    // We track the *real* end with _real_past_end_blk_nr pointer
     _past_end_blk_nr -= blk_cnt;
+    _real_past_end_blk_nr -= real_blk_cnt;
+
+    // These must hold: the real_blk_cnt may be larger than the requested blk_cnt
+    // but that only says that a previous shrink returned a real_blk_cnt < blk_cnt
+    // hence have a "debt" of blocks to shrink.
+    // When real_blk_cnt > blk_cnt it means that it is "paying off the debt" but
+    // it must never happen that _past_end_blk_nr > _real_past_end_blk_nr.
+    //
+    // TODO chg these to exceptions
+    assert(_begin_blk_nr <= _past_end_blk_nr);
+    assert(_past_end_blk_nr <= _real_past_end_blk_nr);
+}
+
+uint32_t BlockArray::release_blocks() {
+    uint32_t real_blk_cnt = impl_release_blocks();
+
+    _past_end_blk_nr -= real_blk_cnt;
 
     assert(_begin_blk_nr <= _past_end_blk_nr);
+    return real_blk_cnt;
 }
 
 

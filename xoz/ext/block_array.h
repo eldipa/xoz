@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "xoz/alloc/segment_allocator.h"
@@ -11,10 +12,35 @@ class BlockArray {
 protected:
     void initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr);
 
-    // TODO it may be nice in the future to implement a grow strategy like ArrayList implements
-    // (generic O(1) amortized) or something more specific to the needs of the subclass
-    virtual uint32_t impl_grow_by_blocks(uint16_t blk_cnt) = 0;
-    virtual void impl_shrink_by_blocks(uint32_t blk_cnt) = 0;
+    /*
+     * Grow the block array for at least the given amount of blocks. The subclass may decide
+     * to grow the array by more blocks if it makes more sense due the implementation details
+     * of the underlaying data backend handled by the subclass.
+     *
+     * Return the first block number available (which should be the past_end_blk_nr() before the grow)
+     * and the count of blocks really allocated.
+     * */
+    virtual std::tuple<uint32_t, uint16_t> impl_grow_by_blocks(uint16_t blk_cnt) = 0;
+
+    /*
+     * Shrink the block array by more or less the given amount o blocks. Return the exact
+     * count of blocks removed.
+     *
+     * The subclass may decide to shrink the array by less blocks if it makes more sense
+     * due the implementation details of the underlaying data backend handled by the subclass
+     * or it may shrink by more but only if that is to compensate a previous call to
+     * impl_shrink_by_blocks that returned less.
+     **/
+    virtual uint32_t impl_shrink_by_blocks(uint32_t blk_cnt) = 0;
+
+    /*
+     * Release any pending block, shrinking the block array even more. The subclass must shrink
+     * the block array as much as possible, freeing any pending block left of previous
+     * impl_shrink_by_blocks calls.
+     *
+     * Return how many blocks the block array was shrank by.
+     * */
+    virtual uint32_t impl_release_blocks() = 0;
 
     virtual uint32_t impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) = 0;
     virtual uint32_t impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) = 0;
@@ -47,6 +73,7 @@ private:
 
     uint32_t _begin_blk_nr;
     uint32_t _past_end_blk_nr;
+    uint32_t _real_past_end_blk_nr;
 
     SegmentAllocator sg_alloc;
 
@@ -80,10 +107,17 @@ public:
     // This expands/shrinks the block array and the underlying
     // backend space.
     //
-    // grow_by_blocks() returns the block number of the first
-    // new allocated blocks.
     uint32_t grow_by_blocks(uint16_t blk_cnt);
     void shrink_by_blocks(uint32_t blk_cnt);
+
+    /*
+     * This method release any pending shrink operation that may
+     * exit. The caller should call this once the operations with
+     * the block array are done or very sporadically.
+     *
+     * Returns how many blocks were released.
+     * */
+    uint32_t release_blocks();
 
     // Return the block number of the first block with data
     // (begin_blk_nr) and the past-the-end data section

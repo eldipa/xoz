@@ -19,7 +19,7 @@ struct TailAllocator::alloc_result_t TailAllocator::alloc(uint16_t blk_cnt) {
     fail_if_block_array_not_initialized();
     fail_alloc_if_empty(blk_cnt, false);
 
-    uint32_t blk_nr = blkarr->grow_by_blocks(blk_cnt);
+    auto blk_nr = blkarr->grow_by_blocks(blk_cnt);
     return {.ext = Extent(blk_nr, blk_cnt, false), .success = true};
 }
 
@@ -35,6 +35,11 @@ bool TailAllocator::dealloc(const Extent& ext) {
 
 bool TailAllocator::dealloc(const uint32_t blk_nr, const uint16_t blk_cnt) {
     return dealloc(Extent(blk_nr, blk_cnt, false));
+}
+
+void TailAllocator::release() {
+    fail_if_block_array_not_initialized();
+    blkarr->release_blocks();
 }
 
 bool TailAllocator::is_at_the_end(const Extent& ext) const {

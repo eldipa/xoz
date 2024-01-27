@@ -640,6 +640,7 @@ bool SegmentAllocator::provide_more_space_to_fr_map(uint16_t blk_cnt) {
 
     auto result = tail.alloc(blk_cnt);
     if (result.success) {
+        TRACE_LINE << " * tail provided " << result.ext.blk_cnt() << " blocks" << TRACE_ENDL;
         fr_map.provide(result.ext);
         return true;
     } else {
