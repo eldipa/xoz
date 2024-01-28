@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "xoz/ext/block_array.h"
+#include "xoz/blk/block_array.h"
 #include "xoz/ext/extent.h"
 
 ExtentOutOfBounds::ExtentOutOfBounds(const BlockArray& blkarr, const Extent& ext, const std::string& msg) {

@@ -1,4 +1,4 @@
-#include "xoz/ext/block_array.h"
+#include "xoz/blk/block_array.h"
 
 #include <algorithm>
 #include <string>

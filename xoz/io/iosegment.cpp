@@ -6,9 +6,9 @@
 #include <cstring>
 #include <vector>
 
+#include "xoz/blk/block_array.h"
 #include "xoz/chk.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/ext/block_array.h"
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
 

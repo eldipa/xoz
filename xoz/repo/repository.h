@@ -8,7 +8,7 @@
 #include <string>
 #include <tuple>
 
-#include "xoz/ext/block_array.h"
+#include "xoz/blk/block_array.h"
 #include "xoz/ext/extent.h"
 #include "xoz/parameters.h"
 

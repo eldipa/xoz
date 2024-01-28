@@ -2,8 +2,8 @@
 
 #include <utility>
 
+#include "xoz/blk/block_array.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/ext/block_array.h"
 #include "xoz/repo/id_manager.h"
 
 DescriptorSet::DescriptorSet(BlockArray& blkarr /* TODO */): sg_alloc_dsc() { sg_alloc_dsc.manage_block_array(blkarr); }
