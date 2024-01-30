@@ -5,9 +5,15 @@
 #include "xoz/dsc/descriptor.h"
 #include "xoz/io/iobase.h"
 
-// Default descriptor: it is the most basic descriptor possible that just
-// carries the data read from a XOZ file about a descriptor and writes into
-// the file without further interpretation.
+/*
+ * Default descriptor: it is the most basic descriptor possible that just
+ * carries the data read from a XOZ file about a descriptor and writes into
+ * the file without further interpretation.
+ *
+ * It is meant to be used by XOZ to load and write descriptors of unknown
+ * types.
+ * */
+
 class DefaultDescriptor: public Descriptor {
 private:
     std::vector<char> dsc_data;
