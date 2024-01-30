@@ -7,15 +7,15 @@
 #include "xoz/io/iosegment.h"
 #include "xoz/repo/id_manager.h"
 
-DescriptorSet::DescriptorSet(Segment& segm, BlockArray& dblkarr, BlockArray& eblkarr):
-        segm(segm), dblkarr(eblkarr), eblkarr(dblkarr) {}
+DescriptorSet::DescriptorSet(Segment& segm, BlockArray& dblkarr, BlockArray& eblkarr, IDManager& idmgr):
+        segm(segm), dblkarr(eblkarr), eblkarr(dblkarr), idmgr(idmgr) {}
 
-void DescriptorSet::load_set(IDManager& idmgr) {
+void DescriptorSet::load_set() {
     auto io = IOSegment(dblkarr, segm);
-    load_descriptors(io, idmgr);
+    load_descriptors(io);
 }
 
-void DescriptorSet::load_descriptors(IOBase& io, IDManager& idmgr) {
+void DescriptorSet::load_descriptors(IOBase& io) {
     const uint16_t dblk_sz_order = dblkarr.blk_sz_order();
     const uint32_t align = dblkarr.blk_sz();  // better semantic name
 
@@ -154,20 +154,18 @@ void DescriptorSet::_write_modified_descriptors(IOBase& io) {
     }
 
     // Delete the descriptors that we don't want
-    for (const auto dsc: to_remove) {
-        zeros(io, dsc->ext);
-        dblkarr.allocator().dealloc_single_extent(dsc->ext);
+    for (const auto& dscptr: to_remove) {
+        zeros(io, dscptr->ext);
+        dblkarr.allocator().dealloc_single_extent(dscptr->ext);
 
         // Dealloc the content being pointed (descriptor's external data)
         // but only if *we* are the owner of the descriptor too
         // If we are not the owner of the descriptor, we must assume that
         // the descritor was moved to another set so we need to remove
         // the descritor but not its blocks.
-        if (dsc->hdr.own_edata and dsc->owner == this) {
-            eblkarr.allocator().dealloc(dsc->hdr.segm);
+        if (dscptr->hdr.own_edata and dscptr->owner == this) {
+            eblkarr.allocator().dealloc(dscptr->hdr.segm);
         }
-
-        delete dsc;
     }
     to_remove.clear();
 
@@ -202,6 +200,117 @@ void DescriptorSet::_write_modified_descriptors(IOBase& io) {
 
     // TODO we may free blocks from the stream, but always?
     dblkarr.allocator().release();
+}
+
+// TODO we are using set<Descriptor*> and comparing pointers
+// This will break if
+//  - objects are moved ==> disable it
+//  - two objects (2 addresses) have the same obj_id
+//
+
+void DescriptorSet::add(std::shared_ptr<Descriptor> dscptr) {
+    if (!dscptr) {
+        throw std::invalid_argument("Pointer to descriptor cannot by null");
+    }
+
+    // Check if the object belongs to another set
+    // If that happen, the user must explicitly remove the descriptor from its current set
+    // and only then add it to this one
+    if (dscptr->owner != this and dscptr->owner != nullptr) {
+        throw std::runtime_error("Descriptor already belongs to another set and cannot be added to a second one.");
+    }
+
+    if (dscptr->owner == this) {
+        assert(dscptr->id() != 0);
+    } else {
+        assert(dscptr->owner == nullptr);
+        if (dscptr->id() == 0) {
+            dscptr->hdr.id = idmgr.request_temporal_id();
+        }
+    }
+
+
+    assert(dscptr->id() != 0);
+    owned[dscptr->id()] = dscptr;
+    dscptr->owner = this;
+
+    auto dsc = dscptr.get();
+
+    to_add.insert(dsc);
+    to_remove.erase(dscptr);
+}
+
+void DescriptorSet::move_out(std::shared_ptr<Descriptor> dscptr, DescriptorSet& new_home) {
+    impl_remove(dscptr, &new_home);
+    new_home.add(dscptr);
+}
+
+void DescriptorSet::move_out(uint32_t id, DescriptorSet& new_home) {
+    if (not owned.contains(id)) {
+        throw std::runtime_error("Descriptor does not belong to the set.");
+    }
+    move_out(owned[id], new_home);
+}
+
+void DescriptorSet::erase(std::shared_ptr<Descriptor> dscptr) { impl_remove(dscptr, nullptr); }
+
+void DescriptorSet::erase(uint32_t id) {
+    if (not owned.contains(id)) {
+        throw std::runtime_error("Descriptor does not belong to the set.");
+    }
+    erase(owned[id]);
+}
+
+void DescriptorSet::mark_as_modified(std::shared_ptr<Descriptor> dscptr) {
+    if (!dscptr) {
+        throw std::invalid_argument("Pointer to descriptor cannot by null");
+    }
+
+    assert(dscptr->id() != 0);
+    if (dscptr->owner != this or not owned.contains(dscptr->id())) {
+        throw std::runtime_error("Descriptor does not belong to the set.");
+    }
+
+    if (to_remove.contains(dscptr)) {
+        throw std::invalid_argument("Descriptor pending to be removed cannot be marked as modified");
+    }
+
+    auto dsc = dscptr.get();
+    to_update.insert(dsc);
+}
+
+void DescriptorSet::mark_as_modified(uint32_t id) {
+    if (not owned.contains(id)) {
+        throw std::runtime_error("Descriptor does not belong to the set.");
+    }
+    mark_as_modified(owned[id]);
+}
+
+void DescriptorSet::impl_remove(std::shared_ptr<Descriptor> dscptr, DescriptorSet* new_home) {
+    if (!dscptr) {
+        throw std::invalid_argument("Pointer to descriptor cannot by null");
+    }
+
+    assert(dscptr->id() != 0);
+    if (dscptr->owner != this or not owned.contains(dscptr->id())) {
+        throw std::runtime_error("Descriptor does not belong to the set.");
+    }
+
+    auto dsc = dscptr.get();
+
+    to_add.erase(dsc);
+    to_update.erase(dsc);
+
+    to_remove.insert(dscptr);
+
+    owned.erase(dscptr->id());
+
+    // If the "remove" has a "move" semantics, set the owner of the descriptor
+    // to its new home set so we are *not* removing its external data blocks,
+    // otherwise leave the owner untouched.
+    if (new_home) {
+        dscptr->owner = new_home;
+    }
 }
 
 /*

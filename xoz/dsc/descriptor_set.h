@@ -33,13 +33,16 @@ private:
     // when a descriptor owned by a set is moved to another set so the former looses
     // the ownership but the descriptor still needs to be added to to_remove so it is cleaned
     // in the XOZ file.
+    // To avoid dangling pointers, the to_remove is a set of shared pointers and not raw pointers.
     std::set<Descriptor*> to_add;
-    std::set<Descriptor*> to_remove;
+    std::set<std::shared_ptr<Descriptor>> to_remove;
     std::set<Descriptor*> to_update;
 
     Segment& segm;
     BlockArray& dblkarr;
     BlockArray& eblkarr;
+
+    IDManager& idmgr;
 
 public:
     /*
@@ -54,89 +57,60 @@ public:
      * Writes/additions/deletions of the external data blocks are made by
      * the descriptors and not handled by the set.
      **/
-    DescriptorSet(Segment& segm, BlockArray& dblkarr, BlockArray& eblkarr);
+    DescriptorSet(Segment& segm, BlockArray& dblkarr, BlockArray& eblkarr, IDManager& idmgr);
 
-    void load_set(IDManager& idmgr);
-    void load_descriptors(IOBase& io, IDManager& idmgr);
+    void load_set();
+    void load_descriptors(IOBase& io);
 
     /*
     void write_modified_descriptors(IOBase& io);
     void write_all_descriptors(IOBase& io);
     */
 
-    // TODO we are using set<Descriptor*> and comparing pointers
-    // This will break if
-    //  - objects are moved ==> disable it
-    //  - two objects (2 addresses) have the same obj_id
-    //
+    /*
+     * Add the given descriptor to the set. If the descriptor already belongs
+     * to another set, it will throw: user must call 'move_out()' on the other
+     * set to move the descriptor to this one.
+     *
+     * If the descriptor has not a valid id, a new temporal one is assigned.
+     *
+     * While the addition to the set takes place immediately, the XOZ file
+     * will not reflect this until the descriptor set is written to.
+     * */
+    void add(std::shared_ptr<Descriptor> dscptr);
 
     /*
-    void add(std::shared_ptr<Descriptor> dscptr) {
-        if (!dscptr) {
-            throw std::invalid_argument("Pointer to descriptor cannot by null");
-        }
+     * Move out the descriptor from this set and move it into the "new home" set.
+     * If the descriptor does not belong to this set, throw.
+     * The method will call add() on the other "new" set to ensure that the descriptor
+     * has an owner.
+     *
+     * When the descriptor set is written to the XOZ file, the deletion
+     * of the descriptor from this set will take place. Because it is a move,
+     * no external data block is touch (the "new home" set will be responsible
+     * of handling that).
+     * */
+    void move_out(std::shared_ptr<Descriptor> dscptr, DescriptorSet& new_home);
+    void move_out(uint32_t id, DescriptorSet& new_home);
 
-        // Check if the object belongs to another set
-        // If that happen, the user must explicitly remove the descriptor from its current set
-        // and only then add it to this one
-        if (dscptr->owner != this and dscptr->owner != nullptr) {
-            throw std::runtime_error("Descriptor already belongs to another set and cannot be added to a second one.");
-        }
+    /*
+     * Erase the descriptor, including the deletion of its external data blocks (if any).
+     * The erase takes place when the set is written to the file.
+     *
+     * If the descriptor does not belong to the set, throw.
+     * */
+    void erase(std::shared_ptr<Descriptor> dscptr);
+    void erase(uint32_t id);
 
-        // TODO owner == this?
+    /*
+     * Mark the descriptor as modified so it is rewritten in the XOZ file
+     * when the set is written.
+     *
+     * If the descriptor does not belong to the set, throw.
+     * */
+    void mark_as_modified(std::shared_ptr<Descriptor> dscptr);
+    void mark_as_modified(uint32_t id);
 
-        assert(dscptr->owner == nullptr);
-        if (dscptr->id() == 0
-            err // this shoudl not happen: new objects should have a valid id from the Repository
-
-        auto dsc = dscptr.get();
-
-        owned.insert(dsc);
-        dsc.set_owner(this);
-
-        to_add.insert(dsc);
-        to_delete.erase(dsc);
-    }
-
-    void remove(std::shared_ptr<Descriptor> dscptr) {
-        if (!dscptr) {
-            throw
-        }
-
-        if (not owned.contains(dsc)) {
-            return; // or fail?
-        }
-
-        auto dsc = dscptr.get();
-
-        to_add.erase(dsc);
-        to_update.erase(dsc);
-
-        to_delete.insert(dsc);
-
-        dsc.set_owner(nullptr);
-        owned.erase(dsc);
-    }
-
-    void mark_as_modified(std::shared_ptr<Descriptor> dscptr) {
-        if (!dscptr) {
-            throw
-        }
-
-        auto dsc = dscptr.get();
-
-        if (not owned.contains(obj)) {
-            return; // or fail? or add?
-        }
-
-        if (to_delete.contains(dsc)) {
-            return; // or fail? or add?
-        }
-
-
-        to_update.insert(dsc);
-    }
-    */
 private:
     void _write_modified_descriptors(IOBase& io);
     void zeros(IOBase& io, const Extent& ext);
@@ -149,4 +123,6 @@ private:
     // otherwise we cannot guarantee pointer stability.
     DescriptorSet(DescriptorSet&&) = delete;
     DescriptorSet& operator=(DescriptorSet&&) = delete;
+
+    void impl_remove(std::shared_ptr<Descriptor> dscptr, DescriptorSet* new_home);
 };

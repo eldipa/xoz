@@ -70,10 +70,7 @@ public:
     friend void PrintTo(const Descriptor& dsc, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const Descriptor& dsc);
 
-    uint32_t id() const {
-        assert(hdr.id != 0);
-        return hdr.id;
-    }
+    uint32_t id() const { return hdr.id; }
 
     friend class DescriptorSet;
 
