@@ -14,18 +14,12 @@ class IDManager;
 
 class DescriptorSet {
 private:
-    std::map<uint32_t, std::shared_ptr<Descriptor>> dsc_by_id;
-
-
-    std::set<Descriptor*> present;
-
-
     // Descriptors owned by this DescriptorSet. Owned means that the descriptors
     // belongs to this set and to no other one. They may or no be present in the XOZ
     // file at the moment.
-    std::set<Descriptor*> owned;
+    std::map<uint32_t, std::shared_ptr<Descriptor>> owned;
 
-    // The owned set is subdivided into 3 subsets:
+    // The owned set of descriptors is subdivided into 3 subsets:
     //
     //  - to_add: for descriptors that are not present in the XOZ file but they should be
     //  - to_remove: for descriptors that are present in the XOZ file but they shouldn't be
@@ -43,11 +37,26 @@ private:
     std::set<Descriptor*> to_remove;
     std::set<Descriptor*> to_update;
 
-    SegmentAllocator sg_alloc_dsc;
+    Segment& segm;
+    BlockArray& dblkarr;
+    BlockArray& eblkarr;
 
 public:
-    explicit DescriptorSet(BlockArray& blkarr);
+    /*
+     * The segment is where the descriptor set lives. It must be a segment
+     * from the dblkarr. Changes to the segment are possible due the addition
+     * and remotion of descriptors.
+     *
+     * For descriptors that own external data, the descriptor set will remove
+     * data blocks from eblkarr when the descriptor is removed from the set
+     * (and it was not moved to another set).
+     *
+     * Writes/additions/deletions of the external data blocks are made by
+     * the descriptors and not handled by the set.
+     **/
+    DescriptorSet(Segment& segm, BlockArray& dblkarr, BlockArray& eblkarr);
 
+    void load_set(IDManager& idmgr);
     void load_descriptors(IOBase& io, IDManager& idmgr);
 
     /*
@@ -55,24 +64,29 @@ public:
     void write_all_descriptors(IOBase& io);
     */
 
+    // TODO we are using set<Descriptor*> and comparing pointers
+    // This will break if
+    //  - objects are moved ==> disable it
+    //  - two objects (2 addresses) have the same obj_id
+    //
+
     /*
     void add(std::shared_ptr<Descriptor> dscptr) {
         if (!dscptr) {
-            throw; // TODO
+            throw std::invalid_argument("Pointer to descriptor cannot by null");
         }
 
-        // TODO ask the object if it belongs to another stream
-        if dscptr.owner() != this and != nullptr
-            err // the user must explicitly remove the object from its current stream and only then add it to this one
+        // Check if the object belongs to another set
+        // If that happen, the user must explicitly remove the descriptor from its current set
+        // and only then add it to this one
+        if (dscptr->owner != this and dscptr->owner != nullptr) {
+            throw std::runtime_error("Descriptor already belongs to another set and cannot be added to a second one.");
+        }
 
-        // TODO we are using set<Descriptor*> and comparing pointers
-        // This will break if
-        //  - objects are moved ==> disable it
-        //  - two objects (2 addresses) have the same obj_id
-        //
+        // TODO owner == this?
 
-
-        if dscptr.obj_id == 0
+        assert(dscptr->owner == nullptr);
+        if (dscptr->id() == 0
             err // this shoudl not happen: new objects should have a valid id from the Repository
 
         auto dsc = dscptr.get();
@@ -122,8 +136,17 @@ public:
 
         to_update.insert(dsc);
     }
-*/
+    */
 private:
-    void _write_modified_descriptors(IOBase& io, SegmentAllocator& sg_alloc_edata);
+    void _write_modified_descriptors(IOBase& io);
     void zeros(IOBase& io, const Extent& ext);
+
+    DescriptorSet(const DescriptorSet&) = delete;
+    DescriptorSet& operator=(const DescriptorSet&) = delete;
+
+    // The descriptors have a pointer to the descriptor set
+    // that owns them so we cannot allow move semantics
+    // otherwise we cannot guarantee pointer stability.
+    DescriptorSet(DescriptorSet&&) = delete;
+    DescriptorSet& operator=(DescriptorSet&&) = delete;
 };
