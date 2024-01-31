@@ -69,7 +69,22 @@ constexpr inline void write_bitsfield_into_u32(uint32_t& field, T val, uint32_t 
     field |= uint32_t((val << shift) & mask);
 }
 
+
 constexpr uint8_t assert_u8(uint32_t n) {
     assert(n <= (uint8_t)-1);
     return (uint8_t)n;
+}
+
+template <typename T>
+constexpr inline uint32_t assert_u32(T n) {
+    if constexpr (sizeof(T) < sizeof(uint32_t)) {
+        // The return stmt should make the compiler to check if the value T
+        // can be promoted to uint32_t (checking signness).
+        return n;
+    } else {
+        // We require a check in runtime. Here we let the uint32_t -1 (max)
+        // to be promoted to T. This will check signess too.
+        assert(n <= (uint32_t)-1);
+        return (uint32_t)n;
+    }
 }

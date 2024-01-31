@@ -62,6 +62,11 @@ public:
     void load_set();
     void load_descriptors(IOBase& io);
 
+    uint32_t count() const {
+        auto cnt = owned.size();
+        return assert_u32(cnt);
+    }
+
     /*
     void write_modified_descriptors(IOBase& io);
     void write_all_descriptors(IOBase& io);
