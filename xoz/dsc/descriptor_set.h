@@ -60,7 +60,7 @@ public:
     DescriptorSet(Segment& segm, BlockArray& dblkarr, BlockArray& eblkarr, IDManager& idmgr);
 
     void load_set();
-    void load_descriptors(IOBase& io);
+    void write_set();
 
     uint32_t count() const {
         auto cnt = owned.size();
@@ -82,7 +82,7 @@ public:
      * While the addition to the set takes place immediately, the XOZ file
      * will not reflect this until the descriptor set is written to.
      * */
-    void add(std::shared_ptr<Descriptor> dscptr);
+    void add(std::unique_ptr<Descriptor> dscptr);
 
     /*
      * Move out the descriptor from this set and move it into the "new home" set.
@@ -95,7 +95,6 @@ public:
      * no external data block is touch (the "new home" set will be responsible
      * of handling that).
      * */
-    void move_out(std::shared_ptr<Descriptor> dscptr, DescriptorSet& new_home);
     void move_out(uint32_t id, DescriptorSet& new_home);
 
     /*
@@ -104,7 +103,6 @@ public:
      *
      * If the descriptor does not belong to the set, throw.
      * */
-    void erase(std::shared_ptr<Descriptor> dscptr);
     void erase(uint32_t id);
 
     /*
@@ -113,11 +111,13 @@ public:
      *
      * If the descriptor does not belong to the set, throw.
      * */
-    void mark_as_modified(std::shared_ptr<Descriptor> dscptr);
     void mark_as_modified(uint32_t id);
 
 private:
-    void _write_modified_descriptors(IOBase& io);
+    void load_descriptors(IOBase& io);
+    void write_modified_descriptors(IOBase& io);
+
+    void add_s(std::shared_ptr<Descriptor> dscptr);
     void zeros(IOBase& io, const Extent& ext);
 
     DescriptorSet(const DescriptorSet&) = delete;

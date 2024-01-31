@@ -106,12 +106,16 @@ void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
     io.fill(0, ext.blk_cnt() << dblk_sz_order);
 }
 
+void DescriptorSet::write_set() {
+    auto io = IOSegment(dblkarr, segm);
+    write_modified_descriptors(io);
+}
 
 // TODO: we write the descriptors in arbitrary order so this is not very cache-friendly
 // An optimization is possible. Moreover, the space of deleted/shrank descriptors are zero'd
 // regardless if the same space is overwritten later by a new/grew descriptor.
 // If somehow sort all by block nr we could fix these two issues at once (but it is way tricky!)
-void DescriptorSet::_write_modified_descriptors(IOBase& io) {
+void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // Find any descriptor that shrank and it will require less space so we
     // can "split" the space and free a part.
     // Also, find any descriptor that grew so we remove it
@@ -208,7 +212,17 @@ void DescriptorSet::_write_modified_descriptors(IOBase& io) {
 //  - two objects (2 addresses) have the same obj_id
 //
 
-void DescriptorSet::add(std::shared_ptr<Descriptor> dscptr) {
+void DescriptorSet::add(std::unique_ptr<Descriptor> dscptr) {
+    if (!dscptr) {
+        throw std::invalid_argument("Pointer to descriptor cannot by null");
+    }
+
+    // Grab ownership
+    auto p = std::shared_ptr<Descriptor>(dscptr.release());
+    add_s(p);
+}
+
+void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr) {
     if (!dscptr) {
         throw std::invalid_argument("Pointer to descriptor cannot by null");
     }
@@ -231,43 +245,41 @@ void DescriptorSet::add(std::shared_ptr<Descriptor> dscptr) {
 
 
     assert(dscptr->id() != 0);
+    auto dsc = dscptr.get();
+
     owned[dscptr->id()] = dscptr;
     dscptr->owner = this;
-
-    auto dsc = dscptr.get();
 
     to_add.insert(dsc);
     to_remove.erase(dscptr);
 }
 
-void DescriptorSet::move_out(std::shared_ptr<Descriptor> dscptr, DescriptorSet& new_home) {
-    impl_remove(dscptr, &new_home);
-    new_home.add(dscptr);
-}
 
 void DescriptorSet::move_out(uint32_t id, DescriptorSet& new_home) {
     if (not owned.contains(id)) {
         throw std::runtime_error("Descriptor does not belong to the set.");
     }
-    move_out(owned[id], new_home);
-}
 
-void DescriptorSet::erase(std::shared_ptr<Descriptor> dscptr) { impl_remove(dscptr, nullptr); }
+    auto dscptr = owned[id];
+    impl_remove(dscptr, &new_home);
+    new_home.add_s(dscptr);
+}
 
 void DescriptorSet::erase(uint32_t id) {
     if (not owned.contains(id)) {
         throw std::runtime_error("Descriptor does not belong to the set.");
     }
-    erase(owned[id]);
+    impl_remove(owned[id], nullptr);
 }
 
-void DescriptorSet::mark_as_modified(std::shared_ptr<Descriptor> dscptr) {
-    if (!dscptr) {
-        throw std::invalid_argument("Pointer to descriptor cannot by null");
+void DescriptorSet::mark_as_modified(uint32_t id) {
+    if (not owned.contains(id)) {
+        throw std::runtime_error("Descriptor does not belong to the set.");
     }
+    auto dscptr = owned[id];
 
     assert(dscptr->id() != 0);
-    if (dscptr->owner != this or not owned.contains(dscptr->id())) {
+    if (dscptr->owner != this or not owned.contains(dscptr->id())) {  // TODO
         throw std::runtime_error("Descriptor does not belong to the set.");
     }
 
@@ -277,13 +289,6 @@ void DescriptorSet::mark_as_modified(std::shared_ptr<Descriptor> dscptr) {
 
     auto dsc = dscptr.get();
     to_update.insert(dsc);
-}
-
-void DescriptorSet::mark_as_modified(uint32_t id) {
-    if (not owned.contains(id)) {
-        throw std::runtime_error("Descriptor does not belong to the set.");
-    }
-    mark_as_modified(owned[id]);
 }
 
 void DescriptorSet::impl_remove(std::shared_ptr<Descriptor> dscptr, DescriptorSet* new_home) {
