@@ -7,9 +7,9 @@
 #include <vector>
 
 #include "xoz/blk/block_array.h"
-#include "xoz/chk.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/ext/extent.h"
+#include "xoz/mem/bits.h"
 #include "xoz/segm/segment.h"
 
 namespace {

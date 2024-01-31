@@ -68,3 +68,8 @@ constexpr inline void write_bitsfield_into_u32(uint32_t& field, T val, uint32_t 
     int shift = std::countr_zero(mask);
     field |= uint32_t((val << shift) & mask);
 }
+
+constexpr uint8_t assert_u8(uint32_t n) {
+    assert(n <= (uint8_t)-1);
+    return (uint8_t)n;
+}
