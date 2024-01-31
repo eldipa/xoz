@@ -39,25 +39,25 @@ private:
     std::set<Descriptor*> to_update;
 
     Segment& segm;
-    BlockArray& dblkarr;
-    BlockArray& eblkarr;
+    BlockArray& sg_blkarr;
+    BlockArray& ed_blkarr;
 
     IDManager& idmgr;
 
 public:
     /*
      * The segment is where the descriptor set lives. It must be a segment
-     * from the dblkarr. Changes to the segment are possible due the addition
+     * from the sg_blkarr. Changes to the segment are possible due the addition
      * and remotion of descriptors.
      *
      * For descriptors that own external data, the descriptor set will remove
-     * data blocks from eblkarr when the descriptor is removed from the set
+     * data blocks from ed_blkarr when the descriptor is removed from the set
      * (and it was not moved to another set).
      *
      * Writes/additions/deletions of the external data blocks are made by
      * the descriptors and not handled by the set.
      **/
-    DescriptorSet(Segment& segm, BlockArray& dblkarr, BlockArray& eblkarr, IDManager& idmgr);
+    DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr);
 
     void load_set();
     void write_set();

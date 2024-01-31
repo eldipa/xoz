@@ -7,17 +7,17 @@
 #include "xoz/io/iosegment.h"
 #include "xoz/repo/id_manager.h"
 
-DescriptorSet::DescriptorSet(Segment& segm, BlockArray& dblkarr, BlockArray& eblkarr, IDManager& idmgr):
-        segm(segm), dblkarr(eblkarr), eblkarr(dblkarr), idmgr(idmgr) {}
+DescriptorSet::DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr):
+        segm(segm), sg_blkarr(sg_blkarr), ed_blkarr(ed_blkarr), idmgr(idmgr) {}
 
 void DescriptorSet::load_set() {
-    auto io = IOSegment(dblkarr, segm);
+    auto io = IOSegment(sg_blkarr, segm);
     load_descriptors(io);
 }
 
 void DescriptorSet::load_descriptors(IOBase& io) {
-    const uint16_t dblk_sz_order = dblkarr.blk_sz_order();
-    const uint32_t align = dblkarr.blk_sz();  // better semantic name
+    const uint16_t sg_blk_sz_order = sg_blkarr.blk_sz_order();
+    const uint32_t align = sg_blkarr.blk_sz();  // better semantic name
 
     if (io.remain_rd() % align != 0) {
         throw InconsistentXOZ(F() << "The remaining for reading is not multiple of " << align
@@ -67,8 +67,8 @@ void DescriptorSet::load_descriptors(IOBase& io) {
         // Set the Extent that corresponds to the place where the descriptor is
         uint32_t dsc_length = dsc_end_pos - dsc_begin_pos;
 
-        assert(u32_fits_into_u16(dsc_length >> dblk_sz_order));
-        dsc->ext = Extent(dsc_begin_pos >> dblk_sz_order, uint16_t(dsc_length >> dblk_sz_order), false);
+        assert(u32_fits_into_u16(dsc_length >> sg_blk_sz_order));
+        dsc->ext = Extent(dsc_begin_pos >> sg_blk_sz_order, uint16_t(dsc_length >> sg_blk_sz_order), false);
         dsc->owner = this;
 
         uint32_t id = dsc->id();
@@ -101,13 +101,13 @@ void DescriptorSet::load_descriptors(IOBase& io) {
 
 
 void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
-    const auto dblk_sz_order = dblkarr.blk_sz_order();
-    io.seek_wr(ext.blk_nr() << dblk_sz_order);
-    io.fill(0, ext.blk_cnt() << dblk_sz_order);
+    const auto sg_blk_sz_order = sg_blkarr.blk_sz_order();
+    io.seek_wr(ext.blk_nr() << sg_blk_sz_order);
+    io.fill(0, ext.blk_cnt() << sg_blk_sz_order);
 }
 
 void DescriptorSet::write_set() {
-    auto io = IOSegment(dblkarr, segm);
+    auto io = IOSegment(sg_blkarr, segm);
     write_modified_descriptors(io);
 }
 
@@ -120,10 +120,10 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // can "split" the space and free a part.
     // Also, find any descriptor that grew so we remove it
     // and we re-add it later
-    const auto dblk_sz_order = dblkarr.blk_sz_order();
+    const auto sg_blk_sz_order = sg_blkarr.blk_sz_order();
     for (const auto dsc: to_update) {
         uint32_t cur_dsc_sz = dsc->calc_struct_footprint_size();
-        uint32_t alloc_dsc_sz = uint32_t(dsc->ext.blk_cnt()) << dblk_sz_order;  // TODO byte_to_blk and blk_to_byte
+        uint32_t alloc_dsc_sz = uint32_t(dsc->ext.blk_cnt()) << sg_blk_sz_order;  // TODO byte_to_blk and blk_to_byte
 
         if (alloc_dsc_sz < cur_dsc_sz) {
             // grew so dealloc its current space and add it to the "to add" set
@@ -133,7 +133,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
             // the SegmentAllocator's split_above_threshold and it may lead to external
             // fragmentation inside the set. It is better a all-in-one "compaction" solution
             zeros(io, dsc->ext);
-            dblkarr.allocator().dealloc_single_extent(dsc->ext);
+            sg_blkarr.allocator().dealloc_single_extent(dsc->ext);
             dsc->ext = Extent::EmptyExtent();
 
             // We add this desc to the to_add set but we don't remove it from
@@ -145,22 +145,22 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         } else if (alloc_dsc_sz > cur_dsc_sz) {
             // shrank so split and dealloc the unused part
             // Note: this split works because the descriptors sizes are a multiple
-            // of the block size of the stream (dblk_sz_order).
+            // of the block size of the stream (sg_blk_sz_order).
             // By the RFC, this is a multiple of 2 bytes.
-            assert(cur_dsc_sz % dblkarr.blk_sz() == 0);
-            assert(u32_fits_into_u16(cur_dsc_sz >> dblk_sz_order));
+            assert(cur_dsc_sz % sg_blkarr.blk_sz() == 0);
+            assert(u32_fits_into_u16(cur_dsc_sz >> sg_blk_sz_order));
 
-            auto ext2 = dsc->ext.split(uint16_t(cur_dsc_sz >> dblk_sz_order));
+            auto ext2 = dsc->ext.split(uint16_t(cur_dsc_sz >> sg_blk_sz_order));
 
             zeros(io, ext2);
-            dblkarr.allocator().dealloc_single_extent(ext2);
+            sg_blkarr.allocator().dealloc_single_extent(ext2);
         }
     }
 
     // Delete the descriptors that we don't want
     for (const auto& dscptr: to_remove) {
         zeros(io, dscptr->ext);
-        dblkarr.allocator().dealloc_single_extent(dscptr->ext);
+        sg_blkarr.allocator().dealloc_single_extent(dscptr->ext);
 
         // Dealloc the content being pointed (descriptor's external data)
         // but only if *we* are the owner of the descriptor too
@@ -168,7 +168,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         // the descritor was moved to another set so we need to remove
         // the descritor but not its blocks.
         if (dscptr->hdr.own_edata and dscptr->owner == this) {
-            eblkarr.allocator().dealloc(dscptr->hdr.segm);
+            ed_blkarr.allocator().dealloc(dscptr->hdr.segm);
         }
     }
     to_remove.clear();
@@ -181,7 +181,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 
     // Alloc space for the new descriptors but do not write anything yet
     for (const auto dsc: to_add) {
-        dsc->ext = dblkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
+        dsc->ext = sg_blkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
     }
 
     // Add all the "new" descriptors to the "to update" list now that they
@@ -191,7 +191,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     to_add.clear();
 
     for (const auto dsc: to_update) {
-        auto pos = dsc->ext.blk_nr() << dblk_sz_order;
+        auto pos = dsc->ext.blk_nr() << sg_blk_sz_order;
 
         io.seek_wr(pos);
         dsc->write_struct_into(io);
@@ -203,7 +203,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 
 
     // TODO we may free blocks from the stream, but always?
-    dblkarr.allocator().release();
+    sg_blkarr.allocator().release();
 }
 
 // TODO we are using set<Descriptor*> and comparing pointers
