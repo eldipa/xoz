@@ -130,3 +130,7 @@ const struct IOSegment::ext_ptr_t IOSegment::abs_pos_to_ext(const uint32_t pos) 
 
     return ptr;
 }
+
+IOSegment IOSegment::dup() const {
+    return *this;  // call copy constructor
+}

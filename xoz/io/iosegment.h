@@ -29,6 +29,7 @@ private:
 
 public:
     IOSegment(BlockArray& blkarr, const Segment& sg);
+    IOSegment dup() const;
 
 private:
     struct ext_ptr_t {
@@ -48,4 +49,7 @@ private:
      *
      * */
     uint32_t rw_operation(const bool is_read_op, char* data, const uint32_t max_data_sz) override final;
+
+protected:
+    IOSegment(const IOSegment& io) = default;
 };
