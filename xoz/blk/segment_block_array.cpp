@@ -7,8 +7,8 @@
 #include "xoz/segm/segment.h"
 
 // Note:
-//  - ar_blk_cnt means blk count in terms of the array's blocks
-//  - sg_blk_cnt means blk count in terms of the segment's blocks
+//  - ar_blk_cnt means blk count in terms of the array's blocks (public API)
+//  - sg_blk_cnt means blk count in terms of the segment's blocks (internal implementation API)
 std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t ar_blk_cnt) {
     // How many bytes are those?
     uint32_t grow_sz = ar_blk_cnt << blk_sz_order();
@@ -30,8 +30,7 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t a
 
     // Create a new io segment because the underlying segment changed
     // (like when we need to create a new iterator if the container changed)
-    delete sg_io;
-    sg_io = new IOSegment(sg_blkarr, segm);
+    sg_io.reset(new IOSegment(sg_blkarr, segm));
 
     return {past_end_blk_nr(), ar_blk_cnt};
 }
@@ -91,8 +90,7 @@ uint32_t SegmentBlockArray::impl_shrink_by_blocks(uint32_t ar_blk_cnt) {
 
     if (sg_to_free.ext_cnt() >= 1) {
         sg_blkarr.allocator().dealloc(sg_to_free);
-        delete sg_io;
-        sg_io = new IOSegment(sg_blkarr, segm);
+        sg_io.reset(new IOSegment(sg_blkarr, segm));
 
         assert(shrank_sz > 0);
         assert(shrank_sz % blk_sz() == 0);
@@ -126,6 +124,15 @@ uint32_t SegmentBlockArray::impl_write_extent(const Extent& ext, const char* dat
     return to_write_sz;
 }
 
+uint32_t SegmentBlockArray::impl_release_blocks() {
+    // Shrink by 0 blocks: the side effect is that if there is any pending shrink,
+    // it will happen there.
+    //
+    // Then, we could try to take the last half-pending-to-shrink extent and see if
+    // we can convert it into a subblock.... but it is too complex. Leaving
+    // it as nice thing to have in the future.
+    return impl_shrink_by_blocks(0);
+}
 
 SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint32_t blk_sz):
         BlockArray(), segm(segm), remain_shrink_sz(0), sg_blkarr(sg_blkarr) {
@@ -133,15 +140,15 @@ SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint3
         throw "";
     }
 
-    if (sg_io->remain_rd() % blk_sz != 0) {
-        throw "";
-    }
-
     if (segm.inline_data_sz() != 0) {
         throw "";
     }
 
-    sg_io = new IOSegment(sg_blkarr, segm);
+    sg_io.reset(new IOSegment(sg_blkarr, segm));
+
+    if (sg_io->remain_rd() % blk_sz != 0) {
+        throw "";
+    }
 
     default_req = sg_blkarr.allocator().get_default_alloc_requirements();
     default_req.max_inline_sz = 0;
@@ -149,4 +156,4 @@ SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint3
     initialize_block_array(blk_sz, 0, sg_io->remain_rd() / blk_sz);
 }
 
-SegmentBlockArray::~SegmentBlockArray() { delete sg_io; }
+SegmentBlockArray::~SegmentBlockArray() {}
