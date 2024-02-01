@@ -1,6 +1,17 @@
 #include "test/testing_xoz.h"
+#include "xoz/io/iosegment.h"
 #include <iomanip>
 #include <fstream>
+
+std::string testing_xoz::helpers::hexdump(const IOSegment& io, unsigned at, unsigned len) {
+    IOSegment rdio = io.dup();
+    rdio.seek_rd(0);
+
+    std::vector<char> buf(rdio.remain_rd());
+    rdio.writeall(buf.data(), (uint32_t)buf.size());
+
+    return hexdump(buf, at, len);
+}
 
 std::string testing_xoz::helpers::hexdump(const std::vector<char>& buf, unsigned at, unsigned len) {
     std::stringstream fp;

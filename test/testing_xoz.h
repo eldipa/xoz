@@ -6,10 +6,13 @@
 #include <functional>
 #include <memory>
 
+class IOSegment;
+
 namespace testing_xoz {
     namespace helpers {
         std::string hexdump(const std::stringstream& fp, unsigned at = 0, unsigned len = unsigned(-1));
         std::string hexdump(const std::vector<char>& buf, unsigned at = 0, unsigned len = unsigned(-1));
+        std::string hexdump(const IOSegment& io, unsigned at = 0, unsigned len = unsigned(-1));
         bool are_all_zeros(const std::vector<char>& buf, unsigned at = 0, unsigned len = unsigned(-1));
         bool are_all_zeros(const std::stringstream& fp, unsigned at = 0, unsigned len = unsigned(-1));
 
