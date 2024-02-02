@@ -326,7 +326,7 @@ void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
     this->dealloc(segm);
 }
 
-void SegmentAllocator::initialize(const std::list<Segment>& allocated_segms) {
+void SegmentAllocator::initialize_from_allocated(const std::list<Segment>& allocated_segms) {
     fail_if_block_array_not_initialized();
     if (alloc_call_cnt or dealloc_call_cnt) {
         throw std::runtime_error("Segment allocator already been used.");
@@ -794,5 +794,11 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
 void SegmentAllocator::fail_if_block_array_not_initialized() const {
     if (not _blkarr) {
         throw std::runtime_error("Block array not initialized (managed). Missed call to manage_block_array?");
+    }
+}
+
+void SegmentAllocator::fail_if_allocator_not_initialized() const {
+    if (not alloc_initialized) {
+        throw std::runtime_error("SegmentAllocator not initialized. Missed call to initialize()?");
     }
 }

@@ -2419,7 +2419,7 @@ namespace {
 
         SegmentAllocator sg_alloc1(true);
         sg_alloc1.manage_block_array(repo);
-        sg_alloc1.initialize(allocated);
+        sg_alloc1.initialize_from_allocated(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)16);
@@ -2534,7 +2534,7 @@ namespace {
 
         SegmentAllocator sg_alloc1(true);
         sg_alloc1.manage_block_array(repo);
-        sg_alloc1.initialize(allocated);
+        sg_alloc1.initialize_from_allocated(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)16);
@@ -2635,7 +2635,7 @@ namespace {
 
         SegmentAllocator sg_alloc1(true);
         sg_alloc1.manage_block_array(repo);
-        sg_alloc1.initialize(allocated);
+        sg_alloc1.initialize_from_allocated(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)(0xffff + 2 + 1));
@@ -2737,7 +2737,7 @@ namespace {
 
         SegmentAllocator sg_alloc1(true);
         sg_alloc1.manage_block_array(repo);
-        sg_alloc1.initialize(allocated);
+        sg_alloc1.initialize_from_allocated(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)(0xffff + 2 + 1));
@@ -2894,7 +2894,7 @@ namespace {
 
         SegmentAllocator sg_alloc1(true);
         sg_alloc1.manage_block_array(repo);
-        sg_alloc1.initialize(allocated);
+        sg_alloc1.initialize_from_allocated(allocated);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)16);
@@ -3008,7 +3008,7 @@ namespace {
         allocated.back().add_extent(Extent(main_ext.blk_nr() - 1, 2, false));
 
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_alloc1.initialize(allocated); }),
+            ensure_called_once([&]() { sg_alloc1.initialize_from_allocated(allocated); }),
             ThrowsMessage<ExtentOutOfBounds>(
                 AllOf(
                     HasSubstr(
@@ -3028,7 +3028,7 @@ namespace {
         SegmentAllocator sg_alloc2(true);
         sg_alloc2.manage_block_array(repo);
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_alloc2.initialize(allocated); }),
+            ensure_called_once([&]() { sg_alloc2.initialize_from_allocated(allocated); }),
             ThrowsMessage<ExtentOutOfBounds>(
                 AllOf(
                     HasSubstr(
@@ -3047,7 +3047,7 @@ namespace {
         SegmentAllocator sg_alloc3(true);
         sg_alloc3.manage_block_array(repo);
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_alloc3.initialize(allocated); }),
+            ensure_called_once([&]() { sg_alloc3.initialize_from_allocated(allocated); }),
             ThrowsMessage<ExtentOutOfBounds>(
                 AllOf(
                     HasSubstr(
@@ -3066,7 +3066,7 @@ namespace {
         SegmentAllocator sg_alloc4(true);
         sg_alloc4.manage_block_array(repo);
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_alloc4.initialize(allocated); }),
+            ensure_called_once([&]() { sg_alloc4.initialize_from_allocated(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
@@ -3085,7 +3085,7 @@ namespace {
         SegmentAllocator sg_alloc5(true);
         sg_alloc5.manage_block_array(repo);
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_alloc5.initialize(allocated); }),
+            ensure_called_once([&]() { sg_alloc5.initialize_from_allocated(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
@@ -3104,7 +3104,7 @@ namespace {
         SegmentAllocator sg_alloc7(true);
         sg_alloc7.manage_block_array(repo);
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_alloc7.initialize(allocated); }),
+            ensure_called_once([&]() { sg_alloc7.initialize_from_allocated(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
@@ -3123,7 +3123,7 @@ namespace {
         SegmentAllocator sg_alloc8(true);
         sg_alloc8.manage_block_array(repo);
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_alloc8.initialize(allocated); }),
+            ensure_called_once([&]() { sg_alloc8.initialize_from_allocated(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
@@ -3142,7 +3142,7 @@ namespace {
         SegmentAllocator sg_alloc9(true);
         sg_alloc9.manage_block_array(repo);
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_alloc9.initialize(allocated); }),
+            ensure_called_once([&]() { sg_alloc9.initialize_from_allocated(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(
@@ -3161,7 +3161,7 @@ namespace {
         SegmentAllocator sg_allocA(true);
         sg_allocA.manage_block_array(repo);
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_allocA.initialize(allocated); }),
+            ensure_called_once([&]() { sg_allocA.initialize_from_allocated(allocated); }),
             ThrowsMessage<ExtentOverlapError>(
                 AllOf(
                     HasSubstr(

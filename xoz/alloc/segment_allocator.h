@@ -110,7 +110,7 @@ public:
     Extent alloc_single_extent(const uint32_t sz);
     void dealloc_single_extent(const Extent& ext);
 
-    void initialize(const std::list<Segment>& allocated_segms);
+    void initialize_from_allocated(const std::list<Segment>& allocated_segms);
     void release();
 
     struct stats_t {
