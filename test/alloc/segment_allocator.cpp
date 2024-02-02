@@ -44,6 +44,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         std::list<Extent> fr_extents;
         fr_extents.clear();
@@ -65,6 +66,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
                 "0000 0000"
@@ -102,6 +104,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 1 byte so we expect to have 0 blocks allocated
         // in the repository (and in the segment) and 1 byte
@@ -149,6 +152,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc N bytes that would completely fill a single subblk
         // so we expect to have 1 blocks allocated
@@ -205,6 +209,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc N bytes that would completely fill a 2 subblks
         // so we expect to have 1 blocks allocated
@@ -261,6 +266,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc N bytes that would completely fill a 2 subblks
         // so we expect to have 1 blocks allocated
@@ -310,6 +316,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc N bytes that would "almost" completely fill a single block
         // with only 1 byte missed.
@@ -369,6 +376,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc N bytes that would completely fill a single block,
         // no more, no less.
@@ -427,6 +435,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc N bytes that would completely fill a single block
         // with 1 additional byte.
@@ -481,6 +490,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc N bytes that would completely fill a single block
         // and 1 additional subblock.
@@ -544,6 +554,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // We expect to have 1 extent with  2 blocks allocated
         // and another extent for suballoc with 3 subblocks
@@ -604,6 +615,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -655,6 +667,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -706,6 +719,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -766,6 +780,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -821,6 +836,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // We expect to have 1 extent with N blocks allocated
         // where N is the maximum amount of blocks that a single
@@ -893,6 +909,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // This will not require a full block because it fits in the inline space
         Segment segm1 = sg_alloc.alloc(req.max_inline_sz, req);
@@ -956,6 +973,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 1 byte so we expect to have 0 blocks allocated
         // in the repository (and in the segment) and 1 byte
@@ -1024,6 +1042,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 3 segments of 1, 2 and 3 blocks each (6 blocks in total)
         Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 1);
@@ -1200,6 +1219,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(false);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 3 segments of 1, 2 and 3 blocks each (6 blocks in total)
         Segment segm1 = sg_alloc.alloc(repo.blk_sz() * 1);
@@ -1371,6 +1391,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 3 subblocks which requires allocate 1 block
         Segment segm1 = sg_alloc.alloc(repo.subblk_sz() * 3);
@@ -1538,6 +1559,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 2 blks + 3 subblocks which requires allocate 3 block
         // in total
@@ -1722,6 +1744,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Sanity check: the point is that we are allocating
         // Max+1 and that trigger to do the allocation in a subblock
@@ -1820,6 +1843,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         Segment segm = sg_alloc.alloc(0);
 
@@ -1925,6 +1949,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2020,6 +2045,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(false);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2103,6 +2129,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2235,6 +2262,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2363,6 +2391,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 15 segments, each of 1 block size
         std::vector<Segment> segments;
@@ -2510,6 +2539,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * 15);
@@ -2611,6 +2641,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * (0xffff + 2));
 
@@ -2713,6 +2744,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * (0xffff + 2));
 
@@ -2835,6 +2867,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * 15);
@@ -2976,6 +3009,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(repo.blk_sz() * 15);
@@ -3184,6 +3218,7 @@ namespace {
         Repository repo = Repository::create_mem_based(0, gp);
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(repo);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc a single extent of some size. No suballoc is allowed so full blks are allocated
         Extent ext = sg_alloc.alloc_single_extent(23);

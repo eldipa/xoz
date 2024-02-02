@@ -26,6 +26,7 @@
 SegmentAllocator::SegmentAllocator(bool coalescing_enabled, uint16_t split_above_threshold,
                                    const struct req_t& default_req):
         _blkarr(nullptr),
+        alloc_initialized(false),
         blk_sz(0),
         blk_sz_order(0),
         subblk_sz(0),
@@ -103,6 +104,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     //                        \----------- /
     //
     fail_if_block_array_not_initialized();
+    fail_if_allocator_not_initialized();
 
     if (subblk_sz == 0 and req.allow_suballoc) {
         throw std::runtime_error("Subblock size 0 cannot be used for suballocation");
@@ -262,6 +264,7 @@ no_free_space:
 
 Extent SegmentAllocator::alloc_single_extent(const uint32_t sz) {
     fail_if_block_array_not_initialized();
+    fail_if_allocator_not_initialized();
     if (sz == 0) {
         // We can allocate a Segment of zero bytes, it is just an empty Segment
         // but we cannot allocate an Extent of zero bytes because it is not well defined
@@ -284,6 +287,7 @@ Extent SegmentAllocator::alloc_single_extent(const uint32_t sz) {
 
 void SegmentAllocator::dealloc(const Segment& segm) {
     fail_if_block_array_not_initialized();
+    fail_if_allocator_not_initialized();
     auto sz = segm.calc_data_space_size(blk_sz_order);
 
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
@@ -317,6 +321,7 @@ void SegmentAllocator::dealloc(const Segment& segm) {
 
 void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
     fail_if_block_array_not_initialized();
+    fail_if_allocator_not_initialized();
     if (ext.is_empty()) {
         throw std::runtime_error("The extent to be deallocated cannot be empty.");
     }
@@ -328,9 +333,6 @@ void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
 
 void SegmentAllocator::initialize_from_allocated(const std::list<Segment>& allocated_segms) {
     fail_if_block_array_not_initialized();
-    if (alloc_call_cnt or dealloc_call_cnt) {
-        throw std::runtime_error("Segment allocator already been used.");
-    }
 
     // Collect all the allocated extents of all the segments (this includes full and suballoc'd blocks)
     std::list<Extent> allocated;
@@ -468,16 +470,20 @@ void SegmentAllocator::initialize_from_allocated(const std::list<Segment>& alloc
 
         assert(cur_nr == _blkarr->past_end_blk_nr());
     }
+
+    alloc_initialized = true;
 }
 
 void SegmentAllocator::release() {
     fail_if_block_array_not_initialized();
+    fail_if_allocator_not_initialized();
     reclaim_free_space_from_subfr_map();
     reclaim_free_space_from_fr_map();
 }
 
 SegmentAllocator::stats_t SegmentAllocator::stats() const {
     fail_if_block_array_not_initialized();
+    fail_if_allocator_not_initialized();
     uint64_t repo_data_sz = (_blkarr->blk_cnt() << blk_sz_order);
 
     uint64_t external_frag_sz = (_blkarr->blk_cnt() - in_use_blk_cnt) << blk_sz_order;

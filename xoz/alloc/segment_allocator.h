@@ -54,6 +54,8 @@ public:
 private:
     BlockArray* _blkarr;
 
+    bool alloc_initialized;
+
     uint32_t blk_sz;
     uint8_t blk_sz_order;
     uint32_t subblk_sz;
@@ -254,4 +256,5 @@ private:
     void calc_ext_per_segm_stats(const Segment& segm, bool is_alloc);
 
     void fail_if_block_array_not_initialized() const;
+    void fail_if_allocator_not_initialized() const;
 };
