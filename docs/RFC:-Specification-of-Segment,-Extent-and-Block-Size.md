@@ -2,9 +2,13 @@
 
  - **Author:** Martin Di Paola
  - **Status:** Draft
- - **Version:** 3
+ - **Version:** 4
 
 ### Summary of changes
+
+Changed in version 4:
+
+ - *extent* starting at the 0 block number are allowed.
 
 Changed in version 3:
 
@@ -144,9 +148,6 @@ a bad state.
 
 If the current extent is the first in the segment, `prev.blk_nr` and
 `prev.len` should be assumed to be zero.
-
-The `blk_nr = 0` is **not** valid block numbers and it is reserved.
-In other words, no extent can point to the block 0.
 
 ### Rationale - `near` bit
 
