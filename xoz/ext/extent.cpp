@@ -110,7 +110,15 @@ Extent::blk_distance_t Extent::distance_in_blks(const Extent& ref, const Extent&
         is_backwards = true;
 
     } else {
-        throw ExtentOverlapError(ref, target, "(at same start)");
+        // Both the reference extent starts at the same block number than the
+        // target extent it is an error (overlap error). The only exception
+        // is if the reference extent has zero blocks.
+        if (ref_blk_cnt == 0) {
+            blk_cnt = 0;
+            is_backwards = false;
+        } else {
+            throw ExtentOverlapError(ref, target, "(at same start)");
+        }
     }
 
     return {

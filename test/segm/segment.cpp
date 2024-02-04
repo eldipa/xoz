@@ -755,6 +755,205 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
     }
 
+    TEST(SegmentTest, ExtentAtZeroThenNear) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        Segment segm;
+
+        // The reference "prev" extent is Extent(0, 0, false) and the
+        // first extent of the segment is exactly at blk nr 0.
+        // So it is (really) near at a distance of 0 blks.
+        //
+        // The extent has a blk count
+        // that does not fit in smallcnt (+2 bytes) so raising a total
+        // of 4 bytes
+        //
+        // [ 00       10        ] addr
+        // [ XX...XX            ] blks
+        segm.add_extent(Extent(0x00, 16, false)); // 16 blocks
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                4, /* disc size */
+                16 << blk_sz_order   /* allocated size */
+                );
+
+        segm.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0004 1000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Append a extent near to the prev extent (blk_nr 0x00).
+        // It is immediately after the prev extent so the offset is 0
+        // The extent is for suballoc so it requires the bitmask (+2 bytes)
+        // despite alloc'ing 0 subblocks
+        //
+        // [ 00      10        ] addr
+        // [ XX...XX|Y         ] blks
+        segm.add_extent(Extent(0x10, 0, true));    // 0 subblocks
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                4+4, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0)
+                );
+
+        segm.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0004 1000 "
+                "0084 0000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+    }
+
+    TEST(SegmentTest, ExtentAtZeroThenNonNear) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        Segment segm;
+
+        // The reference "prev" extent is Extent(0, 0, false) and the
+        // first extent of the segment is exactly at blk nr 0.
+        // So it is (really) near at a distance of 0 blks.
+        //
+        // The extent has a blk count
+        // that does not fit in smallcnt (+2 bytes) so raising a total
+        // of 4 bytes
+        //
+        // [ 00       10        ] addr
+        // [ XX...XX            ] blks
+        segm.add_extent(Extent(0x00, 16, false)); // 16 blocks
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                4, /* disc size */
+                16 << blk_sz_order   /* allocated size */
+                );
+
+        segm.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0004 1000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Append a extent non-near to the prev extent (blk_nr 0x00).
+        // It is far (+2 bytes) and it is for suballoc so it requires the bitmask (+2 bytes)
+        // despite alloc'ing 0 subblocks
+        //
+        // [ 00                 e10        ] addr
+        // [ XX...XX             Y         ] blks
+        segm.add_extent(Extent(0xe10, 0, true));    // 0 subblocks
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                4+6, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0)
+                );
+
+        segm.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0004 1000 "
+                "0080 100e 0000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+    }
+
+    TEST(SegmentTest, ExtentThenNearAtZero) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        Segment segm;
+
+        // The extent at 0x01 is near of the reference at 0x00 (jump of 1 blk)
+        // Then it requires +2 bytes to encode the non-small blk cnt
+        // [ 00  01       11        ] addr
+        // [     XX...XX            ] blks
+        segm.add_extent(Extent(0x01, 16, false)); // 16 blocks
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                4, /* disc size */
+                16 << blk_sz_order   /* allocated size */
+                );
+
+        segm.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0104 1000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Append a extent near to the prev extent (blk_nr 0x01).
+        // It is immediately before the prev extent so the offset is 0
+        // of 1 blk length backwards
+        // The extent is for suballoc so it requires the bitmask (+2 bytes)
+        // despite alloc'ing 0 subblocks
+        //
+        // [ 00  01       11        ] addr
+        // [ Y   XX...XX            ] blks
+        segm.add_extent(Extent(0x00, 0, true));    // 0 subblocks
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                4+4, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0)
+                );
+
+        segm.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0104 1000 "
+                "0086 0000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+    }
+
+    TEST(SegmentTest, ExtentThenNonNearAtZero) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        Segment segm;
+
+        // The extent at 0xe00 is non-near of the reference at 0x00 (+2 bytes)
+        // Then it requires +2 bytes to encode the non-small blk cnt
+        // [                e00      e10        ] addr
+        // [                 XX...XX            ] blks
+        segm.add_extent(Extent(0xe00, 16, false)); // 16 blocks
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                6, /* disc size */
+                16 << blk_sz_order   /* allocated size */
+                );
+
+        segm.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0000 000e 1000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Append a extent non-near to the prev extent (blk_nr 0xe00) so +2 bytes
+        // The extent is for suballoc so it requires the bitmask (+2 bytes)
+        // despite alloc'ing 0 subblocks
+        //
+        // [ 00             e00      e10        ] addr
+        // [ Y               XX...XX            ] blks
+        segm.add_extent(Extent(0x00, 0, true));    // 0 subblocks
+        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                6+6, /* disc size */
+                /* allocated size */
+                (16 << blk_sz_order) +
+                (0)
+                );
+
+        segm.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0000 000e 1000 "
+                "0080 0000 0000"
+                );
+        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+    }
+
     TEST(SegmentTest, ExtendWithAnotherSegmentAndInline) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
@@ -1087,25 +1286,6 @@ namespace {
                     HasSubstr(
                         "Repository seems inconsistent/corrupt. "
                         "Extent with non-zero smallcnt block. Is inline flag missing?"
-                        )
-                    )
-                )
-        );
-
-        XOZ_RESET_FP(fp, FP_SZ);
-
-        // Because blk_nr is 0, hence the error.
-        fp = {'\x00', '\x10', '\x00', '\x00'};
-
-        EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
-            ThrowsMessage<InconsistentXOZ>(
-                AllOf(
-                    HasSubstr(
-                        "Repository seems inconsistent/corrupt. "
-                        "Extent with block number 0 is unexpected "
-                        "from composing hi_blk_nr:0 (10 highest bits) "
-                        "and lo_blk_nr:0 (16 lowest bits)."
                         )
                     )
                 )

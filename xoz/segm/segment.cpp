@@ -226,13 +226,6 @@ void Segment::read_struct_from(IOBase& io, uint32_t segm_len) {
                 lo_blk_nr = io.read_u16_from_le();
 
                 blk_nr = ((uint32_t(hi_blk_nr & MASK_HI_BLK_NR) << 16) | lo_blk_nr);
-
-                if (blk_nr == 0) {
-                    throw InconsistentXOZ(F()
-                                          << "Extent with block number 0 is unexpected "
-                                          << "from composing hi_blk_nr:" << (hi_blk_nr & MASK_HI_BLK_NR)
-                                          << " (10 highest bits) and lo_blk_nr:" << lo_blk_nr << " (16 lowest bits).");
-                }
             }
 
             uint16_t blk_cnt = 0;
@@ -286,17 +279,8 @@ void Segment::read_struct_from(IOBase& io, uint32_t segm_len) {
                                               << " direction and previous extent at blk nr " << prev.blk_nr()
                                               << " and blk cnt " << prev_blk_cnt << ".");
                 }
-
-                if (blk_nr == 0) {
-                    throw InconsistentXOZ(F() << "Extent with block number 0 is unexpected "
-                                              << "for " << blk_cnt << " blocks length extent from relative offset "
-                                              << jmp_offset << " in the " << (is_backward_dir ? "backward" : "forward")
-                                              << " direction with respect previous blk nr " << prev.blk_nr() << " ("
-                                              << prev_blk_cnt << " blocks length).");
-                }
             }
 
-            assert(blk_nr != 0);
             segm.arr.emplace_back(blk_nr, blk_cnt, is_suballoc);
 
             prev = segm.arr.back();

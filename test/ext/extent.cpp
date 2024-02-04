@@ -107,6 +107,18 @@ namespace {
         EXPECT_EQ(d4.is_near, false);
     }
 
+    TEST(ExtentTest, BlockDistanceForwardFromZeroRef) {
+        Extent ref(0, 0, false); // zero blk extent
+        Extent::blk_distance_t d1 = Extent::distance_in_blks(
+                ref,
+                Extent(0, 10, false) /* target, same blk nr */
+                );
+
+        EXPECT_EQ(d1.blk_cnt, (unsigned)0);
+        EXPECT_EQ(d1.is_backwards, false);
+        EXPECT_EQ(d1.is_near, true);
+    }
+
     TEST(ExtentTest, BlockDistanceBackwards) {
         Extent ref(700, 100, false);
         Extent::blk_distance_t d1 = Extent::distance_in_blks(
