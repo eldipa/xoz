@@ -7,8 +7,8 @@ std::string testing_xoz::helpers::hexdump(const IOSegment& io, unsigned at, unsi
     IOSegment rdio = io.dup();
     rdio.seek_rd(0);
 
-    std::vector<char> buf(rdio.remain_rd());
-    rdio.writeall(buf.data(), (uint32_t)buf.size());
+    std::vector<char> buf;
+    rdio.readall(buf);
 
     return hexdump(buf, at, len);
 }
