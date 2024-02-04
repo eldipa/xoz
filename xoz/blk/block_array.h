@@ -10,6 +10,19 @@
 
 class BlockArray {
 protected:
+    /*
+     * Initialize the array of blocks of positive size <blk_sz>, with the blocks <begin_blk_nr>
+     * to <past_end_blk_nr> available. Bblocks before <begin_blk_nr> exist but are not accesible,
+     * blocks <past_end_blk_nr> and beyond don't exist but they can be added to the array
+     * calling grow_by_blocks() (and can be removed with shrink_by_blocks()).
+     *
+     * This method should be called by subclass' constructors.
+     *
+     * The method will call manage_block_array() on the segment allocator that this array
+     * has however the allocator will not be fully usable until the caller call
+     * initialize_from_allocated (or similar) on the allocator.
+     *
+     * */
     void initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr);
 
     /*

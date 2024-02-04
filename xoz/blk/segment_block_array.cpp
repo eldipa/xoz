@@ -150,10 +150,10 @@ SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint3
         throw "";
     }
 
+    initialize_block_array(blk_sz, 0, sg_io->remain_rd() / blk_sz);
+
     default_req = sg_blkarr.allocator().get_default_alloc_requirements();
     default_req.max_inline_sz = 0;
-
-    initialize_block_array(blk_sz, 0, sg_io->remain_rd() / blk_sz);
 }
 
 SegmentBlockArray::~SegmentBlockArray() {}
