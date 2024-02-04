@@ -259,12 +259,13 @@ void Segment::read_struct_from(IOBase& io, uint32_t segm_len) {
                 // Reference at prev extent's block number
                 uint32_t ref_nr = blk_nr = prev.blk_nr();
                 uint32_t prev_blk_cnt = (prev.is_suballoc() ? 1 : prev.blk_cnt());
+                uint32_t cur_blk_cnt = (is_suballoc ? 1 : blk_cnt);
 
                 bool blk_nr_wraparound = false;
 
                 if (is_backward_dir) {
                     blk_nr -= jmp_offset;
-                    blk_nr -= blk_cnt;
+                    blk_nr -= cur_blk_cnt;
 
                     if (ref_nr < blk_nr) {
                         blk_nr_wraparound = true;
@@ -280,8 +281,8 @@ void Segment::read_struct_from(IOBase& io, uint32_t segm_len) {
 
                 if (blk_nr_wraparound) {
                     throw InconsistentXOZ(F() << "Near extent block number wraparound: "
-                                              << "current extent offset " << jmp_offset << " and blk cnt " << blk_cnt
-                                              << " in the " << (is_backward_dir ? "backward" : "forward")
+                                              << "current extent offset " << jmp_offset << " and blk cnt "
+                                              << cur_blk_cnt << " in the " << (is_backward_dir ? "backward" : "forward")
                                               << " direction and previous extent at blk nr " << prev.blk_nr()
                                               << " and blk cnt " << prev_blk_cnt << ".");
                 }
