@@ -102,11 +102,19 @@ public:
 
     SegmentAllocator& allocator() { return sg_alloc; }
 
-    // Main primitive to allocate / free blocks
-    //
-    // This expands/shrinks the block array and the underlying
-    // backend space.
-    //
+    /*
+     * Main primitive to allocate / free blocks
+     *
+     * This expands/shrinks the block array and the underlying
+     * backend space.
+     *
+     * The expansion/shrink is *not* visible by the allocator.
+     * grow_by_blocks()/shrink_by_blocks()/release_blocks() are meant
+     * to be used as a low-level API (for when the allocator is
+     * still not initialized or it cannot be used).
+     * Callers *should* use allocator().alloc() and allocator().dealloc()
+     * to reserve/release space (that may grow/shrink the array if needed).
+     **/
     uint32_t grow_by_blocks(uint16_t blk_cnt);
     void shrink_by_blocks(uint32_t blk_cnt);
 
