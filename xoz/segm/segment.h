@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <numeric>
@@ -73,8 +74,11 @@ public:
             throw std::runtime_error("Segment with inline data/end of segment cannot be extended.");
         }
 
-        // plain copy
-        arr = segm.arr;
+        // append the other segm's arr to ours
+        arr.reserve(arr.capacity() + segm.arr.size());
+        std::copy(segm.arr.begin(), segm.arr.end(), std::back_inserter(arr));
+
+        // plain copy - much easier (this is possible because this->has_end_of_segment() is false)
         raw = segm.raw;
         inline_present = segm.inline_present or not raw.empty();
     }
