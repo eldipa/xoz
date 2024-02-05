@@ -21,8 +21,8 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t a
     //
     // At the same time we are not going to do any round up of the grow size:
     // we are going to let the allocator to do it for ourselves. This works
-    // well because the allocator has the inline disabled so we can merge
-    // the segments (ours and the new one) flawless.
+    // well because the allocator has the inline disabled (see default_req)
+    // so we can merge/extend the segments (ours and the new one) flawless.
 
     // Allocate a segment to extend the current one
     auto additional_segm = sg_blkarr.allocator().alloc(grow_sz, default_req);
@@ -36,6 +36,10 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t a
 }
 
 uint32_t SegmentBlockArray::impl_shrink_by_blocks(uint32_t ar_blk_cnt) {
+    return _impl_shrink_by_blocks(ar_blk_cnt, false);
+}
+
+uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool release_blocks) {
     // How many bytes are those?
     uint32_t shrink_sz = (ar_blk_cnt << blk_sz_order()) + remain_shrink_sz;
     uint32_t shrank_sz = 0;
@@ -53,34 +57,25 @@ uint32_t SegmentBlockArray::impl_shrink_by_blocks(uint32_t ar_blk_cnt) {
             shrink_sz -= alloc_sz;
             shrank_sz += alloc_sz;
         } else {
-            const auto quarter = alloc_sz >> 2;
-            const auto half = alloc_sz >> 1;
+            if (not sg_last_ext.is_suballoc() and release_blocks) {
+                const uint16_t shrink_blk_cnt = uint16_t(shrink_sz >> blk_sz_order());
 
-            if (shrink_sz >= quarter + half and not sg_last_ext.is_suballoc() and sg_last_ext.blk_cnt() >= 2) {
-                // ok, the extent will get empty by 75% or more so it makes sense
-                // to split it by half and free 50% and keep the other half
-                // at 25% empty at least.
-                //
-                // Note: extent for suballocation are not taken into account.
-                // The reasoning is that if we remove some (but not all) of the subblocks
-                // of the for-suballocation extent, we are not shrinking the size
-                // of the segment segm and we are releasing a very small amount of data.
-                // It is better to try to get rid them off entirely and not piece by piece.
-                //
-                // The same goes for the requirement of sg_last_ext.blk_cnt() >= 2, the idea
-                // is that we want to release a significant chunk to worth the effort of splitting
+                if (shrink_blk_cnt) {
+                    assert(shrink_blk_cnt < sg_last_ext.blk_cnt());
 
-                const uint16_t non_free_blk_cnt = (sg_last_ext.blk_cnt() >> 1) + (sg_last_ext.blk_cnt() % 2);
-                auto sg_ext2 = sg_last_ext.split(non_free_blk_cnt);  // non-free: 50% or more
-                sg_to_free.add_extent(sg_ext2);
-                // no need of this: segm.remove_last_extent(); split works in place
+                    const uint16_t non_free_blk_cnt = sg_last_ext.blk_cnt() - shrink_blk_cnt;
+                    auto sg_ext2 = sg_last_ext.split(non_free_blk_cnt);
+                    sg_to_free.add_extent(sg_ext2);
 
-                uint32_t alloc_sz2 = sg_ext2.calc_data_space_size(sg_blkarr.blk_sz_order());
-                shrink_sz -= alloc_sz2;
-                shrank_sz += alloc_sz2;
+                    segm.remove_last_extent();
+                    segm.add_extent(sg_last_ext);
+
+                    uint32_t alloc_sz2 = sg_ext2.calc_data_space_size(sg_blkarr.blk_sz_order());
+                    shrink_sz -= alloc_sz2;
+                    shrank_sz += alloc_sz2;
+                }
             }
 
-            // ok, shrink_sz is non zero but we cannot release anything else
             break;
         }
     }
@@ -127,11 +122,7 @@ uint32_t SegmentBlockArray::impl_write_extent(const Extent& ext, const char* dat
 uint32_t SegmentBlockArray::impl_release_blocks() {
     // Shrink by 0 blocks: the side effect is that if there is any pending shrink,
     // it will happen there.
-    //
-    // Then, we could try to take the last half-pending-to-shrink extent and see if
-    // we can convert it into a subblock.... but it is too complex. Leaving
-    // it as nice thing to have in the future.
-    return impl_shrink_by_blocks(0);
+    return _impl_shrink_by_blocks(0, true);
 }
 
 SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint32_t blk_sz):

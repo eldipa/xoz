@@ -34,6 +34,8 @@ private:
 
     struct SegmentAllocator::req_t default_req;
 
+    uint32_t _impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool release_blocks);
+
 public:
     /*
      * Initialize the SegmentBlockArray object with the given segment that references/owns blocks
