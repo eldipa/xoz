@@ -26,7 +26,6 @@ protected:
 
 private:
     Segment& segm;
-    uint32_t remain_shrink_sz;
 
     BlockArray& sg_blkarr;
 

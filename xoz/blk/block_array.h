@@ -43,6 +43,19 @@ protected:
      * due the implementation details of the underlaying data backend handled by the subclass
      * or it may shrink by more but only if that is to compensate a previous call to
      * impl_shrink_by_blocks that returned less.
+     *
+     * In any case, the blocks "pending" to be shrunk must be kept allocated
+     * so a subsequent call to grow_by_blocks() can use them to grow the array
+     * without calling impl_grow_by_blocks().
+     *
+     * For example, if the user calls shrink_by_blocks() for N=4 blocks, impl_shrink_by_blocks
+     * is called with N=4; let's assume that impl_shrink_by_blocks returns M=1, so the array
+     * really shrank by 1 block but to the user, it looks like as if the array shrank by 4 blocks
+     * (and all the public methods will reflect that). Only capacity() will reflect the fact
+     * that there are more blocks than spouse to be.
+     * There are 3 blocks "pending", not accessible by the user but accesible by grow_by_blocks.
+     * If the user calls grow_by_blocks() with N=2 blocks, BlockArray will take those 2 blocks
+     * from the 3 "pending" blocks *without* calling impl_grow_by_blocks().
      **/
     virtual uint32_t impl_shrink_by_blocks(uint32_t blk_cnt) = 0;
 
@@ -50,6 +63,9 @@ protected:
      * Release any pending block, shrinking the block array even more. The subclass must shrink
      * the block array as much as possible, freeing any pending block left of previous
      * impl_shrink_by_blocks calls.
+     *
+     * While the subclass must do its best effort, it may not be possible. If the user needs
+     * to know how many blocks are still pending, it should calculate capacity()-blk_cnt().
      *
      * Return how many blocks the block array was shrank by.
      * */
@@ -134,7 +150,13 @@ public:
     /*
      * This method release any pending shrink operation that may
      * exit. The caller should call this once the operations with
-     * the block array are done or very sporadically.
+     * the block array are done or very sporadically (for example when
+     * there is a need to release the space as much as possible).
+     *
+     * The release implementation is a best effort: it may be possible that
+     * some additional blocks are still allocated but not part of the array.
+     * If the user needs to know how many blocks are in this condition,
+     * it should calculate capacity()-blk_cnt().
      *
      * Returns how many blocks were released.
      * */
@@ -156,6 +178,8 @@ public:
     inline uint32_t past_end_blk_nr() const { return _past_end_blk_nr; }
 
     inline uint32_t blk_cnt() const { return past_end_blk_nr() - begin_blk_nr(); }
+
+    inline uint32_t capacity() const { return blk_cnt() + (_real_past_end_blk_nr - _past_end_blk_nr); }
 
     // Check if the extent is within the boundaries of the block array.
     inline bool is_extent_within_boundaries(const Extent& ext) const {

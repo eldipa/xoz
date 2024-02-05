@@ -92,6 +92,7 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
     // update the pointers
     _real_past_end_blk_nr += real_blk_cnt;
     _past_end_blk_nr = _real_past_end_blk_nr;
+    assert(_real_past_end_blk_nr == blk_nr + real_blk_cnt);
 
     return blk_nr;
 }

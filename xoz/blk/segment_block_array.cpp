@@ -40,10 +40,16 @@ uint32_t SegmentBlockArray::impl_shrink_by_blocks(uint32_t ar_blk_cnt) {
 }
 
 uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool release_blocks) {
+    // How many blocks are pending-to-be-removed?
+    uint32_t pending_blk_cnt = capacity() - blk_cnt();
+
     // How many bytes are those?
-    uint32_t shrink_sz = (ar_blk_cnt << blk_sz_order()) + remain_shrink_sz;
+    uint32_t shrink_sz = ((ar_blk_cnt + pending_blk_cnt) << blk_sz_order());
     uint32_t shrank_sz = 0;
 
+    // Note: the following must remove/free an entire number of blocks; subblocks
+    // or smaller is not supported. This makes the code easier and simple and also
+    // allows us to calculate pending_blk_cnt as the diff of real and past-end.
     Segment sg_to_free;
     while (shrink_sz > 0) {
         assert(segm.ext_cnt() >= 1);
@@ -80,8 +86,6 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
         }
     }
 
-    remain_shrink_sz = shrink_sz;
-    assert(remain_shrink_sz % blk_sz() == 0);  // TODO not sure in general (it will work in practice)
 
     if (sg_to_free.ext_cnt() >= 1) {
         sg_blkarr.allocator().dealloc(sg_to_free);
@@ -126,7 +130,7 @@ uint32_t SegmentBlockArray::impl_release_blocks() {
 }
 
 SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint32_t blk_sz):
-        BlockArray(), segm(segm), remain_shrink_sz(0), sg_blkarr(sg_blkarr) {
+        BlockArray(), segm(segm), sg_blkarr(sg_blkarr) {
     if (blk_sz == 0) {
         throw "";
     }
