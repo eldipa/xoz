@@ -112,8 +112,13 @@ Extent::blk_distance_t Extent::distance_in_blks(const Extent& ref, const Extent&
     } else {
         // Both the reference extent starts at the same block number than the
         // target extent it is an error (overlap error). The only exception
-        // is if the reference extent has zero blocks.
+        // is if the reference extent has zero blocks or both extents are for
+        // suballoc and they bitmaps don't overlap
         if (ref_blk_cnt == 0) {
+            blk_cnt = 0;
+            is_backwards = false;
+        } else if (ref.is_suballoc() and target.is_suballoc() and
+                   (ref.blk_bitmap() & target.blk_bitmap()) == 0) {  // NO LINT
             blk_cnt = 0;
             is_backwards = false;
         } else {
