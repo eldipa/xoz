@@ -64,7 +64,7 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
             shrank_sz += alloc_sz;
         } else {
             if (not sg_last_ext.is_suballoc() and release_blocks) {
-                const uint16_t shrink_blk_cnt = uint16_t(shrink_sz >> blk_sz_order());
+                const uint16_t shrink_blk_cnt = uint16_t(shrink_sz >> sg_blkarr.blk_sz_order());
 
                 if (shrink_blk_cnt) {
                     assert(shrink_blk_cnt < sg_last_ext.blk_cnt());
