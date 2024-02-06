@@ -88,3 +88,17 @@ constexpr inline uint32_t assert_u32(T n) {
         return (uint32_t)n;
     }
 }
+
+template <typename T>
+constexpr inline uint16_t assert_u16(T n) {
+    if constexpr (sizeof(T) < sizeof(uint16_t)) {
+        // The return stmt should make the compiler to check if the value T
+        // can be promoted to uint16_t (checking signness).
+        return n;
+    } else {
+        // We require a check in runtime. Here we let the uint16_t -1 (max)
+        // to be promoted to T. This will check signess too.
+        assert(n <= (uint16_t)-1);
+        return (uint16_t)n;
+    }
+}

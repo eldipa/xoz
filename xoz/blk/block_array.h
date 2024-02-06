@@ -132,6 +132,23 @@ public:
     SegmentAllocator& allocator() { return sg_alloc; }
 
     /*
+     * Convenient block-to-bytes and bytes-to-block functions. When bytes-to-blocks conversion
+     * happen, a check is made to ensure that the bytes number is divisible by the blk sz
+     * (so the conversion does not lose any information).
+     * */
+    inline uint32_t blk2bytes(uint32_t cnt) const { return assert_u32(cnt << _blk_sz_order); }
+
+    inline uint16_t bytes2blk_cnt(uint32_t bytes) const {
+        assert(bytes % _blk_sz == 0);
+        return assert_u16(bytes >> _blk_sz_order);
+    }
+
+    inline uint32_t bytes2blk_nr(uint32_t bytes) const {
+        assert(bytes % _blk_sz == 0);
+        return assert_u32(bytes >> _blk_sz_order);
+    }
+
+    /*
      * Main primitive to allocate / free blocks
      *
      * This expands/shrinks the block array and the underlying
