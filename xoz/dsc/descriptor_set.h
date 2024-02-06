@@ -19,14 +19,15 @@ private:
     // file at the moment.
     std::map<uint32_t, std::shared_ptr<Descriptor>> owned;
 
-    // The owned set of descriptors is subdivided into 3 subsets:
+    // The descriptors can be classified into 3 subsets:
     //
-    //  - to_add: for descriptors that are not present in the XOZ file but they should be
-    //  - to_remove: for descriptors that are present in the XOZ file but they shouldn't be
-    //  - to_update: for descriptors that are present in the XOZ file but changed and
+    //  - to_add: for descriptors owned by the set that are not present in the XOZ file but they should be
+    //  - to_remove: for descriptors that are present in the XOZ file but they shouldn't be; they may
+    //               or may not be owned by the set.
+    //  - to_update: for descriptors owned by the set that are present in the XOZ file but changed and
     //               such change is not being reflected by the file and it should be
     //
-    // Descriptors owned but not present in any of those 3 subsets are the descriptors
+    // Descriptors owned by the set but not present in any of those 3 subsets are the descriptors
     // that are present in the file and that they didn't change in memory.
     //
     // Descriptors in the to_remove set may not be present in the owned set. This happen
@@ -38,6 +39,9 @@ private:
     std::set<std::shared_ptr<Descriptor>> to_remove;
     std::set<Descriptor*> to_update;
 
+    // The segment that holds the descriptors of this set. The segment points to blocks
+    // in the sg_blkarr block array while the descriptors may point to "external" data blocks in
+    // the ed_blkarr blocks array.
     Segment& segm;
     BlockArray& sg_blkarr;
     BlockArray& ed_blkarr;
@@ -54,23 +58,40 @@ public:
      * data blocks from ed_blkarr when the descriptor is removed from the set
      * (and it was not moved to another set).
      *
-     * Writes/additions/deletions of the external data blocks are made by
+     * Writes/additions/deletions of the content of these external data blocks are made by
      * the descriptors and not handled by the set.
      **/
     DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr);
 
+    /*
+     * Load the set into memory. This should be called once.
+     * */
     void load_set();
+
+    /*
+     * Write the set to disk. This can be called multiple times: the implementation
+     * will try to avoid any write if there are no changes to write.
+     *
+     * This method must be called at least once if the set or its descriptors
+     * were modified. See does_require_write() method.
+     * */
     void write_set();
 
+    /*
+     * Check if there is any change pending to be written (addition of new descriptors,
+     * remotion, or update).
+     * */
+    bool does_require_write() const;
+
+    /*
+     * Count how many descriptors are owned by this set. This does not count
+     * how many descriptors are already present in the XOZ file but it should
+     * count that after a write_set() call.
+     * */
     uint32_t count() const {
         auto cnt = owned.size();
         return assert_u32(cnt);
     }
-
-    /*
-    void write_modified_descriptors(IOBase& io);
-    void write_all_descriptors(IOBase& io);
-    */
 
     /*
      * Add the given descriptor to the set. If the descriptor already belongs
@@ -101,7 +122,8 @@ public:
      * Erase the descriptor, including the deletion of its external data blocks (if any).
      * The erase takes place when the set is written to the file.
      *
-     * If the descriptor does not belong to the set, throw.
+     * If the descriptor does not belong to the set, throw. An erased descriptor
+     * cannot be neither marked as modified, moved out nor added again.
      * */
     void erase(uint32_t id);
 

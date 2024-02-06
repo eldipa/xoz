@@ -16,7 +16,6 @@ void DescriptorSet::load_set() {
 }
 
 void DescriptorSet::load_descriptors(IOBase& io) {
-    const uint16_t sg_blk_sz_order = sg_blkarr.blk_sz_order();
     const uint32_t align = sg_blkarr.blk_sz();  // better semantic name
 
     if (io.remain_rd() % align != 0) {
@@ -67,8 +66,7 @@ void DescriptorSet::load_descriptors(IOBase& io) {
         // Set the Extent that corresponds to the place where the descriptor is
         uint32_t dsc_length = dsc_end_pos - dsc_begin_pos;
 
-        assert(u32_fits_into_u16(dsc_length >> sg_blk_sz_order));
-        dsc->ext = Extent(dsc_begin_pos >> sg_blk_sz_order, uint16_t(dsc_length >> sg_blk_sz_order), false);
+        dsc->ext = Extent(sg_blkarr.bytes2blk_nr(dsc_begin_pos), sg_blkarr.bytes2blk_cnt(dsc_length), false);
         dsc->owner = this;
 
         uint32_t id = dsc->id();
@@ -101,14 +99,17 @@ void DescriptorSet::load_descriptors(IOBase& io) {
 
 
 void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
-    const auto sg_blk_sz_order = sg_blkarr.blk_sz_order();
-    io.seek_wr(ext.blk_nr() << sg_blk_sz_order);
-    io.fill(0, ext.blk_cnt() << sg_blk_sz_order);
+    io.seek_wr(sg_blkarr.blk2bytes(ext.blk_nr()));
+    io.fill(0, sg_blkarr.blk2bytes(ext.blk_cnt()));
 }
 
 void DescriptorSet::write_set() {
     auto io = IOSegment(sg_blkarr, segm);
     write_modified_descriptors(io);
+}
+
+bool DescriptorSet::does_require_write() const {
+    return to_add.size() != 0 or to_remove.size() != 0 or to_update.size() != 0;
 }
 
 // TODO: we write the descriptors in arbitrary order so this is not very cache-friendly
@@ -120,10 +121,9 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // can "split" the space and free a part.
     // Also, find any descriptor that grew so we remove it
     // and we re-add it later
-    const auto sg_blk_sz_order = sg_blkarr.blk_sz_order();
     for (const auto dsc: to_update) {
         uint32_t cur_dsc_sz = dsc->calc_struct_footprint_size();
-        uint32_t alloc_dsc_sz = uint32_t(dsc->ext.blk_cnt()) << sg_blk_sz_order;  // TODO byte_to_blk and blk_to_byte
+        uint32_t alloc_dsc_sz = sg_blkarr.blk2bytes(dsc->ext.blk_cnt());
 
         if (alloc_dsc_sz < cur_dsc_sz) {
             // grew so dealloc its current space and add it to the "to add" set
@@ -147,10 +147,8 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
             // Note: this split works because the descriptors sizes are a multiple
             // of the block size of the stream (sg_blk_sz_order).
             // By the RFC, this is a multiple of 2 bytes.
-            assert(cur_dsc_sz % sg_blkarr.blk_sz() == 0);
-            assert(u32_fits_into_u16(cur_dsc_sz >> sg_blk_sz_order));
 
-            auto ext2 = dsc->ext.split(uint16_t(cur_dsc_sz >> sg_blk_sz_order));
+            auto ext2 = dsc->ext.split(sg_blkarr.bytes2blk_cnt(cur_dsc_sz));
 
             zeros(io, ext2);
             sg_blkarr.allocator().dealloc_single_extent(ext2);
@@ -191,7 +189,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     to_add.clear();
 
     for (const auto dsc: to_update) {
-        auto pos = dsc->ext.blk_nr() << sg_blk_sz_order;
+        auto pos = sg_blkarr.blk2bytes(dsc->ext.blk_nr());
 
         io.seek_wr(pos);
         dsc->write_struct_into(io);
