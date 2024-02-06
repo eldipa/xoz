@@ -11,7 +11,7 @@
 //  - sg_blk_cnt means blk count in terms of the segment's blocks (internal implementation API)
 std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t ar_blk_cnt) {
     // How many bytes are those?
-    uint32_t grow_sz = ar_blk_cnt << blk_sz_order();
+    uint32_t grow_sz = blk2bytes(ar_blk_cnt);
 
     // Tiny grows are not good in general because each tiny grow requires
     // at least 1 extent so multiple grows enlarge the segment (higher footprint)
@@ -44,7 +44,7 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
     uint32_t ar_pending_blk_cnt = capacity() - blk_cnt();
 
     // How many bytes are those?
-    uint32_t shrink_sz = ((ar_blk_cnt + ar_pending_blk_cnt) << blk_sz_order());
+    uint32_t shrink_sz = blk2bytes(ar_blk_cnt + ar_pending_blk_cnt);
     uint32_t shrank_sz = 0;
 
     // Note: the following must remove/free an entire number of blocks; subblocks
@@ -64,7 +64,7 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
             shrank_sz += alloc_sz;
         } else {
             if (not sg_last_ext.is_suballoc() and release_blocks) {
-                const uint16_t sg_shrink_blk_cnt = uint16_t(shrink_sz >> sg_blkarr.blk_sz_order());
+                const uint16_t sg_shrink_blk_cnt = sg_blkarr.bytes2blk_cnt(shrink_sz);
 
                 if (sg_shrink_blk_cnt) {
                     assert(sg_shrink_blk_cnt < sg_last_ext.blk_cnt());
@@ -93,7 +93,7 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
 
         assert(shrank_sz > 0);
         assert(shrank_sz % blk_sz() == 0);
-        return shrank_sz >> blk_sz_order();
+        return bytes2blk_cnt(shrank_sz);
     }
 
     assert(shrank_sz == 0);
@@ -106,7 +106,7 @@ uint32_t SegmentBlockArray::impl_read_extent(const Extent& ext, char* data, uint
         return 0;
     }
 
-    sg_io->seek_rd((ext.blk_nr() << blk_sz_order()) + start);
+    sg_io->seek_rd(blk2bytes(ext.blk_nr()) + start);
     sg_io->readall(data, to_read_sz);
     return to_read_sz;
 }
@@ -118,7 +118,7 @@ uint32_t SegmentBlockArray::impl_write_extent(const Extent& ext, const char* dat
         return 0;
     }
 
-    sg_io->seek_wr((ext.blk_nr() << blk_sz_order()) + start);
+    sg_io->seek_wr(blk2bytes(ext.blk_nr()) + start);
     sg_io->writeall(data, to_write_sz);
     return to_write_sz;
 }
