@@ -131,10 +131,6 @@ uint32_t SegmentBlockArray::impl_release_blocks() {
 
 SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint32_t blk_sz):
         BlockArray(), segm(segm), sg_blkarr(sg_blkarr) {
-    if (blk_sz == 0) {
-        throw "";
-    }
-
     if (segm.inline_data_sz() != 0) {
         throw "";
     }
