@@ -11,10 +11,16 @@ void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, 
         throw std::runtime_error("blk_sz 0 is incorrect");
     }
 
-    if (blk_sz < 16 or blk_sz % 16 != 0) {
-        if (sg_alloc.get_default_alloc_requirements().allow_suballoc) {
-            throw std::runtime_error("blk_sz too small/not multiple of 16 to be suballocated");
-        }
+    if (blk_sz != uint32_t(1 << u32_log2_floor(blk_sz))) {
+        throw std::runtime_error("blk_sz is not a power of 2");
+    }
+
+    const uint32_t min_blk_sz = Extent::SUBBLK_CNT_PER_BLK * 1;  // 1 byte per subblk
+    if (blk_sz < min_blk_sz or blk_sz % min_blk_sz != 0) {
+        // block too small/not multiple of SUBBLK_CNT_PER_BLK, disable the suballocation
+        auto def = sg_alloc.get_default_alloc_requirements();
+        def.allow_suballoc = false;
+        sg_alloc.set_default_alloc_requirements(def);
     }
 
     if (begin_blk_nr > past_end_blk_nr) {
@@ -92,7 +98,6 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
     // update the pointers
     _real_past_end_blk_nr += real_blk_cnt;
     _past_end_blk_nr = _real_past_end_blk_nr;
-    assert(_real_past_end_blk_nr == blk_nr + real_blk_cnt);
 
     return blk_nr;
 }
