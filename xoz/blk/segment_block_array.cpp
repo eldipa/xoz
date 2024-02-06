@@ -132,13 +132,15 @@ uint32_t SegmentBlockArray::impl_release_blocks() {
 SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint32_t blk_sz):
         BlockArray(), segm(segm), sg_blkarr(sg_blkarr) {
     if (segm.inline_data_sz() != 0) {
-        throw "";
+        throw std::runtime_error("Segment cannot contain inline data to be used for SegmentBlockArray");
     }
+    segm.remove_inline_data();  // remove the end-of-segment as side effect
 
     sg_io.reset(new IOSegment(sg_blkarr, segm));
 
     if (sg_io->remain_rd() % blk_sz != 0) {
-        throw "";
+        throw std::runtime_error(
+                "Segment does not has space multiple of the block size and cannot be used for SegmentBlockArray");
     }
 
     initialize_block_array(blk_sz, 0, sg_io->remain_rd() / blk_sz);
