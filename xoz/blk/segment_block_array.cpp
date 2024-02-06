@@ -41,15 +41,15 @@ uint32_t SegmentBlockArray::impl_shrink_by_blocks(uint32_t ar_blk_cnt) {
 
 uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool release_blocks) {
     // How many blocks are pending-to-be-removed?
-    uint32_t pending_blk_cnt = capacity() - blk_cnt();
+    uint32_t ar_pending_blk_cnt = capacity() - blk_cnt();
 
     // How many bytes are those?
-    uint32_t shrink_sz = ((ar_blk_cnt + pending_blk_cnt) << blk_sz_order());
+    uint32_t shrink_sz = ((ar_blk_cnt + ar_pending_blk_cnt) << blk_sz_order());
     uint32_t shrank_sz = 0;
 
     // Note: the following must remove/free an entire number of blocks; subblocks
     // or smaller is not supported. This makes the code easier and simple and also
-    // allows us to calculate pending_blk_cnt as the diff of real and past-end.
+    // allows us to calculate ar_pending_blk_cnt as the diff of real and past-end.
     Segment sg_to_free;
     while (shrink_sz > 0) {
         assert(segm.ext_cnt() >= 1);
@@ -64,13 +64,13 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
             shrank_sz += alloc_sz;
         } else {
             if (not sg_last_ext.is_suballoc() and release_blocks) {
-                const uint16_t shrink_blk_cnt = uint16_t(shrink_sz >> sg_blkarr.blk_sz_order());
+                const uint16_t sg_shrink_blk_cnt = uint16_t(shrink_sz >> sg_blkarr.blk_sz_order());
 
-                if (shrink_blk_cnt) {
-                    assert(shrink_blk_cnt < sg_last_ext.blk_cnt());
+                if (sg_shrink_blk_cnt) {
+                    assert(sg_shrink_blk_cnt < sg_last_ext.blk_cnt());
 
-                    const uint16_t non_free_blk_cnt = sg_last_ext.blk_cnt() - shrink_blk_cnt;
-                    auto sg_ext2 = sg_last_ext.split(non_free_blk_cnt);
+                    const uint16_t sg_non_free_blk_cnt = sg_last_ext.blk_cnt() - sg_shrink_blk_cnt;
+                    auto sg_ext2 = sg_last_ext.split(sg_non_free_blk_cnt);
                     sg_to_free.add_extent(sg_ext2);
 
                     segm.remove_last_extent();
