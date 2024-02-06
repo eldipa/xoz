@@ -130,9 +130,10 @@ void BlockArray::shrink_by_blocks(uint32_t blk_cnt) {
 uint32_t BlockArray::release_blocks() {
     uint32_t real_blk_cnt = impl_release_blocks();
 
-    _past_end_blk_nr -= real_blk_cnt;
+    _real_past_end_blk_nr -= real_blk_cnt;
 
     assert(_begin_blk_nr <= _past_end_blk_nr);
+    assert(_past_end_blk_nr <= _real_past_end_blk_nr);
     return real_blk_cnt;
 }
 
