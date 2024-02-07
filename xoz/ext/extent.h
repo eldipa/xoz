@@ -146,6 +146,8 @@ public:
     // blocks (or subblocks) of this extent.
     uint32_t calc_data_space_size(uint8_t blk_sz_order) const;
 
+    uint32_t estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const;
+
     struct blk_distance_t {
         const uint32_t blk_cnt;
         const bool is_backwards;

@@ -145,3 +145,13 @@ uint32_t Extent::calc_data_space_size(uint8_t blk_sz_order) const {
         return ext.blk_cnt() << blk_sz_order;
     }
 }
+
+uint32_t Extent::estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const {
+    if (is_suballoc() and subblk_cnt() > 0) {
+        return 1 << (blk_sz_order - Extent::SUBBLK_SIZE_ORDER - 1);
+    } else if (not is_suballoc() and blk_cnt() > 0) {
+        return 1 << (blk_sz_order - 1);
+    } else {
+        return 0;
+    }
+}
