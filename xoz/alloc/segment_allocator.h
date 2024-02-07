@@ -112,7 +112,23 @@ public:
     Extent alloc_single_extent(const uint32_t sz);
     void dealloc_single_extent(const Extent& ext);
 
+    /*
+     * Initialize the segment allocator saying which segments/extents are already
+     * allocated. Any space in between or between them and the boundaries of the
+     * block array will be considered free and allowed to be allocated.
+     *
+     * Two flavors: one for allocated segments, the other for allocated extents.
+     *
+     * The method must be called once.
+     * */
     void initialize_from_allocated(const std::list<Segment>& allocated_segms);
+    void initialize_from_allocated(const std::list<Extent>& allocated_exts);
+
+    /*
+     * Release any pending-to-be-free space. The allocator may keep as "allocated"
+     * some extents for performance reasons. With a call to release(), the allocator
+     * will try to release anything pending as much as possible.
+     * */
     void release();
 
     struct stats_t {
@@ -257,4 +273,6 @@ private:
 
     void fail_if_block_array_not_initialized() const;
     void fail_if_allocator_not_initialized() const;
+
+    void _initialize_from_allocated(std::list<Extent>& allocated);
 };

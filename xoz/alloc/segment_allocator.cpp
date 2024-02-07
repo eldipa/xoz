@@ -349,6 +349,35 @@ void SegmentAllocator::initialize_from_allocated(const std::list<Segment>& alloc
         internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(blk_sz_order);
     }
 
+    _initialize_from_allocated(allocated);
+}
+
+
+void SegmentAllocator::initialize_from_allocated(const std::list<Extent>& allocated_exts) {
+    fail_if_block_array_not_initialized();
+
+    // Collect all the allocated extents of all the segments (this includes full and suballoc'd blocks)
+    for (const auto& ext: allocated_exts) {
+        in_use_by_user_sz += ext.calc_data_space_size(blk_sz_order);
+
+        ++in_use_ext_cnt;
+
+        if (ext.is_suballoc()) {
+            in_use_subblk_cnt += ext.subblk_cnt();
+        } else {
+            in_use_blk_cnt += ext.blk_cnt();
+        }
+
+        ++in_use_ext_per_segm[1];  // the [1] is because we are counting for 1 extent
+        internal_frag_avg_sz += ext.estimate_on_avg_internal_frag_sz(blk_sz_order);
+    }
+
+    std::list<Extent> allocated(allocated_exts);
+    _initialize_from_allocated(allocated);
+}
+
+void SegmentAllocator::_initialize_from_allocated(std::list<Extent>& allocated) {
+    fail_if_block_array_not_initialized();
     // Sort them by block number
     allocated.sort(Extent::cmp_by_blk_nr);
 
