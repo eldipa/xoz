@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "xoz/mem/endianness.h"
@@ -95,6 +96,18 @@ public:
      * */
     void fill(const char c, const uint32_t sz);
 
+    /*
+     * hexdump() return a hexadecimal string representation of the content of the io object
+     * reading from it at the given <at> point and up to <len> bytes.
+     * dump() does the same but returns a std::vector with the raw bytes (no hexdump).
+     *
+     * The <rd> pointer is ignored and restored at the end of the call.
+     *
+     * The method is mostly for introspection and debugging.
+     * */
+    std::string hexdump(uint32_t at = 0, uint32_t len = uint32_t(-1));
+    std::vector<char> dump(uint32_t at = 0, uint32_t len = uint32_t(-1));
+
     uint32_t tell_rd() const { return rd; }
 
     uint32_t tell_wr() const { return wr; }
@@ -137,6 +150,13 @@ public:
     void write_u32_to_le(uint32_t num) {
         num = u32_to_le(num);
         writeall((char*)&num, sizeof(num));
+    }
+
+    char read_char() {
+        char c = 0;
+        readall((char*)&c, sizeof(c));
+
+        return c;
     }
 
     class RewindGuard {

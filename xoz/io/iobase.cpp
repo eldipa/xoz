@@ -1,8 +1,10 @@
 #include "xoz/io/iobase.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <iomanip>
 #include <vector>
 
 #include "xoz/err/exceptions.h"
@@ -91,4 +93,51 @@ void IOBase::fill(const char c, const uint32_t sz) {
         writeall(pad, sizeof(pad));
     }
     writeall(pad, hole % sizeof(pad));
+}
+
+
+std::string IOBase::hexdump(uint32_t at, uint32_t len) {
+    auto pos = tell_rd();
+    seek_rd(at);
+
+    if (len == uint32_t(-1)) {
+        len = remain_rd();
+    }
+
+    len = std::min(remain_rd(), len);
+
+    std::ostringstream out;
+    uint8_t col = 0;
+
+    for (uint32_t i = 0; i < len; ++i, ++col) {
+        out << std::setfill('0') << std::setw(2) << std::hex << (int)(unsigned char)read_char();
+        if (i % 2 == 1 and i + 1 < len) {
+            if (col == 16) {
+                out << "\n";
+                col = 0;
+            } else {
+                out << " ";
+            }
+        }
+    }
+
+    seek_rd(pos);
+    return out.str();
+}
+
+std::vector<char> IOBase::dump(uint32_t at, uint32_t len) {
+    auto pos = tell_rd();
+    seek_rd(at);
+
+    if (len == uint32_t(-1)) {
+        len = remain_rd();
+    }
+
+    len = std::min(remain_rd(), len);
+
+    std::vector<char> buf;
+    readall(buf, len);
+
+    seek_rd(pos);
+    return buf;
 }
