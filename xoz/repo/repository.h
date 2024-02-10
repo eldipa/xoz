@@ -248,8 +248,8 @@ private:
     uint32_t impl_shrink_by_blocks(uint32_t blk_cnt) override;
     uint32_t impl_release_blocks() override;
 
-    uint32_t impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) override;
-    uint32_t impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) override;
+    void impl_read(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) override;
+    void impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) override;
 
     uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) override;
 };

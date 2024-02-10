@@ -71,8 +71,14 @@ protected:
      * */
     virtual uint32_t impl_release_blocks() = 0;
 
-    virtual uint32_t impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) = 0;
-    virtual uint32_t impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) = 0;
+    /*
+     * Read/write the amount exact_sz bytes from the block array. The block to read is given
+     * by blk_nr and the offset is how many bytes skip from the begin of the block.
+     *
+     * Both the read and write can span multiple consecutive blocks.
+     * */
+    virtual void impl_read(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) = 0;
+    virtual void impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) = 0;
 
     /*
      * Check that the read/write operation is within the bounds of this BlockArray and that the
@@ -95,6 +101,19 @@ protected:
 
     BlockArray(bool coalescing_enabled = true, uint16_t split_above_threshold = 0,
                const struct SegmentAllocator::req_t& default_req = SegmentAllocator::XOZDefaultReq);
+
+private:
+    /*
+     * Read or write an extent given by ext (based on is_read_op). How much bytes are being read/written
+     * is given by to_rw_sz and from where to start the operation is given by start (start of 0 means
+     * do the operation at the begin of the extent, a start > 0 means skip start bytes from the begin).
+     *
+     * rw_suballocated_extent is designed for suballocation extent while rw_fully_allocated_extent
+     * is for non-suballocated extents.
+     * */
+    uint32_t rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz, uint32_t start);
+    uint32_t rw_fully_allocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz,
+                                       uint32_t start);
 
 private:
     uint32_t _blk_sz;
@@ -237,6 +256,7 @@ public:
     uint32_t write_extent(const Extent& ext, const char* data, uint32_t max_data_sz = uint32_t(-1), uint32_t start = 0);
     uint32_t write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz = uint32_t(-1),
                           uint32_t start = 0);
+
 
     virtual ~BlockArray() {}
 };

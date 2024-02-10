@@ -25,27 +25,14 @@ uint32_t VectorBlockArray::impl_shrink_by_blocks(uint32_t ar_blk_cnt) {
     return ar_blk_cnt;
 }
 
-uint32_t VectorBlockArray::impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) {
-    const uint32_t to_read_sz = chk_extent_for_rw(true, ext, max_data_sz, start);
-    if (to_read_sz == 0) {
-        return 0;
-    }
-
-    io->seek_rd((ext.blk_nr() << blk_sz_order()) + start);
-    io->readall(data, to_read_sz);
-    return to_read_sz;
+void VectorBlockArray::impl_read(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) {
+    io->seek_rd(blk2bytes(blk_nr) + offset);
+    io->readall(buf, exact_sz);
 }
 
-uint32_t VectorBlockArray::impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz,
-                                             uint32_t start) {
-    const uint32_t to_write_sz = chk_extent_for_rw(false, ext, max_data_sz, start);
-    if (to_write_sz == 0) {
-        return 0;
-    }
-
-    io->seek_wr((ext.blk_nr() << blk_sz_order()) + start);
-    io->writeall(data, to_write_sz);
-    return to_write_sz;
+void VectorBlockArray::impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) {
+    io->seek_wr(blk2bytes(blk_nr) + offset);
+    io->writeall(buf, exact_sz);
 }
 
 uint32_t VectorBlockArray::impl_release_blocks() { return 0; }

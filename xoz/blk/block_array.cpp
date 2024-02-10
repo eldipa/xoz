@@ -1,6 +1,7 @@
 #include "xoz/blk/block_array.h"
 
 #include <algorithm>
+#include <cstring>
 #include <string>
 
 #include "xoz/err/exceptions.h"
@@ -152,7 +153,16 @@ void BlockArray::fail_if_out_of_boundaries(const Extent& ext, const std::string&
 }
 
 uint32_t BlockArray::read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) {
-    return impl_read_extent(ext, data, max_data_sz, start);
+    const uint32_t to_read_sz = chk_extent_for_rw(true, ext, max_data_sz, start);
+    if (to_read_sz == 0) {
+        return 0;
+    }
+
+    if (ext.is_suballoc()) {
+        return rw_suballocated_extent(true, ext, data, to_read_sz, start);
+    } else {
+        return rw_fully_allocated_extent(true, ext, data, to_read_sz, start);
+    }
 }
 
 uint32_t BlockArray::read_extent(const Extent& ext, std::vector<char>& data, uint32_t max_data_sz, uint32_t start) {
@@ -166,7 +176,16 @@ uint32_t BlockArray::read_extent(const Extent& ext, std::vector<char>& data, uin
 }
 
 uint32_t BlockArray::write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) {
-    return impl_write_extent(ext, data, max_data_sz, start);
+    const uint32_t to_write_sz = chk_extent_for_rw(false, ext, max_data_sz, start);
+    if (to_write_sz == 0) {
+        return 0;
+    }
+
+    if (ext.is_suballoc()) {
+        return rw_suballocated_extent(false, ext, (char*)data, to_write_sz, start);
+    } else {
+        return rw_fully_allocated_extent(false, ext, (char*)data, to_write_sz, start);
+    }
 }
 
 uint32_t BlockArray::write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz,
@@ -211,4 +230,96 @@ uint32_t BlockArray::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint3
     }
 
     return to_read_write_sz;
+}
+
+uint32_t BlockArray::rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz,
+                                            uint32_t start) {
+    const uint32_t _subblk_sz = subblk_sz();
+    const uint32_t subblk_cnt_per_blk = Extent::SUBBLK_CNT_PER_BLK;
+
+    // Seek to the single block of the extent
+    // and load it into a temporal buffer (full block)
+    // not matter if is_read_op is true or false
+    std::vector<char> scratch(blk_sz());
+    impl_read(ext.blk_nr(), 0, scratch.data(), blk_sz());
+
+    const uint16_t bitmap = ext.blk_bitmap();
+
+    // If reading (is_read_op is true), copy from
+    // the scratch block slices (subblocks) into
+    // caller's data buffer reading the bitmap
+    // from the highest to the lowest significant bit.
+    //
+    // If writing (is_read_op is false), do the same but
+    // in the opposite direction: copy from data into
+    // the scratch block.
+    unsigned pscratch = 0, pdata = 0;
+    uint32_t skip_offset = start;
+
+    // note: to_rw_sz already takes into account
+    // the start/skip_offset
+    uint32_t remain_to_copy = to_rw_sz;
+
+    for (unsigned i = 0; i < subblk_cnt_per_blk && remain_to_copy > 0; ++i) {
+        const auto bit_selection = (1 << (subblk_cnt_per_blk - i - 1));
+
+        if (bitmap & bit_selection) {
+            if (skip_offset >= _subblk_sz) {
+                // skip the subblock entirely
+                skip_offset -= _subblk_sz;
+            } else {
+                const uint32_t copy_sz = std::min(_subblk_sz - skip_offset, remain_to_copy);
+                if (is_read_op) {
+                    memcpy(data + pdata, scratch.data() + pscratch + skip_offset, copy_sz);
+                } else {
+                    memcpy(scratch.data() + pscratch + skip_offset, data + pdata, copy_sz);
+                }
+
+                // advance the data pointer
+                pdata += copy_sz;
+
+                // consume
+                remain_to_copy -= copy_sz;
+
+                // next iterations will copy full subblocks
+                skip_offset = 0;
+            }
+        }
+
+        // unconditionally advance the scratch pointer
+        pscratch += _subblk_sz;
+    }
+
+    // We didn't forget to read anything
+    assert(remain_to_copy == 0);
+
+    // Eventually at least 1 subblock was really copied
+    // (otherwise we couldn't never decrement remain_to_copy to 0)
+    assert(skip_offset == 0);
+
+    if (is_read_op) {
+        // do nothing else
+    } else {
+        // write back the updated scratch block
+        impl_write(ext.blk_nr(), 0, scratch.data(), blk_sz());
+    }
+
+    return to_rw_sz;
+}
+
+uint32_t BlockArray::rw_fully_allocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz,
+                                               uint32_t start) {
+    // this should never happen
+    assert(ext.blk_cnt() > 0);
+    assert(to_rw_sz > 0);
+
+    // Seek to the begin of the extent and advance as many
+    // bytes as the caller said
+    if (is_read_op) {
+        impl_read(ext.blk_nr(), start, data, to_rw_sz);
+    } else {
+        impl_write(ext.blk_nr(), start, data, to_rw_sz);
+    }
+
+    return to_rw_sz;
 }

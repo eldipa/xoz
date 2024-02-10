@@ -100,34 +100,22 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
     return 0;
 }
 
-uint32_t SegmentBlockArray::impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) {
-    const uint32_t to_read_sz = chk_extent_for_rw(true, ext, max_data_sz, start);
-    if (to_read_sz == 0) {
-        return 0;
-    }
-
-    sg_io->seek_rd(blk2bytes(ext.blk_nr()) + start);
-    sg_io->readall(data, to_read_sz);
-    return to_read_sz;
-}
-
-uint32_t SegmentBlockArray::impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz,
-                                              uint32_t start) {
-    const uint32_t to_write_sz = chk_extent_for_rw(false, ext, max_data_sz, start);
-    if (to_write_sz == 0) {
-        return 0;
-    }
-
-    sg_io->seek_wr(blk2bytes(ext.blk_nr()) + start);
-    sg_io->writeall(data, to_write_sz);
-    return to_write_sz;
-}
-
 uint32_t SegmentBlockArray::impl_release_blocks() {
     // Shrink by 0 blocks: the side effect is that if there is any pending shrink,
     // it will happen there.
     return _impl_shrink_by_blocks(0, true);
 }
+
+void SegmentBlockArray::impl_read(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) {
+    sg_io->seek_rd(blk2bytes(blk_nr) + offset);
+    sg_io->readall(buf, exact_sz);
+}
+
+void SegmentBlockArray::impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) {
+    sg_io->seek_wr(blk2bytes(blk_nr) + offset);
+    sg_io->writeall(buf, exact_sz);
+}
+
 
 SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint32_t blk_sz):
         BlockArray(), segm(segm), sg_blkarr(sg_blkarr) {

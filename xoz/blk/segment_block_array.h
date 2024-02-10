@@ -18,11 +18,11 @@ protected:
 
     uint32_t impl_shrink_by_blocks(uint32_t ar_blk_cnt) override;
 
-    uint32_t impl_read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) override;
-
-    uint32_t impl_write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) override;
-
     uint32_t impl_release_blocks() override;
+
+    void impl_read(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) override;
+
+    void impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) override;
 
 private:
     Segment& segm;
