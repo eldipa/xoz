@@ -237,72 +237,51 @@ uint32_t BlockArray::rw_suballocated_extent(bool is_read_op, const Extent& ext, 
     const uint32_t _subblk_sz = subblk_sz();
     const uint32_t subblk_cnt_per_blk = Extent::SUBBLK_CNT_PER_BLK;
 
-    // Seek to the single block of the extent
-    // and load it into a temporal buffer (full block)
-    // not matter if is_read_op is true or false
-    std::vector<char> scratch(blk_sz());
-    impl_read(ext.blk_nr(), 0, scratch.data(), blk_sz());
-
     const uint16_t bitmap = ext.blk_bitmap();
 
-    // If reading (is_read_op is true), copy from
-    // the scratch block slices (subblocks) into
-    // caller's data buffer reading the bitmap
-    // from the highest to the lowest significant bit.
-    //
-    // If writing (is_read_op is false), do the same but
-    // in the opposite direction: copy from data into
-    // the scratch block.
-    unsigned pscratch = 0, pdata = 0;
-    uint32_t skip_offset = start;
+    unsigned blkoffset = 0, doffset = 0;
+    uint32_t skipoffset = start;
 
     // note: to_rw_sz already takes into account
-    // the start/skip_offset
+    // the start/skipoffset
     uint32_t remain_to_copy = to_rw_sz;
 
     for (unsigned i = 0; i < subblk_cnt_per_blk && remain_to_copy > 0; ++i) {
         const auto bit_selection = (1 << (subblk_cnt_per_blk - i - 1));
 
         if (bitmap & bit_selection) {
-            if (skip_offset >= _subblk_sz) {
+            if (skipoffset >= _subblk_sz) {
                 // skip the subblock entirely
-                skip_offset -= _subblk_sz;
+                skipoffset -= _subblk_sz;
             } else {
-                const uint32_t copy_sz = std::min(_subblk_sz - skip_offset, remain_to_copy);
+                const uint32_t copy_sz = std::min(_subblk_sz - skipoffset, remain_to_copy);
                 if (is_read_op) {
-                    memcpy(data + pdata, scratch.data() + pscratch + skip_offset, copy_sz);
+                    impl_read(ext.blk_nr(), blkoffset + skipoffset, data + doffset, copy_sz);
                 } else {
-                    memcpy(scratch.data() + pscratch + skip_offset, data + pdata, copy_sz);
+                    impl_write(ext.blk_nr(), blkoffset + skipoffset, data + doffset, copy_sz);
                 }
 
                 // advance the data pointer
-                pdata += copy_sz;
+                doffset += copy_sz;
 
                 // consume
                 remain_to_copy -= copy_sz;
 
                 // next iterations will copy full subblocks
-                skip_offset = 0;
+                skipoffset = 0;
             }
         }
 
-        // unconditionally advance the scratch pointer
-        pscratch += _subblk_sz;
+        // unconditionally advance the offset for the inside block
+        blkoffset += _subblk_sz;
     }
 
-    // We didn't forget to read anything
+    // We didn't forget to read/write anything
     assert(remain_to_copy == 0);
 
-    // Eventually at least 1 subblock was really copied
-    // (otherwise we couldn't never decrement remain_to_copy to 0)
-    assert(skip_offset == 0);
-
-    if (is_read_op) {
-        // do nothing else
-    } else {
-        // write back the updated scratch block
-        impl_write(ext.blk_nr(), 0, scratch.data(), blk_sz());
-    }
+    // Eventually at least 1 subblock was really copied (even if copied partially)
+    // (otherwise we couldn't never had decremented remain_to_copy to 0)
+    assert(skipoffset == 0);
 
     return to_rw_sz;
 }
