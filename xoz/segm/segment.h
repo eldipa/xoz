@@ -15,6 +15,8 @@ public:
 
     Segment(): inline_present(false) {}
 
+    static Segment EmptySegment() { return Segment(); }
+
     static Segment create_empty_zero_inline() {
         Segment segm;
         segm.inline_present = true;
