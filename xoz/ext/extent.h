@@ -173,4 +173,19 @@ public:
     // Copy are allowed
     Extent(const Extent&) = default;
     Extent& operator=(const Extent&) = default;
+
+    struct Compare {
+        bool operator()(const Extent& lhs, const Extent& rhs) const {
+            if (lhs.blk_nr() != rhs.blk_nr())
+                return lhs.blk_nr() < rhs.blk_nr();
+
+            if (lhs.is_suballoc() and rhs.is_suballoc())
+                return lhs.blk_bitmap() < rhs.blk_bitmap();
+
+            if (not lhs.is_suballoc() and not rhs.is_suballoc())
+                return lhs.blk_cnt() < rhs.blk_cnt();
+
+            return lhs.is_suballoc();
+        }
+    };
 };
