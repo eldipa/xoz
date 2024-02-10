@@ -7,7 +7,6 @@
 #include "xoz/dsc/default.h"
 #include "xoz/dsc/internals.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/io/iorestricted.h"
 #include "xoz/mem/bits.h"
 #include "xoz/repo/id_manager.h"
 
@@ -75,8 +74,6 @@ void Descriptor::chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t 
     uint32_t data_end = data_begin + data_sz;  // descriptor truly end
     F errmsg;
 
-    // Case 1 and 2 should never happen if the called used ReadOnly and WriteOnly wrappers
-    // to restrict the size of the io.
     if (data_begin > subclass_end) {
         errmsg = std::move(F() << "The descriptor subclass moved the " << (is_read_op ? "read " : "write ")
                                << "pointer backwards and left it at position " << subclass_end
@@ -286,7 +283,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     }
 
     uint32_t data_begin_pos = io.tell_rd();
-    dsc->read_struct_specifics_from(ReadOnly(io, dsize));
+    dsc->read_struct_specifics_from(io);
     uint32_t dsc_end_pos = io.tell_rd();
 
     chk_rw_specifics_on_data(true, io, data_begin_pos, dsc_end_pos, hdr.dsize);
@@ -425,7 +422,7 @@ void Descriptor::write_struct_into(IOBase& io) {
     }
 
     uint32_t data_begin_pos = io.tell_wr();
-    write_struct_specifics_into(WriteOnly(io, hdr.dsize));
+    write_struct_specifics_into(io);
     uint32_t dsc_end_pos = io.tell_wr();
 
     chk_rw_specifics_on_data(false, io, data_begin_pos, dsc_end_pos, hdr.dsize);
