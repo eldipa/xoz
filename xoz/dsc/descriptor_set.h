@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "xoz/alloc/segment_allocator.h"
+#include "xoz/blk/segment_block_array.h"
 #include "xoz/dsc/descriptor.h"
 #include "xoz/io/iobase.h"
 
@@ -19,25 +20,22 @@ private:
     // file at the moment.
     std::map<uint32_t, std::shared_ptr<Descriptor>> owned;
 
-    // The descriptors can be classified into 3 subsets:
+    // The owned descriptors can be classified into 3 subsets:
     //
     //  - to_add: for descriptors owned by the set that are not present in the XOZ file but they should be
-    //  - to_remove: for descriptors that are present in the XOZ file but they shouldn't be; they may
-    //               or may not be owned by the set.
     //  - to_update: for descriptors owned by the set that are present in the XOZ file but changed and
     //               such change is not being reflected by the file and it should be
+    //  - the rest: descriptors owned and present in the XOZ file that don't require an update (not changed)
     //
-    // Descriptors owned by the set but not present in any of those 3 subsets are the descriptors
-    // that are present in the file and that they didn't change in memory.
-    //
-    // Descriptors in the to_remove set may not be present in the owned set. This happen
-    // when a descriptor owned by a set is moved to another set so the former looses
-    // the ownership but the descriptor still needs to be added to to_remove so it is cleaned
-    // in the XOZ file.
-    // To avoid dangling pointers, the to_remove is a set of shared pointers and not raw pointers.
     std::set<Descriptor*> to_add;
-    std::set<std::shared_ptr<Descriptor>> to_remove;
     std::set<Descriptor*> to_update;
+
+    // Descriptors in the to_remove set are not owned by the set but they were moments ago.
+    // The remotion can happen if the descriptor is explicitly deleted (erase) or it is moved
+    // to another set. In the first case, the current set was the last owner and the external data blocks
+    // are removed (see erase()); in the second case, the descriptor is still alive (in another set) so no external
+    // data block is deleted.
+    std::set<Extent, Extent::Compare> to_remove;
 
     // The segment that holds the descriptors of this set. The segment points to blocks
     // in the sg_blkarr block array while the descriptors may point to "external" data blocks in
@@ -46,7 +44,14 @@ private:
     BlockArray& sg_blkarr;
     BlockArray& ed_blkarr;
 
+    // This is the block array constructed from the segment and sg_blkarr used to alloc/dealloc
+    // descriptors.
+    // For reading/writing descriptors (including padding), we use sg_blkarr directly.
+    SegmentBlockArray st_blkarr;
+
     IDManager& idmgr;
+
+    bool set_loaded;
 
 public:
     /*
@@ -64,7 +69,8 @@ public:
     DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr);
 
     /*
-     * Load the set into memory. This should be called once.
+     * Load the set into memory. This must be called once to initialize the internal allocator
+     * properly.
      * */
     void load_set();
 
@@ -89,6 +95,7 @@ public:
      * count that after a write_set() call.
      * */
     uint32_t count() const {
+        fail_if_set_not_loaded();
         auto cnt = owned.size();
         return assert_u32(cnt);
     }
@@ -102,8 +109,10 @@ public:
      *
      * While the addition to the set takes place immediately, the XOZ file
      * will not reflect this until the descriptor set is written to.
+     *
+     * Return the id of the descriptor added.
      * */
-    void add(std::unique_ptr<Descriptor> dscptr);
+    uint32_t add(std::unique_ptr<Descriptor> dscptr);
 
     /*
      * Move out the descriptor from this set and move it into the "new home" set.
@@ -135,6 +144,24 @@ public:
      * */
     void mark_as_modified(uint32_t id);
 
+    /*
+     * Return a reference to the descriptor. If changes are made to it,
+     * either the Descriptor subclass or the user must call mark_as_modified
+     * to let the DescriptorSet know about the changes.
+     * */
+    std::shared_ptr<Descriptor> get(uint32_t id);
+
+
+    template <typename T>
+    std::shared_ptr<T> get(uint32_t id) {
+        auto ptr = std::dynamic_pointer_cast<T>(this->get(id));
+        if (!ptr) {
+            throw std::runtime_error("Descriptor cannot be dynamically down casted.");
+        }
+
+        return ptr;
+    }
+
 private:
     void load_descriptors(IOBase& io);
     void write_modified_descriptors(IOBase& io);
@@ -151,5 +178,8 @@ private:
     DescriptorSet(DescriptorSet&&) = delete;
     DescriptorSet& operator=(DescriptorSet&&) = delete;
 
-    void impl_remove(std::shared_ptr<Descriptor> dscptr, DescriptorSet* new_home);
+    std::shared_ptr<Descriptor> impl_remove(uint32_t id, bool moved);
+
+    void fail_if_set_not_loaded() const;
+    std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
 };

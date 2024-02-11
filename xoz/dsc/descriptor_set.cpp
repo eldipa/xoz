@@ -1,5 +1,7 @@
 #include "xoz/dsc/descriptor_set.h"
 
+#include <algorithm>
+#include <list>
 #include <utility>
 
 #include "xoz/blk/block_array.h"
@@ -8,15 +10,26 @@
 #include "xoz/repo/id_manager.h"
 
 DescriptorSet::DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr):
-        segm(segm), sg_blkarr(sg_blkarr), ed_blkarr(ed_blkarr), idmgr(idmgr) {}
+        segm(segm),
+        sg_blkarr(sg_blkarr),
+        ed_blkarr(ed_blkarr),
+        st_blkarr(segm, sg_blkarr, 2),
+        idmgr(idmgr),
+        set_loaded(false) {}
 
 void DescriptorSet::load_set() {
+    if (set_loaded) {
+        throw std::runtime_error("DescriptorSet cannot be reloaded.");
+    }
+
     auto io = IOSegment(sg_blkarr, segm);
     load_descriptors(io);
+    set_loaded = true;
 }
 
 void DescriptorSet::load_descriptors(IOBase& io) {
-    const uint32_t align = sg_blkarr.blk_sz();  // better semantic name
+    const uint32_t align = st_blkarr.blk_sz();  // better semantic name
+    assert(align == 2);                         // pre RFC
 
     if (io.remain_rd() % align != 0) {
         throw InconsistentXOZ(F() << "The remaining for reading is not multiple of " << align
@@ -28,9 +41,10 @@ void DescriptorSet::load_descriptors(IOBase& io) {
                                   << " at loading descriptors: " << io.tell_rd() << " bytes position");
     }
 
+    std::list<Extent> allocated_exts;
     while (io.remain_rd()) {
         // Try to read padding and if it so, skip the descriptor load
-        if (io.remain_rd() >= 2) {
+        if (io.remain_rd() >= align) {
             if (io.read_u16_from_le() == 0x0000) {
                 // padding, move on
                 continue;
@@ -57,7 +71,7 @@ void DescriptorSet::load_descriptors(IOBase& io) {
             throw InternalError(F() << "The reading position was not left aligned to " << align
                                     << " after a descriptor load: left at " << dsc_end_pos << " bytes position");
         }
-        if (dsc_end_pos <= dsc_begin_pos or dsc_end_pos - dsc_begin_pos < 2) {
+        if (dsc_end_pos <= dsc_begin_pos or dsc_end_pos - dsc_begin_pos < align) {
             throw InternalError(F() << "The reading position after descriptor loaded was left too close or before the "
                                        "position before: left at "
                                     << dsc_end_pos << " bytes position");
@@ -66,8 +80,8 @@ void DescriptorSet::load_descriptors(IOBase& io) {
         // Set the Extent that corresponds to the place where the descriptor is
         uint32_t dsc_length = dsc_end_pos - dsc_begin_pos;
 
-        dsc->ext = Extent(sg_blkarr.bytes2blk_nr(dsc_begin_pos), sg_blkarr.bytes2blk_cnt(dsc_length), false);
-        dsc->owner = this;
+        dsc->ext = Extent(st_blkarr.bytes2blk_nr(dsc_begin_pos), st_blkarr.bytes2blk_cnt(dsc_length), false);
+        allocated_exts.push_back(dsc->ext);
 
         uint32_t id = dsc->id();
 
@@ -95,12 +109,16 @@ void DescriptorSet::load_descriptors(IOBase& io) {
         // dsc cannot be used any longer, it was transferred/moved to the dictionaries above
         // assert(!dsc); (ok, linter is detecting this)
     }
+
+    // let the allocator know which extents are allocated (contain the descriptors) and
+    // which are free for further allocation (padding or space between the boundaries of the io)
+    st_blkarr.allocator().initialize_from_allocated(allocated_exts);
 }
 
 
 void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
-    io.seek_wr(sg_blkarr.blk2bytes(ext.blk_nr()));
-    io.fill(0, sg_blkarr.blk2bytes(ext.blk_cnt()));
+    io.seek_wr(st_blkarr.blk2bytes(ext.blk_nr()));
+    io.fill(0, st_blkarr.blk2bytes(ext.blk_cnt()));
 }
 
 void DescriptorSet::write_set() {
@@ -109,21 +127,19 @@ void DescriptorSet::write_set() {
 }
 
 bool DescriptorSet::does_require_write() const {
+    fail_if_set_not_loaded();
     return to_add.size() != 0 or to_remove.size() != 0 or to_update.size() != 0;
 }
 
-// TODO: we write the descriptors in arbitrary order so this is not very cache-friendly
-// An optimization is possible. Moreover, the space of deleted/shrank descriptors are zero'd
-// regardless if the same space is overwritten later by a new/grew descriptor.
-// If somehow sort all by block nr we could fix these two issues at once (but it is way tricky!)
 void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // Find any descriptor that shrank and it will require less space so we
     // can "split" the space and free a part.
     // Also, find any descriptor that grew so we remove it
     // and we re-add it later
+    std::list<Extent> pending;
     for (const auto dsc: to_update) {
         uint32_t cur_dsc_sz = dsc->calc_struct_footprint_size();
-        uint32_t alloc_dsc_sz = sg_blkarr.blk2bytes(dsc->ext.blk_cnt());
+        uint32_t alloc_dsc_sz = st_blkarr.blk2bytes(dsc->ext.blk_cnt());
 
         if (alloc_dsc_sz < cur_dsc_sz) {
             // grew so dealloc its current space and add it to the "to add" set
@@ -132,8 +148,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
             // but it is not supported by now and probably it would interfere with
             // the SegmentAllocator's split_above_threshold and it may lead to external
             // fragmentation inside the set. It is better a all-in-one "compaction" solution
-            zeros(io, dsc->ext);
-            sg_blkarr.allocator().dealloc_single_extent(dsc->ext);
+            pending.push_back(dsc->ext);
             dsc->ext = Extent::EmptyExtent();
 
             // We add this desc to the to_add set but we don't remove it from
@@ -148,27 +163,20 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
             // of the block size of the stream (sg_blk_sz_order).
             // By the RFC, this is a multiple of 2 bytes.
 
-            auto ext2 = dsc->ext.split(sg_blkarr.bytes2blk_cnt(cur_dsc_sz));
+            auto ext2 = dsc->ext.split(st_blkarr.bytes2blk_cnt(cur_dsc_sz));
 
-            zeros(io, ext2);
-            sg_blkarr.allocator().dealloc_single_extent(ext2);
+            pending.push_back(ext2);
         }
     }
 
-    // Delete the descriptors that we don't want
-    for (const auto& dscptr: to_remove) {
-        zeros(io, dscptr->ext);
-        sg_blkarr.allocator().dealloc_single_extent(dscptr->ext);
-
-        // Dealloc the content being pointed (descriptor's external data)
-        // but only if *we* are the owner of the descriptor too
-        // If we are not the owner of the descriptor, we must assume that
-        // the descritor was moved to another set so we need to remove
-        // the descritor but not its blocks.
-        if (dscptr->hdr.own_edata and dscptr->owner == this) {
-            ed_blkarr.allocator().dealloc(dscptr->hdr.segm);
-        }
-    }
+    // Delete the descriptors' extents that we don't want
+    // Record descriptor's extent to be deallocated (only if not empty).
+    //
+    // Empty extent can happen if the descriptor was never written to disk
+    // (it was added to to_add) but then it was erased (so it was removed from
+    // to_add and added to to_remove).
+    std::copy_if(to_remove.begin(), to_remove.end(), std::back_inserter(pending),
+                 [](const Extent& ext) { return not ext.is_empty(); });
     to_remove.clear();
 
     // NOTE: at this moment we could compute how much was freed, how much is
@@ -177,10 +185,26 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // This however would require update the descriptors' extents to their new positions
     // NOTE: compaction is not implemented yet
 
+
+    // Zero'd the to-be-removed extents and then dealloc them.
+    // We split this into two phases because once we dealloc/alloc
+    // something in st_blkarr, the segment's io becomes invalid
+    // (the underlying segment changed)
+    for (const auto& ext: pending) {
+        zeros(io, ext);
+    }
+
+    for (const auto& ext: pending) {
+        st_blkarr.allocator().dealloc_single_extent(ext);
+    }
+
     // Alloc space for the new descriptors but do not write anything yet
     for (const auto dsc: to_add) {
-        dsc->ext = sg_blkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
+        dsc->ext = st_blkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
     }
+
+    // Now that all the alloc/dealloc happen, let's rebuild the io object
+    auto io2 = IOSegment(sg_blkarr, segm);
 
     // Add all the "new" descriptors to the "to update" list now that they
     // have space allocated in the stream
@@ -189,10 +213,10 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     to_add.clear();
 
     for (const auto dsc: to_update) {
-        auto pos = sg_blkarr.blk2bytes(dsc->ext.blk_nr());
+        auto pos = st_blkarr.blk2bytes(dsc->ext.blk_nr());
 
-        io.seek_wr(pos);
-        dsc->write_struct_into(io);
+        io2.seek_wr(pos);
+        dsc->write_struct_into(io2);
     }
     to_update.clear();
 
@@ -201,23 +225,27 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 
 
     // TODO we may free blocks from the stream, but always?
-    sg_blkarr.allocator().release();
+    st_blkarr.allocator().release();
 }
 
-// TODO we are using set<Descriptor*> and comparing pointers
-// This will break if
-//  - objects are moved ==> disable it
-//  - two objects (2 addresses) have the same obj_id
-//
-
-void DescriptorSet::add(std::unique_ptr<Descriptor> dscptr) {
+uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr) {
+    fail_if_set_not_loaded();
     if (!dscptr) {
         throw std::invalid_argument("Pointer to descriptor cannot by null");
+    }
+
+    // This should never happen because the caller should never have another
+    // unique_ptr to the descriptor to call add() for a second time
+    // (unless it is doing nasty things).
+    if (owned.contains(dscptr->id())) {
+        throw std::invalid_argument("Descriptor is already owned by the set");
     }
 
     // Grab ownership
     auto p = std::shared_ptr<Descriptor>(dscptr.release());
     add_s(p);
+
+    return p->id();
 }
 
 void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr) {
@@ -225,132 +253,94 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr) {
         throw std::invalid_argument("Pointer to descriptor cannot by null");
     }
 
-    // Check if the object belongs to another set
-    // If that happen, the user must explicitly remove the descriptor from its current set
-    // and only then add it to this one
-    if (dscptr->owner != this and dscptr->owner != nullptr) {
-        throw std::runtime_error("Descriptor already belongs to another set and cannot be added to a second one.");
+    if (dscptr->id() == 0) {
+        dscptr->hdr.id = idmgr.request_temporal_id();
     }
 
-    if (dscptr->owner == this) {
-        assert(dscptr->id() != 0);
-    } else {
-        assert(dscptr->owner == nullptr);
-        if (dscptr->id() == 0) {
-            dscptr->hdr.id = idmgr.request_temporal_id();
-        }
-    }
-
-
-    assert(dscptr->id() != 0);
-    auto dsc = dscptr.get();
-
+    // own it
     owned[dscptr->id()] = dscptr;
-    dscptr->owner = this;
+    dscptr->ext = Extent::EmptyExtent();
 
+    auto dsc = dscptr.get();
     to_add.insert(dsc);
-    to_remove.erase(dscptr);
+
+    assert(not to_update.contains(dsc));
 }
 
 
 void DescriptorSet::move_out(uint32_t id, DescriptorSet& new_home) {
-    if (not owned.contains(id)) {
-        throw std::runtime_error("Descriptor does not belong to the set.");
-    }
-
-    auto dscptr = owned[id];
-    impl_remove(dscptr, &new_home);
+    fail_if_set_not_loaded();
+    auto dscptr = impl_remove(id, true);
     new_home.add_s(dscptr);
 }
 
 void DescriptorSet::erase(uint32_t id) {
-    if (not owned.contains(id)) {
-        throw std::runtime_error("Descriptor does not belong to the set.");
-    }
-    impl_remove(owned[id], nullptr);
+    fail_if_set_not_loaded();
+    impl_remove(id, false);
 }
 
 void DescriptorSet::mark_as_modified(uint32_t id) {
-    if (not owned.contains(id)) {
-        throw std::runtime_error("Descriptor does not belong to the set.");
-    }
-    auto dscptr = owned[id];
+    fail_if_set_not_loaded();
+    auto dscptr = get_owned_dsc_or_fail(id);
 
-    assert(dscptr->id() != 0);
-    if (dscptr->owner != this or not owned.contains(dscptr->id())) {  // TODO
-        throw std::runtime_error("Descriptor does not belong to the set.");
-    }
-
-    if (to_remove.contains(dscptr)) {
-        throw std::invalid_argument("Descriptor pending to be removed cannot be marked as modified");
-    }
-
+    // Add descriptor to to_update unless it is in the to_add set. If it is, do nothing:
+    // to_add implies to_update anyways.
     auto dsc = dscptr.get();
-    to_update.insert(dsc);
+    if (not to_add.contains(dsc)) {
+        to_update.insert(dsc);
+    }
 }
 
-void DescriptorSet::impl_remove(std::shared_ptr<Descriptor> dscptr, DescriptorSet* new_home) {
-    if (!dscptr) {
-        throw std::invalid_argument("Pointer to descriptor cannot by null");
-    }
-
-    assert(dscptr->id() != 0);
-    if (dscptr->owner != this or not owned.contains(dscptr->id())) {
-        throw std::runtime_error("Descriptor does not belong to the set.");
-    }
+std::shared_ptr<Descriptor> DescriptorSet::impl_remove(uint32_t id, bool moved) {
+    auto dscptr = get_owned_dsc_or_fail(id);
 
     auto dsc = dscptr.get();
 
+    // Remove the descriptor from everywhere but add it to to_remove.
+    // On write_modified_descriptors, if the descriptor was added to the set
+    // before, its non-empty extent will be deallocated; if it was never added,
+    // its empty extent will be skipped.
     to_add.erase(dsc);
     to_update.erase(dsc);
 
-    to_remove.insert(dscptr);
+    to_remove.insert(dsc->ext);
+
+    // Dealloc the external blocks if the descriptor was not moved outside
+    if (not moved and dscptr->hdr.own_edata) {
+        ed_blkarr.allocator().dealloc(dscptr->hdr.segm);
+    }
 
     owned.erase(dscptr->id());
+    return dscptr;
+}
 
-    // If the "remove" has a "move" semantics, set the owner of the descriptor
-    // to its new home set so we are *not* removing its external data blocks,
-    // otherwise leave the owner untouched.
-    if (new_home) {
-        dscptr->owner = new_home;
+std::shared_ptr<Descriptor> DescriptorSet::get(uint32_t id) {
+    fail_if_set_not_loaded();
+    return get_owned_dsc_or_fail(id);
+}
+
+void DescriptorSet::fail_if_set_not_loaded() const {
+    if (not set_loaded) {
+        throw std::runtime_error("DescriptorSet not loaded. Missed call to load_set()?");
     }
 }
 
-/*
-void DescriptorSet::_write_descriptors(IOBase& io, bool write_all) {
-
-    try {
-        auto rwd = io.auto_rewind();
-
-        if (write_all) {
-            _write_all_descriptors(io);
-        } else {
-            _write_modified_descriptors(io);
-        }
-
-        rwd.dont_rewind();
-
-        modified_objects.clear();
-        modified_parts.clear();
-
-    } catch (...) {
-        // If an exception happen, the rwd.dont_rewind() in the try-block above
-        // never happen so the rwd object restored to the io's write pointer position
-        // of the *begin* of the write_modified_descriptors method call.
-        //
-        // At this moment we know that the new end-of-stream was not written
-        // and it may be possible that the previous end-of-stream was overwritten.
-        // In this scenario we override it again with a new end-of-stream.
-        //
-        // This is a best effort strategy to repair the stream and leave it
-        // in a consistent state (with a valid end-of-stream)
-        auto rwd = io.auto_rewind();
-
-        auto eos = TypeZeroDescriptor::create_end_of_stream(0);
-        eos->write_struct_into(io);
-
-        // Keep propagating the exception
-        throw;
+std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
+    if (not owned.contains(id)) {
+        throw std::runtime_error((F() << "Descriptor " << id << " does not belong to the set.").str());
     }
+
+    auto dscptr = owned[id];
+
+    if (!dscptr) {
+        throw std::runtime_error((F() << "Descriptor " << id << " was found null inside the set.").str());
+    }
+
+    if (dscptr->id() != id) {
+        throw std::runtime_error((F() << "Descriptor " << id << " claims to have a different id of " << dscptr->id()
+                                      << " inside the set.")
+                                         .str());
+    }
+
+    return dscptr;
 }
-*/

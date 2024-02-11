@@ -25,7 +25,7 @@ public:
         Segment segm;  // data segment, only for own_edata descriptors
     };
 
-    explicit Descriptor(const struct header_t& hdr): hdr(hdr), ext(Extent::EmptyExtent()), owner(nullptr) {}
+    explicit Descriptor(const struct header_t& hdr): hdr(hdr), ext(Extent::EmptyExtent()) {}
 
     static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, IDManager& idmgr);
     void write_struct_into(IOBase& io);
@@ -104,12 +104,6 @@ private:
     // It is the place/location where the descriptor was loaded. It may be an
     // EmptyExtent if the descriptor was never loaded from disk.
     Extent ext;
-
-
-    // Which descriptor set owns this descriptor? nullptr if none.
-    //
-    // This field is set by the DescriptorSet
-    DescriptorSet* owner;
 
 private:
     static void chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end,
