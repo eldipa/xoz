@@ -405,4 +405,150 @@ namespace {
 
         EXPECT_EQ(left5.blk_cnt() + right5.blk_cnt(), (uint16_t)(1));
     }
+
+    TEST(ExtentTest, SplitSubAllocExtent) {
+        Extent left1(1, 0xffff, true); // full 16 subblks
+        Extent right1 = left1.split(8); // half
+
+        EXPECT_EQ(left1.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(left1.subblk_cnt(), (uint16_t)(8));
+        EXPECT_EQ(left1.blk_bitmap(), (uint16_t)(0xff00));
+
+        EXPECT_EQ(right1.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(right1.subblk_cnt(), (uint16_t)(8));
+        EXPECT_EQ(right1.blk_bitmap(), (uint16_t)(0x00ff));
+
+        EXPECT_EQ(left1.subblk_cnt() + right1.subblk_cnt(), (uint16_t)(16));
+
+        Extent left2(1, 0xff0f, true); // half full 12 subblks
+        Extent right2 = left2.split(0); // left gets 0 blocks
+
+        EXPECT_EQ(left2.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(left2.subblk_cnt(), (uint16_t)(0));
+        EXPECT_EQ(left2.blk_bitmap(), (uint16_t)(0x0000));
+
+        EXPECT_EQ(right2.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(right2.subblk_cnt(), (uint16_t)(12));
+        EXPECT_EQ(right2.blk_bitmap(), (uint16_t)(0xff0f));
+
+        EXPECT_EQ(left2.subblk_cnt() + right2.subblk_cnt(), (uint16_t)(12));
+
+        Extent left3(1, 0xff0f, true);
+        Extent right3 = left3.split(12); // right gets 0 blocks
+
+        EXPECT_EQ(left3.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(left3.subblk_cnt(), (uint16_t)(12));
+        EXPECT_EQ(left3.blk_bitmap(), (uint16_t)(0xff0f));
+
+        EXPECT_EQ(right3.blk_nr(), (uint32_t)(0x1));
+        EXPECT_EQ(right3.subblk_cnt(), (uint16_t)(0));
+        EXPECT_EQ(right3.blk_bitmap(), (uint16_t)(0x0000));
+
+        EXPECT_EQ(left3.subblk_cnt() + right3.subblk_cnt(), (uint16_t)(12));
+
+        {
+            Extent left3(1, 0xff0f, true);
+            Extent right3 = left3.split(8); // right gets 4 blocks
+
+            EXPECT_EQ(left3.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(left3.subblk_cnt(), (uint16_t)(8));
+            EXPECT_EQ(left3.blk_bitmap(), (uint16_t)(0xff00));
+
+            EXPECT_EQ(right3.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(right3.subblk_cnt(), (uint16_t)(4));
+            EXPECT_EQ(right3.blk_bitmap(), (uint16_t)(0x000f));
+
+            EXPECT_EQ(left3.subblk_cnt() + right3.subblk_cnt(), (uint16_t)(12));
+        }
+
+        {
+            Extent left4(1, 0x8000, true);
+            Extent right4 = left4.split(0); // left gets 0 blocks
+
+            EXPECT_EQ(left4.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(left4.subblk_cnt(), (uint16_t)(0));
+            EXPECT_EQ(left4.blk_bitmap(), (uint16_t)(0x0));
+
+            EXPECT_EQ(right4.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(right4.subblk_cnt(), (uint16_t)(1));
+            EXPECT_EQ(right4.blk_bitmap(), (uint16_t)(0x8000));
+
+            EXPECT_EQ(left4.subblk_cnt() + right4.subblk_cnt(), (uint16_t)(1));
+        }
+
+        {
+            Extent left4(1, 0x0100, true);
+            Extent right4 = left4.split(0); // left gets 0 blocks
+
+            EXPECT_EQ(left4.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(left4.subblk_cnt(), (uint16_t)(0));
+            EXPECT_EQ(left4.blk_bitmap(), (uint16_t)(0x0));
+
+            EXPECT_EQ(right4.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(right4.subblk_cnt(), (uint16_t)(1));
+            EXPECT_EQ(right4.blk_bitmap(), (uint16_t)(0x0100));
+
+            EXPECT_EQ(left4.subblk_cnt() + right4.subblk_cnt(), (uint16_t)(1));
+        }
+
+        {
+            Extent left4(1, 0x0001, true);
+            Extent right4 = left4.split(0); // left gets 0 blocks
+
+            EXPECT_EQ(left4.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(left4.subblk_cnt(), (uint16_t)(0));
+            EXPECT_EQ(left4.blk_bitmap(), (uint16_t)(0x0));
+
+            EXPECT_EQ(right4.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(right4.subblk_cnt(), (uint16_t)(1));
+            EXPECT_EQ(right4.blk_bitmap(), (uint16_t)(0x0001));
+
+            EXPECT_EQ(left4.subblk_cnt() + right4.subblk_cnt(), (uint16_t)(1));
+        }
+
+        {
+            Extent left5(1, 0x8000, true);
+            Extent right5 = left5.split(1); // right gets 0 blocks
+
+            EXPECT_EQ(left5.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(left5.subblk_cnt(), (uint16_t)(1));
+            EXPECT_EQ(left5.blk_bitmap(), (uint16_t)(0x8000));
+
+            EXPECT_EQ(right5.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(right5.subblk_cnt(), (uint16_t)(0));
+            EXPECT_EQ(right5.blk_bitmap(), (uint16_t)(0x0));
+
+            EXPECT_EQ(left5.subblk_cnt() + right5.subblk_cnt(), (uint16_t)(1));
+        }
+
+        {
+            Extent left5(1, 0x0100, true);
+            Extent right5 = left5.split(1); // right gets 0 blocks
+
+            EXPECT_EQ(left5.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(left5.subblk_cnt(), (uint16_t)(1));
+            EXPECT_EQ(left5.blk_bitmap(), (uint16_t)(0x0100));
+
+            EXPECT_EQ(right5.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(right5.subblk_cnt(), (uint16_t)(0));
+            EXPECT_EQ(right5.blk_bitmap(), (uint16_t)(0x0));
+
+            EXPECT_EQ(left5.subblk_cnt() + right5.subblk_cnt(), (uint16_t)(1));
+        }
+
+        {
+            Extent left5(1, 0x0001, true);
+            Extent right5 = left5.split(1); // right gets 0 blocks
+
+            EXPECT_EQ(left5.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(left5.subblk_cnt(), (uint16_t)(1));
+            EXPECT_EQ(left5.blk_bitmap(), (uint16_t)(0x0001));
+
+            EXPECT_EQ(right5.blk_nr(), (uint32_t)(0x1));
+            EXPECT_EQ(right5.subblk_cnt(), (uint16_t)(0));
+            EXPECT_EQ(right5.blk_bitmap(), (uint16_t)(0x0));
+
+            EXPECT_EQ(left5.subblk_cnt() + right5.subblk_cnt(), (uint16_t)(1));
+        }
+    }
 }

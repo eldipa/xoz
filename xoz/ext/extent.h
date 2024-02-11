@@ -101,16 +101,47 @@ public:
      * the second (return) extent points to immediately after the first and
      * it has the remaining blocks.
      *
-     * This method is only for non-suballocated extents.
+     * If the extent is for suballoc, the method works the same but in
+     * terms of subblocks.
      * */
     Extent split(uint16_t new_cnt) {
-        assert(not is_suballoc());
-        assert(_blk_cnt >= new_cnt);
+        if (is_suballoc()) {
+            uint16_t orig_cnt = subblk_cnt();
+            assert(subblk_cnt() >= new_cnt);
 
-        Extent ext2((uint32_t)(_blk_nr + new_cnt), (uint16_t)(_blk_cnt - new_cnt), false);
+            uint16_t subblks_to_transfer = subblk_cnt() - new_cnt;
+            uint16_t cur_bitmap = _blk_cnt;
+            uint16_t new_bitmap = 0;
 
-        _blk_cnt = new_cnt;
-        return ext2;
+            for (unsigned i = 0; i < Extent::SUBBLK_CNT_PER_BLK && subblks_to_transfer > 0; ++i) {
+                const auto bit_selection = (1 << i);
+
+                if (cur_bitmap & bit_selection) {
+                    new_bitmap |= uint16_t(cur_bitmap & bit_selection);
+                    --subblks_to_transfer;
+                }
+            }
+
+            Extent ext2(blk_nr(), new_bitmap, true);
+
+            // substract the new_bitmap from the current bitmap
+            _blk_cnt = uint16_t(_blk_cnt & (~new_bitmap));
+            assert(subblk_cnt() == new_cnt);
+
+            assert(subblk_cnt() + ext2.subblk_cnt() == orig_cnt);
+            return ext2;
+
+        } else {
+            uint16_t orig_cnt = blk_cnt();
+            assert(_blk_cnt >= new_cnt);
+
+            Extent ext2((uint32_t)(_blk_nr + new_cnt), (uint16_t)(_blk_cnt - new_cnt), false);
+
+            _blk_cnt = new_cnt;
+
+            assert(blk_cnt() + ext2.blk_cnt() == orig_cnt);
+            return ext2;
+        }
     }
 
     inline void move_to(uint32_t blk_nr) { _blk_nr = (blk_nr & 0x03ffffff) | (_blk_nr & 0xfc000000); }
