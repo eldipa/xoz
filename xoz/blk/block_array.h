@@ -162,6 +162,13 @@ public:
         return assert_u16(bytes >> _blk_sz_order);
     }
 
+    inline uint16_t bytes2subblk_cnt(uint32_t bytes) const {
+        assert(bytes <= _blk_sz);
+        assert(bytes % subblk_sz() == 0);
+        assert(_blk_sz_order >= Extent::SUBBLK_SIZE_ORDER);
+        return assert_u16(bytes >> (_blk_sz_order - Extent::SUBBLK_SIZE_ORDER));
+    }
+
     inline uint32_t bytes2blk_nr(uint32_t bytes) const {
         assert(bytes % _blk_sz == 0);
         return assert_u32(bytes >> _blk_sz_order);
