@@ -112,7 +112,7 @@ public:
      *
      * Return the id of the descriptor added.
      * */
-    uint32_t add(std::unique_ptr<Descriptor> dscptr);
+    uint32_t add(std::unique_ptr<Descriptor> dscptr, bool assign_persistent_id = false);
 
     /*
      * Move out the descriptor from this set and move it into the "new home" set.
@@ -145,6 +145,12 @@ public:
     void mark_as_modified(uint32_t id);
 
     /*
+     * Assign a persistent id to the given descriptor and return the new id.
+     * (the old id become useless).
+     * */
+    uint32_t assign_persistent_id(uint32_t id);
+
+    /*
      * Return a reference to the descriptor. If changes are made to it,
      * either the Descriptor subclass or the user must call mark_as_modified
      * to let the DescriptorSet know about the changes.
@@ -166,7 +172,7 @@ private:
     void load_descriptors(IOBase& io);
     void write_modified_descriptors(IOBase& io);
 
-    void add_s(std::shared_ptr<Descriptor> dscptr);
+    void add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id);
     void zeros(IOBase& io, const Extent& ext);
 
     DescriptorSet(const DescriptorSet&) = delete;

@@ -228,7 +228,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     st_blkarr.allocator().release();
 }
 
-uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr) {
+uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_persistent_id) {
     fail_if_set_not_loaded();
     if (!dscptr) {
         throw std::invalid_argument("Pointer to descriptor cannot by null");
@@ -243,18 +243,22 @@ uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr) {
 
     // Grab ownership
     auto p = std::shared_ptr<Descriptor>(dscptr.release());
-    add_s(p);
+    add_s(p, assign_persistent_id);
 
     return p->id();
 }
 
-void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr) {
+void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id) {
     if (!dscptr) {
         throw std::invalid_argument("Pointer to descriptor cannot by null");
     }
 
     if (dscptr->id() == 0) {
-        dscptr->hdr.id = idmgr.request_temporal_id();
+        if (assign_persistent_id) {
+            dscptr->hdr.id = idmgr.request_persistent_id();
+        } else {
+            dscptr->hdr.id = idmgr.request_temporal_id();
+        }
     }
 
     // own it
@@ -271,7 +275,7 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr) {
 void DescriptorSet::move_out(uint32_t id, DescriptorSet& new_home) {
     fail_if_set_not_loaded();
     auto dscptr = impl_remove(id, true);
-    new_home.add_s(dscptr);
+    new_home.add_s(dscptr, false);
 }
 
 void DescriptorSet::erase(uint32_t id) {
@@ -312,6 +316,23 @@ std::shared_ptr<Descriptor> DescriptorSet::impl_remove(uint32_t id, bool moved) 
 
     owned.erase(dscptr->id());
     return dscptr;
+}
+
+uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
+    fail_if_set_not_loaded();
+    auto dscptr = get_owned_dsc_or_fail(id);
+
+    if (idmgr.is_temporal(id)) {
+        owned.erase(id);
+
+        auto ext_copy = dscptr->ext;
+        add_s(dscptr, true);
+        dscptr->ext = ext_copy;
+    } else {
+        idmgr.register_persistent_id(id);
+    }
+
+    return dscptr->hdr.id;
 }
 
 std::shared_ptr<Descriptor> DescriptorSet::get(uint32_t id) {
