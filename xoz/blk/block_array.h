@@ -177,11 +177,12 @@ public:
      * grow_by_blocks()/shrink_by_blocks()/release_blocks() are meant
      * to be used as a low-level API (for when the allocator is
      * still not initialized or it cannot be used).
+     *
      * Callers *should* use allocator().alloc() and allocator().dealloc()
      * to reserve/release space (that may grow/shrink the array if needed).
      **/
-    uint32_t grow_by_blocks(uint16_t blk_cnt);
-    void shrink_by_blocks(uint32_t blk_cnt);
+    uint32_t /* internal */ grow_by_blocks(uint16_t blk_cnt);
+    void /* internal */ shrink_by_blocks(uint32_t blk_cnt);
 
     /*
      * This method release any pending shrink operation that may
@@ -195,8 +196,10 @@ public:
      * it should calculate capacity()-blk_cnt().
      *
      * Returns how many blocks were released.
+     *
+     * Callers *should* use allocator().release().
      * */
-    uint32_t release_blocks();
+    uint32_t /* internal */ release_blocks();
 
     // Return the block number of the first block with data
     // (begin_blk_nr) and the past-the-end data section
