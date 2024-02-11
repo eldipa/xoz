@@ -508,6 +508,7 @@ void SegmentAllocator::release() {
     fail_if_allocator_not_initialized();
     reclaim_free_space_from_subfr_map();
     reclaim_free_space_from_fr_map();
+    tail.release();
 }
 
 SegmentAllocator::stats_t SegmentAllocator::stats() const {
