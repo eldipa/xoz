@@ -168,6 +168,8 @@ public:
         return ptr;
     }
 
+    void /* internal */ release_free_space();
+
 private:
     void load_descriptors(IOBase& io);
     void write_modified_descriptors(IOBase& io);

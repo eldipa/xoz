@@ -222,11 +222,9 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 
 
     // TODO compute checksum
-
-
-    // TODO we may free blocks from the stream, but always?
-    st_blkarr.allocator().release();
 }
+
+void DescriptorSet::release_free_space() { st_blkarr.allocator().release(); }
 
 uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_persistent_id) {
     fail_if_set_not_loaded();
