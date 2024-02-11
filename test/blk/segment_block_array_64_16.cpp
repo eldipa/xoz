@@ -839,31 +839,29 @@ namespace {
         EXPECT_EQ(sg.exts().back().is_suballoc(), true);
         EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)12);
 
-        // Now we release_blocks: if the last extent were for non-suballoc, we could do a split
-        // but because it is for suballoc, no split is allowed.
-        // In other words, the release_blocks will have zero effect.
+        // Now we release_blocks: even if the last extent is for suballoc, we can do a split
+        // and release the blocks.
         sg_blkarr.release_blocks();
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
                 8, // 2 extent
-                base_blkarr_subblk_sz * (4 + 12)
+                base_blkarr_subblk_sz * (4 + 4)
                 );
 
         EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
         EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)2);
         EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)2);
-        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)2);
 
         EXPECT_EQ(sg.ext_cnt(), (uint32_t)2);
         EXPECT_EQ(sg.exts().back().is_suballoc(), true);
-        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)12);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)4);
 
-        // Grow know by 3 blocks. Notice how this uses the 2 blks "pending"
-        // and add another extent to the segment with 1 blk.
+        // Grow know by 3 blocks.
         old_top_nr = sg_blkarr.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)2);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
                 12, // 3 extent
-                base_blkarr_subblk_sz * (4 + 12 + 4)
+                base_blkarr_subblk_sz * (4 + 4 + 12)
                 );
 
         EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
@@ -873,46 +871,101 @@ namespace {
 
         EXPECT_EQ(sg.ext_cnt(), (uint32_t)3);
         EXPECT_EQ(sg.exts().back().is_suballoc(), true);
-        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)4);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)12);
 
 
-        // Now shrink by 2 blks. Because the last extent has 1 blk and the next last extent
-        // has more than 1 blk, this shrink will remove the last extent and it will leave some pending
-        // blks.
-        sg_blkarr.shrink_by_blocks(2);
+        // Now shrink by 4 blks. Because the last extent has 3 blk and the next last extent
+        // has more than 1 blk, this shrink will remove both
+        sg_blkarr.shrink_by_blocks(4);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent
-                base_blkarr_subblk_sz * (4 + 12)
+                4, // 1 extent
+                base_blkarr_subblk_sz * (4)
                 );
 
         EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
-        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)3);
-        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)3);
-        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)1);
 
-        EXPECT_EQ(sg.ext_cnt(), (uint32_t)2);
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
         EXPECT_EQ(sg.exts().back().is_suballoc(), true);
-        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)12);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)4);
 
         // There is nothing else to release so no change is expected
         sg_blkarr.release_blocks();
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent
-                base_blkarr_subblk_sz * (4 + 12)
+                4, // 1 extent
+                base_blkarr_subblk_sz * (4)
                 );
 
         EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
-        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)3);
-        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)3);
-        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)1);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)4);
+
+        // Grow by 2 blocks twice and then shrink by 3. We expect the last extent (2 blks)
+        // to be fully deallocated and the next last extent (the other 2 blks) to be split
+        // and deallocated only 1  (3 in total)
+        old_top_nr = sg_blkarr.grow_by_blocks(2);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+        old_top_nr = sg_blkarr.grow_by_blocks(2);
+        EXPECT_EQ(old_top_nr, (uint32_t)3);
+        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+                12, // 3 extent
+                base_blkarr_subblk_sz * (4 + 8 + 8)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)5);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)5);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)5);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)3);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)8);
+
+        // Shrink (expected some pending)
+        sg_blkarr.shrink_by_blocks(3);
+        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+                8, // 2 extent
+                base_blkarr_subblk_sz * (4 + 8)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)2);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)3);
 
         EXPECT_EQ(sg.ext_cnt(), (uint32_t)2);
         EXPECT_EQ(sg.exts().back().is_suballoc(), true);
-        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)12);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)8);
+
+        // Shrink by 1, this plus the other pending blk are released together
+        sg_blkarr.shrink_by_blocks(1);
+
+        // There is nothing else to release so no change is expected
+        sg_blkarr.release_blocks();
+        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+                4, // 1 extent
+                base_blkarr_subblk_sz * (4)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)1);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)4);
 
 
         // Shrink further, leave the array/segment empty
-        sg_blkarr.shrink_by_blocks(3);
+        sg_blkarr.shrink_by_blocks(1);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
                 0, // 0 extent
                 0

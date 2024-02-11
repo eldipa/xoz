@@ -63,14 +63,28 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
             shrink_sz -= alloc_sz;
             shrank_sz += alloc_sz;
         } else {
-            if (not sg_last_ext.is_suballoc() and release_blocks) {
-                const uint16_t sg_shrink_blk_cnt = sg_blkarr.bytes2blk_cnt(shrink_sz);
+            if (release_blocks) {
+                Extent sg_ext2 = Extent::EmptyExtent();
+                if (sg_last_ext.is_suballoc()) {
+                    const uint16_t sg_shrink_subblk_cnt = sg_blkarr.bytes2subblk_cnt(shrink_sz);
+                    if (sg_shrink_subblk_cnt) {
+                        assert(sg_shrink_subblk_cnt < sg_last_ext.subblk_cnt());
 
-                if (sg_shrink_blk_cnt) {
-                    assert(sg_shrink_blk_cnt < sg_last_ext.blk_cnt());
+                        const uint16_t sg_non_free_subblk_cnt = sg_last_ext.subblk_cnt() - sg_shrink_subblk_cnt;
+                        sg_ext2 = sg_last_ext.split(sg_non_free_subblk_cnt);
+                    }
+                } else {
+                    const uint16_t sg_shrink_blk_cnt = sg_blkarr.bytes2blk_cnt(shrink_sz);
 
-                    const uint16_t sg_non_free_blk_cnt = sg_last_ext.blk_cnt() - sg_shrink_blk_cnt;
-                    auto sg_ext2 = sg_last_ext.split(sg_non_free_blk_cnt);
+                    if (sg_shrink_blk_cnt) {
+                        assert(sg_shrink_blk_cnt < sg_last_ext.blk_cnt());
+
+                        const uint16_t sg_non_free_blk_cnt = sg_last_ext.blk_cnt() - sg_shrink_blk_cnt;
+                        sg_ext2 = sg_last_ext.split(sg_non_free_blk_cnt);
+                    }
+                }
+
+                if (not sg_ext2.is_empty()) {
                     sg_to_free.add_extent(sg_ext2);
 
                     segm.remove_last_extent();
