@@ -26,13 +26,17 @@ public:
     }
 
     bool register_persistent_id(uint32_t id) {
-        if (id & 0x80000000) {
+        if (is_temporal(id)) {
             throw std::runtime_error("Temporal ids cannot be registered.");
         }
 
         auto [_, ok] = persistent_ids.insert(id);
         return ok;
     }
+
+    static bool is_temporal(uint32_t id) { return id & 0x80000000; }
+
+    static bool is_persistent(uint32_t id) { return not is_temporal(id); }
 
 private:
     uint32_t next_temporal_id;
