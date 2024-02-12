@@ -882,4 +882,95 @@ namespace {
                     )
                 );
     }
+
+    TEST(DescriptorSetTest, AssignPersistentId) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        d_blkarr.allocator().release();
+        d_blkarr.release_blocks();
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        dset.load_set();
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x0, // see above
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        // Let the set assign a temporal id
+        hdr.id = 0x0;
+        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+
+        // The set should honor our temporal id
+        hdr.id = 0x81f11f1f;
+        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+
+        // Let the set assign a persistent id for us, even if the id is a temporal one
+        hdr.id = 0x0;
+        dset.add(std::make_unique<DefaultDescriptor>(hdr), true);
+        hdr.id = 0x81f11f10;
+        dset.add(std::make_unique<DefaultDescriptor>(hdr), true);
+
+        // The set should honor our persistent id, even if assign_persistent_id is true
+        hdr.id = 0xff1;
+        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+        hdr.id = 0xff2;
+        dset.add(std::make_unique<DefaultDescriptor>(hdr), true);
+
+        // Add a descriptor with a temporal id and then assign it a persistent id
+        hdr.id = 0x80a0a0a0;
+        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+        dset.assign_persistent_id(hdr.id);
+
+        // Add a descriptor with a persistent id and then assign it a persistent id
+        // This should have no effect
+        hdr.id = 0xaff1;
+        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+        dset.assign_persistent_id(hdr.id);
+
+        // Let's collect all the ids
+        std::list<uint32_t> ids;
+
+        for (auto it = dset.begin(); it != dset.end(); ++it) {
+            ids.push_back((*it)->id());
+        }
+
+        ids.sort(); // make the test deterministic
+        EXPECT_THAT(ids, ElementsAre(
+                    (uint32_t)1,
+                    (uint32_t)2,
+                    (uint32_t)0xff1,
+                    (uint32_t)0xff2,
+                    (uint32_t)0xff3,
+                    (uint32_t)0xaff1,
+                    (uint32_t)0x80000000,
+                    (uint32_t)0x81f11f1f
+                    )
+                );
+
+        // check that all the persistent ids were registered
+        EXPECT_EQ(idmgr.is_registered(1), (bool)true);
+        EXPECT_EQ(idmgr.is_registered(2), (bool)true);
+        EXPECT_EQ(idmgr.is_registered(0xff1), (bool)true);
+        EXPECT_EQ(idmgr.is_registered(0xff2), (bool)true);
+        EXPECT_EQ(idmgr.is_registered(0xff3), (bool)true);
+        EXPECT_EQ(idmgr.is_registered(0xaff1), (bool)true);
+    }
 }

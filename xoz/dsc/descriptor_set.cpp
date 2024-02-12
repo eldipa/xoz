@@ -251,12 +251,18 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
         throw std::invalid_argument("Pointer to descriptor cannot by null");
     }
 
-    if (dscptr->id() == 0) {
-        if (assign_persistent_id) {
+    if (idmgr.is_persistent(dscptr->id())) {
+        idmgr.register_persistent_id(dscptr->id());
+    }
+
+    if (assign_persistent_id) {
+        if (dscptr->id() == 0 or idmgr.is_temporal(dscptr->id())) {
             dscptr->hdr.id = idmgr.request_persistent_id();
-        } else {
-            dscptr->hdr.id = idmgr.request_temporal_id();
         }
+    }
+
+    if (dscptr->id() == 0) {
+        dscptr->hdr.id = idmgr.request_temporal_id();
     }
 
     // own it
@@ -324,6 +330,8 @@ uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
         owned.erase(id);
 
         auto ext_copy = dscptr->ext;
+        dscptr->ext = Extent::EmptyExtent();
+
         add_s(dscptr, true);
         dscptr->ext = ext_copy;
     } else {

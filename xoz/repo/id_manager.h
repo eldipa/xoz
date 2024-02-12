@@ -26,6 +26,9 @@ public:
     }
 
     bool register_persistent_id(uint32_t id) {
+        if (is_undefined(id)) {
+            throw std::runtime_error("ID 0 cannot be registered.");
+        }
         if (is_temporal(id)) {
             throw std::runtime_error("Temporal ids cannot be registered.");
         }
@@ -34,9 +37,22 @@ public:
         return ok;
     }
 
-    static bool is_temporal(uint32_t id) { return id & 0x80000000; }
+    static bool is_temporal(uint32_t id) { return not is_undefined(id) and (id & 0x80000000); }
 
-    static bool is_persistent(uint32_t id) { return not is_temporal(id); }
+    static bool is_persistent(uint32_t id) { return not is_undefined(id) and not is_temporal(id); }
+
+    static bool is_undefined(uint32_t id) { return id == 0; }
+
+    bool is_registered(uint32_t id) const {
+        if (is_undefined(id)) {
+            throw std::runtime_error("ID 0 cannot be registered.");
+        }
+        if (is_temporal(id)) {
+            throw std::runtime_error("Temporal ids cannot be registered.");
+        }
+
+        return persistent_ids.contains(id);
+    }
 
 private:
     uint32_t next_temporal_id;
