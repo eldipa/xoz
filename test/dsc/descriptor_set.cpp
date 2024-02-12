@@ -23,6 +23,7 @@
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 using ::testing::AllOf;
+using ::testing::ElementsAre;
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::are_all_zeros;
@@ -678,5 +679,207 @@ namespace {
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
         EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+    }
+
+    TEST(DescriptorSetTest, MultipleDescriptors) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        d_blkarr.allocator().release();
+        d_blkarr.release_blocks();
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        Segment sg2;
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+
+        dset.load_set();
+        dset2.load_set();
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x0, // let the descriptor set assign a new id each
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        {
+            // Add descriptor 1, 2, 3 to dset
+            // Note: we write the set each time we add a descriptor to make
+            // the output determinisitc otherwise, if multiples descriptors
+            // are pending to be added, there is no deterministic order
+            // in which they will be written.
+            dset.add(std::make_unique<DefaultDescriptor>(hdr));
+            dset.write_set();
+
+            auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr);
+            dscptr2->set_data({'A', 'B'});
+            uint32_t id2 = dset.add(std::move(dscptr2));
+            dset.write_set();
+
+            auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr);
+            dscptr3->set_data({'C', 'D'});
+            dset.add(std::move(dscptr3));
+            dset.write_set();
+
+            // Then, add a bunch of descriptors to dset2
+            // Note: we add a bunch but we don't write the set until the end.
+            // This tests that multiples descriptors can be added at once and because
+            // all the descriptors are the same, it doesn't matter
+            // the order and their output will still be deterministic.
+            for (int i = 0; i < 2; ++i) {
+                dset2.add(std::make_unique<DefaultDescriptor>(hdr));
+            }
+            dset2.write_set();
+
+            dset.move_out(id2, dset2);
+            dset.write_set();
+            dset2.write_set();
+
+            for (int i = 0; i < 3; ++i) {
+                dset2.add(std::make_unique<DefaultDescriptor>(hdr));
+            }
+            dset2.write_set();
+        }
+
+        EXPECT_EQ(dset.count(), (uint32_t)2);
+        EXPECT_EQ(dset.does_require_write(), (bool)false);
+
+        EXPECT_EQ(dset2.count(), (uint32_t)6);
+        EXPECT_EQ(dset2.does_require_write(), (bool)false);
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "fa00 0000 0000 fa04 4344"
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+                "fa00 fa00 fa04 4142 fa00 fa00 fa00"
+                );
+
+
+        // While there are 2 bytes of padding in the set that could be reused,
+        // they are not at the end of the set so they cannot be released as
+        // free space.
+        // The following does not change the set.
+        dset.release_free_space();
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "fa00 0000 0000 fa04 4344"
+                );
+
+
+        // Find the last descriptor. It is the one that has 2 bytes of data ({'C', 'D'})
+        uint32_t last_dsc_id = 0;
+        for (auto it = dset.begin(); it != dset.end(); ++it) {
+            if ((*it)->calc_data_space_size() == 2) {
+                last_dsc_id = (*it)->id();
+            }
+        }
+
+        // Delete it and release the free space
+        dset.erase(last_dsc_id);
+        dset.write_set();
+        dset.release_free_space();
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "fa00"
+                );
+    }
+
+    TEST(DescriptorSetTest, Iterate) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        d_blkarr.allocator().release();
+        d_blkarr.release_blocks();
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        dset.load_set();
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x0, // let the descriptor set assign a new id each
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        {
+            // Add descriptor 1, 2, 3 to dset. All except the last
+            // are added *and* written; the last is added only
+            // to test that even if still pending to be written
+            // it can be accessed
+            dset.add(std::make_unique<DefaultDescriptor>(hdr));
+            dset.write_set();
+
+            auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr);
+            dscptr2->set_data({'A', 'B', 'C', 'D'});
+            dset.add(std::move(dscptr2));
+            dset.write_set();
+
+            auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr);
+            dscptr3->set_data({'C', 'D'});
+            dset.add(std::move(dscptr3));
+            // leave the set unwritten so dscptr3 is unwritten as well
+        }
+
+        EXPECT_EQ(dset.count(), (uint32_t)3);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        std::list<uint32_t> sizes;
+
+        // Test that we can get the descriptors (order is no guaranteed)
+        sizes.clear();
+        for (auto it = dset.begin(); it != dset.end(); ++it) {
+            sizes.push_back((*it)->calc_data_space_size());
+        }
+
+        sizes.sort(); // make the test deterministic
+        EXPECT_THAT(sizes, ElementsAre(
+                    (uint32_t)0,
+                    (uint32_t)2,
+                    (uint32_t)4
+                    )
+                );
+
+        // Test that we can get the descriptors - const version
+        sizes.clear();
+        for (auto it = dset.cbegin(); it != dset.cend(); ++it) {
+            sizes.push_back((*it)->calc_data_space_size());
+        }
+
+        sizes.sort(); // make the test deterministic
+        EXPECT_THAT(sizes, ElementsAre(
+                    (uint32_t)0,
+                    (uint32_t)2,
+                    (uint32_t)4
+                    )
+                );
     }
 }
