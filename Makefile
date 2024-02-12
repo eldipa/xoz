@@ -39,4 +39,5 @@ clean:
 	rm -Rf build-*/
 	rm -f scratch/mem/*
 	rm -fR coverage/*
+	find ./xoz/ ./test/ \( -name '*.o' -o -name '*.gcno' \) -exec rm {} \; || true
 	tup variant configs/*.config
