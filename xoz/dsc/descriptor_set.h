@@ -9,6 +9,7 @@
 #include "xoz/alloc/segment_allocator.h"
 #include "xoz/blk/segment_block_array.h"
 #include "xoz/dsc/descriptor.h"
+#include "xoz/dsc/internals.h"
 #include "xoz/io/iobase.h"
 
 class IDManager;
@@ -167,6 +168,18 @@ public:
 
         return ptr;
     }
+
+    typedef xoz::dsc::internals::DescriptorIterator<std::map<uint32_t, std::shared_ptr<Descriptor>>::iterator>
+            dsc_iterator_t;
+    typedef xoz::dsc::internals::DescriptorIterator<std::map<uint32_t, std::shared_ptr<Descriptor>>::const_iterator>
+            const_dsc_iterator_t;
+
+    inline dsc_iterator_t begin() { return xoz::dsc::internals::DescriptorIterator(owned.begin()); }
+    inline dsc_iterator_t end() { return xoz::dsc::internals::DescriptorIterator(owned.end()); }
+
+    inline const_dsc_iterator_t cbegin() const { return xoz::dsc::internals::DescriptorIterator(owned.cbegin()); }
+    inline const_dsc_iterator_t cend() const { return xoz::dsc::internals::DescriptorIterator(owned.cend()); }
+
 
     void /* internal */ release_free_space();
 
