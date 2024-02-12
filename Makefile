@@ -1,34 +1,39 @@
 .PHONY: all test clean coverage
 
-builddebugdir ?= build-debug-gcc
+ifndef buildvariant
+compileallvariants ?= 1
+buildvariant = build-debug-gcc
+else
+compileallvariants ?= 0
+endif
 
 all: test
 
 compile: unmirror
-	tup
+	if [ "$(compileallvariants)" = "1" ]; then tup; else tup $(buildvariant); fi
 
 test: compile
 	mkdir -p scratch/mem/
-	./$(builddebugdir)/test/runtests
+	./$(buildvariant)/test/runtests
 
 debug:
-	gdb -x .gdbinit --args $(builddebugdir)/test/runtests
+	gdb -x .gdbinit --args $(buildvariant)/test/runtests
 
 coverage: mirror
 	mkdir -p coverage/
-	lcov  --directory $(builddebugdir)/xoz/ --no-external --capture > coverage/coverage.info
+	lcov  --directory $(buildvariant)/xoz/ --no-external --capture > coverage/coverage.info
 	cd coverage && genhtml coverage.info
 
 valgrind: compile
-	valgrind ./$(builddebugdir)/test/runtests
+	valgrind ./$(buildvariant)/test/runtests
 
 #-ftime-report -ftime-report-details -H
 
 mirror:
-	find xoz/ test/ \( -name '*.h' -o -name '*.cpp' \) -exec ln -sr {} $(builddebugdir)/{} \;
+	find xoz/ test/ \( -name '*.h' -o -name '*.cpp' \) -exec ln -sr {} $(buildvariant)/{} \;
 
 unmirror:
-	find $(builddebugdir)/xoz/ $(builddebugdir)/test/ \( -name '*.h' -o -name '*.cpp' \) -exec rm {} \; || true
+	find $(buildvariant)/xoz/ $(buildvariant)/test/ \( -name '*.h' -o -name '*.cpp' \) -exec rm {} \; || true
 
 clean:
 	rm -Rf build-*/
