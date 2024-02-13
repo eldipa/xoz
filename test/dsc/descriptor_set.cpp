@@ -995,4 +995,108 @@ namespace {
         EXPECT_EQ(idmgr.is_registered(0xff3), (bool)true);
         EXPECT_EQ(idmgr.is_registered(0xaff1), (bool)true);
     }
+
+    class DescriptorSubRW : public DefaultDescriptor {
+    public:
+        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) : DefaultDescriptor(hdr, ed_blkarr) {}
+        void read_struct_specifics_from(IOBase&) override {
+            return; // 0 read
+        }
+        void write_struct_specifics_into(IOBase&) override {
+            return; // 0 write
+        }
+        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) {
+            return std::make_unique<DescriptorSubRW>(hdr, ed_blkarr);
+        }
+    };
+
+    TEST(DescriptorSetTest, DownCast) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        dset.load_set();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
+        uint32_t id1 = dset.add(std::move(dscptr));
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Down cast to Descriptor subclass again
+        // If the downcast works, cast<X> does neither throws nor return null
+        auto dscptr2 = dset.get<DefaultDescriptor>(id1);
+        EXPECT_EQ((bool)dscptr2, (bool)true);
+
+        // If the downcast fails, throw an exception (it does not return null either)
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                [[maybe_unused]]
+                auto dscptr3 = dset.get<DescriptorSubRW>(id1);
+                }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor cannot be dynamically down casted."
+                        )
+                    )
+                )
+        );
+
+        // Only if we pass ret_null = true, the failed cast will return null
+        // and avoid throwing.
+        auto dscptr4 = dset.get<DescriptorSubRW>(id1, true);
+        EXPECT_EQ((bool)dscptr4, (bool)false);
+
+        // Getting a non-existing descriptor (id not found) is an error
+        // and it does not matter if ret_null is true or not.
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                [[maybe_unused]]
+                auto dscptr3 = dset.get<DescriptorSubRW>(99);
+                }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 99 does not belong to the set."
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                [[maybe_unused]]
+                auto dscptr3 = dset.get<DescriptorSubRW>(99, true);
+                }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 99 does not belong to the set."
+                        )
+                    )
+                )
+        );
+    }
 }

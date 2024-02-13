@@ -160,9 +160,9 @@ public:
 
 
     template <typename T>
-    std::shared_ptr<T> get(uint32_t id) {
+    std::shared_ptr<T> get(uint32_t id, bool ret_null = false) {
         auto ptr = std::dynamic_pointer_cast<T>(this->get(id));
-        if (!ptr) {
+        if (!ptr and not ret_null) {
             throw std::runtime_error("Descriptor cannot be dynamically down casted.");
         }
 
