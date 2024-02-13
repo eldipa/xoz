@@ -519,3 +519,7 @@ void Descriptor::chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::hea
         }
     }
 }
+
+uint32_t Descriptor::calc_external_data_space_size() const {
+    return hdr.own_edata ? hdr.segm.calc_data_space_size(ed_blkarr.blk_sz_order()) : 0;
+}

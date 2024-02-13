@@ -59,9 +59,7 @@ public:
     // total usable space while hdr.esize (or calc_external_data_size) is the used space.
     //
     // For non-owner descriptors returns always 0
-    uint32_t calc_external_data_space_size(uint8_t blk_sz_order) const {  // TODO use ed_blkarr
-        return hdr.own_edata ? hdr.segm.calc_data_space_size(blk_sz_order) : 0;
-    }
+    uint32_t calc_external_data_space_size() const;
 
     uint32_t calc_external_data_size() const { return hdr.own_edata ? hdr.esize : 0; }
 
