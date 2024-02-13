@@ -14,22 +14,6 @@ class BlockArray;
 class Descriptor {
 
 public:
-    struct header_t {
-        bool own_edata;
-        uint16_t type;
-
-        uint32_t id;
-
-        uint8_t dsize;   // in bytes
-        uint32_t esize;  // in bytes
-
-        Segment segm;  // data segment, only for own_edata descriptors
-    };
-
-    // TODO protected?
-    Descriptor(const struct header_t& hdr, BlockArray& ed_blkarr):
-            hdr(hdr), ext(Extent::EmptyExtent()), ed_blkarr(ed_blkarr) {}
-
     static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, IDManager& idmgr, BlockArray& ed_blkarr);
     void write_struct_into(IOBase& io);
 
@@ -65,9 +49,6 @@ public:
 
     virtual ~Descriptor() {}
 
-    friend void PrintTo(const struct header_t& hdr, std::ostream* out);
-    friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);
-
     friend void PrintTo(const Descriptor& dsc, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const Descriptor& dsc);
 
@@ -75,8 +56,33 @@ public:
 
     friend class DescriptorSet;
 
+public:  // public but it should be interpreted as an opaque section
+    struct header_t {
+        bool own_edata;
+        uint16_t type;
+
+        uint32_t id;
+
+        uint8_t dsize;   // in bytes
+        uint32_t esize;  // in bytes
+
+        Segment segm;  // data segment, only for own_edata descriptors
+    };
+
+    friend void PrintTo(const struct header_t& hdr, std::ostream* out);
+    friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);
+
 protected:
     struct header_t hdr;
+
+    /*
+     * Descriptor's constructor with its header and a reference to the block array
+     * for external data.
+     * The constructor is meant for internal use and its subclasses because it exposes
+     * too much its header.
+     * */
+    Descriptor(const struct header_t& hdr, BlockArray& ed_blkarr):
+            hdr(hdr), ext(Extent::EmptyExtent()), ed_blkarr(ed_blkarr) {}
 
     static void chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
