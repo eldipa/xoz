@@ -1,6 +1,7 @@
 #include "xoz/dsc/default.h"
 
-DefaultDescriptor::DefaultDescriptor(const struct Descriptor::header_t& hdr): Descriptor(hdr) {
+DefaultDescriptor::DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr):
+        Descriptor(hdr, ed_blkarr) {
     dsc_data.resize(hdr.dsize);
 }
 
@@ -8,8 +9,8 @@ void DefaultDescriptor::read_struct_specifics_from(IOBase& io) { io.readall(dsc_
 
 void DefaultDescriptor::write_struct_specifics_into(IOBase& io) { io.writeall(dsc_data, hdr.dsize); }
 
-std::unique_ptr<Descriptor> DefaultDescriptor::create(const struct Descriptor::header_t& hdr) {
-    return std::make_unique<DefaultDescriptor>(hdr);
+std::unique_ptr<Descriptor> DefaultDescriptor::create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) {
+    return std::make_unique<DefaultDescriptor>(hdr, ed_blkarr);
 }
 
 void DefaultDescriptor::set_data(const std::vector<char>& data) {

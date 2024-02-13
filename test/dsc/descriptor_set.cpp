@@ -59,7 +59,9 @@ namespace {
         // use to access "external data blocks" *and* to access its own
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -98,7 +100,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -117,7 +121,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr);
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
@@ -197,7 +201,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -216,7 +222,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr);
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
         dscptr->set_data({'A', 'B'});
 
         uint32_t id1 = dset.add(std::move(dscptr));
@@ -286,7 +292,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -305,7 +313,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr);
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
@@ -354,7 +362,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -373,7 +383,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr);
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
@@ -428,7 +438,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -447,7 +459,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr);
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
@@ -503,7 +515,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -533,7 +547,7 @@ namespace {
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
         EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1));
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr);
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
@@ -578,7 +592,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -608,7 +624,7 @@ namespace {
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
         EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1));
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr);
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
@@ -689,7 +705,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -722,15 +740,15 @@ namespace {
             // the output determinisitc otherwise, if multiples descriptors
             // are pending to be added, there is no deterministic order
             // in which they will be written.
-            dset.add(std::make_unique<DefaultDescriptor>(hdr));
+            dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr));
             dset.write_set();
 
-            auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr);
+            auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
             dscptr2->set_data({'A', 'B'});
             uint32_t id2 = dset.add(std::move(dscptr2));
             dset.write_set();
 
-            auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr);
+            auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
             dscptr3->set_data({'C', 'D'});
             dset.add(std::move(dscptr3));
             dset.write_set();
@@ -741,7 +759,7 @@ namespace {
             // all the descriptors are the same, it doesn't matter
             // the order and their output will still be deterministic.
             for (int i = 0; i < 2; ++i) {
-                dset2.add(std::make_unique<DefaultDescriptor>(hdr));
+                dset2.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr));
             }
             dset2.write_set();
 
@@ -750,7 +768,7 @@ namespace {
             dset2.write_set();
 
             for (int i = 0; i < 3; ++i) {
-                dset2.add(std::make_unique<DefaultDescriptor>(hdr));
+                dset2.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr));
             }
             dset2.write_set();
         }
@@ -807,7 +825,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -835,15 +855,15 @@ namespace {
             // are added *and* written; the last is added only
             // to test that even if still pending to be written
             // it can be accessed
-            dset.add(std::make_unique<DefaultDescriptor>(hdr));
+            dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr));
             dset.write_set();
 
-            auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr);
+            auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
             dscptr2->set_data({'A', 'B', 'C', 'D'});
             dset.add(std::move(dscptr2));
             dset.write_set();
 
-            auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr);
+            auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
             dscptr3->set_data({'C', 'D'});
             dset.add(std::move(dscptr3));
             // leave the set unwritten so dscptr3 is unwritten as well
@@ -891,7 +911,9 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -916,33 +938,33 @@ namespace {
 
         // Let the set assign a temporal id
         hdr.id = 0x0;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+        dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr));
 
         // The set should honor our temporal id
         hdr.id = 0x81f11f1f;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+        dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr));
 
         // Let the set assign a persistent id for us, even if the id is a temporal one
         hdr.id = 0x0;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr), true);
+        dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr), true);
         hdr.id = 0x81f11f10;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr), true);
+        dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr), true);
 
         // The set should honor our persistent id, even if assign_persistent_id is true
         hdr.id = 0xff1;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+        dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr));
         hdr.id = 0xff2;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr), true);
+        dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr), true);
 
         // Add a descriptor with a temporal id and then assign it a persistent id
         hdr.id = 0x80a0a0a0;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+        dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr));
         dset.assign_persistent_id(hdr.id);
 
         // Add a descriptor with a persistent id and then assign it a persistent id
         // This should have no effect
         hdr.id = 0xaff1;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr));
+        dset.add(std::make_unique<DefaultDescriptor>(hdr, e_blkarr));
         dset.assign_persistent_id(hdr.id);
 
         // Let's collect all the ids

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <utility>
 
+#include "xoz/blk/block_array.h"
 #include "xoz/dsc/default.h"
 #include "xoz/dsc/internals.h"
 #include "xoz/err/exceptions.h"
@@ -174,7 +175,7 @@ fail:
     }
 }
 
-std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& idmgr) {
+std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& idmgr, BlockArray& ed_blkarr) {
     throw_if_descriptor_mapping_not_initialized();
     uint32_t dsc_begin_pos = io.tell_rd();
     uint16_t firstfield = io.read_u16_from_le();
@@ -276,7 +277,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     }
 
     descriptor_create_fn fn = descriptor_create_lookup(type);
-    std::unique_ptr<Descriptor> dsc = fn(hdr);
+    std::unique_ptr<Descriptor> dsc = fn(hdr, ed_blkarr);
 
     if (!dsc) {
         throw std::runtime_error((F() << "Subclass create for " << hdr << " returned a null pointer").str());

@@ -19,9 +19,9 @@ private:
     std::vector<char> dsc_data;
 
 public:
-    explicit DefaultDescriptor(const struct Descriptor::header_t& hdr);
+    DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr);
 
-    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr);
+    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr);
 
     void set_data(const std::vector<char>& data);
 

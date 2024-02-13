@@ -9,6 +9,7 @@
 
 class IDManager;
 class DescriptorSet;
+class BlockArray;
 
 class Descriptor {
 
@@ -25,13 +26,15 @@ public:
         Segment segm;  // data segment, only for own_edata descriptors
     };
 
-    explicit Descriptor(const struct header_t& hdr): hdr(hdr), ext(Extent::EmptyExtent()) {}
+    // TODO protected?
+    Descriptor(const struct header_t& hdr, BlockArray& ed_blkarr):
+            hdr(hdr), ext(Extent::EmptyExtent()), ed_blkarr(ed_blkarr) {}
 
-    static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, IDManager& idmgr);
+    static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, IDManager& idmgr, BlockArray& ed_blkarr);
     void write_struct_into(IOBase& io);
 
-    static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io, IDManager& idmgr) {
-        return load_struct_from(io, idmgr);
+    static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io, IDManager& idmgr, BlockArray& ed_blkarr) {
+        return load_struct_from(io, idmgr, ed_blkarr);
     }
     void write_struct_into(IOBase&& io) { return write_struct_into(io); }
 
@@ -56,7 +59,7 @@ public:
     // total usable space while hdr.esize (or calc_external_data_size) is the used space.
     //
     // For non-owner descriptors returns always 0
-    uint32_t calc_external_data_space_size(uint8_t blk_sz_order) const {
+    uint32_t calc_external_data_space_size(uint8_t blk_sz_order) const {  // TODO use ed_blkarr
         return hdr.own_edata ? hdr.segm.calc_data_space_size(blk_sz_order) : 0;
     }
 
@@ -105,6 +108,9 @@ private:
     // EmptyExtent if the descriptor was never loaded from disk.
     Extent ext;
 
+    // Block array that holds the external data of the descriptor (if any).
+    BlockArray& ed_blkarr;
+
 private:
     static void chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end,
                                          uint32_t data_sz);
@@ -118,7 +124,8 @@ private:
 //
 // Once created the read_struct_specifics_from is invoked to complete the initialization
 // of the subclass descriptor
-typedef std::unique_ptr<Descriptor> (*descriptor_create_fn)(const struct Descriptor::header_t& hdr);
+typedef std::unique_ptr<Descriptor> (*descriptor_create_fn)(const struct Descriptor::header_t& hdr,
+                                                            BlockArray& ed_blkarr);
 
 void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& descriptors);
 

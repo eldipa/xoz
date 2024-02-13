@@ -5,6 +5,7 @@
 #include "xoz/dsc/default.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/repo/id_manager.h"
+#include "xoz/blk/vector_block_array.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -48,11 +49,11 @@ const size_t FP_SZ = 224;
 
 // Load from fp the obj and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
-#define XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr) do {                         \
+#define XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr) do {                         \
     std::vector<char> buf2;                                              \
     XOZ_RESET_FP(buf2, FP_SZ);                                           \
                                                                          \
-    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (idmgr));   \
+    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (idmgr), (ed_blkarr));   \
     dsc2_ptr->write_struct_into(IOSpan(buf2));                           \
     EXPECT_EQ((fp), buf2);                                               \
 } while (0)
@@ -66,6 +67,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -81,7 +83,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -99,7 +101,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeData) {
@@ -109,6 +111,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -124,7 +127,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data({1, 2, 3, 4}); // dsize = 4
 
 
@@ -144,7 +147,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithoutExtendedType) {
@@ -154,6 +157,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -169,7 +173,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data({1, 2, 3, 4}); // dsize = 4
 
 
@@ -189,7 +193,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeWithExtendedType) {
@@ -199,6 +203,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -214,7 +219,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data({1, 2, 3, 4}); // dsize = 4
 
 
@@ -234,7 +239,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithExtendedType) {
@@ -244,6 +249,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -259,7 +265,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data({1, 2, 3, 4}); // dsize = 4
 
 
@@ -279,7 +285,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeButWithExtendedType) {
@@ -289,6 +295,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -304,7 +311,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data({1, 2, 3, 4}); // dsize = 4
 
 
@@ -333,7 +340,7 @@ namespace {
         XOZ_RESET_FP(buf2, FP_SZ);
         idmgr.reset(0x80000001);
 
-        auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), idmgr);
+        auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), idmgr, ed_blkarr);
         dsc2_ptr->write_struct_into(IOSpan(buf2));
         XOZ_EXPECT_SERIALIZATION(buf2, *dsc2_ptr,
                 "0a08 0102 0304"
@@ -347,6 +354,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -365,7 +373,7 @@ namespace {
         std::vector<char> data(64-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data(data); // dsize = 64-2
 
 
@@ -387,7 +395,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdOneMoreLoData) {
@@ -397,6 +405,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -415,7 +424,7 @@ namespace {
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data(data); // dsize = 64
 
 
@@ -437,7 +446,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdMaxHiData) {
@@ -447,6 +456,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -465,7 +475,7 @@ namespace {
         std::vector<char> data(128-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data(data); // dsize = 128-2
 
 
@@ -489,7 +499,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, NoOwnsPersistentIdMaxLoData) {
@@ -499,6 +509,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -517,7 +528,7 @@ namespace {
         std::vector<char> data(64-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data(data); // dsize = 64-2
 
 
@@ -539,7 +550,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
 
@@ -550,6 +561,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -568,7 +580,7 @@ namespace {
         std::vector<char> data(64-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data(data); // dsize = 64-2
 
 
@@ -590,7 +602,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegm) {
@@ -600,6 +612,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -615,7 +628,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -633,7 +646,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithoutExtendedType) {
@@ -643,6 +656,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -658,7 +672,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -676,7 +690,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinTypeWithExtendedType) {
@@ -686,6 +700,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -701,7 +716,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -719,7 +734,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithExtendedType) {
@@ -729,6 +744,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -744,7 +760,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -762,7 +778,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdOneMoreLoDataEmptySegm) {
@@ -772,6 +788,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -790,7 +807,7 @@ namespace {
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data(data); // dsize = 64
 
 
@@ -813,7 +830,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmSomeObjData) {
@@ -823,6 +840,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -838,7 +856,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -856,7 +874,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxNonLargeObjData) {
@@ -866,6 +884,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -881,7 +900,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -899,7 +918,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmOneMoreNonLargeObjData) {
@@ -909,6 +928,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -924,7 +944,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -942,7 +962,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxLargeObjData) {
@@ -952,6 +972,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -967,7 +988,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -985,7 +1006,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataSegmInlineSomeObjData) {
@@ -995,6 +1016,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -1012,7 +1034,7 @@ namespace {
 
         hdr.segm.set_inline_data({0x1, 0x2, 0x3});
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -1030,7 +1052,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr);
     }
 
     TEST(DescriptorTest, NotEnoughRoomForRWNonOwnerTemporalId) {
@@ -1040,6 +1062,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -1055,7 +1078,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data({1, 2}); // dsize = 2
 
 
@@ -1093,7 +1116,7 @@ namespace {
         fp.resize(2+2 - 1); // shorter by 1 byte
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr, ed_blkarr); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1113,6 +1136,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -1128,7 +1152,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
         dsc.set_data({1, 2}); // dsize = 2
 
 
@@ -1165,7 +1189,7 @@ namespace {
         fp.resize(2+4+2+2+2 - 1); // shorter by 1 byte
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr, ed_blkarr); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1180,15 +1204,15 @@ namespace {
 
     class DescriptorSubRW : public DefaultDescriptor {
     public:
-        DescriptorSubRW(const struct Descriptor::header_t& hdr) : DefaultDescriptor(hdr) {}
+        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) : DefaultDescriptor(hdr, ed_blkarr) {}
         void read_struct_specifics_from(IOBase&) override {
             return; // 0 read
         }
         void write_struct_specifics_into(IOBase&) override {
             return; // 0 write
         }
-        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr) {
-            return std::make_unique<DescriptorSubRW>(hdr);
+        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) {
+            return std::make_unique<DescriptorSubRW>(hdr, ed_blkarr);
         }
     };
 
@@ -1199,6 +1223,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map {
             {0xff, DescriptorSubRW::create }
@@ -1216,7 +1241,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DescriptorSubRW dsc = DescriptorSubRW(hdr);
+        DescriptorSubRW dsc = DescriptorSubRW(hdr, ed_blkarr);
         dsc.set_data({1, 2}); // dsize = 2
 
 
@@ -1244,12 +1269,12 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Write a valid descriptor of data size 2
-        DefaultDescriptor dsc2 = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc2 = DefaultDescriptor(hdr, ed_blkarr);
         dsc2.set_data({1, 2});
         dsc2.write_struct_into(IOSpan(fp));
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr, ed_blkarr); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1269,6 +1294,7 @@ namespace {
 
         deinitialize_descriptor_mapping();
         IDManager idmgr;
+        VectorBlockArray ed_blkarr(1 << blk_sz_order);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         initialize_descriptor_mapping(descriptors_map);
@@ -1284,7 +1310,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline()
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc, blk_sz_order,
@@ -1313,7 +1339,7 @@ namespace {
 
         // this will make the write_struct_into to set the has_id to true...
         hdr.id = 0xffff;
-        DefaultDescriptor dsc2 = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc2 = DefaultDescriptor(hdr, ed_blkarr);
         dsc2.write_struct_into(IOSpan(fp));
 
         // ...and now we nullify the id field so it would look like a descriptor
@@ -1326,7 +1352,7 @@ namespace {
         // Because the dsize of the descriptor is small, there is no reason to have
         // an id = 0.
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), idmgr, ed_blkarr); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1344,7 +1370,7 @@ namespace {
         // We repeat again has_id = true but we also make the descriptor very large so
         // we force to and id of 0 (because the temporal id is not stored)
         hdr.id = 0x80000001;
-        DefaultDescriptor dsc3 = DefaultDescriptor(hdr);
+        DefaultDescriptor dsc3 = DefaultDescriptor(hdr, ed_blkarr);
 
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
@@ -1362,6 +1388,6 @@ namespace {
 
         // Load should be ok even if the id is 0 in the string. A temporal id should be then
         // set to the loaded descriptor.
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc3, idmgr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc3, idmgr, ed_blkarr);
     }
 }

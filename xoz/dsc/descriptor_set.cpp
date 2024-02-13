@@ -57,7 +57,7 @@ void DescriptorSet::load_descriptors(IOBase& io) {
         // Read the descriptor
         assert(io.tell_rd() % align == 0);
         uint32_t dsc_begin_pos = io.tell_rd();
-        auto dsc = Descriptor::load_struct_from(io, idmgr);
+        auto dsc = Descriptor::load_struct_from(io, idmgr, ed_blkarr);
         uint32_t dsc_end_pos = io.tell_rd();
 
         // Descriptor::load_struct_from should had check for any anomaly of how much
