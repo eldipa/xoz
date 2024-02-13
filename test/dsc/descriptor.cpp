@@ -1399,6 +1399,12 @@ namespace {
         DefaultDescriptor* dsc3 = dsc2->cast<DefaultDescriptor>();
         EXPECT_NE(dsc3, (DefaultDescriptor*)nullptr);
 
+        // Paranoiac check: modifications through downcasted pointer are visible from
+        // the original descriptor.
+        dsc3->set_data({'A', 'B'});
+        EXPECT_EQ(dsc.get_data()[0], (char)'A');
+        EXPECT_EQ(dsc.get_data()[1], (char)'B');
+
         // If the downcast fails, throw an exception (it does not return null either)
         EXPECT_THAT(
             ensure_called_once([&]() {
