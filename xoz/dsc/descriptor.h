@@ -54,7 +54,26 @@ public:
 
     uint32_t id() const { return hdr.id; }
 
-    friend class DescriptorSet;
+
+    /*
+     * Dynamically downcast the current Descriptor (<this> instance pointer)
+     * to the given concrete subclass T.
+     *
+     * If the cast works, return a pointer to this casted to T.
+     * If the cast fails, throw an exception (if ret_null is false) or return
+     * nullptr (if ret_null is true).
+     *
+     * While expensive, cast<T>(true) can be used to check the type of a descriptor.
+     * */
+    template <typename T>
+    T* cast(bool ret_null = false) {
+        auto ptr = dynamic_cast<T*>(this);
+        if (!ptr and not ret_null) {
+            throw std::runtime_error("Descriptor cannot be dynamically down casted.");
+        }
+
+        return ptr;
+    }
 
 public:  // public but it should be interpreted as an opaque section
     struct header_t {
@@ -71,6 +90,8 @@ public:  // public but it should be interpreted as an opaque section
 
     friend void PrintTo(const struct header_t& hdr, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);
+
+    friend class DescriptorSet;
 
 protected:
     struct header_t hdr;

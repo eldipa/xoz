@@ -1365,4 +1365,58 @@ namespace {
         // set to the loaded descriptor.
         XOZ_EXPECT_DESERIALIZATION(fp, dsc3, idmgr, ed_blkarr);
     }
+
+    TEST(DescriptorTest, DownCast) {
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        deinitialize_descriptor_mapping();
+        IDManager idmgr;
+        VectorBlockArray ed_blkarr(1024);
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        initialize_descriptor_mapping(descriptors_map);
+
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xffff, // fake a type that requires ex_type
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        // The concrete Descriptor subclass
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+
+        // Upper cast to Descriptor abstract class
+        Descriptor* dsc2 = &dsc;
+
+        // Down cast to Descriptor subclass again
+        // If the downcast works, cast<X> does neither throws nor return null
+        DefaultDescriptor* dsc3 = dsc2->cast<DefaultDescriptor>();
+        EXPECT_NE(dsc3, (DefaultDescriptor*)nullptr);
+
+        // If the downcast fails, throw an exception (it does not return null either)
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                [[maybe_unused]]
+                DescriptorSubRW* dsc4 = dsc2->cast<DescriptorSubRW>();
+                }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor cannot be dynamically down casted."
+                        )
+                    )
+                )
+        );
+
+        // Only if we pass ret_null = true, the failed cast will return null
+        // and avoid throwing.
+        DescriptorSubRW* dsc5 = dsc2->cast<DescriptorSubRW>(true);
+        EXPECT_EQ(dsc5, (DescriptorSubRW*)nullptr);
+    }
 }
