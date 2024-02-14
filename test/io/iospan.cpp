@@ -121,7 +121,10 @@ namespace {
         IOSpan iospan2(buf);
         iospan2.readall(rdbuf, 4);
 
+        // No shrink of the buffer/vector should happen
         EXPECT_EQ(rdbuf.size(), (size_t)6);
+
+        // Check that indeed we read 4 bytes into a 6 bytes buffer
         EXPECT_EQ(iospan2.remain_rd(), uint32_t(64 - 4));
         EXPECT_EQ(iospan2.tell_rd(), uint32_t(4));
         XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
@@ -439,5 +442,291 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
+    }
+
+    TEST(IOSpanTest, SmallChunkStream) {
+        std::vector<char> buf(64);
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf;
+
+        std::stringstream iss, oss;
+        iss.write(wrbuf.data(), wrbuf.size());
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(iss, 4);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        IOSpan iospan2(buf);
+        iospan2.readall(oss, 4);
+        auto s = oss.str();
+        rdbuf.assign(s.cbegin(), s.cend());
+
+        EXPECT_EQ(rdbuf.size(), (size_t)4);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+    }
+
+    TEST(IOSpanTest, FullStream) {
+        std::vector<char> buf(64);
+
+        std::vector<char> wrbuf(64);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
+
+        std::stringstream iss, oss;
+        iss.write(wrbuf.data(), wrbuf.size());
+
+        std::vector<char> rdbuf;
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(iss);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(64));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        IOSpan iospan2(buf);
+        iospan2.readall(oss, (uint32_t)64);
+        auto s = oss.str();
+        rdbuf.assign(s.cbegin(), s.cend());
+
+        EXPECT_EQ(rdbuf.size(), (size_t)64);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(64));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+
+        // Call read_extent again but let read_extent to figure out how many bytes needs to read
+        // (the size of the extent in bytes)
+        rdbuf.clear();
+        rdbuf.resize(0);
+        oss = std::stringstream();
+        iospan2.seek_rd(0);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(64));
+
+        iospan2.readall(oss);
+        s = oss.str();
+        rdbuf.assign(s.cbegin(), s.cend());
+
+        EXPECT_EQ(rdbuf.size(), (size_t)64);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(64));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+    }
+
+    TEST(IOSpanTest, SmallChunkStreamBuffered) {
+        std::vector<char> buf(64);
+        const uint32_t bufsz = 2;
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf;
+
+        std::stringstream iss, oss;
+        iss.write(wrbuf.data(), wrbuf.size());
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(iss, 4, bufsz);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        IOSpan iospan2(buf);
+        iospan2.readall(oss, 4, bufsz);
+        auto s = oss.str();
+        rdbuf.assign(s.cbegin(), s.cend());
+
+        EXPECT_EQ(rdbuf.size(), (size_t)4);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+    }
+
+    TEST(IOSpanTest, FullStreamBuffered) {
+        std::vector<char> buf(64);
+        const uint32_t bufsz = 2;
+
+        std::vector<char> wrbuf(64);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
+
+        std::stringstream iss, oss;
+        iss.write(wrbuf.data(), wrbuf.size());
+
+        std::vector<char> rdbuf;
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(iss, uint32_t(-1), bufsz);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(64));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        IOSpan iospan2(buf);
+        iospan2.readall(oss, (uint32_t)64, bufsz);
+        auto s = oss.str();
+        rdbuf.assign(s.cbegin(), s.cend());
+
+        EXPECT_EQ(rdbuf.size(), (size_t)64);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(64));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+
+        // Call read_extent again but let read_extent to figure out how many bytes needs to read
+        // (the size of the extent in bytes)
+        rdbuf.clear();
+        rdbuf.resize(0);
+        oss = std::stringstream();
+        iospan2.seek_rd(0);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(64));
+
+        iospan2.readall(oss, uint32_t(-1), bufsz);
+        s = oss.str();
+        rdbuf.assign(s.cbegin(), s.cend());
+
+        EXPECT_EQ(rdbuf.size(), (size_t)64);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(64));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+    }
+
+    TEST(IOSpanTest, SmallChunkStreamUnbuffered) {
+        std::vector<char> buf(64);
+        const uint32_t bufsz = 1;
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf;
+
+        std::stringstream iss, oss;
+        iss.write(wrbuf.data(), wrbuf.size());
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(iss, 4, bufsz);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        IOSpan iospan2(buf);
+        iospan2.readall(oss, 4, bufsz);
+        auto s = oss.str();
+        rdbuf.assign(s.cbegin(), s.cend());
+
+        EXPECT_EQ(rdbuf.size(), (size_t)4);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+    }
+
+    TEST(IOSpanTest, FullStreamUnbuffered) {
+        std::vector<char> buf(64);
+        const uint32_t bufsz = 1;
+
+        std::vector<char> wrbuf(64);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
+
+        std::stringstream iss, oss;
+        iss.write(wrbuf.data(), wrbuf.size());
+
+        std::vector<char> rdbuf;
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(iss, uint32_t(-1), bufsz);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(64));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        IOSpan iospan2(buf);
+        iospan2.readall(oss, (uint32_t)64, bufsz);
+        auto s = oss.str();
+        rdbuf.assign(s.cbegin(), s.cend());
+
+        EXPECT_EQ(rdbuf.size(), (size_t)64);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(64));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+
+        // Call read_extent again but let read_extent to figure out how many bytes needs to read
+        // (the size of the extent in bytes)
+        rdbuf.clear();
+        rdbuf.resize(0);
+        oss = std::stringstream();
+        iospan2.seek_rd(0);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(64));
+
+        iospan2.readall(oss, uint32_t(-1), bufsz);
+        s = oss.str();
+        rdbuf.assign(s.cbegin(), s.cend());
+
+        EXPECT_EQ(rdbuf.size(), (size_t)64);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(64));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
     }
 }
