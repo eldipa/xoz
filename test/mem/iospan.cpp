@@ -367,4 +367,30 @@ namespace {
         std::vector<char> zeros = {0, 0, 0, 0, 0, 0, 0, 0};
         EXPECT_EQ(subvec(rdbuf, 0, 8), zeros);
     }
+
+    TEST(IOSpanTest, WriteExactFailBadArgSize) {
+        std::vector<char> buf(64); // buffer large enough for any write
+
+        std::vector<char> wrbuf(32);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0);
+
+        IOSpan iospan1(buf);
+        EXPECT_THAT(
+            [&]() { iospan1.writeall(wrbuf, 33); },
+            ThrowsMessage<std::overflow_error>(
+                AllOf(
+                    HasSubstr(
+                        "Requested to write 33 bytes but input vector has only 32 bytes."
+                        )
+                    )
+                )
+        );
+
+        // Nothing is written
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+    }
 }

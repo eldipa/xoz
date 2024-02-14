@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <iosfwd>
 #include <string>
 #include <vector>
 
@@ -245,13 +246,19 @@ protected:
      * Check that the request size for writing makes sense:
      *
      *  - the caller should not request to write more bytes than the ones
-     *    are in his/her data buffer.
+     *    are in his/her data buffer (vector or input file).
      *
-     *  - the data buffer should not have more bytes than it can be handled
-     *    by us when the caller request to write everything.
+     *  - the data buffer (vector or input file) should not have more bytes than
+     *    it can be handled by us when the caller request to write everything.
      *
      * Throw an exception on a check failure, return the request size that
      * should be used for writing.
+     *
+     * Note: these methods don't check if the io object has enough space for the write
+     * so even if the checks succeed the exact write may still fail.
+     * See rw_operation_exact_sz() for more details on this.
      * */
-    uint32_t chk_write_request_sizes(const std::vector<char>& data, const uint32_t sz);
+    uint32_t chk_write_request_sizes(const std::vector<char>& data, const uint32_t sz) const;
+    uint32_t chk_write_request_sizes(std::istream& input, const uint32_t sz) const;
+    uint32_t chk_write_request_sizes(const uint64_t avail_sz, const uint32_t sz, const char* input_name) const;
 };

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iomanip>
+#include <istream>
 #include <vector>
 
 #include "xoz/err/exceptions.h"
@@ -63,26 +64,40 @@ uint32_t IOBase::calc_seek(uint32_t pos, uint32_t cur, IOBase::Seekdir way) cons
     return 0;
 }
 
-uint32_t IOBase::chk_write_request_sizes(const std::vector<char>& data, const uint32_t sz) {
-    // Ensure the caller is not trying to write more than uint32_t bytes
-    // Larger buffers are not supported.
-    static_assert(sizeof(uint32_t) <= sizeof(size_t));
-    if (data.size() > uint32_t(-1)) {
-        throw std::runtime_error("");
+uint32_t IOBase::chk_write_request_sizes(const std::vector<char>& data, const uint32_t sz) const {
+    auto avail_sz = data.size();
+    return chk_write_request_sizes(avail_sz, sz, "vector");
+}
+
+uint32_t IOBase::chk_write_request_sizes(std::istream& input, const uint32_t sz) const {
+    auto begin = input.tellg();
+    input.seekg(0, std::ios_base::end);
+    auto avail_sz = input.tellg() - begin;
+
+    input.seekg(begin);  // rewind
+
+    return chk_write_request_sizes(avail_sz, sz, "file");
+}
+
+uint32_t IOBase::chk_write_request_sizes(const uint64_t avail_sz, const uint32_t sz, const char* input_name) const {
+    static_assert(sizeof(uint32_t) <= sizeof(avail_sz));
+
+    if (sz == uint32_t(-1)) {
+        if (avail_sz > uint32_t(-1)) {
+            throw std::overflow_error(
+                    (F() << "Requested to write the entire input but input " << input_name << " is too large.").str());
+        }
+
+        return (uint32_t)avail_sz;
+    } else {
+        if (sz > avail_sz) {
+            throw std::overflow_error((F() << "Requested to write " << sz << " bytes but input " << input_name
+                                           << " has only " << avail_sz << " bytes.")
+                                              .str());
+        }
+
+        return sz;
     }
-
-    const uint32_t avail_sz = (uint32_t)data.size();
-
-    // How much the caller wants to write?
-    const uint32_t request_sz = sz == uint32_t(-1) ? avail_sz : sz;
-
-    // If the user is requesting N but it is providing a buffer with M < N bytes,
-    // it is a clear error in user's code. Fail.
-    if (avail_sz < request_sz) {
-        throw "";
-    }
-
-    return request_sz;
 }
 
 void IOBase::fill(const char c, const uint32_t sz) {
