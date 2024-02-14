@@ -15,6 +15,7 @@ using ::testing::AllOf;
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::subvec;
+using ::testing_xoz::helpers::are_all_zeros;
 
 #define XOZ_EXPECT_BUFFER_SERIALIZATION(buf, at, len, data) do {           \
     EXPECT_EQ(hexdump((buf), (at), (len)), (data));                        \
@@ -336,6 +337,21 @@ namespace {
                 )
         );
 
+        std::stringstream iss;
+        iss.write(wrbuf.data(), wrbuf.size());
+
+        EXPECT_THAT(
+            [&]() { iospan1.writeall(iss); },  // try to write 65 bytes, but 64 is max and fail
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 65 bytes but only 64 bytes are available. "
+                              "Write exact-byte-count operation at position 0 failed; "
+                              "detected before the write."
+                        )
+                    )
+                )
+        );
+
         // Nothing is written
         XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -366,6 +382,25 @@ namespace {
         // Nothing was read
         std::vector<char> zeros = {0, 0, 0, 0, 0, 0, 0, 0};
         EXPECT_EQ(subvec(rdbuf, 0, 8), zeros);
+
+        std::stringstream oss;
+        EXPECT_THAT(
+            [&]() { iospan2.readall(oss, 65); },  // try to read 65 bytes, but 64 is max and fail
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 65 bytes but only 64 bytes are available. "
+                              "Read exact-byte-count operation at position 0 failed; "
+                              "detected before the read."
+                        )
+                    )
+                )
+        );
+
+        // Nothing was read
+        // NOTE: this is true only because we tried to read very few bytes but if we try
+        // to read much more, because how io.readall works, it may read partially and write
+        // something into the output.
+        EXPECT_EQ(are_all_zeros(oss, 0, 8), (bool)true);
     }
 
     TEST(IOSpanTest, WriteExactFailBadArgSize) {
@@ -381,6 +416,18 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Requested to write 33 bytes but input vector has only 32 bytes."
+                        )
+                    )
+                )
+        );
+
+        std::istringstream iss("1234");
+        EXPECT_THAT(
+            [&]() { iospan1.writeall(iss, 5); },
+            ThrowsMessage<std::overflow_error>(
+                AllOf(
+                    HasSubstr(
+                        "Requested to write 5 bytes but input file has only 4 bytes."
                         )
                     )
                 )

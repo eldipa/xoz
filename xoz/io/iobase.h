@@ -44,15 +44,23 @@ public:
      * or the size of the data available in the source, whatever is the
      * smaller). If the size of the std::vector is large enough,
      * no resize happens (aka no shrink).
+     * The same goes for std::ostream, the reading of the io will assume
+     * that the output is large enough (hence, no write should fail).
      *
      * If a std::vector is used and the size is not given, all the remaining
      * unread data in the source is read or all the available data in the vector
      * is written into the source, depending if it is a reading or a writing
-     * operation.
+     * operation. The same goes for std::ostream (for reading) and std::istream
+     * (for writing).
+     *
+     * However, when writing (either from std::vector or std::istream), if the
+     * input size is larger than the remaining io size for writing and error
+     * will be throw.
      *
      * When a raw char* is given, the size must be set explicitly and it is
      * the caller's responsibility to ensure that raw pointer points to
-     * an allocated memory large enough. The API
+     * an allocated memory large enough. This is a low-level API and the
+     * std::vector/std::[io]stream API is preferred.
      * */
     void readall(char* data, const uint32_t exact_sz) { rw_operation_exact_sz(true, data, exact_sz); }
 
@@ -62,6 +70,10 @@ public:
             data.resize(reserve_sz);
         }
         rw_operation_exact_sz(true, data.data(), reserve_sz);
+    }
+
+    void readall(std::ostream& output, const uint32_t exact_sz = uint32_t(-1), const uint32_t bufsz = 1024) {
+        rw_operation_exact_sz_iostream(&output, nullptr, exact_sz == uint32_t(-1) ? remain_rd() : exact_sz, bufsz);
     }
 
     uint32_t readsome(char* data, const uint32_t max_sz) { return rw_operation(true, data, max_sz); }
@@ -79,6 +91,11 @@ public:
     void writeall(const std::vector<char>& data, const uint32_t exact_sz = uint32_t(-1)) {
         const uint32_t request_sz = chk_write_request_sizes(data, exact_sz);
         rw_operation_exact_sz(false, (char*)data.data(), request_sz);
+    }
+
+    void writeall(std::istream& input, const uint32_t exact_sz = uint32_t(-1), const uint32_t bufsz = 1024) {
+        const uint32_t request_sz = chk_write_request_sizes(input, exact_sz);
+        rw_operation_exact_sz_iostream(nullptr, &input, request_sz, bufsz);
     }
 
     uint32_t writesome(const char* data, const uint32_t max_sz) { return rw_operation(false, (char*)data, max_sz); }
@@ -222,6 +239,21 @@ protected:
      * than exact_sz, also it throws.
      * */
     void rw_operation_exact_sz(const bool is_read_op, char* data, const uint32_t exact_sz);
+
+    /*
+     * Like rw_operation_exact_sz, rw_operation_exact_sz_iostream ensures reading/writing
+     * exact_sz bytes.
+     *
+     * The method works either reading from an input stream or writing into a output stream.
+     * One and only one of them must be non-null.
+     * Because this can be a slow operation the method does the reads/writes in batches
+     * using a buffer of <bufsz> bytes.
+     *
+     * In addition to the errors that rw_operation_exact_sz could throw, this method
+     * may throw std::ios_base::failure if an error happen with the input/output streams.
+     * */
+    void rw_operation_exact_sz_iostream(std::ostream* const output, std::istream* const input, const uint32_t exact_sz,
+                                        const uint32_t bufsz);
 
     /*
      * Return the new read/write pointer with initial value <cur> as it is were updating
