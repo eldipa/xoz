@@ -22,6 +22,7 @@ public:
     }
     void write_struct_into(IOBase&& io) { return write_struct_into(io); }
 
+public:
     // Return the size in bytes to represent the Descriptor structure in disk
     // *including* the descriptor data (see calc_data_space_size)
     uint32_t calc_struct_footprint_size() const;
@@ -47,6 +48,7 @@ public:
 
     uint32_t calc_external_data_size() const { return hdr.own_edata ? hdr.esize : 0; }
 
+public:
     virtual ~Descriptor() {}
 
     friend void PrintTo(const Descriptor& dsc, std::ostream* out);
