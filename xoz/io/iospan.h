@@ -19,6 +19,9 @@ private:
 
 public:
     explicit IOSpan(std::span<char> dataspan);
+    explicit IOSpan(std::span<uint8_t> dataspan);
+    IOSpan(char* data, uint32_t sz);
+    IOSpan(uint8_t* data, uint32_t sz);
 
 private:
     /*
