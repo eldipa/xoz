@@ -12,6 +12,7 @@
 class Segment {
 public:
     static const uint32_t MaxInlineSize = (1 << 6) - 1;
+    static const uint32_t EndOfSegmentSize = 2;  // 2 bytes
 
     Segment(): inline_present(false) {}
 
