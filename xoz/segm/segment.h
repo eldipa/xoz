@@ -142,22 +142,42 @@ public:
         return true;
     }
 
-    static Segment load_struct_from(IOBase& io, uint32_t segm_len = uint32_t(-1)) {
+    /*
+     * For load/read segments, because the segment itself does not have its length, how much
+     * should we read?
+     *
+     *  - InlineEnd: the segment ends with an inline-extent (empty or not); if not present, throw.
+     *  - IOEnd: the segment ends when the io ends; if inline present earlier, throw.
+     *  - AnyEnd: either InlineEnd or IOEnd, the one that comes first
+     *  - ExplicitLen: pass an explicit count of extents to read; if less extents are read (either
+     *                 due an earlier inline-extent or the end of the io), throw.
+     * */
+    enum EndMode {
+        InlineEnd = 1,
+        IOEnd = 2,
+        AnyEnd = 3,
+        ExplicitLen = 4,
+    };
+
+    static Segment load_struct_from(IOBase& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1)) {
         Segment segm;
-        segm.read_struct_from(io, segm_len);
+        segm.read_struct_from(io, mode, segm_len);
         return segm;
     }
 
 
-    void read_struct_from(IOBase& io, uint32_t segm_len = uint32_t(-1));
+    void read_struct_from(IOBase& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1));
     void write_struct_into(IOBase& io) const;
 
 
-    static Segment load_struct_from(IOBase&& io, uint32_t segm_len = uint32_t(-1)) {
-        return load_struct_from(io, segm_len);
+    static Segment load_struct_from(IOBase&& io, enum EndMode mode = EndMode::AnyEnd,
+                                    uint32_t segm_len = uint32_t(-1)) {
+        return load_struct_from(io, mode, segm_len);
     }
 
-    void read_struct_from(IOBase&& io, uint32_t segm_len = uint32_t(-1)) { read_struct_from(io, segm_len); }
+    void read_struct_from(IOBase&& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1)) {
+        read_struct_from(io, mode, segm_len);
+    }
     void write_struct_into(IOBase&& io) const { write_struct_into(io); }
 
 

@@ -158,10 +158,13 @@ constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, 
     *available_sz -= requested_sz;
 }
 
-void Segment::read_struct_from(IOBase& io, uint32_t segm_len) {
-    const bool segm_len_is_explicit = segm_len != uint32_t(-1);
-    const uint32_t initial_segm_len = segm_len;
+void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t segm_len) {
+    uint32_t cnt = 0;
+    if (mode != EndMode::ExplicitLen and segm_len != uint32_t(-1)) {
+        throw "";  // bad arguments
+    }
 
+    const uint32_t initial_segm_len = segm_len;
     const uint64_t initial_sz = io.remain_rd();
 
     uint64_t available_sz = initial_sz;
@@ -204,6 +207,7 @@ void Segment::read_struct_from(IOBase& io, uint32_t segm_len) {
 
             // inline data *is* the last element of a segment
             // regardless of the caller's provided initial_sz
+            ++cnt;
             --segm_len;
             break;
 
@@ -284,25 +288,34 @@ void Segment::read_struct_from(IOBase& io, uint32_t segm_len) {
             segm.arr.emplace_back(blk_nr, blk_cnt, is_suballoc);
 
             prev = segm.arr.back();
+            ++cnt;
             --segm_len;
         }
     }
 
-    if (not segm_len_is_explicit and not segm.inline_present) {
+    if (mode == EndMode::InlineEnd and not segm.inline_present) {
         throw InconsistentXOZ(F() << "Expected to read a segment that ends "
                                      "in an inline-extent but such was not found and "
-                                  << "the segment got a length of " << initial_segm_len - segm_len << ".");
+                                  << "the segment got a length of " << cnt << ".");
     }
 
-    if (segm_len_is_explicit and segm_len > 0) {
-        throw InconsistentXOZ(F() << "Expected to read a segment that of length " << initial_segm_len
-                                  << " but an inline-extent was found before and "
-                                  << "made the segment shorter of length " << initial_segm_len - segm_len << ".");
+    if (mode == EndMode::IOEnd and io.remain_rd() > 0) {
+        throw InconsistentXOZ(F() << "Expected to read a segment that ends "
+                                     "at the end of the io object but such end was not reached and "
+                                  << "the segment got a length of " << cnt << "end int the io still remains "
+                                  << io.remain_rd() << " bytes.");
+    }
+
+    if (mode == EndMode::ExplicitLen and segm_len > 0) {
+        throw InconsistentXOZ(F() << "Expected to read a segment that of length " << initial_segm_len << " but "
+                                  << ((segm.inline_present) ? "an inline-extent" : "the io end")
+                                  << " was found before and "
+                                  << "made the segment shorter of length " << cnt << ".");
     }
 
     // Or read everything *or* we stop earlier because
     // we found an inline data
-    assert(segm_len == 0 or segm.inline_present);
+    assert(io.remain_rd() == 0 or segm.inline_present or segm_len == 0);
 
     // Override this segment with the loaded one
     this->arr = std::move(segm.arr);
