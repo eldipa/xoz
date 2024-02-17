@@ -161,7 +161,8 @@ void Repository::close() {
     if (closed)
         return;
 
-    _seek_and_write_header(fp, phy_repo_start_pos, trailer_sz, blk_total_cnt, gp);
+    const auto root_sg_bytes = update_and_encode_root_segment_and_loc();
+    _seek_and_write_header(fp, phy_repo_start_pos, trailer_sz, blk_total_cnt, gp, root_sg_bytes);
     std::streampos pos_after_trailer = _seek_and_write_trailer(fp, phy_repo_start_pos, blk_total_cnt, gp);
 
     fp.seekp(0);

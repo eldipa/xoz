@@ -4,13 +4,18 @@
 #include <cstdint>
 #include <fstream>
 #include <ios>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "xoz/blk/block_array.h"
+#include "xoz/dsc/descriptor_set.h"
 #include "xoz/ext/extent.h"
 #include "xoz/parameters.h"
+#include "xoz/repo/id_manager.h"
+#include "xoz/segm/segment.h"
 
 class Repository: public BlockArray {
 private:
@@ -55,6 +60,16 @@ private:
     // including the block 0.
     // They may or may not be in use.
     uint32_t blk_total_cnt;
+
+    IDManager idmgr;
+
+    // The root segment points to the root descriptor set. This is the
+    // root of the file: other descriptor sets can exist being owned
+    // by descriptors in the root set. (it works as a tree)
+    Segment root_sg;
+    std::unique_ptr<DescriptorSet> root_set;
+
+    Segment external_root_sg_loc;
 
 public:
     // Open a physical file and read/load the repository from there
@@ -213,9 +228,26 @@ private:
     // These are static/class method versions to work with
     // Repository::create
     static std::streampos _seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz,
-                                                 uint32_t blk_total_cnt, const GlobalParameters& gp);
+                                                 uint32_t blk_total_cnt, const GlobalParameters& gp,
+                                                 const std::vector<uint8_t>& root_sg_bytes);
     static std::streampos _seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt,
                                                   const GlobalParameters& gp);
+
+    /*
+     * Write any pending change in the root descriptor set and update (indirectly) the root segment.
+     * If there is enough space in the header to store the root segment, encode the segment
+     * in the returned buffer and update external_root_sg_loc to be empty.
+     * Otherwise, allocate space outside the header, store the root segment there and update the new allocated
+     * external_root_sg_loc that it is this what is written in the returned buffer.
+     * */
+    std::vector<uint8_t> update_and_encode_root_segment_and_loc();
+
+    /*
+     * Write into the returned buffer an empty root segment.
+     * This is for being used by _init_new_repository_into() at the moment of a new Repository
+     * creation (and therefore with an empty DescriptorSet & Segment).
+     * */
+    static std::vector<uint8_t> _encode_empty_root_segment();
 
     // Read the header/trailer moving the file pointer
     // to the correct position and check that the header/trailer
