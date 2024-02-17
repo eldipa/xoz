@@ -60,7 +60,7 @@ struct extent_t {
     };
 
     /* present if:
-        - not (suballoc == 1 && inline == 1)
+        - not (suballoc == 1 && smallcnt > 0)
         - and near == 0
     */
     uint16_t {
