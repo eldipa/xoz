@@ -15,7 +15,6 @@ using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 using ::testing::AllOf;
 
-using ::testing_xoz::zbreak;
 using ::testing_xoz::helpers::ensure_called_once;
 
 #define XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, matcher) do {     \
