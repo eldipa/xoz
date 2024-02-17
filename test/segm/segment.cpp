@@ -1312,4 +1312,514 @@ namespace {
                 )
         );
     }
+
+    TEST(SegmentTest, InlineEnd) {
+        Segment segm;
+
+
+        // Segment empty with a single extent as inline marking the end of the segment.
+        segm.add_end_of_segment();
+
+        // Write it into a larger buffer
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        segm.write_struct_into(IOSpan(fp));
+
+        uint32_t segm_sz = segm.calc_struct_footprint_size();
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "00c0"
+                );
+
+        // There is no problem in loading the segment: the laoding will stop immediately
+        // after the loading of the inline data.
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, FP_SZ);
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            // Same serialization
+            EXPECT_EQ(fp, buf2);
+
+            // What was read is exactly what it was required (the segment size in disc),
+            // no more, no less.
+            EXPECT_EQ(FP_SZ - io.remain_rd(), segm_sz);
+            EXPECT_NE(io.remain_rd(), uint32_t(0));
+        }
+
+        // Shrink the fp buffer to segm_sz such the segment is still correctly
+        // encoded including the inline but no more bytes follows (it fits perfectly)
+        fp.resize(segm_sz);
+
+        // Test everything again: we expect the same results. Reaching the end of the IO
+        // during the loading is not a problem because we should had found the inline before
+        // and that should had stop the parsing.
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
+            EXPECT_EQ(io.remain_rd(), uint32_t(0));
+        }
+
+
+        // Let's try everthing again but know with a segment with 2 extents: 1 normal
+        // and the other inline
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        segm.remove_inline_data();
+        segm.add_extent(Extent(0, 0, false));
+        segm.add_end_of_segment();
+
+        segm.write_struct_into(IOSpan(fp));
+
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0004 0000 00c0"
+                );
+
+        segm_sz = segm.calc_struct_footprint_size();
+
+        // Test with a buffer larger than the segment size
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, FP_SZ);
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            EXPECT_EQ(fp, buf2);
+            // no more, no less.
+            EXPECT_EQ(FP_SZ - io.remain_rd(), segm_sz);
+            EXPECT_NE(io.remain_rd(), uint32_t(0));
+        }
+
+        // Shrink to fit
+        fp.resize(segm_sz);
+
+        // Test with a segment that fits perfectly the buffer
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
+            EXPECT_EQ(io.remain_rd(), uint32_t(0));
+        }
+
+
+        // Reset everything and test what happen if we expect InlineEnd but the segment
+        // does not end with an inline extent (the segment ends due an io end).
+        // We expect a failure
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Same but without inline
+        segm.remove_inline_data();
+        segm.write_struct_into(IOSpan(fp));
+
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0004 0000"
+                );
+
+        segm_sz = segm.calc_struct_footprint_size();
+
+        // Shrink to fit so the segment could be theoretically parsed without trouble
+        // but because we are expecting an inline it should fail
+        fp.resize(segm_sz);
+
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            EXPECT_THAT(
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::InlineEnd); }),
+                ThrowsMessage<InconsistentXOZ>(
+                    AllOf(
+                        HasSubstr(
+                                 "Expected to read a segment that ends "
+                                 "in an inline-extent but such was not found and "
+                                 "the segment got a length of 1."
+                            )
+                        )
+                    )
+                );
+            EXPECT_EQ(io.remain_rd(), uint32_t(0));
+        }
+
+        // Using an explicit segment length is invalid with InlineEnd mode
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            EXPECT_THAT(
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::InlineEnd, 1); }),
+                ThrowsMessage<std::runtime_error>(
+                    AllOf(
+                        HasSubstr(
+                                 "Explicit segment length not allowed"
+                            )
+                        )
+                    )
+                );
+            EXPECT_EQ(io.remain_rd(), uint32_t(4)); // nothing was read, invalid arg detected earlier
+        }
+    }
+
+    TEST(SegmentTest, IOEnd) {
+        Segment segm;
+
+        // Segment empty with a single extent as inline marking the end of the segment.
+        segm.add_end_of_segment();
+
+        // Write it into a buffer that fits perfectly
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        segm.write_struct_into(IOSpan(fp));
+
+        uint32_t segm_sz = segm.calc_struct_footprint_size();
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "00c0"
+                );
+
+        // Shrink the fp buffer to segm_sz such the segment is still correctly
+        // encoded including the inline but no more bytes follows (it fits perfectly)
+        fp.resize(segm_sz);
+
+        // There is no problem in loading the segment: the loading will stop at the end of
+        // the IO (having an inline data does not affect this)
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::IOEnd);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            // Same serialization
+            EXPECT_EQ(fp, buf2);
+
+            // What was read is exactly what it was required (the segment size in disc),
+            // no more, no less.
+            EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
+            EXPECT_EQ(io.remain_rd(), uint32_t(0));
+        }
+
+        // Expand the buffer
+        fp.resize(segm_sz + 2);
+
+        // Now we expect an error: while the segment has an inline that mark the end
+        // of the segment, if we are using IOEnd we are expecting to find the end of the io
+        // not an premature end due an inline data
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            EXPECT_THAT(
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::IOEnd); }),
+                ThrowsMessage<InconsistentXOZ>(
+                    AllOf(
+                        HasSubstr(
+                            "Expected to read a segment that ends "
+                            "at the end of the io object but an inline-extent was found before that "
+                            "obtaining a segment with a length of 1 and "
+                            "in the io still remains 2 bytes."
+                            )
+                        )
+                    )
+                );
+            EXPECT_EQ(io.remain_rd(), uint32_t(2));
+        }
+
+        // Shrink back
+        fp.resize(segm_sz);
+
+        // Now the problem is that IOEnd is incompatible with an explicit segment length
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            EXPECT_THAT(
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::IOEnd, 1); }),
+                ThrowsMessage<std::runtime_error>(
+                    AllOf(
+                        HasSubstr(
+                                 "Explicit segment length not allowed"
+                            )
+                        )
+                    )
+                );
+            EXPECT_EQ(io.remain_rd(), uint32_t(2)); // nothing was read, invalid arg detected earlier
+        }
+    }
+
+    TEST(SegmentTest, AnyEnd) {
+        Segment segm;
+
+        // Segment empty with a single extent as inline marking the end of the segment.
+        segm.add_end_of_segment();
+
+        // Write it into a buffer that fits perfectly
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        segm.write_struct_into(IOSpan(fp));
+
+        uint32_t segm_sz = segm.calc_struct_footprint_size();
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "00c0"
+                );
+
+        // Shrink the fp buffer to segm_sz such the segment is still correctly
+        // encoded including the inline but no more bytes follows (it fits perfectly)
+        fp.resize(segm_sz);
+
+        // There is no problem in loading the segment: the loading will stop at the end of
+        // the IO (having an inline data does not affect this)
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            // Same serialization
+            EXPECT_EQ(fp, buf2);
+
+            // What was read is exactly what it was required (the segment size in disc),
+            // no more, no less.
+            EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
+            EXPECT_EQ(io.remain_rd(), uint32_t(0));
+        }
+
+        // Expand the buffer
+        fp.resize(segm_sz + 2);
+
+        // No error either: the AnyEnd will stop the loading either at the end of the io
+        // or after finding an inline-extent (aka end of the segment).
+        // In this case the latter is happening
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            // Same serialization
+            EXPECT_EQ(fp, buf2);
+
+            EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
+            EXPECT_EQ(io.remain_rd(), uint32_t(2));
+        }
+
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Now let's use a segment without inline
+        segm.remove_inline_data();
+        segm.add_extent(Extent(0, 0, false));
+        segm.write_struct_into(IOSpan(fp));
+
+        segm_sz = segm.calc_struct_footprint_size();
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0004 0000"
+                );
+
+        // Shrink back so it fits perfectly
+        fp.resize(segm_sz);
+
+        // No error either: the AnyEnd will stop the loading either at the end of the io
+        // or after finding an inline-extent (aka end of the segment).
+        // In this case the former is happening
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            // Same serialization
+            EXPECT_EQ(fp, buf2);
+
+            EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
+            EXPECT_EQ(io.remain_rd(), uint32_t(0));
+        }
+
+
+        // Now the problem is that AnyEnd is incompatible with an explicit segment length
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            EXPECT_THAT(
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::AnyEnd, 1); }),
+                ThrowsMessage<std::runtime_error>(
+                    AllOf(
+                        HasSubstr(
+                                 "Explicit segment length not allowed"
+                            )
+                        )
+                    )
+                );
+            EXPECT_EQ(io.remain_rd(), uint32_t(4)); // nothing was read, invalid arg detected earlier
+        }
+    }
+
+
+    TEST(SegmentTest, ExplicitLen) {
+        Segment segm;
+
+        // Segment empty with a single extent as inline marking the end of the segment.
+        segm.add_end_of_segment();
+
+        // Write it into a buffer that fits perfectly
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+        segm.write_struct_into(IOSpan(fp));
+
+        uint32_t segm_sz = segm.calc_struct_footprint_size();
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "00c0"
+                );
+
+        // Shrink the fp buffer to segm_sz plus 2 bytes: the segment should be loaded
+        // correctly thanks its inline data
+        fp.resize(segm_sz + 2);
+
+        // Problem: we explicitly require a segment of 2 (ours has length of 1) and we
+        // found an inline data so this is wrong
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            EXPECT_THAT(
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 2); }),
+                ThrowsMessage<InconsistentXOZ>(
+                    AllOf(
+                        HasSubstr(
+                                "Expected to read a segment that of length 2 but "
+                                "an inline-extent"
+                                " was found before and "
+                                "made the segment shorter of length 1."
+                            )
+                        )
+                    )
+                );
+            EXPECT_EQ(io.remain_rd(), uint32_t(2));
+        }
+
+
+        // Good: we require a segment of 1 and we have one so everything is ok.
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 1);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            // Same serialization
+            EXPECT_EQ(fp, buf2);
+
+            // What was read is exactly what it was required (the segment size in disc),
+            // no more, no less.
+            EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
+            EXPECT_EQ(io.remain_rd(), uint32_t(2));
+        }
+
+
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Now let's use a segment without inline
+        segm.remove_inline_data();
+        segm.add_extent(Extent(0, 0, false));
+        segm.write_struct_into(IOSpan(fp));
+
+        // Fit perfectly
+        segm_sz = segm.calc_struct_footprint_size();
+        fp.resize(segm_sz);
+        XOZ_EXPECT_SERIALIZATION(fp, segm,
+                "0004 0000"
+                );
+
+        // Problem: we explicitly require a segment of 2 (ours has length of 1) and we
+        // found the end of the io
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            EXPECT_THAT(
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 2); }),
+                ThrowsMessage<InconsistentXOZ>(
+                    AllOf(
+                        HasSubstr(
+                                "Expected to read a segment that of length 2 but "
+                                "the io end"
+                                " was found before and "
+                                "made the segment shorter of length 1."
+                            )
+                        )
+                    )
+                );
+            EXPECT_EQ(io.remain_rd(), uint32_t(0));
+        }
+
+
+        // Good: we require a segment of 1 and we have one so everything is ok.
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 1);
+            segm2.write_struct_into(IOSpan(buf2));
+
+            // Same serialization
+            EXPECT_EQ(fp, buf2);
+
+            // What was read is exactly what it was required (the segment size in disc),
+            // no more, no less.
+            EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
+            EXPECT_EQ(io.remain_rd(), uint32_t(0));
+        }
+
+
+        // Now the problem a (uint32_t)-1 is understood as no-explicit segment length
+        // that it is incompatible with the ExplicitLen mode.
+        {
+            std::vector<char> buf2;
+            XOZ_RESET_FP(buf2, fp.size());
+
+            IOSpan io(fp);
+            EXPECT_THAT(
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, (uint32_t)(-1)); }),
+                ThrowsMessage<std::runtime_error>(
+                    AllOf(
+                        HasSubstr(
+                                 "Explicit segment length required"
+                            )
+                        )
+                    )
+                );
+            EXPECT_EQ(io.remain_rd(), uint32_t(4)); // nothing was read, invalid arg detected earlier
+        }
+    }
 }

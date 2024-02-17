@@ -161,7 +161,10 @@ constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, 
 void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t segm_len) {
     uint32_t cnt = 0;
     if (mode != EndMode::ExplicitLen and segm_len != uint32_t(-1)) {
-        throw "";  // bad arguments
+        throw std::runtime_error("Explicit segment length not allowed");
+    }
+    if (mode == EndMode::ExplicitLen and segm_len == uint32_t(-1)) {
+        throw std::runtime_error("Explicit segment length required");
     }
 
     const uint32_t initial_segm_len = segm_len;
@@ -301,8 +304,10 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
 
     if (mode == EndMode::IOEnd and io.remain_rd() > 0) {
         throw InconsistentXOZ(F() << "Expected to read a segment that ends "
-                                     "at the end of the io object but such end was not reached and "
-                                  << "the segment got a length of " << cnt << "end int the io still remains "
+                                     "at the end of the io object but an inline-extent was found before that "
+                                  << "obtaining a segment with a length of " << cnt
+                                  << " and "
+                                     "in the io still remains "
                                   << io.remain_rd() << " bytes.");
     }
 
