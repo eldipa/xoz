@@ -180,6 +180,7 @@ public:
     inline const_dsc_iterator_t cbegin() const { return xoz::dsc::internals::DescriptorIterator(owned.cbegin()); }
     inline const_dsc_iterator_t cend() const { return xoz::dsc::internals::DescriptorIterator(owned.cend()); }
 
+    Segment segment() const { return segm; }
 
     void /* internal */ release_free_space();
 

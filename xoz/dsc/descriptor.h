@@ -93,6 +93,21 @@ public:  // public but it should be interpreted as an opaque section
     friend void PrintTo(const struct header_t& hdr, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);
 
+    /*
+     * Does the descriptor owns external data?
+     * */
+    bool does_own_edata() const { return hdr.own_edata; }
+
+    /*
+     * Return a const reference to the segment that points to the owned external
+     * data.
+     * The segment is **undefined** of does_own_edata() returns false.
+     * */
+    const Segment& edata_segment_ref() const {
+        assert(does_own_edata());
+        return hdr.segm;
+    }
+
     friend class DescriptorSet;
 
 protected:
