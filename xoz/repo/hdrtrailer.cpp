@@ -182,8 +182,8 @@ void Repository::seek_read_and_check_header() {
     }
 
     // Load the descriptor set.
-    root_set = std::make_unique<DescriptorSet>(this->root_sg, *this, *this, idmgr);
-    root_set->load_set();
+    root_dset = std::make_shared<DescriptorSet>(this->root_sg, *this, *this, idmgr);
+    root_dset->load_set();
 }
 
 void Repository::seek_read_and_check_trailer(bool clear_trailer) {
@@ -282,7 +282,7 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
     const auto hdr_capacity = sizeof(((struct repo_header_t*)nullptr)->root_sg);
     std::vector<uint8_t> root_sg_bytes(hdr_capacity);
 
-    root_set->write_set();
+    root_dset->write_set();
     assert(root_sg.inline_data_sz() == 0);
     assert(external_root_sg_loc.inline_data_sz() == 0);
 

@@ -67,7 +67,7 @@ private:
     // root of the file: other descriptor sets can exist being owned
     // by descriptors in the root set. (it works as a tree)
     Segment root_sg;
-    std::unique_ptr<DescriptorSet> root_set;
+    std::shared_ptr<DescriptorSet> root_dset;
 
     Segment external_root_sg_loc;
 
@@ -135,8 +135,9 @@ public:
     // Call to close()
     ~Repository();
 
-    inline const GlobalParameters& params() const { return gp; }
+    inline std::shared_ptr<DescriptorSet> root() { return root_dset; }
 
+    inline const GlobalParameters& params() const { return gp; }
 
     // Pretty print stats
     std::ostream& print_stats(std::ostream& out) const;
