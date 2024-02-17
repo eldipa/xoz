@@ -125,6 +125,14 @@ private:
 
     SegmentAllocator sg_alloc;
 
+    bool blkarr_initialized;
+
+private:
+    uint64_t _grow_call_cnt;
+    uint64_t _grow_expand_capacity_call_cnt;
+    uint64_t _shrink_call_cnt;
+    uint64_t _release_call_cnt;
+
 public:
     /*
      * Define a block array with block of the given size <blk_sz>.
@@ -267,6 +275,40 @@ public:
     uint32_t write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz = uint32_t(-1),
                           uint32_t start = 0);
 
+    struct stats_t {
+        // What is the span of blocks (with and without the real past end)
+        uint32_t begin_blk_nr;
+        uint32_t past_end_blk_nr;
+        uint32_t real_past_end_blk_nr;
+
+        // How many blocks are officially exposed? What is the real capacity?
+        uint32_t blk_cnt;
+        uint32_t capacity;
+        uint32_t total_blk_cnt;
+
+        double accessible_blk_sz_kb;
+        double capacity_blk_sz_kb;
+        double total_blk_sz_kb;
+
+        // Block array parameters: block size and order.
+        uint32_t blk_sz;
+        uint8_t blk_sz_order;
+
+        // How many times grow() / shrink() / release() were called?
+        // And grow_expand_capacity (aka impl_grow_by_blocks()) ?
+        uint64_t grow_call_cnt;
+        uint64_t grow_expand_capacity_call_cnt;
+        uint64_t shrink_call_cnt;
+        uint64_t release_call_cnt;
+    };
+
+    struct stats_t stats() const;
+
+    friend void PrintTo(const BlockArray& blkarr, std::ostream* out);
+    friend std::ostream& operator<<(std::ostream& out, const BlockArray& blkarr);
 
     virtual ~BlockArray() {}
+
+private:
+    void fail_if_block_array_not_initialized() const;
 };

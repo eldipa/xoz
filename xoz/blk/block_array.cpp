@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iomanip>
+#include <iostream>
 #include <string>
 
 #include "xoz/err/exceptions.h"
@@ -40,6 +42,7 @@ void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, 
     _real_past_end_blk_nr = past_end_blk_nr;
 
     sg_alloc.manage_block_array(*this);
+    blkarr_initialized = true;
 }
 
 BlockArray::BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr, bool coalescing_enabled,
@@ -49,7 +52,12 @@ BlockArray::BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end
         _begin_blk_nr(begin_blk_nr),
         _past_end_blk_nr(past_end_blk_nr),
         _real_past_end_blk_nr(past_end_blk_nr),
-        sg_alloc(coalescing_enabled, split_above_threshold, default_req) {
+        sg_alloc(coalescing_enabled, split_above_threshold, default_req),
+        blkarr_initialized(false),
+        _grow_call_cnt(0),
+        _grow_expand_capacity_call_cnt(0),
+        _shrink_call_cnt(0),
+        _release_call_cnt(0) {
 
     initialize_block_array(blk_sz, begin_blk_nr, past_end_blk_nr);
 }
@@ -61,10 +69,16 @@ BlockArray::BlockArray(bool coalescing_enabled, uint16_t split_above_threshold,
         _begin_blk_nr(0),
         _past_end_blk_nr(0),
         _real_past_end_blk_nr(0),
-        sg_alloc(coalescing_enabled, split_above_threshold, default_req) {}
+        sg_alloc(coalescing_enabled, split_above_threshold, default_req),
+        blkarr_initialized(false),
+        _grow_call_cnt(0),
+        _grow_expand_capacity_call_cnt(0),
+        _shrink_call_cnt(0),
+        _release_call_cnt(0) {}
 
 
 uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
+    fail_if_block_array_not_initialized();
     if (blk_cnt == 0)
         throw std::runtime_error("alloc of 0 blocks is not allowed");
 
@@ -73,6 +87,8 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
 
     assert(_begin_blk_nr <= _past_end_blk_nr);
     assert(_past_end_blk_nr <= _real_past_end_blk_nr);
+
+    ++_grow_call_cnt;
 
     if (_real_past_end_blk_nr - _past_end_blk_nr >= blk_cnt) {
         // no need to grow, we can reuse the slack space
@@ -90,6 +106,7 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
     //    and the blk_cnt -= ... does not underflow.
     blk_cnt -= uint16_t(_real_past_end_blk_nr - _past_end_blk_nr);
 
+    ++_grow_expand_capacity_call_cnt;
     auto [blk_nr, real_blk_cnt] = impl_grow_by_blocks(blk_cnt);
     assert(real_blk_cnt >= blk_cnt);
 
@@ -104,6 +121,7 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
 }
 
 void BlockArray::shrink_by_blocks(uint32_t blk_cnt) {
+    fail_if_block_array_not_initialized();
     if (blk_cnt == 0) {
         throw std::runtime_error("free of 0 blocks is not allowed");
     }
@@ -114,6 +132,7 @@ void BlockArray::shrink_by_blocks(uint32_t blk_cnt) {
                                          .str());
     }
 
+    ++_shrink_call_cnt;
     uint32_t real_blk_cnt = impl_shrink_by_blocks(blk_cnt);
 
     // We update the past_end_blk_nr pointer by blk_cnt backwards *as if*
@@ -134,6 +153,8 @@ void BlockArray::shrink_by_blocks(uint32_t blk_cnt) {
 }
 
 uint32_t BlockArray::release_blocks() {
+    fail_if_block_array_not_initialized();
+    ++_release_call_cnt;
     uint32_t real_blk_cnt = impl_release_blocks();
 
     _real_past_end_blk_nr -= real_blk_cnt;
@@ -147,12 +168,14 @@ uint32_t BlockArray::release_blocks() {
 // Call is_extent_within_boundaries(ext) and if it is false
 // raise ExtentOutOfBounds with the given message
 void BlockArray::fail_if_out_of_boundaries(const Extent& ext, const std::string& msg) const {
+    fail_if_block_array_not_initialized();
     if (not is_extent_within_boundaries(ext)) {
         throw ExtentOutOfBounds(*this, ext, msg);
     }
 }
 
 uint32_t BlockArray::read_extent(const Extent& ext, char* data, uint32_t max_data_sz, uint32_t start) {
+    fail_if_block_array_not_initialized();
     const uint32_t to_read_sz = chk_extent_for_rw(true, ext, max_data_sz, start);
     if (to_read_sz == 0) {
         return 0;
@@ -166,6 +189,7 @@ uint32_t BlockArray::read_extent(const Extent& ext, char* data, uint32_t max_dat
 }
 
 uint32_t BlockArray::read_extent(const Extent& ext, std::vector<char>& data, uint32_t max_data_sz, uint32_t start) {
+    fail_if_block_array_not_initialized();
     const uint32_t usable_sz = ext.calc_data_space_size(blk_sz_order());
     const uint32_t reserve_sz = std::min(usable_sz, max_data_sz);
     data.resize(reserve_sz);
@@ -176,6 +200,7 @@ uint32_t BlockArray::read_extent(const Extent& ext, std::vector<char>& data, uin
 }
 
 uint32_t BlockArray::write_extent(const Extent& ext, const char* data, uint32_t max_data_sz, uint32_t start) {
+    fail_if_block_array_not_initialized();
     const uint32_t to_write_sz = chk_extent_for_rw(false, ext, max_data_sz, start);
     if (to_write_sz == 0) {
         return 0;
@@ -190,6 +215,7 @@ uint32_t BlockArray::write_extent(const Extent& ext, const char* data, uint32_t 
 
 uint32_t BlockArray::write_extent(const Extent& ext, const std::vector<char>& data, uint32_t max_data_sz,
                                   uint32_t start) {
+    fail_if_block_array_not_initialized();
     static_assert(sizeof(uint32_t) <= sizeof(size_t));
     if (data.size() > uint32_t(-1)) {
         throw std::runtime_error("");
@@ -301,4 +327,72 @@ uint32_t BlockArray::rw_fully_allocated_extent(bool is_read_op, const Extent& ex
     }
 
     return to_rw_sz;
+}
+
+struct BlockArray::stats_t BlockArray::stats() const {
+    fail_if_block_array_not_initialized();
+    struct stats_t st = {.begin_blk_nr = _begin_blk_nr,
+                         .past_end_blk_nr = _past_end_blk_nr,
+                         .real_past_end_blk_nr = _real_past_end_blk_nr,
+
+                         .blk_cnt = blk_cnt(),
+                         .capacity = capacity(),
+                         .total_blk_cnt = st.begin_blk_nr + capacity(),
+
+                         .accessible_blk_sz_kb = double(blk_cnt() << blk_sz_order()) / double(1024.0),
+                         .capacity_blk_sz_kb = double(capacity() << blk_sz_order()) / double(1024.0),
+                         .total_blk_sz_kb = double((st.begin_blk_nr + capacity()) << blk_sz_order()) / double(1024.0),
+
+                         .blk_sz = _blk_sz,
+                         .blk_sz_order = _blk_sz_order,
+
+                         .grow_call_cnt = _grow_call_cnt,
+                         .grow_expand_capacity_call_cnt = _grow_expand_capacity_call_cnt,
+                         .shrink_call_cnt = _shrink_call_cnt,
+                         .release_call_cnt = _release_call_cnt};
+
+    return st;
+}
+
+void PrintTo(const BlockArray& blkarr, std::ostream* out) {
+    struct BlockArray::stats_t st = blkarr.stats();
+    std::ios_base::fmtflags ioflags = out->flags();
+
+    (*out) << "Calls to grow:    " << std::setfill(' ') << std::setw(12) << st.grow_call_cnt << "\n"
+           << " - than expanded: " << std::setfill(' ') << std::setw(12) << st.grow_expand_capacity_call_cnt << "\n"
+           << "Calls to shrink:  " << std::setfill(' ') << std::setw(12) << st.shrink_call_cnt << "\n"
+           << "Calls to release: " << std::setfill(' ') << std::setw(12) << st.release_call_cnt << "\n"
+           << "\n"
+
+           << "Array layout:\n"
+           << " - Begin at:      " << std::setfill(' ') << std::setw(12) << st.begin_blk_nr
+           << " block number (inclusive) -"
+           << " " << st.begin_blk_nr << " inaccessible blocks\n"
+           << " - Past-end at:   " << std::setfill(' ') << std::setw(12) << st.past_end_blk_nr
+           << " block number (exclusive) -"
+           << " " << st.blk_cnt << " accessible blocks\n"
+           << " - Alloc-end at:  " << std::setfill(' ') << std::setw(12) << st.real_past_end_blk_nr
+           << " block number (exclusive) -"
+           << " " << (st.blk_cnt - st.capacity) << " next-grow accessible blocks\n"
+           << "\n"
+
+           << "Accessible:       " << std::setfill(' ') << std::setw(12) << st.blk_cnt << " blocks, "
+           << st.accessible_blk_sz_kb << " kb\n"
+           << "Capacity:         " << std::setfill(' ') << std::setw(12) << st.capacity << " blocks, "
+           << st.capacity_blk_sz_kb << " kb\n"
+           << "Total:            " << std::setfill(' ') << std::setw(12) << st.total_blk_cnt << " blocks, "
+           << st.total_blk_sz_kb << " kb\n";
+
+    out->flags(ioflags);
+}
+
+std::ostream& operator<<(std::ostream& out, const BlockArray& blkarr) {
+    PrintTo(blkarr, &out);
+    return out;
+}
+
+void BlockArray::fail_if_block_array_not_initialized() const {
+    if (not blkarr_initialized) {
+        throw std::runtime_error("Block array not initialized (managed). Missed call to initialize_block_array?");
+    }
 }
