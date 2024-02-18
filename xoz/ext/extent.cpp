@@ -88,6 +88,7 @@ Extent::blk_distance_t Extent::distance_in_blks(const Extent& ref, const Extent&
 
     uint32_t blk_cnt = 0;
     bool is_backwards = false;
+    bool force_far = false;
 
     if (ref.blk_nr() < target.blk_nr()) {
         // The current extent is *after* the reference extent
@@ -121,6 +122,16 @@ Extent::blk_distance_t Extent::distance_in_blks(const Extent& ref, const Extent&
                    (ref.blk_bitmap() & target.blk_bitmap()) == 0) {  // NO LINT
             blk_cnt = 0;
             is_backwards = false;
+
+            // Force begin "far" and not "near": it is not possible to encode
+            // two overlapping extents at the same block number with a relative
+            // jump (jump of zero means "immediately after" not "in the same place")
+            //
+            // When ref_blk_cnt == 0 as in the other case, this is not a problem because
+            // a relative jump of 0 from a zero length extent happens to be
+            // "in the same place" as wanted.
+            force_far = true;
+
         } else {
             throw ExtentOverlapError(ref, target, "(at same start)");
         }
@@ -129,7 +140,7 @@ Extent::blk_distance_t Extent::distance_in_blks(const Extent& ref, const Extent&
     return {
             .blk_cnt = blk_cnt,
             .is_backwards = is_backwards,
-            .is_near = blk_cnt <= 0x1ff,
+            .is_near = (blk_cnt <= 0x1ff) and not force_far,
     };
 }
 

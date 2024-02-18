@@ -149,6 +149,10 @@ a bad state.
 If the current extent is the first in the segment, `prev.blk_nr` and
 `prev.len` should be assumed to be zero.
 
+With `near = 1` it cannot be represented a segment with two suballocated
+extents that share the same block. In this case the second extent
+must be encoded with `near = 0`.
+
 ### Rationale - `near` bit
 
 With 26 bits long, `blk_nr` requires at least 4 bytes.

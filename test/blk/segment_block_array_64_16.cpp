@@ -723,7 +723,7 @@ namespace {
         old_top_nr = sg_blkarr.grow_by_blocks(2);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent
+                10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
 
@@ -742,7 +742,7 @@ namespace {
         // no real shrink will happen.
         sg_blkarr.shrink_by_blocks(1);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent
+                10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
 
@@ -760,7 +760,7 @@ namespace {
         old_top_nr = sg_blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)2);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent
+                10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
 
@@ -775,7 +775,7 @@ namespace {
 
         sg_blkarr.shrink_by_blocks(1);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent
+                10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
 
@@ -809,7 +809,7 @@ namespace {
         old_top_nr = sg_blkarr.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent (both for suballoc)
+                10, // 2 extent (both for suballoc)
                 base_blkarr_subblk_sz * (4 + 12)
                 );
 
@@ -826,7 +826,7 @@ namespace {
         // will happen.
         sg_blkarr.shrink_by_blocks(2);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent
+                10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 12)
                 );
 
@@ -843,7 +843,7 @@ namespace {
         // and release the blocks.
         sg_blkarr.release_blocks();
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent
+                10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 4)
                 );
 
@@ -860,7 +860,7 @@ namespace {
         old_top_nr = sg_blkarr.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)2);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                12, // 3 extent
+                14, // 3 extent
                 base_blkarr_subblk_sz * (4 + 4 + 12)
                 );
 
@@ -915,7 +915,7 @@ namespace {
         old_top_nr = sg_blkarr.grow_by_blocks(2);
         EXPECT_EQ(old_top_nr, (uint32_t)3);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                12, // 3 extent
+                14, // 3 extent
                 base_blkarr_subblk_sz * (4 + 8 + 8)
                 );
 
@@ -931,7 +931,7 @@ namespace {
         // Shrink (expected some pending)
         sg_blkarr.shrink_by_blocks(3);
         XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
-                8, // 2 extent
+                10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
 
