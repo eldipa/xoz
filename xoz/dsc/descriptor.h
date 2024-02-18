@@ -124,11 +124,16 @@ protected:
 
     static void chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
-    // Subclasses must override these methods to read/write specific data
-    // from/into the iobase (repository) where the read/write pointer of io object
-    // is immediately after the descriptor (common) header.
-    //
-    // See load_struct_from and write_struct_into methods for more context.
+    /* Subclasses must override these methods to read/write specific data
+     * from/into the iobase (repository) where the read/write pointer of io object
+     * is immediately after the descriptor (common) header.
+     *
+     * See load_struct_from and write_struct_into methods for more context.
+     *
+     * Subclasses must *not* use the allocator of the ed_blkarr during the read
+     * because it may not be enabled by the moment. Subclasses can use the ed_blkarr
+     * for reading/writing without problem.
+     * */
     virtual void read_struct_specifics_from(IOBase& io) = 0;
     virtual void write_struct_specifics_into(IOBase& io) = 0;
     void read_struct_specifics_from(IOBase&& io) { read_struct_specifics_from(io); }
