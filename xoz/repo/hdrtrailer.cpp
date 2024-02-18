@@ -18,6 +18,9 @@ struct repo_header_t {
     uint64_t repo_sz;
 
     // The size in bytes of the trailer
+    //
+    // TODO this could be much smaller than 64 bits
+    // Like 16 bits should be enough
     uint64_t trailer_sz;
 
     // Count of blocks in the repo.
@@ -181,9 +184,8 @@ void Repository::seek_read_and_check_header() {
         throw InconsistentXOZ(*this, "the repository header contains a root segment with an unexpected format.");
     }
 
-    // Load the descriptor set.
-    root_dset = std::make_shared<DescriptorSet>(this->root_sg, *this, *this, idmgr);
-    root_dset->load_set();
+    // Discard any checksum and the end-of-segment by removing the inline data
+    root_sg.remove_inline_data();
 }
 
 void Repository::seek_read_and_check_trailer(bool clear_trailer) {
@@ -278,13 +280,15 @@ std::vector<uint8_t> Repository::_encode_empty_root_segment() {
     return root_sg_bytes;
 }
 
+// TODO: most of this code could be handled by a (future) special descriptor type to hold
+// descriptor sets
 std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
     const auto hdr_capacity = sizeof(((struct repo_header_t*)nullptr)->root_sg);
     std::vector<uint8_t> root_sg_bytes(hdr_capacity);
 
     root_dset->write_set();
-    assert(root_sg.inline_data_sz() == 0);
-    assert(external_root_sg_loc.inline_data_sz() == 0);
+    assert(root_sg.has_end_of_segment() == false);
+    assert(external_root_sg_loc.has_end_of_segment() == false);
 
     auto root_sg_sz = root_sg.calc_struct_footprint_size();
     if (root_sg_sz == hdr_capacity or root_sg_sz + Segment::EndOfSegmentSize <= hdr_capacity) {

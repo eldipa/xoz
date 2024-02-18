@@ -1,5 +1,6 @@
 #include "xoz/repo/repository.h"
 
+#include <cstring>
 #include <utility>
 
 #include "xoz/err/exceptions.h"
@@ -9,7 +10,7 @@ Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos): fpath(fp
     assert(not closed);
     assert(blk_total_cnt >= 1);
 
-    initialize_block_array(gp.blk_sz, 1, blk_total_cnt);
+    _init_repository();
 }
 
 Repository::Repository(std::stringstream&& mem, uint64_t phy_repo_start_pos): fp(mem_fp), closed(true) {
@@ -17,10 +18,27 @@ Repository::Repository(std::stringstream&& mem, uint64_t phy_repo_start_pos): fp
     assert(not closed);
     assert(blk_total_cnt >= 1);
 
-    initialize_block_array(gp.blk_sz, 1, blk_total_cnt);
+    _init_repository();
 }
 
 Repository::~Repository() { close(); }
+
+void Repository::_init_repository() {
+    // Initialize BlockArray first
+    initialize_block_array(gp.blk_sz, 1, blk_total_cnt);
+
+    // Load the root set.
+    // NOTE: if a single descriptor tries to allocate blocks from the array
+    // it will crash because the allocator is not initialized yet and we cannot do it
+    // because we need to scan the sets to find which extents/segments are already
+    // allocated.
+    root_dset = std::make_shared<DescriptorSet>(this->root_sg, *this, *this, idmgr);
+    root_dset->load_set();
+
+    // Scan which extents/segments are allocated so we can initialize the allocator.
+    auto allocated = scan_descriptor_sets();
+    allocator().initialize_from_allocated(allocated);
+}
 
 std::ostream& Repository::print_stats(std::ostream& out) const {
     out << "XOZ Repository\n"
@@ -71,4 +89,29 @@ void Repository::impl_read(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t
 void Repository::impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) {
     seek_write_blk(blk_nr, offset);
     fp.write(buf, exact_sz);
+}
+
+std::list<Segment> Repository::scan_descriptor_sets() {
+    // TODO this should be recursive to scan *all*, not just the root.
+
+    std::list<Segment> allocated;
+
+    allocated.push_back(root_dset->segment());
+    for (auto it = root_dset->begin(); it != root_dset->end(); ++it) {
+        auto& dsc(*it);
+        if (dsc->does_own_edata()) {
+            allocated.push_back(dsc->edata_segment_ref());
+        }
+    }
+
+    return allocated;
+}
+
+struct Repository::stats_t Repository::stats() const {
+    struct stats_t st;
+
+    auto blkarr_st = BlockArray::stats();
+    memcpy(&st.blkarr_st, &blkarr_st, sizeof(st.blkarr_st));
+
+    return st;
 }

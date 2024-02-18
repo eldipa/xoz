@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <fstream>
 #include <ios>
+#include <list>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -139,6 +140,12 @@ public:
 
     inline const GlobalParameters& params() const { return gp; }
 
+    struct stats_t {
+        struct BlockArray::stats_t blkarr_st;
+    };
+
+    struct stats_t stats() const;
+
     // Pretty print stats
     std::ostream& print_stats(std::ostream& out) const;
 
@@ -216,6 +223,18 @@ private:
         assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_nr << gp.blk_sz_order) + offset));
         seek_write_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos + offset);
     }
+
+
+    /*
+     * Initialize a repository: its block array, its allocator, any index and check for errors or inconsistencies.
+     * */
+    void _init_repository();
+
+    /*
+     * Scan the descriptor sets from the root set to the bottom of the tree.
+     * Collect all the segments that are allocated by all the descriptors and descriptor sets.
+     * */
+    std::list<Segment> scan_descriptor_sets();
 
     // Initialize  a new repository in the specified file.
     static void _init_new_repository_into(std::iostream& fp, uint64_t phy_repo_start_pos, const GlobalParameters& gp);
