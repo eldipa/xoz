@@ -239,11 +239,14 @@ namespace {
         Repository new_repo = Repository::create(fpath, true, 0, gp);
         new_repo.close();
 
-        Repository repo(SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz");
+        {
+            Repository repo(SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz");
 
-        // Close and reopen again
-        repo.close();
-        repo.open(SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz");
+            // Close and reopen again
+            repo.close();
+        }
+
+        Repository repo(SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz");
 
         std::stringstream ss;
         repo.print_stats(ss);
@@ -485,10 +488,10 @@ namespace {
                 "454f 4600"
                 );
 
-        repo.open(SCRATCH_HOME "CreateThenExpand.xoz");
+        Repository repo2(SCRATCH_HOME "CreateThenExpand.xoz");
 
         ss.str("");
-        repo.print_stats(ss);
+        repo2.print_stats(ss);
 
         stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
@@ -497,11 +500,11 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(repo2.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo2.blk_cnt(), (uint32_t)9);
 
-        repo.close();
+        repo2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
                 // header
                 "584f 5a00 "            // magic XOZ\0
@@ -587,10 +590,11 @@ namespace {
                 // trailer
                 "454f 4600"
                 );
-        repo.open(SCRATCH_HOME "CreateThenExpandThenRevert.xoz");
+
+        Repository repo2(SCRATCH_HOME "CreateThenExpandThenRevert.xoz");
 
         ss.str("");
-        repo.print_stats(ss);
+        repo2.print_stats(ss);
 
         stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
@@ -599,11 +603,11 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo2.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.blk_cnt(), (uint32_t)0);
 
-        repo.close();
+        repo2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
                 // header
                 "584f 5a00 "            // magic XOZ\0
@@ -678,15 +682,15 @@ namespace {
                 );
 
         // Now "shrink" freeing those 3 blocks
-        repo.open(SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
-        repo.shrink_by_blocks(3);
+        Repository repo2(SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
+        repo2.shrink_by_blocks(3);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo2.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.blk_cnt(), (uint32_t)0);
 
         ss.str("");
-        repo.print_stats(ss);
+        repo2.print_stats(ss);
 
         stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
@@ -696,7 +700,7 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Close and check again: the file should shrank
-        repo.close();
+        repo2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
                 // header
                 "584f 5a00 "            // magic XOZ\0
