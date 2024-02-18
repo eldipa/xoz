@@ -196,6 +196,9 @@ public:
     friend void PrintTo(const Segment& segm, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const Segment& segm);
 
+    bool operator==(const Segment& segm) const;
+    bool operator!=(const Segment& segm) const { return not((*this) == segm); }
+
 private:
     void fail_if_bad_inline_sz() const;
 

@@ -51,6 +51,7 @@ const size_t FP_SZ = 64;
     Segment segm2 = Segment::load_struct_from(IOSpan(fp), Segment::EndMode::ExplicitLen, segm_len);               \
     segm2.write_struct_into(IOSpan(buf2));                               \
     EXPECT_EQ((fp), buf2);                                               \
+    EXPECT_EQ((segm) == segm2, bool(true));                              \
 } while (0)
 
 #define XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm) do {           \

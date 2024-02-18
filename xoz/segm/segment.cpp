@@ -458,3 +458,12 @@ void Segment::write_struct_into(IOBase& io) const {
     // of the segment and we expect to write all of it
     assert(remain_sz == 0);
 }
+
+bool Segment::operator==(const Segment& segm) const {
+    if (ext_cnt() != segm.ext_cnt() or has_end_of_segment() != segm.has_end_of_segment() or
+        inline_data_sz() != segm.inline_data_sz()) {
+        return false;
+    }
+
+    return exts() == segm.exts() and raw == segm.raw;
+}
