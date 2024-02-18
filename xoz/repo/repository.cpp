@@ -4,28 +4,56 @@
 #include <utility>
 
 #include "xoz/err/exceptions.h"
+#include "xoz/io/iospan.h"
 
 Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos): fpath(fpath), fp(disk_fp), closed(true) {
-    open(fpath, phy_repo_start_pos);
+    std::stringstream ignored;
+    open_internal(fpath, std::move(ignored), phy_repo_start_pos);
     assert(not closed);
     assert(blk_total_cnt >= 1);
-
-    _init_repository();
 }
 
 Repository::Repository(std::stringstream&& mem, uint64_t phy_repo_start_pos): fp(mem_fp), closed(true) {
     open_internal(Repository::IN_MEMORY_FPATH, std::move(mem), phy_repo_start_pos);
     assert(not closed);
     assert(blk_total_cnt >= 1);
-
-    _init_repository();
 }
 
 Repository::~Repository() { close(); }
 
-void Repository::_init_repository() {
-    // Initialize BlockArray first
+void Repository::bootstrap_repository() {
+    // Initialize BlockArray first. Now we can read/write blocks/extents (but we cannot alloc yet)
     initialize_block_array(gp.blk_sz, 1, blk_total_cnt);
+
+    // Let's load the root descriptor set.
+    // So far we have the root segment loaded in root_sg *but*
+    // if the particular setting is set, assume that the recently loaded root_sg is
+    // not the root segment but a single extent that points a block(s) with the real
+    // root segment.
+    // This additional indirection allow us to encode large root segments outside the header.
+    if (root_sg.inline_data_sz() == 4 and root_sg.ext_cnt() == 1) {
+        external_root_sg_loc.add_extent(root_sg.exts()[0]);
+
+        IOSegment io2(*this, external_root_sg_loc);
+        root_sg = Segment::load_struct_from(io2);
+
+        // In the inline data we have the checksum of the root segment.
+        // We don't have such checksum when the root segment is written in the header
+        // because there is a checksum for the entire header.
+        // But when the root segment is outside the header, we need this extra protection.
+        IOSpan io3(root_sg.inline_data());
+
+        [[maybe_unused]] uint32_t root_sg_chksum = io3.read_u32_from_le();
+
+        // TODO check assert(checksum(io2) == root_sg_chksum);
+
+    } else if (root_sg.inline_data_sz() != 0) {
+        throw InconsistentXOZ(*this, "the repository header contains a root segment with an unexpected format.");
+    }
+
+    // Discard any checksum and the end-of-segment by removing the inline data
+    root_sg.remove_inline_data();
+    assert(root_sg.has_end_of_segment() == false);
 
     // Load the root set.
     // NOTE: if a single descriptor tries to allocate blocks from the array
@@ -37,6 +65,8 @@ void Repository::_init_repository() {
 
     // Scan which extents/segments are allocated so we can initialize the allocator.
     auto allocated = scan_descriptor_sets();
+
+    // With this, we can do alloc/dealloc and the Repository is fully operational.
     allocator().initialize_from_allocated(allocated);
 }
 

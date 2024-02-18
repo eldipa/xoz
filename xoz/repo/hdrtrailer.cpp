@@ -152,7 +152,7 @@ void Repository::seek_read_and_check_header() {
 
     trailer_sz = u64_from_le(hdr.trailer_sz);
 
-    // load root set's segment:
+    // load root set's segment (tentative, see _init_repository)
     static_assert(sizeof(hdr.root_sg) >= 12);
     IOSpan io(hdr.root_sg, sizeof(hdr.root_sg));
     root_sg = Segment::load_struct_from(io);
@@ -160,32 +160,9 @@ void Repository::seek_read_and_check_header() {
     // the root_sg is located in the header so we mark this with an empty extent
     external_root_sg_loc = Segment::EmptySegment();
 
-    // However, if the particular setting is set, assume that the recently loaded root_sg is
-    // not the root segment but a single extent that points a block(s) with the real
-    // root segment.
-    // This additional indirection allow us to encode large root segments outside the header.
-    if (root_sg.inline_data_sz() == 4 and root_sg.ext_cnt() == 1) {
-        external_root_sg_loc.add_extent(root_sg.exts()[0]);
-
-        IOSegment io2(*this, external_root_sg_loc);
-        root_sg = Segment::load_struct_from(io2);
-
-        // In the inline data we have the checksum of the root segment.
-        // We don't have such checksum when the root segment is written in the header
-        // because there is a checksum for the entire header.
-        // But when the root segment is outside the header, we need this extra protection.
-        IOSpan io3(root_sg.inline_data());
-
-        [[maybe_unused]] uint32_t root_sg_chksum = io3.read_u32_from_le();
-
-        // TODO check assert(checksum(io2) == root_sg_chksum);
-
-    } else if (root_sg.inline_data_sz() != 0) {
+    if (!(root_sg.inline_data_sz() == 4 and root_sg.ext_cnt() == 1) and root_sg.inline_data_sz() != 0) {
         throw InconsistentXOZ(*this, "the repository header contains a root segment with an unexpected format.");
     }
-
-    // Discard any checksum and the end-of-segment by removing the inline data
-    root_sg.remove_inline_data();
 }
 
 void Repository::seek_read_and_check_trailer(bool clear_trailer) {
@@ -353,6 +330,8 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
     }
 
     assert(root_sg_bytes.size() == hdr_capacity);
+    assert(root_sg.has_end_of_segment() == false);
+    assert(external_root_sg_loc.has_end_of_segment() == false);
     return root_sg_bytes;
 }
 

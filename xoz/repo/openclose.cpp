@@ -75,6 +75,7 @@ void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint6
     seek_read_and_check_header();
     seek_read_and_check_trailer(true /* clear_trailer */);
 
+    bootstrap_repository();
     closed = false;
 }
 

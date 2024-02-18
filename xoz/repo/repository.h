@@ -219,7 +219,7 @@ private:
     /*
      * Initialize a repository: its block array, its allocator, any index and check for errors or inconsistencies.
      * */
-    void _init_repository();
+    void bootstrap_repository();
 
     /*
      * Scan the descriptor sets from the root set to the bottom of the tree.
