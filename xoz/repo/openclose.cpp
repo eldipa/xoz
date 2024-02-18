@@ -4,25 +4,6 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/repo/repository.h"
 
-void Repository::open(const char* fpath, uint64_t phy_repo_start_pos) {
-    if (std::addressof(fp) != std::addressof(disk_fp)) {
-        throw std::runtime_error("The current repository is memory based. You "
-                                 "cannot open a disk based file.");
-    }
-
-    std::stringstream ignored;
-    open_internal(fpath, std::move(ignored), phy_repo_start_pos);
-}
-
-void Repository::open(std::stringstream&& mem, uint64_t phy_repo_start_pos) {
-    if (std::addressof(fp) != std::addressof(mem_fp)) {
-        throw std::runtime_error("The current repository is disk based. You cannot "
-                                 "open a mem based file.");
-    }
-
-    open_internal(Repository::IN_MEMORY_FPATH, std::move(mem), phy_repo_start_pos);
-}
-
 void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint64_t phy_repo_start_pos) {
     if (not closed) {
         throw std::runtime_error("The current repository is not closed. You need "

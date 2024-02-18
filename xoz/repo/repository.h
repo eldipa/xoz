@@ -113,24 +113,15 @@ public:
     static Repository create_mem_based(uint64_t phy_repo_start_pos = 0,
                                        const GlobalParameters& gp = GlobalParameters());
 
-    // Open a repository encoded in the given physical file at the
-    // given offset (by default, 0).
-    //
-    // If the file does not exist, it will fail.
-    // If it exists but not a valid repository is there, it will fail.
-    //
-    // If the repository is already open, it will fail. You must
-    // call Repository::close before.
-    //
-    // It is an error also call open on a memory based repository.
-    void open(const char* fpath, uint64_t phy_repo_start_pos = 0);
-    void open(std::stringstream&& mem, uint64_t phy_repo_start_pos = 0);
-
-    // Close the repository and flush any pending write.
-    // Multiple calls can be made without trouble.
-    //
-    // Also, close() is safe to be called for both disk based
-    // and memory based repositories.
+    /*
+     * Close the repository and flush any pending write.
+     * Multiple calls can be made without trouble.
+     *
+     * Also, close() is safe to be called for both disk based
+     * and memory based repositories.
+     *
+     * To reopen a repository, you need create a new instance.
+     * */
     void close();
 
     // Call to close()
