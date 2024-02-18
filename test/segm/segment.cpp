@@ -1823,4 +1823,255 @@ namespace {
             EXPECT_EQ(io.remain_rd(), uint32_t(4)); // nothing was read, invalid arg detected earlier
         }
     }
+
+    TEST(SegmentTest, OverlappingExtentsWithABlkOfZero) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+
+        // Case:
+        //  - i-th extent has 0 blks and the i+1 has more than 0
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(1, 0, false));
+            segm.add_extent(Extent(1, 1, false));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    6, /* disc size */
+                    1024 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "0104 0000 000c"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+
+        // Case (again):
+        //  - i-th extent has 0 blks and the i+1 has more than 0
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(2, 3, false));
+            segm.add_extent(Extent(1, 0, false));
+            segm.add_extent(Extent(1, 1, false));
+            segm.add_extent(Extent(3, 1, false));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    10, /* disc size */
+                    5120 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "021c 0106 0000 000c 010c"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+
+        // Case:
+        //  - i-th extent has 0 blks and the i+1 has 0
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(1, 0, false));
+            segm.add_extent(Extent(1, 0, false));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    8, /* disc size */
+                    0 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "0104 0000 0004 0000"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+
+        // Case:
+        //  - i-th extent has 0 blks and the i+1 has 0
+        //  - both at block 0
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(0, 0, false));
+            segm.add_extent(Extent(0, 0, false));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    8, /* disc size */
+                    0 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "0004 0000 0004 0000"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+    }
+
+
+    TEST(SegmentTest, OverlappingExtentsSubAlloc) {
+        const uint8_t blk_sz_order = 10;
+        std::vector<char> fp;
+
+        // Case:
+        //  - non-overlapping masks
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(1, 0, true));
+            segm.add_extent(Extent(1, 1, true));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    10, /* disc size */
+                    64 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "0184 0000 0080 0100 0100"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+
+        // Case (again):
+        //  - non-overlapping masks
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(2, 3, true));
+            segm.add_extent(Extent(1, 0, true));
+            segm.add_extent(Extent(1, 1, true));
+            segm.add_extent(Extent(3, 1, true));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    18, /* disc size */
+                    256 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "0284 0300 0086 0000 0080 0100 0100 0184 0100"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+
+        // Case:
+        //  - non-overlapping masks
+        //  - both mask 0
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(1, 0, true));
+            segm.add_extent(Extent(1, 0, true));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    10, /* disc size */
+                    0 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "0184 0000 0080 0100 0000"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+
+        // Case:
+        //  - non-overlapping masks
+        //  - both mask non 0
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(1, 0xf000, true));
+            segm.add_extent(Extent(1, 0x000f, true));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    10, /* disc size */
+                    512 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "0184 00f0 0080 0100 0f00"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+
+        // Case:
+        //  - non-overlapping masks, both 0
+        //  - both at block 0
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(0, 0, true));
+            segm.add_extent(Extent(0, 0, true));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    10, /* disc size */
+                    0 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "0084 0000 0080 0000 0000"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+
+        // Case:
+        //  - non-overlapping masks, both non 0
+        //  - both at block 0
+        {
+            XOZ_RESET_FP(fp, FP_SZ);
+            Segment segm;
+
+            segm.add_extent(Extent(0, 0xf000, true));
+            segm.add_extent(Extent(0, 0x000f, true));
+
+            // Check sizes
+            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+                    10, /* disc size */
+                    512 /* allocated size */
+                    );
+
+            // Write and check the dump
+            segm.write_struct_into(IOSpan(fp));
+            XOZ_EXPECT_SERIALIZATION(fp, segm,
+                    "0084 00f0 0080 0000 0f00"
+                    );
+            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        }
+    }
+
 }
