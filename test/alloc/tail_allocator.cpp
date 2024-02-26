@@ -1,4 +1,4 @@
-#include "xoz/repo/repository.h"
+#include "xoz/blk/file_block_array.h"
 #include "xoz/ext/extent.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/alloc/tail_allocator.h"
@@ -17,39 +17,26 @@ using ::testing::AllOf;
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::subvec;
 
-// Check that the serialization of the extents in fp are of the
-// expected size (call calc_struct_footprint_size) and they match
-// byte-by-byte with the expected data (in hexdump)
-#define XOZ_EXPECT_REPO_SERIALIZATION(repo, at, len, data) do {           \
-    EXPECT_EQ(hexdump((repo).expose_mem_fp(), (at), (len)), (data));              \
+#define XOZ_EXPECT_FILE_SERIALIZATION(blkarr, at, len, data) do {           \
+    EXPECT_EQ(hexdump((blkarr).expose_mem_fp(), (at), (len)), (data));              \
 } while (0)
 
 namespace {
     TEST(TailAllocatorTest, AllocAndGrow) {
-        const GlobalParameters gp = {
-            .blk_sz = 64,
-            .blk_sz_order = 6,
-            .blk_init_cnt = 1
-        };
-
-        Repository repo = Repository::create_mem_based(0, gp);
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
         TailAllocator alloc;
-        alloc.manage_block_array(repo);
+        alloc.manage_block_array(blkarr);
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
-                "0000 0000"
-                );
-
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)0);
 
         auto result1 = alloc.alloc(3);
 
         EXPECT_EQ(result1.success, (bool)true);
-        EXPECT_EQ(result1.ext, Extent(1, 3, false));
+        EXPECT_EQ(result1.ext, Extent(0, 3, false));
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -58,16 +45,16 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)3);
 
         auto result2 = alloc.alloc(2);
 
         EXPECT_EQ(result2.success, (bool)true);
-        EXPECT_EQ(result2.ext, Extent(4, 2, false));
+        EXPECT_EQ(result2.ext, Extent(3, 2, false));
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -80,26 +67,20 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)6);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)5);
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)5);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)5);
     }
 
     TEST(TailAllocatorTest, DeallocAndShrink) {
-        const GlobalParameters gp = {
-            .blk_sz = 64,
-            .blk_sz_order = 6,
-            .blk_init_cnt = 1
-        };
-
         std::stringstream cpy;
 
         std::vector<char> wrbuf(64);
         std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
 
-        Repository repo = Repository::create_mem_based(0, gp);
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
         TailAllocator alloc;
-        alloc.manage_block_array(repo);
+        alloc.manage_block_array(blkarr);
 
         const uint16_t blk_allocated_test = 5;
         alloc.alloc(blk_allocated_test);
@@ -108,94 +89,105 @@ namespace {
         // changing only the first bytes to distinguish which block is which
         for (int i = 0; i < blk_allocated_test; ++i) {
             wrbuf[0] = wrbuf[1] = wrbuf[2] = wrbuf[3] = char(0xaa + char(0x11 * i));
-            EXPECT_EQ(repo.write_extent(Extent(i+1, 1, false), wrbuf), (uint32_t)64);
+            EXPECT_EQ(blkarr.write_extent(Extent(i, 1, false), wrbuf), (uint32_t)64);
         }
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
                 "aaaa aaaa 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "bbbb bbbb 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "cccc cccc 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "dddd dddd 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "eeee eeee 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)6);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)5);
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)5);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)5);
 
-        bool ok = alloc.dealloc(Extent(4, 2, false));
+        bool ok = alloc.dealloc(Extent(3, 2, false));
         EXPECT_EQ(ok, (bool)true);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)3);
 
-        repo.close();
-        cpy.str(repo.expose_mem_fp().str());
-        repo.open(std::move(cpy), 0);
+        alloc.release();
+        blkarr.close();
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+        cpy.str(blkarr.expose_mem_fp().str());
+
+        FileBlockArray blkarr2(std::move(cpy), blkarr.blk_sz());
+        TailAllocator alloc2;
+        alloc2.manage_block_array(blkarr2);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr2, 0, -1,
                 "aaaa aaaa 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "bbbb bbbb 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "cccc cccc 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
-                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
-                "0000 0000" /* after the close() a trailer is added that it is zero'd after the open() */
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
 
-        ok = alloc.dealloc(Extent(2, 2, false));
+        EXPECT_EQ(blkarr2.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr2.past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(blkarr2.blk_cnt(), (uint32_t)3);
+
+        ok = alloc2.dealloc(Extent(1, 2, false));
         EXPECT_EQ(ok, (bool)true);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(blkarr2.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr2.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(blkarr2.blk_cnt(), (uint32_t)1);
 
-        repo.close();
-        cpy.str(repo.expose_mem_fp().str());
-        repo.open(std::move(cpy), 0);
+        alloc2.release();
+        blkarr2.close();
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+        cpy.str(blkarr2.expose_mem_fp().str());
+
+        FileBlockArray blkarr3(std::move(cpy), blkarr2.blk_sz());
+        TailAllocator alloc3;
+        alloc3.manage_block_array(blkarr3);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr3, 0, -1,
                 "aaaa aaaa 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
-                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
-                "0000 0000" /* after the close() a trailer is added that it is zero'd after the open() */
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
 
-        ok = alloc.dealloc(Extent(1, 1, false));
+        ok = alloc3.dealloc(Extent(0, 1, false));
         EXPECT_EQ(ok, (bool)true);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(blkarr3.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr3.past_end_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr3.blk_cnt(), (uint32_t)0);
 
-        repo.close();
-        cpy.str(repo.expose_mem_fp().str());
-        repo.open(std::move(cpy), 0);
+        alloc3.release();
+        blkarr3.close();
 
+        cpy.str(blkarr3.expose_mem_fp().str());
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1, "0000 0000");
+        FileBlockArray blkarr4(std::move(cpy), blkarr3.blk_sz());
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr4, 0, -1, "");
     }
 
     TEST(TailAllocatorTest, DeallocButIgnored) {
-        const GlobalParameters gp = {
-            .blk_sz = 64,
-            .blk_sz_order = 6,
-            .blk_init_cnt = 1
-        };
-
-        std::stringstream cpy;
-
         std::vector<char> wrbuf(64);
         std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
 
-        Repository repo = Repository::create_mem_based(0, gp);
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
         TailAllocator alloc;
-        alloc.manage_block_array(repo);
+        alloc.manage_block_array(blkarr);
 
         const uint16_t blk_allocated_test = 5;
         alloc.alloc(blk_allocated_test);
@@ -204,68 +196,71 @@ namespace {
         // changing only the first bytes to distinguish which block is which
         for (int i = 0; i < blk_allocated_test; ++i) {
             wrbuf[0] = wrbuf[1] = wrbuf[2] = wrbuf[3] = char(0xaa + char(0x11 * i));
-            EXPECT_EQ(repo.write_extent(Extent(i+1, 1, false), wrbuf), (uint32_t)64);
+            EXPECT_EQ(blkarr.write_extent(Extent(i, 1, false), wrbuf), (uint32_t)64);
         }
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
                 "aaaa aaaa 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "bbbb bbbb 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "cccc cccc 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "dddd dddd 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "eeee eeee 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)6);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)5);
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)5);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)5);
 
         // Valid Extent but it is not at the end of the file so the TailAllocator
         // will ignore the dealloc and return false
-        bool ok = alloc.dealloc(Extent(4, 1, false));
+        bool ok = alloc.dealloc(Extent(3, 1, false));
         EXPECT_EQ(ok, (bool)false);
 
-        // Therefore no block was freed and the repo content is unchanged.
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)6);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)5);
+        // Therefore no block was freed and the blkarr content is unchanged.
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)5);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)5);
 
-        repo.close();
+        alloc.release();
+        blkarr.close();
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
                 "aaaa aaaa 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "bbbb bbbb 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "cccc cccc 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "dddd dddd 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                //-------------------------------------------------------------------------------
                 "eeee eeee 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
-                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
-                "454f 4600"
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
     }
 
     TEST(TailAllocatorTest, OOBDealloc) {
-        const GlobalParameters gp = {
-            .blk_sz = 64,
-            .blk_sz_order = 6,
-            .blk_init_cnt = 1
-        };
-
-        Repository repo = Repository::create_mem_based(0, gp);
+        {
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
         TailAllocator alloc;
-        alloc.manage_block_array(repo);
+        alloc.manage_block_array(blkarr);
 
         const uint16_t blk_allocated_test = 3;
         alloc.alloc(blk_allocated_test);
 
-        XOZ_EXPECT_REPO_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -274,19 +269,19 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)3);
 
         EXPECT_THAT(
                 // Blk number past the end of the file
-            [&]() { alloc.dealloc(Extent(4, 1, false)); },
+            [&]() { alloc.dealloc(Extent(3, 1, false)); },
             ThrowsMessage<ExtentOutOfBounds>(
                 AllOf(
                     HasSubstr(
-                        "The extent of 1 blocks that starts at block 4 and "
-                        "ends at block 4 completely falls out of bounds. "
-                        "The blocks from 1 to 3 (inclusive) are within the bounds and allowed. "
+                        "The extent of 1 blocks that starts at block 3 and "
+                        "ends at block 3 completely falls out of bounds. "
+                        "The blocks from 0 to 2 (inclusive) are within the bounds and allowed. "
                         "Detected on TailAllocator::dealloc"
                         )
                     )
@@ -296,45 +291,50 @@ namespace {
         EXPECT_THAT(
                 // Blk number (start) within the boundaries but
                 // it extends beyond the limits
-            [&]() { alloc.dealloc(Extent(3, 2, false)); },
+            [&]() { alloc.dealloc(Extent(2, 2, false)); },
             ThrowsMessage<ExtentOutOfBounds>(
                 AllOf(
                     HasSubstr(
-                        "The extent of 2 blocks that starts at block 3 and "
-                        "ends at block 4 partially falls out of bounds. "
-                        "The blocks from 1 to 3 (inclusive) are within the bounds and allowed. "
+                        "The extent of 2 blocks that starts at block 2 and "
+                        "ends at block 3 partially falls out of bounds. "
+                        "The blocks from 0 to 2 (inclusive) are within the bounds and allowed. "
                         "Detected on TailAllocator::dealloc"
                         )
                     )
                 )
         );
+        }
 
-        EXPECT_THAT(
-                // Blk number (start) lower than the minimum block
-            [&]() { alloc.dealloc(Extent(0, 2, false)); },
-            ThrowsMessage<ExtentOutOfBounds>(
-                AllOf(
-                    HasSubstr(
-                        "The extent of 2 blocks that starts at block 0 and "
-                        "ends at block 1 partially falls out of bounds. "
-                        "The blocks from 1 to 3 (inclusive) are within the bounds and allowed. "
-                        "Detected on TailAllocator::dealloc"
+        {
+            testing_xoz::zbreak();
+            FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+            TailAllocator alloc;
+            alloc.manage_block_array(blkarr);
+
+            const uint16_t blk_allocated_test = 3;
+            alloc.alloc(blk_allocated_test);
+
+            EXPECT_THAT(
+                    // Blk number (start) lower than the minimum block
+                    [&]() { alloc.dealloc(Extent(0, 2, false)); },
+                    ThrowsMessage<ExtentOutOfBounds>(
+                        AllOf(
+                            HasSubstr(
+                                "The extent of 2 blocks that starts at block 0 and "
+                                "ends at block 1 partially falls out of bounds. "
+                                "The blocks from 1 to 3 (inclusive) are within the bounds and allowed. "
+                                "Detected on TailAllocator::dealloc"
+                                )
+                            )
                         )
-                    )
-                )
-        );
+                    );
+        }
     }
 
     TEST(TailAllocatorTest, InvalidAllocOfZeroBlocks) {
-        const GlobalParameters gp = {
-            .blk_sz = 64,
-            .blk_sz_order = 6,
-            .blk_init_cnt = 1
-        };
-
-        Repository repo = Repository::create_mem_based(0, gp);
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
         TailAllocator alloc;
-        alloc.manage_block_array(repo);
+        alloc.manage_block_array(blkarr);
 
         EXPECT_THAT(
             [&]() { alloc.alloc(0); },
@@ -347,15 +347,9 @@ namespace {
     }
 
     TEST(TailAllocatorTest, InvalidDeallocOfZeroBlocks) {
-        const GlobalParameters gp = {
-            .blk_sz = 64,
-            .blk_sz_order = 6,
-            .blk_init_cnt = 1
-        };
-
-        Repository repo = Repository::create_mem_based(0, gp);
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
         TailAllocator alloc;
-        alloc.manage_block_array(repo);
+        alloc.manage_block_array(blkarr);
 
         EXPECT_THAT(
             [&]() { alloc.dealloc(Extent(4, 0, false)); },
@@ -368,15 +362,9 @@ namespace {
     }
 
     TEST(TailAllocatorTest, InvalidDeallocOfSuballocatedBlock) {
-        const GlobalParameters gp = {
-            .blk_sz = 64,
-            .blk_sz_order = 6,
-            .blk_init_cnt = 1
-        };
-
-        Repository repo = Repository::create_mem_based(0, gp);
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
         TailAllocator alloc;
-        alloc.manage_block_array(repo);
+        alloc.manage_block_array(blkarr);
 
         EXPECT_THAT(
             [&]() { alloc.dealloc(Extent(4, 4, true)); },
