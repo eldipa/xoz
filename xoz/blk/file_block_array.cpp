@@ -122,7 +122,7 @@ void FileBlockArray::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff
 
 const std::stringstream& FileBlockArray::expose_mem_fp() const {
     if (std::addressof(fp) == std::addressof(disk_fp)) {
-        throw std::runtime_error("The repository is not memory backed.");  // TODO chg name
+        throw std::runtime_error("The file block array is not memory backed.");
     }
 
     return mem_fp;
@@ -141,8 +141,8 @@ uint32_t FileBlockArray::phy_file_sz() const {
 void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, uint32_t blk_sz, uint32_t begin_blk_nr,
                                    bool is_reopening) {
     if (not closed) {
-        throw std::runtime_error("The current repository is not closed. You need "
-                                 "to close it before opening a new one");  // TODO chg name
+        throw std::runtime_error("The current file block array is not closed. You need "
+                                 "to close it before opening a new one");
     }
 
     // Try to avoid raising an exception on the opening so we can
@@ -170,7 +170,7 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
 
     if (!fp) {
         throw OpenXOZError(fpath, "FileBlockArray::open could not open the file. May "
-                                  "not exist or may not have permissions.");  // TODO chg name / exception
+                                  "not exist or may not have permissions.");  // TODO exception
     }
 
     this->fpath = std::string(fpath);
@@ -184,7 +184,7 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     auto tmp_fp_end = fp.tellg();
     if (tmp_fp_end >=
         INT32_MAX) {  // TODO signed or unsigned check?, probably we should go a little less like INT32_MAX-blk_sz()
-        throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");  // TODO chg name / exceptions
+        throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");  // TODO exceptions
     }
 
     assert(tmp_fp_end >= 0);
