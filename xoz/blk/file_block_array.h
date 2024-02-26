@@ -179,7 +179,7 @@ private:
      * Write sz bytes of zeros at the end of the file which effectively
      * extends/grows the file by sz bytes.
      * */
-    static void _extend_file_with_zeros(std::fstream& fp, uint64_t sz);
+    static void _extend_file_with_zeros(std::iostream& fp, uint64_t sz);
 
 private:
     std::string fpath;

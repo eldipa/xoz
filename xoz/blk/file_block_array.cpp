@@ -21,7 +21,11 @@ FileBlockArray::FileBlockArray(std::stringstream&& mem, uint32_t blk_sz, uint32_
     assert(not closed);
 }
 
-FileBlockArray::~FileBlockArray() { close(); }
+FileBlockArray::~FileBlockArray() {
+    if (not closed) {
+        close();
+    }
+}
 
 std::tuple<uint32_t, uint16_t> FileBlockArray::impl_grow_by_blocks(uint16_t blk_cnt) {
     // BlockArray::grow_by_blocks should had checked for overflow on past_end_blk_nr() + blk_cnt.
@@ -73,6 +77,9 @@ uint32_t FileBlockArray::impl_release_blocks() {
 
             remain -= chk_sz;
         }
+
+        // this is necessary to make open_internal() work
+        closed = true;
 
         open_internal(FileBlockArray::IN_MEMORY_FPATH, std::move(alt_mem_fp), blk_sz(), begin_blk_nr(), true);
     }
@@ -143,6 +150,10 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     if (not closed) {
         throw std::runtime_error("The current file block array is not closed. You need "
                                  "to close it before opening a new one");
+    }
+
+    if (blk_sz == 0) {
+        throw std::runtime_error("Block size cannot be zero");
     }
 
     // Try to avoid raising an exception on the opening so we can
@@ -226,7 +237,7 @@ std::fstream FileBlockArray::_truncate_disk_file(const char* fpath) {
     return fp;
 }
 
-void FileBlockArray::_extend_file_with_zeros(std::fstream& fp, uint64_t sz) {
+void FileBlockArray::_extend_file_with_zeros(std::iostream& fp, uint64_t sz) {
     fp.seekp(0, std::ios_base::end);
     char buf[128] = {0};
 
@@ -267,6 +278,9 @@ FileBlockArray FileBlockArray::create(const char* fpath, uint32_t blk_sz, uint32
 
 FileBlockArray FileBlockArray::create_mem_based(uint32_t blk_sz, uint32_t begin_blk_nr) {
     std::stringstream fp;
+    _extend_file_with_zeros(fp, begin_blk_nr * blk_sz);
+    fp.seekp(0);
+    fp.seekg(0);
     return FileBlockArray(std::move(fp), blk_sz, begin_blk_nr);
 }
 
