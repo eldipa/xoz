@@ -10,20 +10,16 @@
 #include "xoz/ext/extent.h"
 
 void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr) {
-    if (blk_sz == 0) {
-        throw std::runtime_error("blk_sz 0 is incorrect");
-    }
-
-    if (blk_sz != uint32_t(1 << u32_log2_floor(blk_sz))) {
-        throw std::runtime_error("blk_sz is not a power of 2");
-    }
+    fail_if_bad_blk_sz(blk_sz);
 
     const uint32_t min_blk_sz = Extent::SUBBLK_CNT_PER_BLK * 1;  // 1 byte per subblk
-    if (blk_sz < min_blk_sz or blk_sz % min_blk_sz != 0) {
-        // block too small/not multiple of SUBBLK_CNT_PER_BLK, disable the suballocation
+    if (blk_sz < min_blk_sz) {
+        // block too small of SUBBLK_CNT_PER_BLK, disable the suballocation
         auto def = sg_alloc.get_default_alloc_requirements();
         def.allow_suballoc = false;
         sg_alloc.set_default_alloc_requirements(def);
+    } else {
+        assert(blk_sz % min_blk_sz == 0);
     }
 
     if (begin_blk_nr > past_end_blk_nr) {
@@ -394,5 +390,37 @@ std::ostream& operator<<(std::ostream& out, const BlockArray& blkarr) {
 void BlockArray::fail_if_block_array_not_initialized() const {
     if (not blkarr_initialized) {
         throw std::runtime_error("Block array not initialized (managed). Missed call to initialize_block_array?");
+    }
+}
+
+void BlockArray::fail_if_bad_blk_sz(uint32_t blk_sz, uint32_t min_subblk_sz) {
+    if (blk_sz == 0) {
+        throw std::runtime_error("Block size cannot be zero.");
+    }
+
+    if (blk_sz != uint32_t(1 << u32_log2_floor(blk_sz))) {
+        throw std::runtime_error((F() << "Block size must be a power of 2, but given " << blk_sz << ".").str());
+    }
+
+    if (min_subblk_sz != 0) {
+        if (min_subblk_sz != uint32_t(1 << u32_log2_floor(min_subblk_sz))) {
+            throw std::runtime_error(
+                    (F() << "Sub block size must be a power of 2, but given " << min_subblk_sz << ".").str());
+        }
+
+        const uint32_t min_blk_sz = Extent::SUBBLK_CNT_PER_BLK * min_subblk_sz;
+        if (min_blk_sz < min_subblk_sz) {
+            // overflow
+            throw std::runtime_error((F() << "Sub block size is too large, given " << min_subblk_sz << ".").str());
+        }
+
+        if (blk_sz < min_blk_sz) {
+            throw std::runtime_error((F() << "Block size of " << blk_sz
+                                          << "is too small to be suballocated with subblock sizes of " << min_subblk_sz
+                                          << " (minimum).")
+                                             .str());
+        } else {
+            assert(blk_sz % min_blk_sz == 0);
+        }
     }
 }

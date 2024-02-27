@@ -102,6 +102,16 @@ protected:
     BlockArray(bool coalescing_enabled = true, uint16_t split_above_threshold = 0,
                const struct SegmentAllocator::req_t& default_req = SegmentAllocator::XOZDefaultReq);
 
+protected:
+    /*
+     * Raise if the given block size is not suitable.
+     *
+     * If min_subblk_sz is non zero, the block size also must be large enough
+     * to be suitable for suballocation with sub blocks of min_subblk_sz size at minimum.
+     * If zero, no check is made.
+     * */
+    static void fail_if_bad_blk_sz(uint32_t blk_sz, uint32_t min_subblk_sz = 0);
+
 private:
     /*
      * Read or write an extent given by ext (based on is_read_op). How much bytes are being read/written
