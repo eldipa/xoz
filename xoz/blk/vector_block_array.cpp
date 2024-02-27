@@ -38,9 +38,7 @@ void VectorBlockArray::impl_write(uint32_t blk_nr, uint32_t offset, char* buf, u
 uint32_t VectorBlockArray::impl_release_blocks() { return 0; }
 
 VectorBlockArray::VectorBlockArray(uint32_t blk_sz): BlockArray() {
-    if (blk_sz == 0) {
-        throw "";
-    }
+    fail_if_bad_blk_sz(blk_sz);
 
     io.reset(new IOSpan(buf));
 

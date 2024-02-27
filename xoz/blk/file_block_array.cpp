@@ -152,9 +152,7 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
                                  "to close it before opening a new one");
     }
 
-    if (blk_sz == 0) {
-        throw std::runtime_error("Block size cannot be zero");
-    }
+    fail_if_bad_blk_sz(blk_sz);
 
     // Try to avoid raising an exception on the opening so we can
     // raise better exceptions.

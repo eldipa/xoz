@@ -133,6 +133,7 @@ void SegmentBlockArray::impl_write(uint32_t blk_nr, uint32_t offset, char* buf, 
 
 SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint32_t blk_sz):
         BlockArray(), segm(segm), sg_blkarr(sg_blkarr) {
+    fail_if_bad_blk_sz(blk_sz);
     if (segm.inline_data_sz() != 0) {
         throw std::runtime_error("Segment cannot contain inline data to be used for SegmentBlockArray");
     }
