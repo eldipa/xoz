@@ -244,7 +244,6 @@ namespace {
     TEST(FileBlockArrayTest, CreateThenExpandThenRevert) {
         DELETE("CreateThenExpandThenRevert.xoz");
 
-        testing_xoz::zbreak();
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevert.xoz";
         FileBlockArray blkarr = FileBlockArray::create(fpath, 64, 0, true);
 
