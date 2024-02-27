@@ -69,9 +69,7 @@ static_assert(sizeof(struct repo_header_t) == 64);
 }  // namespace
 
 void Repository::seek_read_and_check_header() {
-    assert(phy_repo_start_pos <= fp_end);
-
-    seek_read_phy(fp, phy_repo_start_pos);
+    seek_read_phy(fp, 0);  // go to the begin of the file
 
     struct repo_header_t hdr;
     fp.read((char*)&hdr, sizeof(hdr));
@@ -121,29 +119,24 @@ void Repository::seek_read_and_check_header() {
     }
 
 
-    // This could happen only on overflow
-    if (u64_add_will_overflow(phy_repo_start_pos, repo_sz)) {
-        throw InconsistentXOZ(*this, F() << "the repository starts at the physical file position " << phy_repo_start_pos
-                                         << " and has a size of " << repo_sz
-                                         << " bytes, which added together goes beyond the allowed limit.");
+    if (repo_sz > fp_end) {
+        throw InconsistentXOZ(*this,
+                              F() << "the repository has a declared size (" << repo_sz
+                                  << ") starting at "
+                                  //<< phy_repo_start_pos << " offset this gives an expected end of "
+                                  // TODO<< phy_repo_end_pos << " which goes beyond the physical file end at " << fp_end
+                                  << ".");
     }
 
-    // Calculate the repository end position
-    phy_repo_end_pos = phy_repo_start_pos + repo_sz;
-
-    if (phy_repo_end_pos > fp_end) {
-        throw InconsistentXOZ(*this, F() << "the repository has a declared size (" << repo_sz << ") starting at "
-                                         << phy_repo_start_pos << " offset this gives an expected end of "
-                                         << phy_repo_end_pos << " which goes beyond the physical file end at " << fp_end
-                                         << ".");
-    }
-
+    /*
+     * TODO rewrite this check
     if (fp_end > phy_repo_end_pos) {
         // More real bytes than the ones in the repo
         // Perhaps an incomplete shrink/truncate?
     }
-
     assert(fp_end >= phy_repo_end_pos);
+    */
+
 
     gp.blk_init_cnt = u32_from_le(hdr.blk_init_cnt);
     if (gp.blk_init_cnt == 0) {
@@ -166,8 +159,7 @@ void Repository::seek_read_and_check_header() {
 }
 
 void Repository::seek_read_and_check_trailer(bool clear_trailer) {
-    assert(phy_repo_end_pos > 0);
-    assert(phy_repo_end_pos > phy_repo_start_pos);
+    // TODO this *may* still be useful: assert(phy_repo_end_pos > 0);
 
     if (trailer_sz < sizeof(struct repo_trailer_t)) {
         throw InconsistentXOZ(*this, F() << "the declared trailer size (" << trailer_sz
@@ -175,8 +167,7 @@ void Repository::seek_read_and_check_trailer(bool clear_trailer) {
                                          << " bytes.");
     }
 
-    assert(not u64_add_will_overflow(phy_repo_start_pos, repo_sz));
-    fp.seekg(phy_repo_start_pos + repo_sz);
+    fp.seekg(repo_sz);  // Go to the end of the repository in the file, just at the begin of the trailer
 
     struct repo_trailer_t eof;
     fp.read((char*)&eof, sizeof(eof));
@@ -187,13 +178,13 @@ void Repository::seek_read_and_check_trailer(bool clear_trailer) {
 
     if (clear_trailer) {
         memset(&eof, 0, sizeof(eof));
-        fp.seekp(phy_repo_start_pos + repo_sz);
+        fp.seekp(repo_sz);
         fp.write((const char*)&eof, sizeof(eof));
     }
 }
 
-std::streampos Repository::_seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz,
-                                                  uint32_t blk_total_cnt, const GlobalParameters& gp,
+std::streampos Repository::_seek_and_write_header(std::ostream& fp, uint64_t trailer_sz, uint32_t blk_total_cnt,
+                                                  const GlobalParameters& gp,
                                                   const std::vector<uint8_t>& root_sg_bytes) {
     // Note: currently the trailer size is fixed but we may decide
     // to make it variable later.
@@ -203,7 +194,7 @@ std::streampos Repository::_seek_and_write_header(std::ostream& fp, uint64_t phy
     // we should have all the info needed.
     assert(trailer_sz == sizeof(struct repo_trailer_t));
 
-    may_grow_and_seek_write_phy(fp, phy_repo_start_pos);
+    may_grow_and_seek_write_phy(fp, 0);
     struct repo_header_t hdr = {
             .magic = {'X', 'O', 'Z', 0},
             .repo_sz = u64_to_le(blk_total_cnt << gp.blk_sz_order),
@@ -228,13 +219,13 @@ std::streampos Repository::_seek_and_write_header(std::ostream& fp, uint64_t phy
     return streampos_after_hdr;
 }
 
-std::streampos Repository::_seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_start_pos,
-                                                   uint32_t blk_total_cnt, const GlobalParameters& gp) {
+std::streampos Repository::_seek_and_write_trailer(std::ostream& fp, uint32_t blk_total_cnt,
+                                                   const GlobalParameters& gp) {
     // Go to the end of the repository.
     // If this goes beyond the current file size, this will
     // "reserve" space for the "ghost" blocks.
-    assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_total_cnt << gp.blk_sz_order)));
-    may_grow_and_seek_write_phy(fp, phy_repo_start_pos + (blk_total_cnt << gp.blk_sz_order));
+    // TODO chk overflow (blk_total_cnt << gp.blk_sz_order)));
+    may_grow_and_seek_write_phy(fp, (blk_total_cnt << gp.blk_sz_order));
 
     struct repo_trailer_t eof = {.magic = {'E', 'O', 'F', 0}};
     fp.write((const char*)&eof, sizeof(eof));
@@ -335,7 +326,7 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
     return root_sg_bytes;
 }
 
-void Repository::_init_new_repository_into(std::iostream& fp, uint64_t phy_repo_start_pos, const GlobalParameters& gp) {
+void Repository::_init_new_repository_into(std::iostream& fp, const GlobalParameters& gp) {
     // Fail with an exception on any I/O error
     fp.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
@@ -350,8 +341,8 @@ void Repository::_init_new_repository_into(std::iostream& fp, uint64_t phy_repo_
 
     uint64_t trailer_sz = sizeof(struct repo_trailer_t);
     const auto root_sg_bytes = _encode_empty_root_segment();
-    _seek_and_write_header(fp, phy_repo_start_pos, trailer_sz, gp.blk_init_cnt, gp, root_sg_bytes);
-    _seek_and_write_trailer(fp, phy_repo_start_pos, gp.blk_init_cnt, gp);
+    _seek_and_write_header(fp, trailer_sz, gp.blk_init_cnt, gp, root_sg_bytes);
+    _seek_and_write_trailer(fp, gp.blk_init_cnt, gp);
 
     fp.seekg(0, std::ios_base::beg);
     fp.seekp(0, std::ios_base::beg);

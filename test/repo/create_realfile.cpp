@@ -58,9 +58,6 @@ namespace {
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
         EXPECT_EQ(repo.params().blk_sz_order, (uint8_t)9);
 
-        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
-        EXPECT_EQ(repo.params().phy_repo_start_pos, (uint64_t)0);
-
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
         EXPECT_EQ(repo.params().blk_init_cnt, (uint32_t)1);
 
@@ -114,7 +111,6 @@ namespace {
 
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -154,12 +150,11 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateNonDefaultsThenOpen.xoz";
-        Repository new_repo = Repository::create(fpath, true, 0, gp);
+        Repository new_repo = Repository::create(fpath, true, gp);
 
         // Check repository's parameters after create
         EXPECT_EQ(new_repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(new_repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(new_repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(new_repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         EXPECT_EQ(new_repo.begin_blk_nr(), (uint32_t)1);
@@ -199,7 +194,6 @@ namespace {
         // Check repository's parameters after open
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -236,7 +230,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz";
-        Repository new_repo = Repository::create(fpath, true, 0, gp);
+        Repository new_repo = Repository::create(fpath, true, gp);
         new_repo.close();
 
         {
@@ -261,7 +255,6 @@ namespace {
         // Check repository's parameters after open
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -298,7 +291,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateAndOverride.xoz";
-        Repository new_repo = Repository::create(fpath, true, 0, gp);
+        Repository new_repo = Repository::create(fpath, true, gp);
         new_repo.close();
 
         // Create again with fail_if_exists == False so it will not fail
@@ -321,7 +314,6 @@ namespace {
         // created repository.
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -358,7 +350,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateButFail.xoz";
-        Repository new_repo = Repository::create(fpath, true, 0, gp);
+        Repository new_repo = Repository::create(fpath, true, gp);
         new_repo.close();
 
         // Create again with fail_if_exists == True so it **will** fail
@@ -394,7 +386,6 @@ namespace {
         // created repository.
         EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().phy_repo_start_pos, gp.phy_repo_start_pos);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -430,7 +421,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenExpand.xoz";
-        Repository repo = Repository::create(fpath, true, 0, gp);
+        Repository repo = Repository::create(fpath, true, gp);
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
@@ -534,7 +525,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevert.xoz";
-        Repository repo = Repository::create(fpath, true, 0, gp);
+        Repository repo = Repository::create(fpath, true, gp);
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
@@ -637,7 +628,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz";
-        Repository repo = Repository::create(fpath, true, 0, gp);
+        Repository repo = Repository::create(fpath, true, gp);
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total

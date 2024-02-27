@@ -4,7 +4,7 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/repo/repository.h"
 
-void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint64_t phy_repo_start_pos) {
+void Repository::open_internal(const char* fpath, std::stringstream&& mem) {
     if (not closed) {
         throw std::runtime_error("The current repository is not closed. You need "
                                  "to close it before opening a new one");
@@ -54,24 +54,6 @@ void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint6
     // Save it
     fp_end = tmp_fp_end;
 
-    // Check that the physical file is large enough to make
-    // the phy_repo_start_pos valid.
-    if (phy_repo_start_pos > fp_end) {
-        // This should never happen but...
-        throw InconsistentXOZ(*this, F() << "the repository started at an offset (" << phy_repo_start_pos
-                                         << ") beyond the file physical size (" << fp_end << ".");
-    }
-
-    // Set the physical file positions to the expected start
-    this->phy_repo_start_pos = phy_repo_start_pos;
-
-    // We don't know yet where the repository ends.
-    // It may end at the end of the file or before
-    // so let's set it to zero
-    this->phy_repo_end_pos = (uint64_t)0;
-
-    gp.phy_repo_start_pos = phy_repo_start_pos;
-
     seek_read_and_check_header();
     seek_read_and_check_trailer(true /* clear_trailer */);
 
@@ -96,8 +78,7 @@ void Repository::open_internal(const char* fpath, std::stringstream&& mem, uint6
 // create a new file and a repository there.
 //
 // Only in this case the global parameters (gp) will be used.
-Repository Repository::create(const char* fpath, bool fail_if_exists, uint64_t phy_repo_start_pos,
-                              const GlobalParameters& gp) {
+Repository Repository::create(const char* fpath, bool fail_if_exists, const GlobalParameters& gp) {
     std::fstream test(fpath, std::fstream::in | std::fstream::binary);
     if (test) {
         // File already exists: ...
@@ -109,21 +90,21 @@ Repository Repository::create(const char* fpath, bool fail_if_exists, uint64_t p
         } else {
             // ... ok, try to open (the constructor will fail
             // if it cannot open it)
-            return Repository(fpath, phy_repo_start_pos);
+            return Repository(fpath);
         }
     } else {
         // File does not exist: create a new one and the open it
         std::fstream fp = _truncate_disk_file(fpath);
-        _init_new_repository_into(fp, phy_repo_start_pos, gp);
+        _init_new_repository_into(fp, gp);
         fp.close();  // flush the content make the constructor to open it back
-        return Repository(fpath, phy_repo_start_pos);
+        return Repository(fpath);
     }
 }
 
-Repository Repository::create_mem_based(uint64_t phy_repo_start_pos, const GlobalParameters& gp) {
+Repository Repository::create_mem_based(const GlobalParameters& gp) {
     std::stringstream fp;
-    _init_new_repository_into(fp, phy_repo_start_pos, gp);
-    return Repository(std::move(fp), phy_repo_start_pos);
+    _init_new_repository_into(fp, gp);
+    return Repository(std::move(fp));
 }
 
 std::fstream Repository::_truncate_disk_file(const char* fpath) {
@@ -144,8 +125,8 @@ void Repository::close() {
         return;
 
     const auto root_sg_bytes = update_and_encode_root_segment_and_loc();
-    _seek_and_write_header(fp, phy_repo_start_pos, trailer_sz, blk_total_cnt, gp, root_sg_bytes);
-    std::streampos pos_after_trailer = _seek_and_write_trailer(fp, phy_repo_start_pos, blk_total_cnt, gp);
+    _seek_and_write_header(fp, trailer_sz, blk_total_cnt, gp, root_sg_bytes);
+    std::streampos pos_after_trailer = _seek_and_write_trailer(fp, blk_total_cnt, gp);
 
     fp.seekp(0);
     uintmax_t file_sz = pos_after_trailer - fp.tellp();

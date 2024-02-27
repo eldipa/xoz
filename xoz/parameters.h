@@ -14,10 +14,6 @@ struct GlobalParameters {
     // It must be between 6 and 16 (block sizes of 64 to 64KB)
     uint8_t blk_sz_order = 9;
 
-    // In which position of the file the repository
-    // begins (in bytes).
-    uint64_t phy_repo_start_pos = 0;
-
     // Reserve these count of blocks for any new repository.
     // This must be greater than or equal to 1.
     // It cannot be zero because the block 0 is always present

@@ -6,15 +6,15 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/io/iospan.h"
 
-Repository::Repository(const char* fpath, uint64_t phy_repo_start_pos): fpath(fpath), fp(disk_fp), closed(true) {
+Repository::Repository(const char* fpath): fpath(fpath), fp(disk_fp), closed(true) {
     std::stringstream ignored;
-    open_internal(fpath, std::move(ignored), phy_repo_start_pos);
+    open_internal(fpath, std::move(ignored));
     assert(not closed);
     assert(blk_total_cnt >= 1);
 }
 
-Repository::Repository(std::stringstream&& mem, uint64_t phy_repo_start_pos): fp(mem_fp), closed(true) {
-    open_internal(Repository::IN_MEMORY_FPATH, std::move(mem), phy_repo_start_pos);
+Repository::Repository(std::stringstream&& mem): fp(mem_fp), closed(true) {
+    open_internal(Repository::IN_MEMORY_FPATH, std::move(mem));
     assert(not closed);
     assert(blk_total_cnt >= 1);
 }
@@ -71,12 +71,13 @@ void Repository::bootstrap_repository() {
 }
 
 std::ostream& Repository::print_stats(std::ostream& out) const {
+    // TODO make the Repository print stats much alignes with the resto fo the object
     out << "XOZ Repository\n"
            "File: '"
         << fpath
         << "' "
            "[start pos: "
-        << phy_repo_start_pos << ", end pos: " << phy_repo_end_pos
+        // TODO << phy_repo_start_pos << ", end pos: " << phy_repo_end_pos
         << "]\n"
            "File status: ";
 

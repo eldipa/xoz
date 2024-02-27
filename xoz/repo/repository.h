@@ -30,19 +30,6 @@ private:
 
     GlobalParameters gp;
 
-    // In which position of the physical file the repository
-    // begins (in bytes).
-    uint64_t phy_repo_start_pos;
-
-    // In which position of the physical file the repository
-    // ends (in bytes).
-    // It is calculated from phy_repo_start_pos plus the repo_sz
-    //
-    // Note: the physical file may extend beyond this position
-    // and it may or may not be resized (shrink / truncate) when
-    // the repository gets closed.
-    uint64_t phy_repo_end_pos;
-
     // The size in bytes of the whole repository and it is
     // a multiple of the block size.
     //
@@ -53,8 +40,7 @@ private:
     // The size of the trailer
     uint64_t trailer_sz;
 
-    // The end position of the file. It should be such
-    // phy_repo_start_pos < phy_repo_end_pos <= fp_end
+    // The end position of the file.
     uint64_t fp_end;
 
     // The total count of blocks reserved in the repository
@@ -73,21 +59,20 @@ private:
     Segment external_root_sg_loc;
 
 public:
-    // Open a physical file and read/load the repository from there
-    // starting at the byte phy_repo_start_pos.
+    // Open a physical file and read/load the repository.
     //
     // If the file does not exist, it cannot be opened for read+write
     // or it contains an invalid repository, fail.
     //
     // To create a new repository, use Repository::create.
-    explicit Repository(const char* fpath, uint64_t phy_repo_start_pos = 0);
+    explicit Repository(const char* fpath);
 
     // Open the repository from an in-memory file given by the iostream.
     // If the in-memory file does not have a valid repository, it will fail.
     //
     // To create a new repository with a memory based file,
     // use Repository::create_mem_based.
-    explicit Repository(std::stringstream&& mem, uint64_t phy_repo_start_pos = 0);
+    explicit Repository(std::stringstream&& mem);
 
     // Create a new repository in the given physical file.
     //
@@ -106,12 +91,11 @@ public:
     // create a new file and a repository there.
     //
     // Only in this case the global parameters (gp) will be used.
-    static Repository create(const char* fpath, bool fail_if_exists = false, uint64_t phy_repo_start_pos = 0,
+    static Repository create(const char* fpath, bool fail_if_exists = false,
                              const GlobalParameters& gp = GlobalParameters());
 
     // Like Repository::create but make the repository be memory based
-    static Repository create_mem_based(uint64_t phy_repo_start_pos = 0,
-                                       const GlobalParameters& gp = GlobalParameters());
+    static Repository create_mem_based(const GlobalParameters& gp = GlobalParameters());
 
     /*
      * Close the repository and flush any pending write.
@@ -205,14 +189,16 @@ private:
     // Alias for blk read / write positioning
     inline void seek_read_blk(uint32_t blk_nr, uint32_t offset = 0) {
         assert(blk_nr);
-        assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_nr << gp.blk_sz_order) + offset));
-        seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos + offset);
+        // TODO assert blk_nr << blk_sz_order does not overflow; and that + offset does not either
+        // assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_nr << gp.blk_sz_order) + offset));
+        seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + offset);
     }
 
     inline void seek_write_blk(uint32_t blk_nr, uint32_t offset = 0) {
         assert(blk_nr);
-        assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_nr << gp.blk_sz_order) + offset));
-        seek_write_phy(fp, (blk_nr << gp.blk_sz_order) + phy_repo_start_pos + offset);
+        // TODO
+        // assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_nr << gp.blk_sz_order) + offset));
+        seek_write_phy(fp, (blk_nr << gp.blk_sz_order) + offset);
     }
 
 
@@ -228,7 +214,7 @@ private:
     std::list<Segment> scan_descriptor_sets();
 
     // Initialize  a new repository in the specified file.
-    static void _init_new_repository_into(std::iostream& fp, uint64_t phy_repo_start_pos, const GlobalParameters& gp);
+    static void _init_new_repository_into(std::iostream& fp, const GlobalParameters& gp);
 
     // Create an empty file if it does not exist; truncate if it does
     static std::fstream _truncate_disk_file(const char* fpath);
@@ -238,11 +224,9 @@ private:
     //
     // These are static/class method versions to work with
     // Repository::create
-    static std::streampos _seek_and_write_header(std::ostream& fp, uint64_t phy_repo_start_pos, uint64_t trailer_sz,
-                                                 uint32_t blk_total_cnt, const GlobalParameters& gp,
-                                                 const std::vector<uint8_t>& root_sg_bytes);
-    static std::streampos _seek_and_write_trailer(std::ostream& fp, uint64_t phy_repo_start_pos, uint32_t blk_total_cnt,
-                                                  const GlobalParameters& gp);
+    static std::streampos _seek_and_write_header(std::ostream& fp, uint64_t trailer_sz, uint32_t blk_total_cnt,
+                                                 const GlobalParameters& gp, const std::vector<uint8_t>& root_sg_bytes);
+    static std::streampos _seek_and_write_trailer(std::ostream& fp, uint32_t blk_total_cnt, const GlobalParameters& gp);
 
     /*
      * Write any pending change in the root descriptor set and update (indirectly) the root segment.
@@ -272,7 +256,7 @@ private:
     // If the repository is disk based open the real file fpath,
     // otherwise, if the repository is memory based, initialize it
     // with the given memory stringstream.
-    void open_internal(const char* fpath, std::stringstream&& mem, uint64_t phy_repo_start_pos);
+    void open_internal(const char* fpath, std::stringstream&& mem);
 
     // Read a fully alloc'd and suballoc'd extent.
     // Called from impl_read_extent()
