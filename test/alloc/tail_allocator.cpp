@@ -306,7 +306,6 @@ namespace {
         }
 
         {
-            testing_xoz::zbreak();
             FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
             TailAllocator alloc;
             alloc.manage_block_array(blkarr);
