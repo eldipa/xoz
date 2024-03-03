@@ -340,7 +340,7 @@ void FileBlockArray::read_header(char* buf, uint32_t exact_sz) {
 
 void FileBlockArray::write_trailer(const char* buf, uint32_t exact_sz) {
     if (exact_sz >= blk_sz()) {
-        throw NotEnoughRoom(exact_sz, blk_sz(), "Bad write trailer, trailer must be smaller than the block size");
+        throw NotEnoughRoom(exact_sz, blk_sz() - 1, "Bad write trailer, trailer must be smaller than the block size");
     }
 
     trailer.resize(exact_sz);

@@ -7,6 +7,7 @@
 #include "test/testing_xoz.h"
 
 #include <cstdlib>
+#include <vector>
 
 #define SCRATCH_HOME "./scratch/mem/"
 
@@ -22,6 +23,18 @@ using ::testing_xoz::helpers::are_all_zeros;
 
 #define XOZ_EXPECT_FILE_SERIALIZATION(path, at, len, data) do {           \
     EXPECT_EQ(hexdump(file2mem(path), (at), (len)), (data));              \
+} while (0)
+
+#define XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, at, len, data) do {  \
+    std::vector<char> header((blkarr).header_sz());                       \
+    (blkarr).read_header(&header[0], uint32_t(header.size()));                   \
+    EXPECT_EQ(hexdump(header, (at), (len)), (data));                     \
+} while (0)
+
+#define XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, at, len, data) do {  \
+    std::vector<char> trailer((blkarr).trailer_sz());                       \
+    (blkarr).read_trailer(&trailer[0], uint32_t(trailer.size()));                   \
+    EXPECT_EQ(hexdump(trailer, (at), (len)), (data));                     \
 } while (0)
 
 #define XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, at, len, data) do {           \
@@ -47,6 +60,13 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         // Close and check what we have on disk.
         blkarr.close();
@@ -64,6 +84,13 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         // Close and check what we have on disk.
         blkarr.close();
@@ -87,6 +114,14 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         // Close and check what we have on disk.
         // Expected: only the header, zero'd
@@ -135,6 +170,14 @@ namespace {
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
         // Close and check that the file in disk still exists
         // Note: in CreateNew test we create-close-check, here
         // we do create-close-open-close-check.
@@ -157,6 +200,14 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         blkarr.close();
         XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
@@ -183,6 +234,16 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(2));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         // Close and check that the file in disk still exists
         // Note: in CreateNew test we create-close-check, here
@@ -209,6 +270,16 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(2));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         blkarr.close();
         XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
@@ -243,6 +314,14 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
         blkarr.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
                 ""
@@ -269,6 +348,14 @@ namespace {
         EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         blkarr.close();
         XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
@@ -301,6 +388,15 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
         blkarr.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
                 "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -330,6 +426,15 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
         blkarr.close();
         XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
                 "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -355,6 +460,14 @@ namespace {
         EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         blkarr.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
@@ -391,6 +504,14 @@ namespace {
         EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         blkarr.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
@@ -429,6 +550,15 @@ namespace {
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
         blkarr.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
                 "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -461,6 +591,14 @@ namespace {
         EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(9));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(9));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         // Close and reopen and check again
         blkarr.close();
@@ -512,6 +650,14 @@ namespace {
         EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(9));
         EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(9));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr2, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr2, 0, -1,
+                ""
+                );
+
         blkarr2.close();
         EXPECT_EQ(are_all_zeros(blkarr2.expose_mem_fp()), (bool)true);
         }
@@ -543,6 +689,15 @@ namespace {
         EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
         EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(10));
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(9));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
 
         // Close and check again
         blkarr.close();
@@ -588,6 +743,14 @@ namespace {
         EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(0));
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr2, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr2, 0, -1,
+                ""
+                );
+
         EXPECT_EQ(blkarr2.capacity(), (uint32_t)0);
         }
 
@@ -625,6 +788,14 @@ namespace {
         EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr2, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr2, 0, -1,
+                ""
+                );
 
         EXPECT_EQ(blkarr2.capacity(), (uint32_t)0);
         }
@@ -671,6 +842,16 @@ namespace {
 
         EXPECT_EQ(blkarr2.capacity(), (uint32_t)0);
 
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr2, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr2, 0, -1,
+                ""
+                );
+
+        blkarr2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
                 "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
@@ -715,7 +896,17 @@ namespace {
 
         EXPECT_EQ(blkarr2.capacity(), (uint32_t)0);
 
-        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr2, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr2, 0, -1,
+                ""
+                );
+
+        blkarr2.close();
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr2, 0, -1,
                 "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
@@ -761,6 +952,14 @@ namespace {
         EXPECT_EQ(blkarr3.begin_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr3.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr3.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr3, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr3, 0, -1,
+                ""
+                );
     }
 
     TEST(FileBlockArrayTest, ReleaseBlocksOnDestroy) {
@@ -802,6 +1001,77 @@ namespace {
         EXPECT_EQ(blkarr3.begin_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr3.past_end_blk_nr(), uint32_t(0));
         EXPECT_EQ(blkarr3.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr3, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr3, 0, -1,
+                ""
+                );
+    }
+
+    TEST(FileBlockArrayTest, BadReadHeaderAndTrailer) {
+        {
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 0);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(0));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        char buf[1] = {'A'};
+        EXPECT_THAT(
+            [&]() { blkarr.read_header(buf, 1); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 1 bytes but only 0 bytes are available. Bad read header")
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            [&]() { blkarr.read_trailer(buf, 1); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 1 bytes but only 0 bytes are available. Bad read trailer")
+                    )
+                )
+        );
+
+        // You cannot write a header if there is not room. There is no way to grow the space
+        // for the header.
+        EXPECT_THAT(
+            [&]() { blkarr.write_header(buf, 1); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 1 bytes but only 0 bytes are available. Bad write header")
+                    )
+                )
+        );
+
+        // In contrast, a trailer can always grow
+        blkarr.write_trailer(buf, 1);
+
+        // However, the trailer cannot grow beyond the size of a single block
+        EXPECT_THAT(
+            [&]() { blkarr.write_trailer(buf, 64); },
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 64 bytes but only 63 bytes are available. Bad write trailer, trailer must be smaller than the block size")
+                    )
+                )
+        );
+
+        blkarr.close();
+
+        // Note how only the first trailer that we wrote really ended in the file
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
+                "41"
+                );
+        }
+
     }
 }
 
