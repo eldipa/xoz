@@ -24,6 +24,10 @@ using ::testing_xoz::helpers::are_all_zeros;
     EXPECT_EQ(hexdump(file2mem(path), (at), (len)), (data));              \
 } while (0)
 
+#define XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, at, len, data) do {           \
+    EXPECT_EQ(hexdump((blkarr).expose_mem_fp(), (at), (len)), (data));              \
+} while (0)
+
 namespace {
     // Create a new repository with default settings.
     // Close it and check the dump of the file.
@@ -31,6 +35,7 @@ namespace {
     // The check of the dump is simplistic: it is only to validate
     // that the .xoz file was created and it is non-empty.
     TEST(FileBlockArrayTest, CreateNew) {
+        {
         DELETE("CreateNew.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateNew.xoz";
@@ -48,10 +53,73 @@ namespace {
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
                 "" // nothing as expected
                 );
+        }
+
+        {
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(512, 0);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(0));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(512));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+
+        // Close and check what we have on disk.
+        blkarr.close();
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
+                "" // nothing as expected
+                );
+        }
 
     }
 
+    TEST(FileBlockArrayTest, CreateNewWithHeader) {
+        {
+        DELETE("CreateNewWithHeader.xoz");
+
+        const char* fpath = SCRATCH_HOME "CreateNewWithHeader.xoz";
+        FileBlockArray blkarr = FileBlockArray::create(fpath, 64, 1, true);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64)); // header is always created
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+
+        // Close and check what we have on disk.
+        // Expected: only the header, zero'd
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+
+        {
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64)); // header is always created
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+
+        // Close and check what we have on disk.
+        // Expected: only the header, zero'd
+        blkarr.close();
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+    }
+
+
     TEST(FileBlockArrayTest, CreateNewThenOpen) {
+        {
         DELETE("CreateNewThenOpen.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateNewThenOpen.xoz";
@@ -74,10 +142,86 @@ namespace {
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
                 ""
                 );
+        }
+
+        {
+        FileBlockArray new_blkarr = FileBlockArray::create_mem_based(512);
+        new_blkarr.close();
+
+        auto ss = new_blkarr.expose_mem_fp().str(); // copy
+        FileBlockArray blkarr(std::stringstream(ss), 512);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(0));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(512));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+        }
     }
 
 
+    TEST(FileBlockArrayTest, CreateNewThenOpenWithHeader) {
+        {
+        DELETE("CreateNewThenOpenWithHeader.xoz");
+
+        testing_xoz::zbreak();
+        const char* fpath = SCRATCH_HOME "CreateNewThenOpenWithHeader.xoz";
+        FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 2, true);
+        new_blkarr.close();
+
+        FileBlockArray blkarr(SCRATCH_HOME "CreateNewThenOpenWithHeader.xoz", 64, 2);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(128));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(2));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(2));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+
+        // Close and check that the file in disk still exists
+        // Note: in CreateNew test we create-close-check, here
+        // we do create-close-open-close-check.
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+
+        {
+        FileBlockArray new_blkarr = FileBlockArray::create_mem_based(64, 2);
+        new_blkarr.close();
+
+        auto ss = new_blkarr.expose_mem_fp().str(); // copy
+        FileBlockArray blkarr(std::stringstream(ss), 64, 2);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(128));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(2));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(2));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+    }
+
     TEST(FileBlockArrayTest, CreateThenOpenCloseOpen) {
+        {
         DELETE("CreateThenOpenCloseOpen.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenOpenCloseOpen.xoz";
@@ -103,7 +247,95 @@ namespace {
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
                 ""
                 );
+        }
 
+        {
+        FileBlockArray new_blkarr = FileBlockArray::create_mem_based(64);
+        new_blkarr.close();
+
+        {
+            auto ss = new_blkarr.expose_mem_fp().str(); // copy
+            FileBlockArray blkarr(std::stringstream(ss), 64);
+
+            // Close and reopen again
+            blkarr.close();
+        }
+
+        auto ss = new_blkarr.expose_mem_fp().str(); // copy
+        FileBlockArray blkarr(std::stringstream(ss), 64);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(0));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+        }
+    }
+
+    TEST(FileBlockArrayTest, CreateThenOpenCloseOpenWithHeader) {
+        {
+        DELETE("CreateThenOpenCloseOpenWithHeader.xoz");
+
+        const char* fpath = SCRATCH_HOME "CreateThenOpenCloseOpenWithHeader.xoz";
+        FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 1, true);
+        new_blkarr.write_header("ABCD", 4);
+        new_blkarr.close();
+
+        {
+            FileBlockArray blkarr(SCRATCH_HOME "CreateThenOpenCloseOpenWithHeader.xoz", 64, 1);
+
+            // Close and reopen again
+            blkarr.close();
+        }
+
+        FileBlockArray blkarr(SCRATCH_HOME "CreateThenOpenCloseOpenWithHeader.xoz", 64, 1);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+
+        {
+        FileBlockArray new_blkarr = FileBlockArray::create_mem_based(64, 1);
+        new_blkarr.write_header("ABCD", 4);
+        new_blkarr.close();
+
+        {
+            auto ss = new_blkarr.expose_mem_fp().str(); // copy
+            FileBlockArray blkarr(std::stringstream(ss), 64, 1);
+
+            // Close and reopen again
+            blkarr.close();
+        }
+
+        auto ss = new_blkarr.expose_mem_fp().str(); // copy
+        FileBlockArray blkarr(std::stringstream(ss), 64, 1);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
     }
 
     TEST(FileBlockArrayTest, CreateThenRecreateAndOverride) {
@@ -138,7 +370,7 @@ namespace {
         new_blkarr.close();
 
         // Create again with fail_if_exists == True so it **will** fail
-        // because the file already exists but instead it will open it
+        // because the file already exists
         EXPECT_THAT(
             [&]() { FileBlockArray::create(SCRATCH_HOME "CreateThenRecreateButFail.xoz", 64, 0, true); },
             ThrowsMessage<OpenXOZError>(
@@ -166,7 +398,46 @@ namespace {
                 );
     }
 
+    TEST(FileBlockArrayTest, CreateThenRecreateButFailWithHeader) {
+        DELETE("CreateThenRecreateButFailWithHeader.xoz");
+
+        const char* fpath = SCRATCH_HOME "CreateThenRecreateButFailWithHeader.xoz";
+        FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 1, true);
+        new_blkarr.write_header("ABCD", 4);
+        new_blkarr.close();
+
+        // Create again with fail_if_exists == True so it **will** fail
+        // because the file already exists
+        EXPECT_THAT(
+            [&]() { FileBlockArray::create(SCRATCH_HOME "CreateThenRecreateButFailWithHeader.xoz", 64, 1, true); },
+            ThrowsMessage<OpenXOZError>(
+                AllOf(
+                    HasSubstr("FileBlockArray::create"),
+                    HasSubstr("the file already exist and FileBlockArray::create is configured to not override it")
+                    )
+                )
+        );
+
+        // Try to open it again, this time with fail_if_exists == False.
+        // Check that the previous failed creation **did not** corrupted the original
+        // file
+        FileBlockArray blkarr = FileBlockArray::create(SCRATCH_HOME "CreateThenRecreateButFailWithHeader.xoz", 64, 1, false);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+    }
+
     TEST(FileBlockArrayTest, CreateThenExpand) {
+        {
         DELETE("CreateThenExpand.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpand.xoz";
@@ -206,6 +477,44 @@ namespace {
         blkarr2.close();
         EXPECT_EQ(are_all_zeros(file2mem((SCRATCH_HOME "CreateThenExpand.xoz"))), (bool)true);
 
+        }
+
+        {
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+
+        auto old_top_nr = blkarr.grow_by_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(3 * 64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(3));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(3));
+
+        // Add 6 more blocks
+        old_top_nr = blkarr.grow_by_blocks(6);
+        EXPECT_EQ(old_top_nr, (uint32_t)3);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(9 * 64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(9));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(9));
+
+        // Close and reopen and check again
+        blkarr.close();
+        auto ss = blkarr.expose_mem_fp().str(); // copy
+        FileBlockArray blkarr2(std::stringstream(ss), 64);
+
+        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(9 * 64));
+        EXPECT_EQ(blkarr2.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(9));
+        EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(9));
+
+        blkarr2.close();
+        EXPECT_EQ(are_all_zeros(blkarr2.expose_mem_fp()), (bool)true);
+        }
     }
 
     TEST(FileBlockArrayTest, CreateThenExpandNonZeroBeginBlkNr) {
@@ -242,6 +551,7 @@ namespace {
     }
 
     TEST(FileBlockArrayTest, CreateThenExpandThenRevert) {
+        {
         DELETE("CreateThenExpandThenRevert.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevert.xoz";
@@ -279,6 +589,137 @@ namespace {
         EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(0));
 
         EXPECT_EQ(blkarr2.capacity(), (uint32_t)0);
+        }
+
+        {
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+
+        auto old_top_nr = blkarr.grow_by_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(3 * 64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(3));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(3));
+
+        // Now "revert" freeing those 3 blocks
+        blkarr.shrink_by_blocks(3);
+        // Capacity still remains in 3: no real shrink happen
+        EXPECT_EQ(blkarr.capacity(), (uint32_t)3);
+
+        // No resize happen in the file either
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(3 * 64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        // Close and reopen and check again, this should release_blocks and shrink the file automatically
+        blkarr.close();
+        auto ss = blkarr.expose_mem_fp().str(); // copy
+        FileBlockArray blkarr2(std::stringstream(ss), 64);
+
+        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(0 * 64));
+        EXPECT_EQ(blkarr2.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(0));
+
+        EXPECT_EQ(blkarr2.capacity(), (uint32_t)0);
+        }
+    }
+
+    TEST(FileBlockArrayTest, CreateThenExpandThenRevertWithHeader) {
+        {
+        DELETE("CreateThenExpandThenRevertWithHeader.xoz");
+
+        const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertWithHeader.xoz";
+        FileBlockArray blkarr = FileBlockArray::create(fpath, 64, 1, true);
+        blkarr.write_header("ABCD", 4);
+
+        auto old_top_nr = blkarr.grow_by_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(4 * 64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(4));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(3));
+
+        // Now "revert" freeing those 3 blocks
+        blkarr.shrink_by_blocks(3);
+        // Capacity still remains in 3: no real shrink happen
+        EXPECT_EQ(blkarr.capacity(), (uint32_t)3);
+
+        // No resize happen in the file either
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(4 * 64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        // Close and reopen and check again, this should release_blocks and shrink the file automatically
+        blkarr.close();
+        FileBlockArray blkarr2(SCRATCH_HOME "CreateThenExpandThenRevertWithHeader.xoz", 64, 1);
+
+        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(1 * 64));
+        EXPECT_EQ(blkarr2.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(0));
+
+        EXPECT_EQ(blkarr2.capacity(), (uint32_t)0);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+
+        {
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        blkarr.write_header("ABCD", 4);
+
+        auto old_top_nr = blkarr.grow_by_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(4 * 64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(4));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(3));
+
+        // Now "revert" freeing those 3 blocks
+        blkarr.shrink_by_blocks(3);
+        // Capacity still remains in 3: no real shrink happen
+        EXPECT_EQ(blkarr.capacity(), (uint32_t)3);
+
+        // No resize happen in the file either
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(4 * 64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        // Close and reopen and check again, this should release_blocks and shrink the file automatically
+        blkarr.close();
+        auto ss = blkarr.expose_mem_fp().str(); // copy
+        FileBlockArray blkarr2(std::stringstream(ss), 64, 1);
+
+        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(1 * 64));
+        EXPECT_EQ(blkarr2.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(0));
+
+        EXPECT_EQ(blkarr2.capacity(), (uint32_t)0);
+
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
     }
 
     TEST(FileBlockArrayTest, CreateThenExpandCloseThenShrink) {

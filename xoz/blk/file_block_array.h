@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "xoz/blk/block_array.h"
 #include "xoz/io/iospan.h"
@@ -57,6 +58,48 @@ public:
      * Therefore, we don't support reopen by design.
      * */
     void close();
+
+public:
+    /*
+     * Return the size in bytes between the begin of the physical file and the begin
+     * of the block array (header) and the size in between the end of the block array
+     * and the end of the physical file (trailer)
+     * */
+    uint32_t header_sz() const;
+    uint32_t trailer_sz() const;
+
+    /*
+     * Write or read the space between the begin of the physical file and the begin
+     * of the block array.
+     *
+     * The buffer must have <exact_sz> bytes of valid data (for writing it) or available
+     * space (for reading into).
+     *
+     * The <exact_sz> cannot be larger that the available space in the header and this
+     * space cannot be neither grow nor shrink once the FileBlockArray was created.
+     *
+     * Both the read and the write involve an access (IO) to the physical file.
+     * */
+    void write_header(const char* buf, uint32_t exact_sz);
+    void read_header(char* buf, uint32_t exact_sz);
+
+    /*
+     * Write or read the trailer.
+     *
+     * The read is limited by how large is the trailer (trailer_sz()) but
+     * the write *can* make the trailer grow or shrink, depending of
+     * the value <exact_sz> respect to the current trailer_sz().
+     * The only restriction is that the trailer size must be smaller
+     * than a block size.
+     *
+     * The trailer is loaded from the physical file at the moment of the opening,
+     * so the read_trailer does not incur in any IO operation. The same goes
+     * for write_trailer: the method stores in-memory the new trailer without
+     * touching the disk, only when the FileBlockArray is closed (method close()
+     * or destructor) the trailer is actually written.
+     * */
+    void write_trailer(const char* buf, uint32_t exact_sz);
+    void read_trailer(char* buf, uint32_t exact_sz);
 
 public:
     /*
@@ -189,6 +232,9 @@ private:
     std::iostream& fp;
 
     bool closed;
+    bool closing;
+
+    std::vector<char> trailer;
 
     constexpr static const char* IN_MEMORY_FPATH = "@in-memory";
 };

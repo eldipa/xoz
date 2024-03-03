@@ -1,6 +1,7 @@
 #include "xoz/blk/file_block_array.h"
 
 #include <algorithm>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <utility>
@@ -9,14 +10,14 @@
 #include "xoz/mem/bits.h"
 
 FileBlockArray::FileBlockArray(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr):
-        BlockArray(), fpath(fpath), fp(disk_fp), closed(true) {
+        BlockArray(), fpath(fpath), fp(disk_fp), closed(true), closing(false) {
     std::stringstream ignored;
     open_internal(fpath, std::move(ignored), blk_sz, begin_blk_nr, false);
     assert(not closed);
 }
 
 FileBlockArray::FileBlockArray(std::stringstream&& mem, uint32_t blk_sz, uint32_t begin_blk_nr):
-        BlockArray(), fp(mem_fp), closed(true) {
+        BlockArray(), fp(mem_fp), closed(true), closing(false) {
     open_internal(FileBlockArray::IN_MEMORY_FPATH, std::move(mem), blk_sz, begin_blk_nr, false);
     assert(not closed);
 }
@@ -44,15 +45,21 @@ uint32_t FileBlockArray::impl_shrink_by_blocks([[maybe_unused]] uint32_t blk_cnt
 
 uint32_t FileBlockArray::impl_release_blocks() {
     uint32_t cnt = capacity() - blk_cnt();
-    if (not cnt) {
+    if (not cnt and not closing) {
+        // fast path when there is nothing to release *and* we don't care about
+        // the leaving an undefined trailer in the disk because we are not closing the file
         return 0;
     }
 
-    auto file_sz = past_end_blk_nr() << blk_sz_order();
+    // we do the truncate of the file if either:
+    //  - there are blocks to release
+    //  - or we are closing the file and we want to be sure that a pre-existing trailer (in disk)
+    //    is removed
+    auto new_file_sz = past_end_blk_nr() << blk_sz_order();
 
     if (std::addressof(fp) == std::addressof(disk_fp)) {
         disk_fp.close();
-        std::filesystem::resize_file(fpath, file_sz);
+        std::filesystem::resize_file(fpath, new_file_sz);
 
         // this is necessary to make open_internal() work
         closed = true;
@@ -69,7 +76,7 @@ uint32_t FileBlockArray::impl_release_blocks() {
         mem_fp.seekg(0);
 
         char buf[128];
-        uintmax_t remain = file_sz;
+        uintmax_t remain = new_file_sz;
         while (remain) {
             const auto chk_sz = std::min(sizeof(buf), remain);
             mem_fp.read(buf, chk_sz);
@@ -191,21 +198,16 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     // If it cannot be represented by uint64_t, fail.
     seek_read_phy(fp, 0, std::ios_base::end);
     auto tmp_fp_end = fp.tellg();
-    if (tmp_fp_end >=
-        INT32_MAX) {  // TODO signed or unsigned check?, probably we should go a little less like INT32_MAX-blk_sz()
+
+    // TODO signed or unsigned check?, probably we should go a little less like INT32_MAX-blk_sz()
+    if (tmp_fp_end >= INT32_MAX) {
         throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");  // TODO exceptions
     }
 
     assert(tmp_fp_end >= 0);
     uint32_t fp_sz = uint32_t(tmp_fp_end);
 
-    if (fp_sz % blk_sz) {
-        // File not divisible in an integer number of blocks
-        // For now we throw
-        throw std::runtime_error("");  // TODO
-    }
-
-    uint32_t past_end_blk_nr = fp_sz / blk_sz;
+    uint32_t past_end_blk_nr = fp_sz / blk_sz;  // truncate to integer
     if (begin_blk_nr > past_end_blk_nr) {
         // The file is too small!
         throw std::runtime_error((F() << "File has a size of " << fp_sz << " bytes (" << (fp_sz >> 10) << " kb) "
@@ -215,7 +217,16 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
                                          .str());
     }
 
+    // Read the trailer only if we are not reopening. If we are reopening assume
+    // that the attribute this->trailer already has the trailer loaded (and possibly
+    // modified by the user).
     if (not is_reopening) {
+        auto _trailer_sz = fp_sz % blk_sz;
+        seek_read_phy(fp, _trailer_sz, std::ios_base::end);
+
+        trailer.resize(_trailer_sz);
+        fp.read(trailer.data(), _trailer_sz);
+
         initialize_block_array(blk_sz, begin_blk_nr, past_end_blk_nr);
     }
 
@@ -286,9 +297,60 @@ void FileBlockArray::close() {
     if (closed)
         return;
 
+    // this will make release_blocks to truncate the file even if no blocks would be released
+    // so we can be sure that the pre-existing trailer in disk is removed before we write
+    // a new one.
+    closing = true;
     release_blocks();
+
+    if (trailer.size() > 0) {
+        // note: the seek relays on that the file fp was truncated to a size exactly
+        // of the blocks in the array plus the header so we can write the trailer at the end
+        fp.seekp(0, std::ios_base::end);
+        fp.write(trailer.data(), trailer.size());
+    }
+
     if (std::addressof(fp) == std::addressof(disk_fp)) {
         disk_fp.close();
     }
     closed = true;
+}
+
+uint32_t FileBlockArray::header_sz() const { return begin_blk_nr() << blk_sz_order(); }
+
+uint32_t FileBlockArray::trailer_sz() const { return assert_u32(trailer.size()); }
+
+void FileBlockArray::write_header(const char* buf, uint32_t exact_sz) {
+    if (exact_sz > header_sz()) {
+        throw NotEnoughRoom(exact_sz, header_sz(), "Bad write header");
+    }
+
+    fp.seekp(0);
+    fp.write(buf, exact_sz);
+}
+
+void FileBlockArray::read_header(char* buf, uint32_t exact_sz) {
+    if (exact_sz > header_sz()) {
+        throw NotEnoughRoom(exact_sz, header_sz(), "Bad read header");
+    }
+
+    fp.seekg(0);
+    fp.read(buf, exact_sz);
+}
+
+void FileBlockArray::write_trailer(const char* buf, uint32_t exact_sz) {
+    if (exact_sz >= blk_sz()) {
+        throw NotEnoughRoom(exact_sz, blk_sz(), "Bad write trailer, trailer must be smaller than the block size");
+    }
+
+    trailer.resize(exact_sz);
+    memcpy(trailer.data(), buf, exact_sz);
+}
+
+void FileBlockArray::read_trailer(char* buf, uint32_t exact_sz) {
+    if (exact_sz > trailer_sz()) {
+        throw NotEnoughRoom(exact_sz, trailer_sz(), "Bad read trailer");
+    }
+
+    memcpy(buf, trailer.data(), exact_sz);
 }
