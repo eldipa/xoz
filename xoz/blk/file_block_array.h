@@ -111,7 +111,8 @@ public:
     /*
      * Return the current file size (either for disk-based and for memory-based).
      * Note that this may be larger than (past_end_blk_nr() << blk_sz_order())
-     * due pending release blocks.
+     * due pending release blocks and it includes the trailer that it is in the file
+     * which may not be the updated version in memory.
      * */
     uint32_t phy_file_sz() const;
 

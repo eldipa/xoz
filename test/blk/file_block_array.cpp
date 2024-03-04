@@ -221,7 +221,6 @@ namespace {
         {
         DELETE("CreateNewThenOpenWithHeader.xoz");
 
-        testing_xoz::zbreak();
         const char* fpath = SCRATCH_HOME "CreateNewThenOpenWithHeader.xoz";
         FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 2, true);
         new_blkarr.close();
@@ -1072,6 +1071,90 @@ namespace {
                 );
         }
 
+    }
+
+    TEST(FileBlockArrayTest, CreateThenExpandCloseThenShrinkWithTrailer) {
+        DELETE("CreateThenExpandCloseThenShrinkWithTrailer.xoz");
+
+        const char* fpath = SCRATCH_HOME "CreateThenExpandCloseThenShrinkWithTrailer.xoz";
+        FileBlockArray blkarr = FileBlockArray::create(fpath, 64, 0, true);
+        blkarr.write_trailer("ABCD", 4);
+
+        auto old_top_nr = blkarr.grow_by_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(3 * 64)); // trailer is not there yet
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(3));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(3));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344"
+                );
+
+        // Close and check: the file should be grown
+        blkarr.close();
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4142 4344"
+                );
+
+        // Now "shrink" freeing those 3 blocks
+        FileBlockArray blkarr2(SCRATCH_HOME "CreateThenExpandCloseThenShrinkWithTrailer.xoz", 64);
+        blkarr2.shrink_by_blocks(3);
+
+        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(3 * 64 + 4)); // the shrink is not reflected in the file yet but the trailer is
+        EXPECT_EQ(blkarr2.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr2, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr2, 0, -1,
+                "4142 4344"
+                );
+
+        // Close and check again: the file should shrank
+        blkarr2.close();
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344"
+                );
+
+        FileBlockArray blkarr3(SCRATCH_HOME "CreateThenExpandCloseThenShrinkWithTrailer.xoz", 64);
+
+        EXPECT_EQ(blkarr3.phy_file_sz(), uint32_t(0 * 64 + 4)); // only the trailer is there
+        EXPECT_EQ(blkarr3.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr3.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr3.past_end_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr3.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr3, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr3, 0, -1,
+                "4142 4344"
+                );
+
+        blkarr3.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344"
+                );
     }
 }
 

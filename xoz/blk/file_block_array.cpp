@@ -146,10 +146,9 @@ uint32_t FileBlockArray::phy_file_sz() const {
     seek_read_phy(fp, 0);
     auto begin = fp.tellg();
     seek_read_phy(fp, 0, std::ios_base::end);
-    auto sz = fp.tellg() - begin;
+    uint64_t sz = fp.tellg() - begin;
 
-    assert(0 <= sz and sz < INT32_MAX);
-    return uint32_t(sz);
+    return assert_u32(sz);
 }
 
 void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, uint32_t blk_sz, uint32_t begin_blk_nr,
@@ -190,6 +189,7 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     }
 
     this->fpath = std::string(fpath);
+    auto fp_begin = fp.tellg();
 
     // Renable the exception mask
     fp.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -197,15 +197,15 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     // Calculate the end of the file
     // If it cannot be represented by uint64_t, fail.
     seek_read_phy(fp, 0, std::ios_base::end);
-    auto tmp_fp_end = fp.tellg();
+    auto tmp_fp_sz = fp.tellg() - fp_begin;
 
     // TODO signed or unsigned check?, probably we should go a little less like INT32_MAX-blk_sz()
-    if (tmp_fp_end >= INT32_MAX) {
+    if (tmp_fp_sz >= INT32_MAX) {
         throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");  // TODO exceptions
     }
 
-    assert(tmp_fp_end >= 0);
-    uint32_t fp_sz = uint32_t(tmp_fp_end);
+    assert(tmp_fp_sz >= 0);
+    uint32_t fp_sz = uint32_t(tmp_fp_sz);
 
     uint32_t past_end_blk_nr = fp_sz / blk_sz;  // truncate to integer
     if (begin_blk_nr > past_end_blk_nr) {
@@ -222,7 +222,7 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     // modified by the user).
     if (not is_reopening) {
         auto _trailer_sz = fp_sz % blk_sz;
-        seek_read_phy(fp, _trailer_sz, std::ios_base::end);
+        seek_read_phy(fp, -int32_t(_trailer_sz), std::ios_base::end);  // head up: the position is negative
 
         trailer.resize(_trailer_sz);
         fp.read(trailer.data(), _trailer_sz);
