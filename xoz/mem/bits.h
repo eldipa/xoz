@@ -71,7 +71,7 @@ constexpr inline void write_bitsfield_into_u32(uint32_t& field, T val, uint32_t 
 
 
 constexpr uint8_t assert_u8(uint32_t n) {
-    assert(n <= (uint8_t)-1);
+    assert(/*0 <= n and*/ n <= (uint8_t)-1);
     return (uint8_t)n;
 }
 
@@ -84,7 +84,7 @@ constexpr inline uint32_t assert_u32(T n) {
     } else {
         // We require a check in runtime. Here we let the uint32_t -1 (max)
         // to be promoted to T. This will check signess too.
-        assert(n <= (uint32_t)-1);
+        assert(0 <= n and n <= (uint32_t)-1);
         return (uint32_t)n;
     }
 }
@@ -98,7 +98,7 @@ constexpr inline uint16_t assert_u16(T n) {
     } else {
         // We require a check in runtime. Here we let the uint16_t -1 (max)
         // to be promoted to T. This will check signess too.
-        assert(n <= (uint16_t)-1);
+        assert(0 <= n and n <= (uint16_t)-1);
         return (uint16_t)n;
     }
 }
