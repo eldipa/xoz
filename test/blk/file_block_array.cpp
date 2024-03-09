@@ -42,12 +42,8 @@ using ::testing_xoz::helpers::are_all_zeros;
 } while (0)
 
 namespace {
-    // Create a new repository with default settings.
-    // Close it and check the dump of the file.
-    //
-    // The check of the dump is simplistic: it is only to validate
-    // that the .xoz file was created and it is non-empty.
     TEST(FileBlockArrayTest, CreateNew) {
+        // Create a file, empty, close it and check the content in disk
         {
         DELETE("CreateNew.xoz");
 
@@ -75,6 +71,7 @@ namespace {
                 );
         }
 
+        // Same file creation but in memory
         {
         FileBlockArray blkarr = FileBlockArray::create_mem_based(512, 0);
 
@@ -102,6 +99,8 @@ namespace {
     }
 
     TEST(FileBlockArrayTest, CreateNewWithHeader) {
+        // Create a file with 1 block of header. Because the file is new
+        // FileBlockArray::create will fill that block with zeros
         {
         DELETE("CreateNewWithHeader.xoz");
 
@@ -154,6 +153,8 @@ namespace {
 
 
     TEST(FileBlockArrayTest, CreateNewThenOpen) {
+        // Create a file, close is, and open it again (in a new FileBlockArray object)
+        // Opening a file reusing the FileBlockArray instance is not supported
         {
         DELETE("CreateNewThenOpen.xoz");
 
@@ -218,6 +219,7 @@ namespace {
 
 
     TEST(FileBlockArrayTest, CreateNewThenOpenWithHeader) {
+        // Create a file with 2 blocks of header, close it and reopen it.
         {
         DELETE("CreateNewThenOpenWithHeader.xoz");
 
@@ -291,6 +293,7 @@ namespace {
     }
 
     TEST(FileBlockArrayTest, CreateThenOpenCloseOpen) {
+        // Create, close, open, close , open.
         {
         DELETE("CreateThenOpenCloseOpen.xoz");
 
@@ -364,6 +367,7 @@ namespace {
     }
 
     TEST(FileBlockArrayTest, CreateThenOpenCloseOpenWithHeader) {
+        // Create, close, open, close , open, with an initial 1 block of header
         {
         DELETE("CreateThenOpenCloseOpenWithHeader.xoz");
 
@@ -442,17 +446,19 @@ namespace {
         }
     }
 
-    TEST(FileBlockArrayTest, CreateThenRecreateAndOverride) {
-        DELETE("CreateThenRecreateAndOverride.xoz");
+    TEST(FileBlockArrayTest, CreateThenCreateButOpen) {
+        // Create, close, then create again but because the file exists and
+        // fail_if_exists is false, do not override but open instead.
+        DELETE("CreateThenCreateButOpen.xoz");
 
 
-        const char* fpath = SCRATCH_HOME "CreateThenRecreateAndOverride.xoz";
+        const char* fpath = SCRATCH_HOME "CreateThenCreateButOpen.xoz";
         FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 0, true);
         new_blkarr.close();
 
         // Create again with fail_if_exists == False so it will not fail
         // because the file already exists but instead it will open it
-        FileBlockArray blkarr = FileBlockArray::create(SCRATCH_HOME "CreateThenRecreateAndOverride.xoz", 64, 0, false);
+        FileBlockArray blkarr = FileBlockArray::create(SCRATCH_HOME "CreateThenCreateButOpen.xoz", 64, 0, false);
 
         EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(0));
         EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
@@ -474,17 +480,17 @@ namespace {
                 );
     }
 
-    TEST(FileBlockArrayTest, CreateThenRecreateButFail) {
-        DELETE("CreateThenRecreateButFail.xoz");
+    TEST(FileBlockArrayTest, CreateThenCreateButFail) {
+        DELETE("CreateThenCreateButFail.xoz");
 
-        const char* fpath = SCRATCH_HOME "CreateThenRecreateButFail.xoz";
+        const char* fpath = SCRATCH_HOME "CreateThenCreateButFail.xoz";
         FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 0, true);
         new_blkarr.close();
 
         // Create again with fail_if_exists == True so it **will** fail
         // because the file already exists
         EXPECT_THAT(
-            [&]() { FileBlockArray::create(SCRATCH_HOME "CreateThenRecreateButFail.xoz", 64, 0, true); },
+            [&]() { FileBlockArray::create(SCRATCH_HOME "CreateThenCreateButFail.xoz", 64, 0, true); },
             ThrowsMessage<OpenXOZError>(
                 AllOf(
                     HasSubstr("FileBlockArray::create"),
@@ -496,7 +502,7 @@ namespace {
         // Try to open it again, this time with fail_if_exists == False.
         // Check that the previous failed creation **did not** corrupted the original
         // file
-        FileBlockArray blkarr = FileBlockArray::create(SCRATCH_HOME "CreateThenRecreateButFail.xoz", 64, 0, false);
+        FileBlockArray blkarr = FileBlockArray::create(SCRATCH_HOME "CreateThenCreateButFail.xoz", 64, 0, false);
 
         EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(0));
         EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
@@ -518,30 +524,20 @@ namespace {
                 );
     }
 
-    TEST(FileBlockArrayTest, CreateThenRecreateButFailWithHeader) {
-        DELETE("CreateThenRecreateButFailWithHeader.xoz");
+    TEST(FileBlockArrayTest, CreateThenCreateButOpenWithHeader) {
+        // Create, close, then create again but because the file exists and
+        // fail_if_exists is false, do not override but open instead.
+        DELETE("CreateThenCreateButOpenWithHeader.xoz");
 
-        const char* fpath = SCRATCH_HOME "CreateThenRecreateButFailWithHeader.xoz";
+
+        const char* fpath = SCRATCH_HOME "CreateThenCreateButOpenWithHeader.xoz";
         FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 1, true);
         new_blkarr.write_header("ABCD", 4);
         new_blkarr.close();
 
-        // Create again with fail_if_exists == True so it **will** fail
-        // because the file already exists
-        EXPECT_THAT(
-            [&]() { FileBlockArray::create(SCRATCH_HOME "CreateThenRecreateButFailWithHeader.xoz", 64, 1, true); },
-            ThrowsMessage<OpenXOZError>(
-                AllOf(
-                    HasSubstr("FileBlockArray::create"),
-                    HasSubstr("the file already exist and FileBlockArray::create is configured to not override it")
-                    )
-                )
-        );
-
-        // Try to open it again, this time with fail_if_exists == False.
-        // Check that the previous failed creation **did not** corrupted the original
-        // file
-        FileBlockArray blkarr = FileBlockArray::create(SCRATCH_HOME "CreateThenRecreateButFailWithHeader.xoz", 64, 1, false);
+        // Create again with fail_if_exists == False so it will not fail
+        // because the file already exists but instead it will open it
+        FileBlockArray blkarr = FileBlockArray::create(SCRATCH_HOME "CreateThenCreateButOpenWithHeader.xoz", 64, 1, false);
 
         EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64));
         EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
@@ -565,7 +561,94 @@ namespace {
                 );
     }
 
+    TEST(FileBlockArrayTest, CreateThenCreateButFailWithHeader) {
+        DELETE("CreateThenCreateButFailWithHeader.xoz");
+
+        const char* fpath = SCRATCH_HOME "CreateThenCreateButFailWithHeader.xoz";
+        FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 1, true);
+        new_blkarr.write_header("ABCD", 4);
+        new_blkarr.close();
+
+        // Create again with fail_if_exists == True so it **will** fail
+        // because the file already exists
+        EXPECT_THAT(
+            [&]() { FileBlockArray::create(SCRATCH_HOME "CreateThenCreateButFailWithHeader.xoz", 64, 1, true); },
+            ThrowsMessage<OpenXOZError>(
+                AllOf(
+                    HasSubstr("FileBlockArray::create"),
+                    HasSubstr("the file already exist and FileBlockArray::create is configured to not override it")
+                    )
+                )
+        );
+
+        // Try to open it again, this time with fail_if_exists == False.
+        // Check that the previous failed creation **did not** corrupted the original
+        // file
+        FileBlockArray blkarr = FileBlockArray::create(SCRATCH_HOME "CreateThenCreateButFailWithHeader.xoz", 64, 1, false);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+    }
+
+    TEST(FileBlockArrayTest, CreateThenCreateButOpenWithHeaderAndTrailer) {
+        // Create, close, then create again but because the file exists and
+        // fail_if_exists is false, do not override but open instead.
+        DELETE("CreateThenCreateButOpenWithHeaderAndTrailer.xoz");
+
+
+        const char* fpath = SCRATCH_HOME "CreateThenCreateButOpenWithHeaderAndTrailer.xoz";
+        FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 1, true);
+        new_blkarr.write_header("ABCD", 4);
+        new_blkarr.write_trailer("EFG", 3);
+        new_blkarr.close();
+
+        // Create again with fail_if_exists == False so it will not fail
+        // because the file already exists but instead it will open it
+        FileBlockArray blkarr = FileBlockArray::create(SCRATCH_HOME "CreateThenCreateButOpenWithHeaderAndTrailer.xoz", 64, 1, false);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64 + 3));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                "4546 47"
+                );
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4546 47"
+                );
+    }
+
     TEST(FileBlockArrayTest, CreateThenExpand) {
+        // Create a new file, expand it and close it. Open, check, expand again, close, and check
         {
         DELETE("CreateThenExpand.xoz");
 
@@ -611,9 +694,29 @@ namespace {
         EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(9));
         EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(9));
 
+        // Add 3 more blocks
+        old_top_nr = blkarr2.grow_by_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)9);
+
+        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(12 * 64));
+        EXPECT_EQ(blkarr2.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(12));
+        EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(12));
+
         blkarr2.close();
         EXPECT_EQ(are_all_zeros(file2mem((SCRATCH_HOME "CreateThenExpand.xoz"))), (bool)true);
 
+        FileBlockArray blkarr3(SCRATCH_HOME "CreateThenExpand.xoz", 64);
+
+        EXPECT_EQ(blkarr3.phy_file_sz(), uint32_t(12 * 64));
+        EXPECT_EQ(blkarr3.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr3.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr3.past_end_blk_nr(), uint32_t(12));
+        EXPECT_EQ(blkarr3.blk_cnt(), uint32_t(12));
+
+        blkarr3.close();
+        EXPECT_EQ(are_all_zeros(file2mem((SCRATCH_HOME "CreateThenExpand.xoz"))), (bool)true);
         }
 
         {
@@ -657,22 +760,56 @@ namespace {
                 ""
                 );
 
+        // Add 3 more blocks
+        old_top_nr = blkarr2.grow_by_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)9);
+
+        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(12 * 64));
+        EXPECT_EQ(blkarr2.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(12));
+        EXPECT_EQ(blkarr2.blk_cnt(), uint32_t(12));
+
+
         blkarr2.close();
         EXPECT_EQ(are_all_zeros(blkarr2.expose_mem_fp()), (bool)true);
+
+        // Close and reopen and check again
+        auto ss2 = blkarr2.expose_mem_fp().str(); // copy
+        FileBlockArray blkarr3(std::stringstream(ss2), 64);
+
+        EXPECT_EQ(blkarr3.phy_file_sz(), uint32_t(12 * 64));
+        EXPECT_EQ(blkarr3.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr3.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr3.past_end_blk_nr(), uint32_t(12));
+        EXPECT_EQ(blkarr3.blk_cnt(), uint32_t(12));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr3, 0, -1,
+                ""
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr3, 0, -1,
+                ""
+                );
+
+        blkarr3.close();
+        EXPECT_EQ(are_all_zeros(blkarr3.expose_mem_fp()), (bool)true);
         }
     }
 
-    TEST(FileBlockArrayTest, CreateThenExpandNonZeroBeginBlkNr) {
-        DELETE("CreateThenExpandNonZeroBeginBlkNr.xoz");
+    TEST(FileBlockArrayTest, CreateThenExpandWithHeaderAndTrailer) {
+        DELETE("CreateThenExpandWithHeaderAndTrailer.xoz");
 
-        const char* fpath = SCRATCH_HOME "CreateThenExpandNonZeroBeginBlkNr.xoz";
+        const char* fpath = SCRATCH_HOME "CreateThenExpandWithHeaderAndTrailer.xoz";
         FileBlockArray blkarr = FileBlockArray::create(fpath, 64, 1, true);
+        blkarr.write_header("ABCD", 4);
+        blkarr.write_trailer("EFG", 3);
 
-        // The repository by default has 1 block so adding 3 more
-        // will yield 4 blocks in total
         auto old_top_nr = blkarr.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
+        // Note: trailer is not included in phy_file_sz (3 bytes are missing from the count)
+        // This is because the trailer was not written down to disk
         EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(4 * 64));
         EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
         EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
@@ -690,17 +827,39 @@ namespace {
         EXPECT_EQ(blkarr.blk_cnt(), uint32_t(9));
 
         XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
-                ""
+                "4546 47"
                 );
 
         // Close and check again
         blkarr.close();
-        EXPECT_EQ(are_all_zeros(file2mem((SCRATCH_HOME "CreateThenExpandNonZeroBeginBlkNr.xoz"))), (bool)true);
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4546 47"
+                );
 
     }
 
@@ -800,13 +959,14 @@ namespace {
         }
     }
 
-    TEST(FileBlockArrayTest, CreateThenExpandThenRevertWithHeader) {
+    TEST(FileBlockArrayTest, CreateThenExpandThenRevertWithHeaderAndTrailer) {
         {
-        DELETE("CreateThenExpandThenRevertWithHeader.xoz");
+        DELETE("CreateThenExpandThenRevertWithHeaderAndTrailer.xoz");
 
-        const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertWithHeader.xoz";
+        const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertWithHeaderAndTrailer.xoz";
         FileBlockArray blkarr = FileBlockArray::create(fpath, 64, 1, true);
         blkarr.write_header("ABCD", 4);
+        blkarr.write_trailer("EFG", 3);
 
         auto old_top_nr = blkarr.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
@@ -831,9 +991,10 @@ namespace {
 
         // Close and reopen and check again, this should release_blocks and shrink the file automatically
         blkarr.close();
-        FileBlockArray blkarr2(SCRATCH_HOME "CreateThenExpandThenRevertWithHeader.xoz", 64, 1);
+        FileBlockArray blkarr2(SCRATCH_HOME "CreateThenExpandThenRevertWithHeaderAndTrailer.xoz", 64, 1);
 
-        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(1 * 64));
+        // After the close above, the trailer is now present in disk
+        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(1 * 64 + 3));
         EXPECT_EQ(blkarr2.blk_sz(), uint32_t(64));
         EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(1));
         EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(1));
@@ -847,19 +1008,21 @@ namespace {
                 );
 
         XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr2, 0, -1,
-                ""
+                "4546 47"
                 );
 
         blkarr2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
                 "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4546 47"
                 );
         }
 
         {
         FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
         blkarr.write_header("ABCD", 4);
+        blkarr.write_trailer("EFG", 3);
 
         auto old_top_nr = blkarr.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
@@ -887,7 +1050,7 @@ namespace {
         auto ss = blkarr.expose_mem_fp().str(); // copy
         FileBlockArray blkarr2(std::stringstream(ss), 64, 1);
 
-        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(1 * 64));
+        EXPECT_EQ(blkarr2.phy_file_sz(), uint32_t(1 * 64 + 3));
         EXPECT_EQ(blkarr2.blk_sz(), uint32_t(64));
         EXPECT_EQ(blkarr2.begin_blk_nr(), uint32_t(1));
         EXPECT_EQ(blkarr2.past_end_blk_nr(), uint32_t(1));
@@ -901,13 +1064,14 @@ namespace {
                 );
 
         XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr2, 0, -1,
-                ""
+                "4546 47"
                 );
 
         blkarr2.close();
         XOZ_EXPECT_FILE_MEM_SERIALIZATION(blkarr2, 0, -1,
                 "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4546 47"
                 );
         }
     }
