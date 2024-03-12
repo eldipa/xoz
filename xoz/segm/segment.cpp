@@ -286,6 +286,21 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
                                               << " direction and previous extent at blk nr " << prev.blk_nr()
                                               << " and blk cnt " << prev_blk_cnt << ".");
                 }
+
+                if (blk_nr > Extent::MAX_BLK_NR) {
+                    throw InconsistentXOZ(F() << "Extent block number larger than expected: "
+                                              << "block number " << blk_nr << " constructed from is_near=True; "
+                                              << "current extent offset " << jmp_offset << " and blk cnt "
+                                              << cur_blk_cnt << " in the " << (is_backward_dir ? "backward" : "forward")
+                                              << " direction and previous extent at blk nr " << prev.blk_nr()
+                                              << " and blk cnt " << prev_blk_cnt << ".");
+                }
+
+            } else {
+                if (blk_nr > Extent::MAX_BLK_NR) {
+                    throw InconsistentXOZ(F() << "Extent block number larger than expected: "
+                                              << "block number " << blk_nr << " constructed from is_near=False.");
+                }
             }
 
             segm.arr.emplace_back(blk_nr, blk_cnt, is_suballoc);

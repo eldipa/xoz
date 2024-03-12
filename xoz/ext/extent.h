@@ -41,6 +41,8 @@ public:
 
     constexpr static unsigned MAX_BLK_CNT = (1 << 16) - 1;
 
+    constexpr static unsigned MAX_BLK_NR = (1 << 26) - 1;
+
     static Extent EmptyExtent() { return Extent(0, 0, false); }
 
     // Create an extent:
