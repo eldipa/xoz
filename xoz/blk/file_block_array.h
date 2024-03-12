@@ -15,15 +15,57 @@ class Segment;
 
 class FileBlockArray: public BlockArray {
 public:
+    struct blkarr_cfg_t {
+        uint32_t blk_sz;
+        uint32_t begin_blk_nr;
+    };
+
+    /*
+     * A function that will be called after opening a disk-based block array (file)
+     * but before loading it.
+     *
+     * The function must fill the cfg object with the correct values about the geometry
+     * of the block array.
+     * If on_create is false, the function can read from the file (istream) to (possibly)
+     * read from the file its own geometry. If on_create is true, the function must not
+     * read anything and fill the cfg object with some suitable defaults.
+     *
+     * The function may throw an exception if it detected some kind of corruption or
+     * if the geometry could not be determined.
+     *
+     * Note: the given stream is read only: the function must not write anything on it
+     * If the caller wants to store metadata about the geometry (like after creating the file)
+     * he/she must do it after creating/loading the block array.
+     * */
+    typedef void (*preload_fn)(std::istream& is, struct blkarr_cfg_t& cfg, bool on_create);
+
+public:
+    /*
+     * Open a given file block array either from a physical file in disk or from
+     * an in-memory file.
+     *
+     * If the file cannot be open (may not exist, may not have the correct read/write permissions)
+     * fail. To create a new file see FileBlockArray::create.
+     *
+     * The geometry of the block array (blk_sz, begin_blk_nr) either must be given by
+     * parameter or it is obtained calling with the opened file the preload function.
+     * If the preload detects an inconsistency that would prevent the block array
+     * from being used, it must raise an exception.
+     * */
     FileBlockArray(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr = 0);
     FileBlockArray(std::stringstream&& mem, uint32_t blk_sz, uint32_t begin_blk_nr = 0);
+
+    FileBlockArray(const char* fpath, preload_fn fn);
+
     ~FileBlockArray();
 
     /*
      * Create a new file block array in the given physical file.
      *
      * If the file exists and fail_if_exists is False, try to open a
-     * file there (do not create a new one).
+     * file there (do not create a new one). Use fn to define the block
+     * array geometry (if given) or pass it explicitly with begin_blk_nr
+     * and begin_blk_nr.
      *
      * The check for the existence of the file and the subsequent creation
      * is not atomic so it may be possible that the file does not exist
@@ -31,16 +73,22 @@ public:
      * created and we will end up overwriting it.
      *
      * If the file exists and fail_if_exists is True, fail, otherwise
-     * create a new file there.
+     * create a new file there. In this case, fn must return a default
+     * settings (it will receive the file size which should be zero in this case;
+     * there is no way to distinguish an pre-existing empty file from a new one)
      *
      * There is not check of any kind on the content of the file. If it can
-     * be open/created, it is good.
+     * be open/created, it is good. If the preload function is used, it may perform
+     * a simplified initial check and abort the opening by raising an exception.
      * */
     static FileBlockArray create(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr = 0,
                                  bool fail_if_exists = false);
 
+    static FileBlockArray create(const char* fpath, preload_fn fn, bool fail_if_exists = false);
     /*
-     * Like FileBlockArray::create but make the file be memory based
+     * Like FileBlockArray::create but make the file be memory based.
+     * In this case there is no possible to "open" a preexisting file so this
+     * is truly a create-only method.
      * */
     static FileBlockArray create_mem_based(uint32_t blk_sz, uint32_t begin_blk_nr = 0);
 
@@ -211,13 +259,19 @@ private:
      * or not as part of the opening.
      * */
     void open_internal(const char* fpath, std::stringstream&& mem, uint32_t blk_sz, uint32_t begin_blk_nr,
-                       bool is_reopening);
-
+                       bool is_reopening, FileBlockArray::preload_fn fn);
 
     /*
-     * Create an empty file if it does not exist; truncate if it does
+     * See the documentation of create()
      * */
-    static std::fstream _truncate_disk_file(const char* fpath);
+    static FileBlockArray create_internal(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr, preload_fn fn,
+                                          bool fail_if_exists);
+
+    /*
+     * Create an "empty" block array if the does not exist; truncate the file if it does.
+     * The resulting file will not be empty if the begin_blk_nr is non zero.
+     * */
+    static void _create_initial_block_array_in_disk(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr);
 
     /*
      * Write sz bytes of zeros at the end of the file which effectively

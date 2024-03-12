@@ -1320,5 +1320,154 @@ namespace {
                 "4142 4344"
                 );
     }
+
+    TEST(FileBlockArrayTest, UsePreloadFunc) {
+        DELETE("UsePreloadFunc.xoz");
+
+        // 64 bytes block with 1 block of header
+        const char* fpath = SCRATCH_HOME "UsePreloadFunc.xoz";
+        FileBlockArray new_blkarr = FileBlockArray::create(fpath, 64, 1, true);
+        new_blkarr.write_header("ABCD", 4);
+        new_blkarr.close();
+
+        {
+        // Same parameters: 64 bytes block and 1 block of header
+        FileBlockArray blkarr(SCRATCH_HOME "UsePreloadFunc.xoz",
+                []([[maybe_unused]] std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg, [[maybe_unused]] bool on_create) {
+                    cfg.blk_sz = 64;
+                    cfg.begin_blk_nr = 1;
+
+                });
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+
+        {
+        // We set the begin_blk_nr to 0. We expect to see the header as another
+        // block.
+        FileBlockArray blkarr(SCRATCH_HOME "UsePreloadFunc.xoz",
+                []([[maybe_unused]] std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg, [[maybe_unused]] bool on_create) {
+                    cfg.blk_sz = 64;
+                    cfg.begin_blk_nr = 0; // this is "wrong"
+
+                });
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(0));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(1)); // blkarr sees the header as any other block
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "" // blkarr then does not see any header
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+    }
+
+    TEST(FileBlockArrayTest, UsePreloadFuncOnCreate) {
+        DELETE("UsePreloadFuncOnCreate.xoz");
+
+        // By default, block of 64 bytes with 1 block of header
+        auto fn = []([[maybe_unused]] std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create) {
+                if (on_create) {
+                    cfg.blk_sz = 64;
+                    cfg.begin_blk_nr = 1;
+                } else {
+                    char data[2];
+                    is.read(data, 2);
+                    cfg.blk_sz = uint32_t(data[0]);
+                    cfg.begin_blk_nr = uint32_t(data[1]);
+                }
+            };
+
+        // 64 bytes block with 1 block of header
+        const char* fpath = SCRATCH_HOME "UsePreloadFuncOnCreate.xoz";
+        FileBlockArray new_blkarr = FileBlockArray::create( fpath, fn, true);
+
+        // store in the header the blk sz (64) and begin_blk_nr (1)
+        new_blkarr.write_header("\x40\x01", 2);
+        new_blkarr.close();
+
+        {
+        // Check
+        FileBlockArray blkarr(SCRATCH_HOME "UsePreloadFuncOnCreate.xoz", 64, 1);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+
+        {
+        // Create an existing file: open instead of failing
+        FileBlockArray blkarr = FileBlockArray::create(fpath, fn, false);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+        }
+    }
 }
 

@@ -12,13 +12,20 @@
 FileBlockArray::FileBlockArray(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr):
         BlockArray(), fpath(fpath), fp(disk_fp), closed(true), closing(false) {
     std::stringstream ignored;
-    open_internal(fpath, std::move(ignored), blk_sz, begin_blk_nr, false);
+    open_internal(fpath, std::move(ignored), blk_sz, begin_blk_nr, false, nullptr);
     assert(not closed);
 }
 
 FileBlockArray::FileBlockArray(std::stringstream&& mem, uint32_t blk_sz, uint32_t begin_blk_nr):
         BlockArray(), fp(mem_fp), closed(true), closing(false) {
-    open_internal(FileBlockArray::IN_MEMORY_FPATH, std::move(mem), blk_sz, begin_blk_nr, false);
+    open_internal(FileBlockArray::IN_MEMORY_FPATH, std::move(mem), blk_sz, begin_blk_nr, false, nullptr);
+    assert(not closed);
+}
+
+FileBlockArray::FileBlockArray(const char* fpath, FileBlockArray::preload_fn fn):
+        BlockArray(), fpath(fpath), fp(disk_fp), closed(true), closing(false) {
+    std::stringstream ignored;
+    open_internal(fpath, std::move(ignored), 0, 0, false, fn);
     assert(not closed);
 }
 
@@ -65,7 +72,7 @@ uint32_t FileBlockArray::impl_release_blocks() {
         closed = true;
 
         std::stringstream ignored;
-        open_internal(fpath.data(), std::move(ignored), blk_sz(), begin_blk_nr(), true);
+        open_internal(fpath.data(), std::move(ignored), blk_sz(), begin_blk_nr(), true, nullptr);
         assert(not closed);
     } else {
         // Quite ugly way to "truncate" an in-memory file
@@ -88,7 +95,7 @@ uint32_t FileBlockArray::impl_release_blocks() {
         // this is necessary to make open_internal() work
         closed = true;
 
-        open_internal(FileBlockArray::IN_MEMORY_FPATH, std::move(alt_mem_fp), blk_sz(), begin_blk_nr(), true);
+        open_internal(FileBlockArray::IN_MEMORY_FPATH, std::move(alt_mem_fp), blk_sz(), begin_blk_nr(), true, nullptr);
     }
 
     return cnt;
@@ -152,13 +159,11 @@ uint32_t FileBlockArray::phy_file_sz() const {
 }
 
 void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, uint32_t blk_sz, uint32_t begin_blk_nr,
-                                   bool is_reopening) {
+                                   bool is_reopening, FileBlockArray::preload_fn fn) {
     if (not closed) {
         throw std::runtime_error("The current file block array is not closed. You need "
                                  "to close it before opening a new one");
     }
-
-    fail_if_bad_blk_sz(blk_sz);
 
     // Try to avoid raising an exception on the opening so we can
     // raise better exceptions.
@@ -207,6 +212,29 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     assert(tmp_fp_sz >= 0);
     uint32_t fp_sz = uint32_t(tmp_fp_sz);
 
+    {
+        // Use these as initial values
+        struct blkarr_cfg_t cfg = {
+                .blk_sz = blk_sz,
+                .begin_blk_nr = begin_blk_nr,
+        };
+
+        if (fn) {
+            // Call fn, pass cfg by reference to be updated
+            fp.seekg(0);
+            fp.seekp(0);
+            fn(fp, cfg, false);
+        }
+
+        // Unpack
+        blk_sz = cfg.blk_sz;
+        begin_blk_nr = cfg.begin_blk_nr;
+    }
+
+    fail_if_bad_blk_sz(blk_sz);
+    fail_if_bad_blk_nr(begin_blk_nr);
+
+
     uint32_t past_end_blk_nr = fp_sz / blk_sz;  // truncate to integer
     if (begin_blk_nr > past_end_blk_nr) {
         // The file is too small!
@@ -233,7 +261,7 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     closed = false;
 }
 
-std::fstream FileBlockArray::_truncate_disk_file(const char* fpath) {
+void FileBlockArray::_create_initial_block_array_in_disk(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr) {
     std::fstream fp(fpath,
                     // in/out binary file stream
                     std::fstream::in | std::fstream::out | std::fstream::binary | std::fstream::trunc);
@@ -243,7 +271,16 @@ std::fstream FileBlockArray::_truncate_disk_file(const char* fpath) {
                                   "truncate+create the file. May not have permissions.");
     }
 
-    return fp;
+    if (begin_blk_nr) {
+        uint64_t sz = uint64_t(blk_sz) * uint64_t(begin_blk_nr);
+        if (sz > 0xffffffff) {
+            throw "";  // TODO
+        }
+
+        _extend_file_with_zeros(fp, blk_sz * begin_blk_nr);
+    }
+
+    fp.close();
 }
 
 void FileBlockArray::_extend_file_with_zeros(std::iostream& fp, uint64_t sz) {
@@ -263,6 +300,15 @@ void FileBlockArray::_extend_file_with_zeros(std::iostream& fp, uint64_t sz) {
 }
 
 FileBlockArray FileBlockArray::create(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr, bool fail_if_exists) {
+    return create_internal(fpath, blk_sz, begin_blk_nr, nullptr, fail_if_exists);
+}
+
+FileBlockArray FileBlockArray::create(const char* fpath, preload_fn fn, bool fail_if_exists) {
+    return create_internal(fpath, 0, 0, fn, fail_if_exists);
+}
+
+FileBlockArray FileBlockArray::create_internal(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr, preload_fn fn,
+                                               bool fail_if_exists) {
     std::fstream test(fpath, std::fstream::in | std::fstream::binary);
     if (test) {
         // File already exists: ...
@@ -274,14 +320,32 @@ FileBlockArray FileBlockArray::create(const char* fpath, uint32_t blk_sz, uint32
         } else {
             // ... ok, try to open (the constructor will fail
             // if it cannot open it)
-            return FileBlockArray(fpath, blk_sz, begin_blk_nr);
+            if (fn) {
+                return FileBlockArray(fpath, fn);
+            } else {
+                return FileBlockArray(fpath, blk_sz, begin_blk_nr);
+            }
         }
     } else {
+
         // File does not exist: create a new one and the open it
-        std::fstream fp = _truncate_disk_file(fpath);
-        _extend_file_with_zeros(fp, begin_blk_nr * blk_sz);
-        fp.close();  // flush the content make the constructor to open it back
-        return FileBlockArray(fpath, blk_sz, begin_blk_nr);
+        // Write any header blocks based on begin_blk_nr
+        if (fn) {
+            // Dummy values, the preload function fn should not read those
+            std::stringstream fp;
+            struct blkarr_cfg_t cfg = {0, 0};
+            fn(fp, cfg, true);
+            fail_if_bad_blk_sz(cfg.blk_sz);
+            fail_if_bad_blk_nr(cfg.begin_blk_nr);
+
+            _create_initial_block_array_in_disk(fpath, cfg.blk_sz, cfg.begin_blk_nr);
+            return FileBlockArray(fpath, cfg.blk_sz, cfg.begin_blk_nr);
+        } else {
+            fail_if_bad_blk_sz(blk_sz);
+            fail_if_bad_blk_nr(begin_blk_nr);
+            _create_initial_block_array_in_disk(fpath, blk_sz, begin_blk_nr);
+            return FileBlockArray(fpath, blk_sz, begin_blk_nr);
+        }
     }
 }
 
