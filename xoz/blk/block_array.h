@@ -112,6 +112,11 @@ protected:
      * */
     static void fail_if_bad_blk_sz(uint32_t blk_sz, uint32_t min_subblk_sz = 0);
 
+    /*
+     * Raise if the given block number is not a valid one.
+     * */
+    static void fail_if_bad_blk_nr(uint32_t blk_nr);
+
 private:
     /*
      * Read or write an extent given by ext (based on is_read_op). How much bytes are being read/written

@@ -424,3 +424,11 @@ void BlockArray::fail_if_bad_blk_sz(uint32_t blk_sz, uint32_t min_subblk_sz) {
         }
     }
 }
+
+void BlockArray::fail_if_bad_blk_nr(uint32_t blk_nr) {
+    if (blk_nr > Extent::MAX_BLK_NR) {
+        throw std::runtime_error(
+                (F() << "Block number " << blk_nr << " is larger than the maximum (" << Extent::MAX_BLK_NR << ").")
+                        .str());
+    }
+}
