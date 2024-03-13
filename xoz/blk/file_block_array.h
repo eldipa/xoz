@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <fstream>
+#include <functional>
 #include <ios>
 #include <sstream>
 #include <string>
@@ -37,7 +38,7 @@ public:
      * If the caller wants to store metadata about the geometry (like after creating the file)
      * he/she must do it after creating/loading the block array.
      * */
-    typedef void (*preload_fn)(std::istream& is, struct blkarr_cfg_t& cfg, bool on_create);
+    typedef std::function<void(std::istream& is, struct blkarr_cfg_t& cfg, bool on_create)> preload_fn;
 
 public:
     /*
