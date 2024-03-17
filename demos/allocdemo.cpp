@@ -1,5 +1,6 @@
 #include <iostream>
-#include "xoz/repo/repository.h"
+#include "xoz/parameters.h"
+#include "xoz/blk/file_block_array.h"
 #include "xoz/ext/extent.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/alloc/segment_allocator.h"
@@ -15,7 +16,7 @@
 
 class Demo {
     private:
-    Repository& repo;
+    BlockArray& blkarr;
     SegmentAllocator& sg_alloc;
     const SegmentAllocator::req_t& req;
 
@@ -23,7 +24,7 @@ class Demo {
     std::map<int, Segment> segm_by_id;
 
     public:
-        Demo(Repository& repo, SegmentAllocator& sg_alloc, const SegmentAllocator::req_t& req) : repo(repo), sg_alloc(sg_alloc), req(req) {}
+        Demo(BlockArray& blkarr, SegmentAllocator& sg_alloc, const SegmentAllocator::req_t& req) : blkarr(blkarr), sg_alloc(sg_alloc), req(req) {}
 
         void alloc() {
             uint32_t sz;
@@ -37,7 +38,7 @@ class Demo {
             segm_by_id[next_segm_id] = segm;
 
             TRACE_BEGIN {
-                std::cerr << "Ret: blocks in repo " << repo.blk_cnt() << "; ";
+                std::cerr << "Ret: blocks in blkarr " << blkarr.blk_cnt() << "; ";
                 std::cerr << "segment assigned " << next_segm_id << ", ";
                 std::cerr << segm.ext_cnt() << " exts: ";
             } TRACE_END;
@@ -46,7 +47,7 @@ class Demo {
             std::cout << next_segm_id << " ";
             ++next_segm_id;
 
-            std::cout << repo.blk_cnt() << " " << segm.ext_cnt() << " ";
+            std::cout << blkarr.blk_cnt() << " " << segm.ext_cnt() << " ";
             for (auto const& ext : segm.exts()) {
                 std::cout << ext.is_suballoc() << " " << ext.blk_nr() << " ";
                 if (ext.is_suballoc()) {
@@ -97,10 +98,10 @@ class Demo {
             sg_alloc.dealloc(segm);
             segm_by_id.erase(it);
 
-            std::cout << repo.blk_cnt() << " ";
+            std::cout << blkarr.blk_cnt() << " ";
 
             TRACE_BEGIN {
-                std::cerr << "Ret: blocks in repo: " << repo.blk_cnt() << "\n";
+                std::cerr << "Ret: blocks in blkarr: " << blkarr.blk_cnt() << "\n";
             } TRACE_END;
 
             // format:
@@ -115,10 +116,10 @@ class Demo {
 
             sg_alloc.release();
 
-            std::cout << repo.blk_cnt() << " ";
+            std::cout << blkarr.blk_cnt() << " ";
 
             TRACE_BEGIN {
-                std::cerr << "Ret: blocks in repo: " << repo.blk_cnt() << "\n";
+                std::cerr << "Ret: blocks in blkarr: " << blkarr.blk_cnt() << "\n";
             } TRACE_END;
 
             // format:
@@ -148,11 +149,7 @@ class Demo {
 
 
 int main(int argc, char* argv[]) {
-    const GlobalParameters gp = {
-        .blk_sz = 512,
-        .blk_sz_order = 9,
-        .blk_init_cnt = 1
-    };
+    const uint32_t blk_sz = 512; // you can change this
 
     if (argc != 7)
         return -1;
@@ -177,11 +174,11 @@ int main(int argc, char* argv[]) {
         .single_extent = false
     };
 
-    Repository repo = Repository::create_mem_based(gp);
+    FileBlockArray fblkarr = FileBlockArray::create_mem_based(blk_sz);
     SegmentAllocator sg_alloc(coalescing_enabled, split_above_threshold);
-    sg_alloc.manage_block_array(repo);
+    sg_alloc.manage_block_array(fblkarr);
 
-    Demo demo(repo, sg_alloc, req);
+    Demo demo(fblkarr, sg_alloc, req);
 
     int cmd = 0;
     while (1) {
@@ -210,6 +207,5 @@ int main(int argc, char* argv[]) {
                 assert(0);
         }
     }
-
     return 0;
 }
