@@ -58,9 +58,9 @@ namespace {
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
         EXPECT_EQ(repo.params().blk_init_cnt, (uint32_t)1);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
 
         // Close and check what we have on disk.
         repo.close();
@@ -109,9 +109,9 @@ namespace {
         EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
         EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
 
         repo.close();
         XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 64,
@@ -144,12 +144,12 @@ namespace {
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto old_top_nr = repo._grow_by_blocks(3);
+        auto old_top_nr = repo.expose_block_array().grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
 
         std::stringstream ss;
         repo.print_stats(ss);
@@ -162,12 +162,12 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Add 6 more blocks
-        old_top_nr = repo._grow_by_blocks(6);
+        old_top_nr = repo.expose_block_array().grow_by_blocks(6);
         EXPECT_EQ(old_top_nr, (uint32_t)4);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)9);
 
         ss.str("");
         repo.print_stats(ss);
@@ -212,12 +212,12 @@ namespace {
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto old_top_nr = repo._grow_by_blocks(3);
+        auto old_top_nr = repo.expose_block_array().grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
 
         std::stringstream ss;
         repo.print_stats(ss);
@@ -230,11 +230,11 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Now "revert" freeing those 3 blocks
-        repo._shrink_by_blocks(3);
+        repo.expose_block_array().shrink_by_blocks(3);
 
-        EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
 
         ss.str("");
         repo.print_stats(ss);

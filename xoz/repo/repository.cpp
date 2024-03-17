@@ -183,11 +183,6 @@ struct Repository::stats_t Repository::stats() const {
     return st;
 }
 
-uint32_t Repository::_grow_by_blocks(uint16_t blk_cnt) { return fblkarr.grow_by_blocks(blk_cnt); }
-
-
-void Repository::_shrink_by_blocks(uint16_t blk_cnt) { return fblkarr.shrink_by_blocks(blk_cnt); }
-
 namespace {
 
 // In-disk repository's header
@@ -496,7 +491,7 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
         // root segment is too large to fit in the header, try to use
         // the space allocated in external_root_sg_loc first, allocate more
         // if required
-        auto external_capacity = external_root_sg_loc.calc_data_space_size(blk_sz_order());
+        auto external_capacity = external_root_sg_loc.calc_data_space_size(fblkarr.blk_sz_order());
         if ((external_capacity >> 2) > root_sg_sz) {
             // the space needed is less than 25% of the current capacity: dealloc + (re)alloc
             // to shrink and save some space

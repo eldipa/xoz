@@ -27,6 +27,7 @@ private:
 
     bool closed;
 
+    // TODO almost all of these variables should gone
     GlobalParameters gp;
 
     // The size in bytes of the whole repository and it is
@@ -105,16 +106,6 @@ public:
     // Call to close()
     ~Repository();
 
-    // Block definition (TODO)
-    inline uint32_t subblk_sz() const { return fblkarr.subblk_sz(); }
-    inline uint32_t blk_sz() const { return fblkarr.blk_sz(); }
-    inline uint8_t blk_sz_order() const { return fblkarr.blk_sz_order(); }
-    inline uint32_t begin_blk_nr() const { return fblkarr.begin_blk_nr(); }
-    inline uint32_t past_end_blk_nr() const { return fblkarr.past_end_blk_nr(); }
-    inline uint32_t blk_cnt() const { return fblkarr.blk_cnt(); }
-    inline uint32_t capacity() const { return fblkarr.capacity(); }
-
-
     inline std::shared_ptr<DescriptorSet> root() { return root_dset; }
 
     inline const GlobalParameters& params() const { return gp; }
@@ -135,10 +126,9 @@ public:
 
 public:
     /*
-     * These two are for testing only. Don't use it.
+     * This is only for testing. Don't use it.
      * */
-    uint32_t /* internal - for testing */ _grow_by_blocks(uint16_t blk_cnt);
-    void /* internal - for testing */ _shrink_by_blocks(uint16_t blk_cnt);
+    BlockArray& /* internal - for testing */ expose_block_array() { return fblkarr; }
 
 private:
     /*
