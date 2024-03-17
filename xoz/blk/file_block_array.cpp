@@ -80,7 +80,7 @@ uint32_t FileBlockArray::impl_release_blocks() {
     //    is removed
     auto new_file_sz = past_end_blk_nr() << blk_sz_order();
 
-    if (std::addressof(fp) == std::addressof(disk_fp)) {
+    if (not is_mem_based()) {
         disk_fp.close();
         std::filesystem::resize_file(fpath, new_file_sz);
 
@@ -158,14 +158,13 @@ void FileBlockArray::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff
 
 
 const std::stringstream& FileBlockArray::expose_mem_fp() const {
-    if (std::addressof(fp) == std::addressof(disk_fp)) {
+    if (not is_mem_based()) {
         throw std::runtime_error("The file block array is not memory backed.");
     }
 
     return mem_fp;
 }
 
-// TODO use this is_mem_based to refactor other checks in the rest of FileBlockArray
 bool FileBlockArray::is_mem_based() const { return (std::addressof(fp) != std::addressof(disk_fp)); }
 
 uint32_t FileBlockArray::phy_file_sz() const {
@@ -191,7 +190,7 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     fp.exceptions(std::ifstream::goodbit);
     fp.clear();
 
-    if (std::addressof(fp) == std::addressof(disk_fp)) {
+    if (not is_mem_based()) {
         // note: iostream does not have open() so we must access disk_fp directly
         // but the check above ensure that fp *is* disk_fp
         disk_fp.open(fpath,
@@ -393,7 +392,7 @@ void FileBlockArray::close() {
         fp.write(trailer.data(), trailer.size());
     }
 
-    if (std::addressof(fp) == std::addressof(disk_fp)) {
+    if (not is_mem_based()) {
         disk_fp.close();
     }
     closed = true;
