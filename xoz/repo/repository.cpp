@@ -19,14 +19,6 @@ Repository::Repository(const char* fpath):
     assert(fblkarr.begin_blk_nr() >= 1);
 }
 
-/*
-Repository::Repository(std::stringstream&& mem): fp(mem_fp), closed(true) {
-    bootstrap_repository();
-    assert(not closed);
-    assert(fblkarr.begin_blk_nr() >= 1);
-}
-*/
-
 Repository::Repository(FileBlockArray&& fblkarr, const GlobalParameters& gp, bool is_a_new_repository):
         fpath(fblkarr.get_file_path()), fblkarr(std::move(fblkarr)), closed(true) {
     if (is_a_new_repository) {

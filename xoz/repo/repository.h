@@ -62,13 +62,6 @@ public:
     // To create a new repository, use Repository::create.
     explicit Repository(const char* fpath);
 
-    // Open the repository from an in-memory file given by the iostream.
-    // If the in-memory file does not have a valid repository, it will fail.
-    //
-    // To create a new repository with a memory based file,
-    // use Repository::create_mem_based.
-    // TODO rm? explicit Repository(std::stringstream&& mem);
-
     // Create a new repository in the given physical file.
     //
     // If the file exists and fail_if_exists is False, try to open a
