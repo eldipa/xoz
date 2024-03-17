@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "xoz/blk/block_array.h"
+#include "xoz/blk/file_block_array.h"
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/ext/extent.h"
 #include "xoz/parameters.h"
@@ -279,4 +280,10 @@ private:
     void impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) override;
 
     uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) override;
+
+    /*
+     * Function to retrieve the file block array geometry pre-loading the repository.
+     * See FileBlockArray
+     * */
+    static void preload_repo(std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create);
 };

@@ -19,6 +19,8 @@ struct repo_header_t {
 
     // The size in bytes of the trailer
     //
+    // TODO it must be smaller than the block size
+    //
     // TODO this could be much smaller than 64 bits
     // Like 16 bits should be enough
     uint64_t trailer_sz;
@@ -67,6 +69,44 @@ struct repo_trailer_t {
 
 static_assert(sizeof(struct repo_header_t) == 64);
 }  // namespace
+
+void Repository::preload_repo(std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create) {
+    if (on_create) {
+        // TODO make it configurable
+        cfg.blk_sz = 128;
+        cfg.begin_blk_nr = 1;
+
+        return;
+    }
+
+    struct repo_header_t hdr;
+    is.read((char*)&hdr, sizeof(hdr));
+
+    if (strncmp((char*)&hdr.magic, "XOZ", 4) != 0) {
+        throw std::runtime_error("magic string 'XOZ' not found in the header.");
+    }
+
+    // TODO
+    // check checksum of (char*)(&hdr) against hdr.hdr_checksum
+
+    if (hdr.feature_flags_incompat) {
+        // TODO eventually we want to fail iff we don't understand one of those flags only
+        throw std::runtime_error("the repository has incompatible features.");
+    }
+
+    uint8_t blk_sz_order = u8_from_le(hdr.blk_sz_order);
+
+    if (blk_sz_order < 6 or blk_sz_order > 16) {
+        throw std::runtime_error(
+                (F() << "block size order " << blk_sz_order << " is out of range [6 to 16] (block sizes of 64 to 64K).")
+                        .str());
+    }
+
+    cfg.blk_sz = (1 << hdr.blk_sz_order);
+    cfg.begin_blk_nr = 1;  // TODO it should be 1 or 2
+
+    return;
+}
 
 void Repository::seek_read_and_check_header() {
     seek_read_phy(fp, 0);  // go to the begin of the file
