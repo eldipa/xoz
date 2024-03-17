@@ -35,6 +35,22 @@ FileBlockArray::~FileBlockArray() {
     }
 }
 
+FileBlockArray::FileBlockArray(FileBlockArray&& fblkarr):
+        BlockArray((BlockArray &&) fblkarr),
+        fpath(fblkarr.fpath),
+        disk_fp(std::move(fblkarr.disk_fp)),
+        mem_fp(std::move(fblkarr.mem_fp)),
+        fp(fblkarr.is_mem_based() ? *(std::iostream*)(&mem_fp) : *(std::iostream*)(&disk_fp)),
+        closed(fblkarr.closed),
+        closing(fblkarr.closing),
+        trailer(std::move(fblkarr.trailer)) {
+
+
+    // Mark as closed the othe file block array. From here we are the owner of the
+    // disk/mem file and we decide when it is closed or not.
+    fblkarr.closed = true;
+}
+
 std::tuple<uint32_t, uint16_t> FileBlockArray::impl_grow_by_blocks(uint16_t blk_cnt) {
     // BlockArray::grow_by_blocks should had checked for overflow on past_end_blk_nr() + blk_cnt.
     // If not overflow happen, shifting by blk_sz_order() assuming 64 bits should not
@@ -148,6 +164,9 @@ const std::stringstream& FileBlockArray::expose_mem_fp() const {
 
     return mem_fp;
 }
+
+// TODO use this is_mem_based to refactor other checks in the rest of FileBlockArray
+bool FileBlockArray::is_mem_based() const { return (std::addressof(fp) != std::addressof(disk_fp)); }
 
 uint32_t FileBlockArray::phy_file_sz() const {
     seek_read_phy(fp, 0);
@@ -379,6 +398,8 @@ void FileBlockArray::close() {
     }
     closed = true;
 }
+
+bool FileBlockArray::is_closed() const { return closed; }
 
 uint32_t FileBlockArray::header_sz() const { return begin_blk_nr() << blk_sz_order(); }
 

@@ -1469,5 +1469,137 @@ namespace {
                 );
         }
     }
+
+    TEST(FileBlockArrayTest, MoveFileBlockArray) {
+        DELETE("MoveFileBlockArray.xoz");
+
+        // By default, block of 64 bytes with 1 block of header
+        auto fn = []([[maybe_unused]] std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create) {
+                if (on_create) {
+                    cfg.blk_sz = 64;
+                    cfg.begin_blk_nr = 1;
+                } else {
+                    char data[2];
+                    is.read(data, 2);
+                    cfg.blk_sz = uint32_t(data[0]);
+                    cfg.begin_blk_nr = uint32_t(data[1]);
+                }
+            };
+
+        // 64 bytes block with 1 block of header
+        const char* fpath = SCRATCH_HOME "MoveFileBlockArray.xoz";
+        FileBlockArray new_blkarr = FileBlockArray::create( fpath, fn, true);
+
+        // store in the header the blk sz (64) and begin_blk_nr (1)
+        new_blkarr.write_header("\x40\x01", 2);
+
+        // store a random trailer
+        new_blkarr.write_trailer("ABCD", 4);
+
+        // Do not close new_blkarr
+
+        {
+        // Move and Check
+        FileBlockArray blkarr = std::move(new_blkarr);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64)); // the trailer is not there yet so it doesn't count
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344"
+                );
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4142 4344"
+                );
+        }
+
+        {
+        // Create an existing file: open instead of failing
+        FileBlockArray blkarr = FileBlockArray::create(fpath, fn, false);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64 + 4)); // the trailer should be there by now
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344"
+                );
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4142 4344"
+                );
+
+        // Move a closed block array, check that the new object is still closed
+        FileBlockArray blkarr2 = std::move(blkarr);
+
+        EXPECT_EQ(blkarr2.is_closed(), bool(true));
+        // The rest of blkarr2's attributes are undefined.
+        }
+
+
+        // Let's play now with a memory based file.
+        FileBlockArray new_blkarr2 = FileBlockArray::create_mem_based(64, 1);
+
+        // write some header and trailer
+        new_blkarr2.write_header("\x40\x01", 2);
+        new_blkarr2.write_trailer("ABCD", 4);
+
+        // Do not close new_blkarr2
+
+        {
+        // Move and Check
+        FileBlockArray blkarr = std::move(new_blkarr2);
+
+        EXPECT_EQ(blkarr.phy_file_sz(), uint32_t(64)); // the trailer is not there yet so it doesn't count
+        EXPECT_EQ(blkarr.blk_sz(), uint32_t(64));
+        EXPECT_EQ(blkarr.begin_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.past_end_blk_nr(), uint32_t(1));
+        EXPECT_EQ(blkarr.blk_cnt(), uint32_t(0));
+
+        XOZ_EXPECT_FILE_HEADER_SERIALIZATION(blkarr, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_TRAILER_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344"
+                );
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, -1,
+                "4001 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "4142 4344"
+                );
+
+        // Move a closed block array, check that the new object is still closed
+        FileBlockArray blkarr2 = std::move(blkarr);
+
+        EXPECT_EQ(blkarr2.is_closed(), bool(true));
+        // The rest of blkarr2's attributes are undefined.
+        }
+    }
 }
 

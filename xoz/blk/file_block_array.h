@@ -105,8 +105,23 @@ public:
      * a reference to the FileBlockArray object may not be aware of the change.
      *
      * Therefore, we don't support reopen by design.
+     *
+     * Also, once it is closed, calling any other method except the destructor
+     * or is_closed() is undefined.
      * */
     void close();
+    bool is_closed() const;
+
+    /*
+     * Construction by movement is allowed.
+     *
+     * Assignation by movement or construction/assignation by copy is not allowed.
+     * */
+    FileBlockArray(FileBlockArray&&);
+
+    FileBlockArray(const FileBlockArray&) = delete;
+    FileBlockArray& operator=(const FileBlockArray&) = delete;
+    FileBlockArray& operator=(FileBlockArray&&) = delete;
 
 public:
     /*
@@ -156,6 +171,11 @@ public:
      * This is only supported for memory-based file block arrays.
      * */
     const std::stringstream& expose_mem_fp() const;
+
+    /*
+     * Return true if the block array is based on memory or false if it is based on disk.
+     * */
+    bool is_mem_based() const;
 
     /*
      * Return the current file size (either for disk-based and for memory-based).

@@ -102,6 +102,18 @@ protected:
     BlockArray(bool coalescing_enabled = true, uint16_t split_above_threshold = 0,
                const struct SegmentAllocator::req_t& default_req = SegmentAllocator::XOZDefaultReq);
 
+    /*
+     * Move constructor (for subclasses only).
+     * */
+    BlockArray(BlockArray&& blkarr) = default;
+
+    /*
+     * Move assignation and copy constructor/assignation is not allowed
+     * */
+    BlockArray& operator=(BlockArray&& blkarr) = delete;
+    BlockArray(const BlockArray& blkarr) = delete;
+    BlockArray& operator=(const BlockArray& blkarr) = delete;
+
 protected:
     /*
      * Raise if the given block size is not suitable.
