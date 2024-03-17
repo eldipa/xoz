@@ -55,7 +55,7 @@ struct repo_header_t {
     uint32_t feature_flags_ro_compat;
 
     // Segment that points to the blocks that hold the root or main descriptor set
-    // See seek_read_and_check_header for the complete interpretation of this.
+    // See read_and_check_header for the complete interpretation of this.
     uint8_t root_sg[12];
 
     uint32_t hdr_checksum;
@@ -70,12 +70,13 @@ struct repo_trailer_t {
 static_assert(sizeof(struct repo_header_t) == 64);
 }  // namespace
 
-void Repository::preload_repo(std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create) {
+void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::istream& is,
+                              struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create) {
     if (on_create) {
-        // TODO make it configurable
-        cfg.blk_sz = 128;
-        cfg.begin_blk_nr = 1;
+        cfg.blk_sz = ctx.gp.blk_sz;
+        cfg.begin_blk_nr = 1;  // TODO
 
+        ctx.was_file_created = true;
         return;
     }
 
@@ -108,11 +109,9 @@ void Repository::preload_repo(std::istream& is, struct FileBlockArray::blkarr_cf
     return;
 }
 
-void Repository::seek_read_and_check_header() {
-    seek_read_phy(fp, 0);  // go to the begin of the file
-
+void Repository::read_and_check_header() {
     struct repo_header_t hdr;
-    fp.read((char*)&hdr, sizeof(hdr));
+    fblkarr.read_header((char*)&hdr, sizeof(hdr));  // TODO chk size
 
     if (strncmp((char*)&hdr.magic, "XOZ", 4) != 0) {
         throw InconsistentXOZ(*this, "magic string 'XOZ' not found in the header.");
@@ -140,7 +139,7 @@ void Repository::seek_read_and_check_header() {
                                          << " is out of range [6 to 16] (block sizes of 64 to 64K).");
     }
 
-    blk_total_cnt = u32_from_le(hdr.blk_total_cnt);
+    auto blk_total_cnt = u32_from_le(hdr.blk_total_cnt);
     if (blk_total_cnt == 0) {
         throw InconsistentXOZ(*this, "the repository has a declared block total count of zero.");
     }
@@ -154,11 +153,13 @@ void Repository::seek_read_and_check_header() {
     if (repo_sz != repo_sz_read) {
         throw InconsistentXOZ(*this, F() << "the repository declared a size of " << repo_sz_read
                                          << " bytes but it is expected to have " << repo_sz
-                                         << " bytes based on the block total count " << blk_total_cnt
+                                         << " bytes based on the declared block total count " << blk_total_cnt
                                          << " and block size " << gp.blk_sz << ".");
     }
 
 
+    /*
+     * TODO rewrite these checks
     if (repo_sz > fp_end) {
         throw InconsistentXOZ(*this,
                               F() << "the repository has a declared size (" << repo_sz
@@ -168,8 +169,6 @@ void Repository::seek_read_and_check_header() {
                                   << ".");
     }
 
-    /*
-     * TODO rewrite this check
     if (fp_end > phy_repo_end_pos) {
         // More real bytes than the ones in the repo
         // Perhaps an incomplete shrink/truncate?
@@ -198,7 +197,7 @@ void Repository::seek_read_and_check_header() {
     }
 }
 
-void Repository::seek_read_and_check_trailer(bool clear_trailer) {
+void Repository::read_and_check_trailer(bool clear_trailer) {
     // TODO this *may* still be useful: assert(phy_repo_end_pos > 0);
 
     if (trailer_sz < sizeof(struct repo_trailer_t)) {
@@ -207,25 +206,23 @@ void Repository::seek_read_and_check_trailer(bool clear_trailer) {
                                          << " bytes.");
     }
 
-    fp.seekg(repo_sz);  // Go to the end of the repository in the file, just at the begin of the trailer
-
     struct repo_trailer_t eof;
-    fp.read((char*)&eof, sizeof(eof));
+    fblkarr.read_trailer((char*)&eof, sizeof(eof));  // TODO chk sizes
 
     if (strncmp((char*)&eof.magic, "EOF", 4) != 0) {
         throw InconsistentXOZ(*this, "magic string 'EOF' not found in the trailer.");
     }
 
     if (clear_trailer) {
+        // TODO is still being necessary?
         memset(&eof, 0, sizeof(eof));
-        fp.seekp(repo_sz);
-        fp.write((const char*)&eof, sizeof(eof));
+        fblkarr.write_trailer((const char*)&eof, sizeof(eof));
+        // TODO "flush" the trailer to disk
     }
 }
 
-std::streampos Repository::_seek_and_write_header(std::ostream& fp, uint64_t trailer_sz, uint32_t blk_total_cnt,
-                                                  const GlobalParameters& gp,
-                                                  const std::vector<uint8_t>& root_sg_bytes) {
+void Repository::_write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp,
+                               const std::vector<uint8_t>& root_sg_bytes) {
     // Note: currently the trailer size is fixed but we may decide
     // to make it variable later.
     //
@@ -234,7 +231,6 @@ std::streampos Repository::_seek_and_write_header(std::ostream& fp, uint64_t tra
     // we should have all the info needed.
     assert(trailer_sz == sizeof(struct repo_trailer_t));
 
-    may_grow_and_seek_write_phy(fp, 0);
     struct repo_header_t hdr = {
             .magic = {'X', 'O', 'Z', 0},
             .repo_sz = u64_to_le(blk_total_cnt << gp.blk_sz_order),
@@ -253,25 +249,12 @@ std::streampos Repository::_seek_and_write_header(std::ostream& fp, uint64_t tra
     assert(sizeof(hdr.root_sg) == root_sg_bytes.size());
     memcpy(hdr.root_sg, root_sg_bytes.data(), sizeof(hdr.root_sg));
 
-    fp.write((const char*)&hdr, sizeof(hdr));
-
-    std::streampos streampos_after_hdr = fp.tellp();
-    return streampos_after_hdr;
+    fblkarr.write_header((const char*)&hdr, sizeof(hdr));
 }
 
-std::streampos Repository::_seek_and_write_trailer(std::ostream& fp, uint32_t blk_total_cnt,
-                                                   const GlobalParameters& gp) {
-    // Go to the end of the repository.
-    // If this goes beyond the current file size, this will
-    // "reserve" space for the "ghost" blocks.
-    // TODO chk overflow (blk_total_cnt << gp.blk_sz_order)));
-    may_grow_and_seek_write_phy(fp, (blk_total_cnt << gp.blk_sz_order));
-
+void Repository::_write_trailer() {
     struct repo_trailer_t eof = {.magic = {'E', 'O', 'F', 0}};
-    fp.write((const char*)&eof, sizeof(eof));
-
-    std::streampos streampos_after_trailer = fp.tellp();
-    return streampos_after_trailer;
+    fblkarr.write_trailer((const char*)&eof, sizeof(eof));
 }
 
 std::vector<uint8_t> Repository::_encode_empty_root_segment() {
@@ -313,7 +296,7 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
         // the root segment is small enough to be stored in the header;
         // release any allocated space
         if (not external_root_sg_loc.is_empty_space()) {
-            this->allocator().dealloc(external_root_sg_loc);
+            fblkarr.allocator().dealloc(external_root_sg_loc);
             external_root_sg_loc = Segment::EmptySegment();
         }
 
@@ -334,17 +317,17 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
         if ((external_capacity >> 2) > root_sg_sz) {
             // the space needed is less than 25% of the current capacity: dealloc + (re)alloc
             // to shrink and save some space
-            this->allocator().dealloc(external_root_sg_loc);
-            external_root_sg_loc = this->allocator().alloc(root_sg_sz);
+            fblkarr.allocator().dealloc(external_root_sg_loc);
+            external_root_sg_loc = fblkarr.allocator().alloc(root_sg_sz);
         } else if (external_capacity >= root_sg_sz) {
             // the current capacity can hold the root segm: do nothing
         } else {
-            this->allocator().dealloc(external_root_sg_loc);
-            external_root_sg_loc = this->allocator().alloc(root_sg_sz);
+            fblkarr.allocator().dealloc(external_root_sg_loc);
+            external_root_sg_loc = fblkarr.allocator().alloc(root_sg_sz);
         }
 
         // Write the root segment in an external location
-        IOSegment io(*this, external_root_sg_loc);
+        IOSegment io(fblkarr, external_root_sg_loc);
         root_sg.write_struct_into(io);
 
         uint32_t root_sg_chksum = 0;  // TODO
@@ -366,10 +349,7 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
     return root_sg_bytes;
 }
 
-void Repository::_init_new_repository_into(std::iostream& fp, const GlobalParameters& gp) {
-    // Fail with an exception on any I/O error
-    fp.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-
+void Repository::_init_new_repository(const GlobalParameters& gp) {
     if (gp.blk_init_cnt == 0) {
         throw std::runtime_error("invalid initial blocks count of zero");
     }
@@ -381,9 +361,13 @@ void Repository::_init_new_repository_into(std::iostream& fp, const GlobalParame
 
     uint64_t trailer_sz = sizeof(struct repo_trailer_t);
     const auto root_sg_bytes = _encode_empty_root_segment();
-    _seek_and_write_header(fp, trailer_sz, gp.blk_init_cnt, gp, root_sg_bytes);
-    _seek_and_write_trailer(fp, gp.blk_init_cnt, gp);
+    _write_header(trailer_sz, gp.blk_init_cnt, gp, root_sg_bytes);
+    _write_trailer();
 
-    fp.seekg(0, std::ios_base::beg);
-    fp.seekp(0, std::ios_base::beg);
+    // gp's blk_init_cnt counts for the 1 block header, but the grow_by_blocks
+    // doesn't.
+    // TODO szies
+    if (gp.blk_init_cnt > 1) {
+        fblkarr.grow_by_blocks(assert_u16(gp.blk_init_cnt) - 1);
+    }
 }

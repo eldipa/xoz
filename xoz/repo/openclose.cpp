@@ -4,159 +4,28 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/repo/repository.h"
 
-void Repository::open_internal(const char* fpath, std::stringstream&& mem) {
-    if (not closed) {
-        throw std::runtime_error("The current repository is not closed. You need "
-                                 "to close it before opening a new one");
-    }
-
-    // Try to avoid raising an exception on the opening so we can
-    // raise better exceptions.
-    //
-    // Enable the exception mask after the open
-    fp.exceptions(std::ifstream::goodbit);
-    fp.clear();
-
-    if (std::addressof(fp) == std::addressof(disk_fp)) {
-        // note: iostream does not have open() so we must access disk_fp directly
-        // but the check above ensure that fp *is* disk_fp
-        disk_fp.open(fpath,
-                     // in/out binary file stream
-                     std::fstream::in | std::fstream::out | std::fstream::binary);
-    } else {
-        // initialize mem_fp with a new content
-        mem_fp = std::move(mem);
-
-        // note: fstream.open implicitly reset the read/write pointers
-        // so we emulate the same for the memory based file
-        mem_fp.seekg(0, std::ios_base::beg);
-        mem_fp.seekp(0, std::ios_base::beg);
-    }
-
-    if (!fp) {
-        throw OpenXOZError(fpath, "Repository::open could not open the file. May "
-                                  "not exist or may not have permissions.");
-    }
-
-    this->fpath = std::string(fpath);
-
-    // Renable the exception mask
-    fp.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-
-    // Calculate the end of the file
-    // If it cannot be represented by uint64_t, fail.
-    seek_read_phy(fp, 0, std::ios_base::end);
-    auto tmp_fp_end = fp.tellg();
-    if (tmp_fp_end >= INT64_MAX) {  // TODO signed or unsigned check?
-        throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");
-    }
-
-    // Save it
-    fp_end = tmp_fp_end;
-
-    seek_read_and_check_header();
-    seek_read_and_check_trailer(true /* clear_trailer */);
-
-    bootstrap_repository();
-    closed = false;
-}
-
-// Create a new repository in the given physical file.
-//
-// If the file exists and fail_if_exists is False, try to open a
-// repository there (do not create a new one).
-//
-// During the open the repository will be checked and if
-// something does not look right, the open will fail.
-//
-// The check for the existence of the file and the subsequent creation
-// is not atomic so it may be possible that the file does not exist
-// and by the moment we want to create it some other process already
-// created and we will end up overwriting it.
-//
-// If the file exists and fail_if_exists is True, fail, otherwise
-// create a new file and a repository there.
-//
-// Only in this case the global parameters (gp) will be used.
-Repository Repository::create(const char* fpath, bool fail_if_exists, const GlobalParameters& gp) {
-    std::fstream test(fpath, std::fstream::in | std::fstream::binary);
-    if (test) {
-        // File already exists: ...
-        if (fail_if_exists) {
-            // ... bad we don't want to corrupt a file
-            // by mistake. Abort.
-            throw OpenXOZError(fpath, "the file already exist and Repository::create "
-                                      "is configured to not override it.");
-        } else {
-            // ... ok, try to open (the constructor will fail
-            // if it cannot open it)
-            return Repository(fpath);
-        }
-    } else {
-        // File does not exist: create a new one and the open it
-        std::fstream fp = _truncate_disk_file(fpath);
-        _init_new_repository_into(fp, gp);
-        fp.close();  // flush the content make the constructor to open it back
-        return Repository(fpath);
-    }
-}
-
-Repository Repository::create_mem_based(const GlobalParameters& gp) {
-    std::stringstream fp;
-    _init_new_repository_into(fp, gp);
-    return Repository(std::move(fp));
-}
-
-std::fstream Repository::_truncate_disk_file(const char* fpath) {
-    std::fstream fp(fpath,
-                    // in/out binary file stream
-                    std::fstream::in | std::fstream::out | std::fstream::binary | std::fstream::trunc);
-
-    if (!fp) {
-        throw OpenXOZError(fpath, "Repository::(truncate and create) could not "
-                                  "truncate+create the file. May not have permissions.");
-    }
-
-    return fp;
-}
-
 void Repository::close() {
     if (closed)
         return;
 
     const auto root_sg_bytes = update_and_encode_root_segment_and_loc();
-    _seek_and_write_header(fp, trailer_sz, blk_total_cnt, gp, root_sg_bytes);
-    std::streampos pos_after_trailer = _seek_and_write_trailer(fp, blk_total_cnt, gp);
 
-    fp.seekp(0);
-    uintmax_t file_sz = pos_after_trailer - fp.tellp();
+    // note: we declare that the repository has the same block count
+    // than the file block array *plus* its begin blk number to count
+    // for the array's header (where the repo's header will be written into)
+    //
+    // one comment on this: the file block array *may* have more blocks than
+    // the blk_cnt() says because it may be keeping some unused blocks for
+    // future allocations (this is the fblkarr.capacity()).
+    //
+    // the call to fblkarr.close() *should* release those blocks and resize
+    // the file to the correct size.
+    // the caveat is that it feels fragile to store something without being
+    // 100% sure that it is true -- TODO store fblkarr.capacity() ? may be
+    // store more details of fblkarr?
+    _write_header(trailer_sz, fblkarr.blk_cnt() + fblkarr.begin_blk_nr(), gp, root_sg_bytes);
+    _write_trailer();
 
-    if (std::addressof(fp) == std::addressof(disk_fp)) {
-        disk_fp.close();
-    }
-
+    fblkarr.close();
     closed = true;
-
-    if (std::addressof(fp) == std::addressof(disk_fp)) {
-        std::filesystem::resize_file(fpath, file_sz);
-    } else {
-        // Quite ugly way to "truncate" an in-memory file
-        // We copy chunk by chunk to a temporal stringstream
-        // until reach the desired "new" file size and then
-        // we do a swap.
-        std::stringstream alt_mem_fp;
-        mem_fp.seekg(0);
-
-        char buf[128];
-        uintmax_t remain = file_sz;
-        while (remain) {
-            const auto chk_sz = std::min(sizeof(buf), remain);
-            mem_fp.read(buf, chk_sz);
-            alt_mem_fp.write(buf, chk_sz);
-
-            remain -= chk_sz;
-        }
-
-        mem_fp.swap(alt_mem_fp);
-    }
 }

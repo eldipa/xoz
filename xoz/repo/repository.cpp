@@ -6,24 +6,68 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/io/iospan.h"
 
-Repository::Repository(const char* fpath): fpath(fpath), fp(disk_fp), closed(true) {
-    std::stringstream ignored;
-    open_internal(fpath, std::move(ignored));
-    assert(not closed);
-    assert(blk_total_cnt >= 1);
+namespace {
+struct Repository::preload_repo_ctx_t dummy;
 }
 
-Repository::Repository(std::stringstream&& mem): fp(mem_fp), closed(true) {
-    open_internal(Repository::IN_MEMORY_FPATH, std::move(mem));
+Repository::Repository(const char* fpath):
+        fpath(fpath), fblkarr(fpath, std::bind_front(Repository::preload_repo, dummy)), closed(true) {
+    bootstrap_repository();
     assert(not closed);
-    assert(blk_total_cnt >= 1);
+    assert(fblkarr.begin_blk_nr() >= 1);
+}
+
+/*
+Repository::Repository(std::stringstream&& mem): fp(mem_fp), closed(true) {
+    bootstrap_repository();
+    assert(not closed);
+    assert(fblkarr.begin_blk_nr() >= 1);
+}
+*/
+
+Repository::Repository(FileBlockArray&& fblkarr, const GlobalParameters& gp, bool is_a_new_repository):
+        fpath(fblkarr.get_file_path()), fblkarr(std::move(fblkarr)), closed(true) {
+    if (is_a_new_repository) {
+        // The given file block array has a valid and open file but it is not initialized as
+        // a repository yet. We do that here.
+        _init_new_repository(gp);
+    }
+
+    bootstrap_repository();
+    assert(not closed);
+    assert(fblkarr.begin_blk_nr() >= 1);
 }
 
 Repository::~Repository() { close(); }
 
+Repository Repository::create(const char* fpath, bool fail_if_exists, const GlobalParameters& gp) {
+    // We pass GlobalParameters gp to the FileBlockArray::create via preload_repo function
+    // so the array is created with the correct dimensions.
+    // However, no header is written there so resulting file is not a valid repository yet
+    struct preload_repo_ctx_t ctx = {false, gp};
+    FileBlockArray fblkarr =
+            FileBlockArray::create(fpath, std::bind_front(Repository::preload_repo, std::ref(ctx)), fail_if_exists);
+
+    // We delegate the initialization of the new repository to the Repository constructor
+    // that it should call _init_new_repository iff ctx.was_file_created
+    return Repository(std::move(fblkarr), gp, ctx.was_file_created);
+}
+
+Repository Repository::create_mem_based(const GlobalParameters& gp) {
+    FileBlockArray fblkarr = FileBlockArray::create_mem_based(gp.blk_sz, 1 /* begin_blk_nr */);
+
+    // Memory based file block arrays (and therefore Repository too) are always created
+    // empty and require an initialization (so is_a_new_repository is always true)
+    return Repository(std::move(fblkarr), gp, true);
+}
+
 void Repository::bootstrap_repository() {
-    // Initialize BlockArray first. Now we can read/write blocks/extents (but we cannot alloc yet)
-    initialize_block_array(gp.blk_sz, 1, blk_total_cnt);
+    // During the construction of Repository, in particular of FileBlockArray fblkarr,
+    // the block array was initialized so we can read/write extents/header/trailer but we cannot
+    // allocate yet.
+    assert(not fblkarr.is_closed());
+    read_and_check_header();
+    read_and_check_trailer(true /* clear_trailer */);
 
     // Let's load the root descriptor set.
     // So far we have the root segment loaded in root_sg *but*
@@ -34,7 +78,7 @@ void Repository::bootstrap_repository() {
     if (root_sg.inline_data_sz() == 4 and root_sg.ext_cnt() == 1) {
         external_root_sg_loc.add_extent(root_sg.exts()[0]);
 
-        IOSegment io2(*this, external_root_sg_loc);
+        IOSegment io2(fblkarr, external_root_sg_loc);
         root_sg = Segment::load_struct_from(io2);
 
         // In the inline data we have the checksum of the root segment.
@@ -60,14 +104,16 @@ void Repository::bootstrap_repository() {
     // it will crash because the allocator is not initialized yet and we cannot do it
     // because we need to scan the sets to find which extents/segments are already
     // allocated.
-    root_dset = std::make_shared<DescriptorSet>(this->root_sg, *this, *this, idmgr);
+    root_dset = std::make_shared<DescriptorSet>(this->root_sg, fblkarr, fblkarr, idmgr);
     root_dset->load_set();
 
     // Scan which extents/segments are allocated so we can initialize the allocator.
     auto allocated = scan_descriptor_sets();
 
     // With this, we can do alloc/dealloc and the Repository is fully operational.
-    allocator().initialize_from_allocated(allocated);
+    fblkarr.allocator().initialize_from_allocated(allocated);
+
+    closed = false;
 }
 
 std::ostream& Repository::print_stats(std::ostream& out) const {
@@ -84,10 +130,13 @@ std::ostream& Repository::print_stats(std::ostream& out) const {
     if (closed) {
         out << "closed\n";
     } else {
-        out << "open [fail: " << fp.fail() << ", bad: " << fp.bad() << ", eof: " << fp.eof() << ", good: " << fp.good()
-            << "]\n";
+        // out << "open [fail: " << fp.fail() << ", bad: " << fp.bad() << ", eof: " << fp.eof() << ", good: " <<
+        // fp.good()
+        //     << "]\n";  TODO
     }
 
+    // TODO better stats!!
+    auto blk_total_cnt = fblkarr.blk_cnt() + fblkarr.begin_blk_nr();
     out << "\nRepository size: " << (blk_total_cnt << gp.blk_sz_order) << " bytes, " << blk_total_cnt << " blocks\n"
         << "\nBlock size: " << gp.blk_sz << " bytes (order: " << (uint32_t)gp.blk_sz_order << ")\n"
         << "\nTrailer size: " << trailer_sz << " bytes\n";
@@ -95,31 +144,16 @@ std::ostream& Repository::print_stats(std::ostream& out) const {
     return out;
 }
 
-const std::stringstream& Repository::expose_mem_fp() const {
-    if (std::addressof(fp) == std::addressof(disk_fp)) {
-        throw std::runtime_error("The repository is not memory backed.");
-    }
+const std::stringstream& Repository::expose_mem_fp() const { return fblkarr.expose_mem_fp(); }
 
-    return mem_fp;
-}
-
-uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) {
+uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, [[maybe_unused]] uint32_t max_data_sz,
+                                       [[maybe_unused]] uint32_t start) {
     if (ext.blk_nr() == 0x0) {
         throw NullBlockAccess(F() << "The block 0x00 cannot be " << (is_read_op ? "read" : "written"));
-    }
+    }  // TODO blk 0x0 but may be 0x1 too
 
     assert(ext.blk_nr() != 0x0);
-    return BlockArray::chk_extent_for_rw(is_read_op, ext, max_data_sz, start);
-}
-
-void Repository::impl_read(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) {
-    seek_read_blk(blk_nr, offset);
-    fp.read(buf, exact_sz);
-}
-
-void Repository::impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) {
-    seek_write_blk(blk_nr, offset);
-    fp.write(buf, exact_sz);
+    return 0;  // TODO BlockArray::chk_extent_for_rw(is_read_op, ext, max_data_sz, start);
 }
 
 std::list<Segment> Repository::scan_descriptor_sets() {
@@ -141,8 +175,13 @@ std::list<Segment> Repository::scan_descriptor_sets() {
 struct Repository::stats_t Repository::stats() const {
     struct stats_t st;
 
-    auto blkarr_st = BlockArray::stats();
+    auto blkarr_st = fblkarr.stats();
     memcpy(&st.blkarr_st, &blkarr_st, sizeof(st.blkarr_st));
 
     return st;
 }
+
+uint32_t Repository::_grow_by_blocks(uint16_t blk_cnt) { return fblkarr.grow_by_blocks(blk_cnt); }
+
+
+void Repository::_shrink_by_blocks(uint16_t blk_cnt) { return fblkarr.shrink_by_blocks(blk_cnt); }

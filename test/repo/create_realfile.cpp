@@ -359,8 +359,7 @@ namespace {
             [&]() { Repository::create(SCRATCH_HOME "CreateThenRecreateButFail.xoz", true); },
             ThrowsMessage<OpenXOZError>(
                 AllOf(
-                    HasSubstr("Repository::create"),
-                    HasSubstr("the file already exist and Repository::create is configured to not override it")
+                    HasSubstr("the file already exist and FileBlockArray::create is configured to not override it")
                     )
                 )
         );
@@ -425,7 +424,7 @@ namespace {
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto old_top_nr = repo.grow_by_blocks(3);
+        auto old_top_nr = repo._grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -436,14 +435,14 @@ namespace {
         repo.print_stats(ss);
 
         auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
+        std::cout << stats_str; // for easy debug
 
         EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Add 6 more blocks
-        old_top_nr = repo.grow_by_blocks(6);
+        old_top_nr = repo._grow_by_blocks(6);
         EXPECT_EQ(old_top_nr, (uint32_t)4);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -529,7 +528,7 @@ namespace {
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto old_top_nr = repo.grow_by_blocks(3);
+        auto old_top_nr = repo._grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -547,7 +546,7 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Now "revert" freeing those 3 blocks
-        repo.shrink_by_blocks(3);
+        repo._shrink_by_blocks(3);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.past_end_blk_nr(), (uint32_t)1);
@@ -632,7 +631,7 @@ namespace {
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto old_top_nr = repo.grow_by_blocks(3);
+        auto old_top_nr = repo._grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
         EXPECT_EQ(repo.begin_blk_nr(), (uint32_t)1);
@@ -674,7 +673,7 @@ namespace {
 
         // Now "shrink" freeing those 3 blocks
         Repository repo2(SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
-        repo2.shrink_by_blocks(3);
+        repo2._shrink_by_blocks(3);
 
         EXPECT_EQ(repo2.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo2.past_end_blk_nr(), (uint32_t)1);

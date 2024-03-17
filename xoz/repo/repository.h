@@ -19,13 +19,11 @@
 #include "xoz/repo/id_manager.h"
 #include "xoz/segm/segment.h"
 
-class Repository: public BlockArray {
+class Repository {
 private:
     std::string fpath;
 
-    std::fstream disk_fp;
-    std::stringstream mem_fp;
-    std::iostream& fp;
+    FileBlockArray fblkarr;
 
     bool closed;
 
@@ -43,11 +41,6 @@ private:
 
     // The end position of the file.
     uint64_t fp_end;
-
-    // The total count of blocks reserved in the repository
-    // including the block 0.
-    // They may or may not be in use.
-    uint32_t blk_total_cnt;
 
     IDManager idmgr;
 
@@ -73,7 +66,7 @@ public:
     //
     // To create a new repository with a memory based file,
     // use Repository::create_mem_based.
-    explicit Repository(std::stringstream&& mem);
+    // TODO rm? explicit Repository(std::stringstream&& mem);
 
     // Create a new repository in the given physical file.
     //
@@ -112,6 +105,16 @@ public:
     // Call to close()
     ~Repository();
 
+    // Block definition (TODO)
+    inline uint32_t subblk_sz() const { return fblkarr.subblk_sz(); }
+    inline uint32_t blk_sz() const { return fblkarr.blk_sz(); }
+    inline uint8_t blk_sz_order() const { return fblkarr.blk_sz_order(); }
+    inline uint32_t begin_blk_nr() const { return fblkarr.begin_blk_nr(); }
+    inline uint32_t past_end_blk_nr() const { return fblkarr.past_end_blk_nr(); }
+    inline uint32_t blk_cnt() const { return fblkarr.blk_cnt(); }
+    inline uint32_t capacity() const { return fblkarr.capacity(); }
+
+
     inline std::shared_ptr<DescriptorSet> root() { return root_dset; }
 
     inline const GlobalParameters& params() const { return gp; }
@@ -130,78 +133,21 @@ public:
     Repository(const Repository&) = delete;
     Repository& operator=(const Repository&) = delete;
 
+public:
+    /*
+     * These two are for testing only. Don't use it.
+     * */
+    uint32_t /* internal - for testing */ _grow_by_blocks(uint16_t blk_cnt);
+    void /* internal - for testing */ _shrink_by_blocks(uint16_t blk_cnt);
+
 private:
-    // Seek the underlying file for reading (seek_read_phy)
-    // and for writing (seek_write_phy).
-    //
-    // These are aliases for std::istream::seekg and
-    // std::ostream::seekp. The names seekg and seekp are
-    // *very* similar so it is preferred to call
-    // seek_read_phy and seek_write_phy to make it clear.
-    //
-    // Prefer these 2 aliases.
-    //
-    // For reading, seek beyond the end of the file is undefined
-    // and very likely will end up in a failure.
-    //
-    // There is no point to do a check here because the seek could
-    // be set to a few bytes *before* the end (so no error) but the
-    // caller then may read bytes *beyond* the end (so we cannot check
-    // it here).
-    //
-    // For writing, the seek goes beyond the end of the file is
-    // also undefined.
-    //
-    // For disk-based files, the file system may support gaps/holes
-    // and it may not fail.
-    // For memory-based files, it will definitely fail.
-    //
-    // It is safe to call may_grow_and_seek_write_phy function
-    // instead of seek_write_phy.
-    //
-    // The function will grow the file to the seek position so
-    // it is left at the end, filling with zeros the gap between
-    // the new and old end positions.
-    static inline void seek_read_phy(std::istream& fp, std::streamoff offset,
-                                     std::ios_base::seekdir way = std::ios_base::beg) {
-        fp.seekg(offset, way);
-    }
-
-    static inline void seek_write_phy(std::ostream& fp, std::streamoff offset,
-                                      std::ios_base::seekdir way = std::ios_base::beg) {
-        fp.seekp(offset, way);
-    }
-
-    static inline void may_grow_and_seek_write_phy(std::ostream& fp, std::streamoff offset,
-                                                   std::ios_base::seekdir way = std::ios_base::beg) {
-        // handle holes (seeks beyond the end of the file)
-        may_grow_file_due_seek_phy(fp, offset, way);
-        fp.seekp(offset, way);
-    }
-
-    // Fill with zeros the space between the end of the file and the seek
-    // position if it is beyond the end.
-    //
-    // This effectively grows the file but no statistics are updated.
-    // The file's write pointer is left as it was at the begin of the operation.
-    static void may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff offset,
-                                           std::ios_base::seekdir way = std::ios_base::beg);
-
-    // Alias for blk read / write positioning
-    inline void seek_read_blk(uint32_t blk_nr, uint32_t offset = 0) {
-        assert(blk_nr);
-        // TODO assert blk_nr << blk_sz_order does not overflow; and that + offset does not either
-        // assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_nr << gp.blk_sz_order) + offset));
-        seek_read_phy(fp, (blk_nr << gp.blk_sz_order) + offset);
-    }
-
-    inline void seek_write_blk(uint32_t blk_nr, uint32_t offset = 0) {
-        assert(blk_nr);
-        // TODO
-        // assert(not u64_add_will_overflow(phy_repo_start_pos, (blk_nr << gp.blk_sz_order) + offset));
-        seek_write_phy(fp, (blk_nr << gp.blk_sz_order) + offset);
-    }
-
+    /*
+     * The given file block array must be a valid one with an opened file.
+     * This constructor will grab it and take ownership of it and it will write
+     * into to initialize it as a Repository with the given gp defaults if is_a_new_repository
+     * is true.
+     * */
+    Repository(FileBlockArray&& fblkarr, const GlobalParameters& gp, bool is_a_new_repository);
 
     /*
      * Initialize a repository: its block array, its allocator, any index and check for errors or inconsistencies.
@@ -214,20 +160,16 @@ private:
      * */
     std::list<Segment> scan_descriptor_sets();
 
-    // Initialize  a new repository in the specified file.
-    static void _init_new_repository_into(std::iostream& fp, const GlobalParameters& gp);
+    // Initialize  a new repository in the specified file. TODO
+    void _init_new_repository(const GlobalParameters& gp);
 
-    // Create an empty file if it does not exist; truncate if it does
-    static std::fstream _truncate_disk_file(const char* fpath);
-
-    // Write the header/trailer moving the file pointer
-    // to the correct position before.
+    // Write the header/trailer TODO
     //
     // These are static/class method versions to work with
-    // Repository::create
-    static std::streampos _seek_and_write_header(std::ostream& fp, uint64_t trailer_sz, uint32_t blk_total_cnt,
-                                                 const GlobalParameters& gp, const std::vector<uint8_t>& root_sg_bytes);
-    static std::streampos _seek_and_write_trailer(std::ostream& fp, uint32_t blk_total_cnt, const GlobalParameters& gp);
+    // Repository::create TODO
+    void _write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp,
+                       const std::vector<uint8_t>& root_sg_bytes);
+    void _write_trailer();
 
     /*
      * Write any pending change in the root descriptor set and update (indirectly) the root segment.
@@ -245,26 +187,25 @@ private:
      * */
     static std::vector<uint8_t> _encode_empty_root_segment();
 
-    // Read the header/trailer moving the file pointer
-    // to the correct position and check that the header/trailer
+    // Read the header/trailer and check that the header/trailer
     // is consistent
     //
     // clear_trailer, if true, will override the trailer with zeros
     // after checking it
-    void seek_read_and_check_header();
-    void seek_read_and_check_trailer(bool clear_trailer);
+    void read_and_check_header();
+    void read_and_check_trailer(bool clear_trailer);
 
     // If the repository is disk based open the real file fpath,
     // otherwise, if the repository is memory based, initialize it
     // with the given memory stringstream.
     void open_internal(const char* fpath, std::stringstream&& mem);
 
-    // Read a fully alloc'd and suballoc'd extent.
-    // Called from impl_read_extent()
-    uint32_t rw_suballocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_read_sz,
-                                    uint32_t start);
-    uint32_t rw_fully_allocated_extent(bool is_read_op, const Extent& ext, char* data, uint32_t to_rw_sz,
-                                       uint32_t start);
+
+public:
+    struct preload_repo_ctx_t {
+        bool was_file_created;
+        GlobalParameters gp;
+    };
 
 private:
     friend class InconsistentXOZ;
@@ -272,18 +213,16 @@ private:
 
     constexpr static const char* IN_MEMORY_FPATH = "@in-memory";
 
-    std::tuple<uint32_t, uint16_t> impl_grow_by_blocks(uint16_t blk_cnt) override;
-    uint32_t impl_shrink_by_blocks(uint32_t blk_cnt) override;
-    uint32_t impl_release_blocks() override;
-
-    void impl_read(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) override;
-    void impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) override;
-
-    uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start) override;
+    uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start);
 
     /*
      * Function to retrieve the file block array geometry pre-loading the repository.
      * See FileBlockArray
+     *
+     * The on_create_defaults argument is a read-only struct passed by copy
+     * that must be read only if on_create is true, otherwise it is undefined.
+     * TODO
      * */
-    static void preload_repo(std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create);
+    static void preload_repo(struct preload_repo_ctx_t& ctx, std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg,
+                             bool on_create);
 };
