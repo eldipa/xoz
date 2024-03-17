@@ -160,16 +160,17 @@ private:
      * */
     std::list<Segment> scan_descriptor_sets();
 
-    // Initialize  a new repository in the specified file. TODO
-    void _init_new_repository(const GlobalParameters& gp);
+    // Initialize  a new repository in the specified file. TODO: better doc
+    void init_new_repository(const GlobalParameters& gp);
 
-    // Write the header/trailer TODO
+    // Write the header/trailer TODO: better doc
     //
     // These are static/class method versions to work with
-    // Repository::create TODO
-    void _write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp,
-                       const std::vector<uint8_t>& root_sg_bytes);
-    void _write_trailer();
+    // Repository::create TODO this method should relay on Repository's attr, not longer
+    // they are static
+    void write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp,
+                      const std::vector<uint8_t>& root_sg_bytes);
+    void write_trailer();
 
     /*
      * Write any pending change in the root descriptor set and update (indirectly) the root segment.
@@ -210,8 +211,6 @@ public:
 private:
     friend class InconsistentXOZ;
     friend class ExtentOutOfBounds;
-
-    constexpr static const char* IN_MEMORY_FPATH = "@in-memory";
 
     uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start);
 

@@ -32,7 +32,7 @@ Repository::Repository(FileBlockArray&& fblkarr, const GlobalParameters& gp, boo
     if (is_a_new_repository) {
         // The given file block array has a valid and open file but it is not initialized as
         // a repository yet. We do that here.
-        _init_new_repository(gp);
+        init_new_repository(gp);
     }
 
     bootstrap_repository();
@@ -51,7 +51,7 @@ Repository Repository::create(const char* fpath, bool fail_if_exists, const Glob
             FileBlockArray::create(fpath, std::bind_front(Repository::preload_repo, std::ref(ctx)), fail_if_exists);
 
     // We delegate the initialization of the new repository to the Repository constructor
-    // that it should call _init_new_repository iff ctx.was_file_created
+    // that it should call init_new_repository iff ctx.was_file_created
     return Repository(std::move(fblkarr), gp, ctx.was_file_created);
 }
 
@@ -140,7 +140,7 @@ std::ostream& Repository::print_stats(std::ostream& out) const {
     // TODO better stats!!
     auto blk_total_cnt = fblkarr.blk_cnt() + fblkarr.begin_blk_nr();
     out << "\nRepository size: " << (blk_total_cnt << gp.blk_sz_order) << " bytes, " << blk_total_cnt << " blocks\n"
-        << "\nBlock size: " << gp.blk_sz << " bytes (order: " << (uint32_t)gp.blk_sz_order << ")\n"
+        << "\nBlock size: " << fblkarr.blk_sz() << " bytes (order: " << (uint32_t)gp.blk_sz_order << ")\n"
         << "\nTrailer size: " << trailer_sz << " bytes\n";
 
     return out;
@@ -404,8 +404,8 @@ void Repository::read_and_check_trailer(bool clear_trailer) {
     }
 }
 
-void Repository::_write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp,
-                               const std::vector<uint8_t>& root_sg_bytes) {
+void Repository::write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp,
+                              const std::vector<uint8_t>& root_sg_bytes) {
     // Note: currently the trailer size is fixed but we may decide
     // to make it variable later.
     //
@@ -435,7 +435,7 @@ void Repository::_write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, cons
     fblkarr.write_header((const char*)&hdr, sizeof(hdr));
 }
 
-void Repository::_write_trailer() {
+void Repository::write_trailer() {
     struct repo_trailer_t eof = {.magic = {'E', 'O', 'F', 0}};
     fblkarr.write_trailer((const char*)&eof, sizeof(eof));
 }
@@ -532,7 +532,7 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
     return root_sg_bytes;
 }
 
-void Repository::_init_new_repository(const GlobalParameters& gp) {
+void Repository::init_new_repository(const GlobalParameters& gp) {
     if (gp.blk_init_cnt == 0) {
         throw std::runtime_error("invalid initial blocks count of zero");
     }
@@ -544,8 +544,8 @@ void Repository::_init_new_repository(const GlobalParameters& gp) {
 
     uint64_t trailer_sz = sizeof(struct repo_trailer_t);
     const auto root_sg_bytes = _encode_empty_root_segment();
-    _write_header(trailer_sz, gp.blk_init_cnt, gp, root_sg_bytes);
-    _write_trailer();
+    write_header(trailer_sz, gp.blk_init_cnt, gp, root_sg_bytes);
+    write_trailer();
 
     // gp's blk_init_cnt counts for the 1 block header, but the grow_by_blocks
     // doesn't.
@@ -574,8 +574,8 @@ void Repository::close() {
     // the caveat is that it feels fragile to store something without being
     // 100% sure that it is true -- TODO store fblkarr.capacity() ? may be
     // store more details of fblkarr?
-    _write_header(trailer_sz, fblkarr.blk_cnt() + fblkarr.begin_blk_nr(), gp, root_sg_bytes);
-    _write_trailer();
+    write_header(trailer_sz, fblkarr.blk_cnt() + fblkarr.begin_blk_nr(), gp, root_sg_bytes);
+    write_trailer();
 
     fblkarr.close();
     closed = true;
