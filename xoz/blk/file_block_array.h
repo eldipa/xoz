@@ -187,6 +187,22 @@ public:
 
     const std::iostream& phy_file_stream() const { return fp; }
 
+    /*
+     * Return the file path of the disk-based file was either created
+     * or opened at. If the block array is not disk-based but memory-based,
+     * the path returned is a symbolic name and not a real file-system path
+     * (use it only for printing).
+     *
+     * Caller *must* check is_mem_based() to see of the block array
+     * is memory or disk based and if the path is or not a valid
+     * file-system path.
+     *
+     * The string returned will be valid as long as the FileBlockArray instance is valid.
+     * If the caller wants to keep a valid value that outlives the instance lifetime,
+     * it must perform a copy.
+     * */
+    const std::string& get_file_path() const { return fpath; }
+
 protected:
     std::tuple<uint32_t, uint16_t> impl_grow_by_blocks(uint16_t ar_blk_cnt) override;
 
