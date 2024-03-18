@@ -15,11 +15,18 @@
 #include "xoz/blk/file_block_array.h"
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/ext/extent.h"
-#include "xoz/parameters.h"
 #include "xoz/repo/id_manager.h"
 #include "xoz/segm/segment.h"
 
 class Repository {
+public:
+    struct default_parameters_t {
+        uint32_t blk_sz;
+        uint32_t blk_init_cnt;
+    };
+
+    constexpr static struct default_parameters_t DefaultsParameters = {.blk_sz = 512, .blk_init_cnt = 1};
+
 private:
     std::string fpath;
 
@@ -28,8 +35,6 @@ private:
     bool closed;
 
     // TODO almost all of these variables should gone
-    GlobalParameters gp;
-
     // The size in bytes of the whole repository and it is
     // a multiple of the block size.
     //
@@ -78,12 +83,12 @@ public:
     // If the file exists and fail_if_exists is True, fail, otherwise
     // create a new file and a repository there.
     //
-    // Only in this case the global parameters (gp) will be used.
+    // Only in this case the default parameters (def) will be used.
     static Repository create(const char* fpath, bool fail_if_exists = false,
-                             const GlobalParameters& gp = GlobalParameters());
+                             const struct default_parameters_t& defaults = DefaultsParameters);
 
     // Like Repository::create but make the repository be memory based
-    static Repository create_mem_based(const GlobalParameters& gp = GlobalParameters());
+    static Repository create_mem_based(const struct default_parameters_t& defaults = DefaultsParameters);
 
     /*
      * Close the repository and flush any pending write.
@@ -100,8 +105,6 @@ public:
     ~Repository();
 
     inline std::shared_ptr<DescriptorSet> root() { return root_dset; }
-
-    inline const GlobalParameters& params() const { return gp; }
 
     struct stats_t {
         struct BlockArray::stats_t blkarr_st;
@@ -127,10 +130,10 @@ private:
     /*
      * The given file block array must be a valid one with an opened file.
      * This constructor will grab it and take ownership of it and it will write
-     * into to initialize it as a Repository with the given gp defaults if is_a_new_repository
+     * into to initialize it as a Repository with the given defaults if is_a_new_repository
      * is true.
      * */
-    Repository(FileBlockArray&& fblkarr, const GlobalParameters& gp, bool is_a_new_repository);
+    Repository(FileBlockArray&& fblkarr, const struct default_parameters_t& defaults, bool is_a_new_repository);
 
     /*
      * Initialize a repository: its block array, its allocator, any index and check for errors or inconsistencies.
@@ -144,15 +147,14 @@ private:
     std::list<Segment> scan_descriptor_sets();
 
     // Initialize  a new repository in the specified file. TODO: better doc
-    void init_new_repository(const GlobalParameters& gp);
+    void init_new_repository(const struct default_parameters_t& defaults);
 
     // Write the header/trailer TODO: better doc
     //
     // These are static/class method versions to work with
     // Repository::create TODO this method should relay on Repository's attr, not longer
     // they are static
-    void write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const GlobalParameters& gp,
-                      const std::vector<uint8_t>& root_sg_bytes);
+    void write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const std::vector<uint8_t>& root_sg_bytes);
     void write_trailer();
 
     /*
@@ -188,7 +190,7 @@ private:
 public:
     struct preload_repo_ctx_t {
         bool was_file_created;
-        GlobalParameters gp;
+        struct default_parameters_t defaults;
     };
 
 private:

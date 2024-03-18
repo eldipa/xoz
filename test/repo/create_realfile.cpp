@@ -48,22 +48,10 @@ namespace {
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
         // should be using the defaults.
-        //
-        // Check those too.
-        GlobalParameters gp;
-
-        EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
-        EXPECT_EQ(repo.params().blk_sz, (uint32_t)512);
-
-        EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().blk_sz_order, (uint8_t)9);
-
-        EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
-        EXPECT_EQ(repo.params().blk_init_cnt, (uint32_t)1);
-
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)512);
 
         // Close and check what we have on disk.
         repo.close();
@@ -107,15 +95,10 @@ namespace {
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
         // should be using the defaults.
-        GlobalParameters gp;
-
-        EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
-        EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
-
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)512);
 
         // Close and check that the file in disk still exists
         // Note: in CreateNewDefaults test we create-close-check, here
@@ -143,9 +126,8 @@ namespace {
         DELETE("CreateNonDefaultsThenOpen.xoz");
 
         // Custom non-default parameters
-        GlobalParameters gp = {
+        struct Repository::default_parameters_t gp = {
             .blk_sz = 64,
-            .blk_sz_order = 6,
             .blk_init_cnt = 4
         };
 
@@ -153,13 +135,10 @@ namespace {
         Repository new_repo = Repository::create(fpath, true, gp);
 
         // Check repository's parameters after create
-        EXPECT_EQ(new_repo.params().blk_sz, gp.blk_sz);
-        EXPECT_EQ(new_repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(new_repo.params().blk_init_cnt, gp.blk_init_cnt);
-
         EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(new_repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
         EXPECT_EQ(new_repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(new_repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         new_repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -192,13 +171,10 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters after open
-        EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
-        EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
-
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -223,9 +199,8 @@ namespace {
         DELETE("CreateNonDefaultsThenOpenCloseOpen.xoz");
 
         // Custom non-default parameters
-        GlobalParameters gp = {
+        struct Repository::default_parameters_t gp = {
             .blk_sz = 64,
-            .blk_sz_order = 6,
             .blk_init_cnt = 4
         };
 
@@ -253,13 +228,10 @@ namespace {
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters after open
-        EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
-        EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
-
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -284,9 +256,8 @@ namespace {
         DELETE("CreateThenRecreateAndOverride.xoz");
 
         // Custom non-default parameters
-        GlobalParameters gp = {
+        struct Repository::default_parameters_t gp = {
             .blk_sz = 64,
-            .blk_sz_order = 6,
             .blk_init_cnt = 4
         };
 
@@ -312,13 +283,10 @@ namespace {
         // Because the second Repository::create *did not* create a fresh
         // repository with a default params **but** it opened the previously
         // created repository.
-        EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
-        EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
-
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -343,9 +311,8 @@ namespace {
         DELETE("CreateThenRecreateButFail.xoz");
 
         // Custom non-default parameters
-        GlobalParameters gp = {
+       struct Repository::default_parameters_t  gp = {
             .blk_sz = 64,
-            .blk_sz_order = 6,
             .blk_init_cnt = 4
         };
 
@@ -383,13 +350,10 @@ namespace {
         // Because the second Repository::create *did not* create a fresh
         // repository with a default params **but** it opened the previously
         // created repository.
-        EXPECT_EQ(repo.params().blk_sz, gp.blk_sz);
-        EXPECT_EQ(repo.params().blk_sz_order, gp.blk_sz_order);
-        EXPECT_EQ(repo.params().blk_init_cnt, gp.blk_init_cnt);
-
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
@@ -413,9 +377,8 @@ namespace {
     TEST(RepositoryTest, CreateThenExpand) {
         DELETE("CreateThenExpand.xoz");
 
-        GlobalParameters gp = {
+        struct Repository::default_parameters_t gp = {
             .blk_sz = 64,
-            .blk_sz_order = 6,
             .blk_init_cnt = 1
         };
 
@@ -435,7 +398,7 @@ namespace {
         repo.print_stats(ss);
 
         auto stats_str = ss.str();
-        std::cout << stats_str; // for easy debug
+        //std::cout << stats_str; // for easy debug
 
         EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
@@ -467,7 +430,7 @@ namespace {
                 "8002 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0a00 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0a00 0000 "            // blk_init_cnt
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -501,7 +464,7 @@ namespace {
                 "8002 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0a00 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0a00 0000 "            // blk_init_cnt
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -517,9 +480,8 @@ namespace {
     TEST(RepositoryTest, CreateThenExpandThenRevert) {
         DELETE("CreateThenExpandThenRevert.xoz");
 
-        GlobalParameters gp = {
+        struct Repository::default_parameters_t gp = {
             .blk_sz = 64,
-            .blk_sz_order = 6,
             .blk_init_cnt = 1
         };
 
@@ -620,9 +582,8 @@ namespace {
     TEST(RepositoryTest, CreateThenExpandCloseThenShrink) {
         DELETE("CreateThenExpandCloseThenShrink.xoz");
 
-        GlobalParameters gp = {
+        struct Repository::default_parameters_t gp = {
             .blk_sz = 64,
-            .blk_sz_order = 6,
             .blk_init_cnt = 1
         };
 
@@ -656,7 +617,7 @@ namespace {
                 "0001 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0400 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0400 0000 "            // blk_init_cnt
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
