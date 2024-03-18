@@ -27,6 +27,12 @@ public:
 
     constexpr static struct default_parameters_t DefaultsParameters = {.blk_sz = 512, .blk_init_cnt = 1};
 
+    /*
+     * This is the minimum size of the blocks that the repository can use.
+     * Larger blocks are allowed as long as they are power of 2.
+     * */
+    constexpr static uint32_t REPOSITORY_MIN_BLK_SZ = 64;
+
 private:
     std::string fpath;
 

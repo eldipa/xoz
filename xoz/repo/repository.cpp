@@ -517,10 +517,7 @@ void Repository::init_new_repository(const struct default_parameters_t& defaults
         throw std::runtime_error("invalid initial blocks count of zero");
     }
 
-    if (defaults.blk_sz < 64) {                                // minimum block size is 64 bytes, hence order 6
-        throw std::runtime_error("invalid block size order");  // TODO
-    }
-
+    fblkarr.fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
 
     const auto root_sg_bytes = _encode_empty_root_segment();
     write_header(defaults.blk_init_cnt, root_sg_bytes);
