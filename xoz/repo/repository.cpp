@@ -272,7 +272,14 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
 
 void Repository::read_and_check_header_and_trailer() {
     struct repo_header_t hdr;
-    fblkarr.read_header((char*)&hdr, sizeof(hdr));  // TODO chk size
+
+    if (fblkarr.header_sz() < sizeof(hdr)) {
+        throw InconsistentXOZ(*this, F() << "mismatch between the minimum size of the header (" << sizeof(hdr)
+                                         << " bytes) and the real header read from the file (" << fblkarr.header_sz()
+                                         << " bytes).");
+    }
+
+    fblkarr.read_header((char*)&hdr, sizeof(hdr));
 
     if (strncmp((char*)&hdr.magic, "XOZ", 4) != 0) {
         throw InconsistentXOZ(*this, "magic string 'XOZ' not found in the header.");
