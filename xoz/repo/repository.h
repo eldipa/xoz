@@ -173,11 +173,6 @@ private:
      * */
     void read_and_check_header_and_trailer();
 
-    /*
-     * clear_trailer will override the trailer with zeros
-     * */
-    void clear_trailer();
-
     // If the repository is disk based open the real file fpath,
     // otherwise, if the repository is memory based, initialize it
     // with the given memory stringstream.

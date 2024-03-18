@@ -61,7 +61,6 @@ void Repository::bootstrap_repository() {
     // allocate yet.
     assert(not fblkarr.is_closed());
     read_and_check_header_and_trailer();
-    clear_trailer();
 
     // Let's load the root descriptor set.
     // So far we have the root segment loaded in root_sg *but*
@@ -384,14 +383,6 @@ void Repository::read_and_check_header_and_trailer() {
     if (strncmp((char*)&eof.magic, "EOF", 4) != 0) {
         throw InconsistentXOZ(*this, "magic string 'EOF' not found in the trailer.");
     }
-}
-
-void Repository::clear_trailer() {
-    // TODO is still being necessary?
-    struct repo_trailer_t eof;
-    memset(&eof, 0, sizeof(eof));
-    fblkarr.write_trailer((const char*)&eof, sizeof(eof));
-    // TODO "flush" the trailer to disk
 }
 
 void Repository::write_header(uint32_t blk_total_cnt, const std::vector<uint8_t>& root_sg_bytes) {
