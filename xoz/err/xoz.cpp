@@ -46,9 +46,3 @@ WouldEndUpInconsistentXOZ::WouldEndUpInconsistentXOZ(const std::string& msg) { t
 WouldEndUpInconsistentXOZ::WouldEndUpInconsistentXOZ(const F& msg): WouldEndUpInconsistentXOZ(msg.ss.str()) {}
 
 const char* WouldEndUpInconsistentXOZ::what() const noexcept { return msg.data(); }
-
-NullBlockAccess::NullBlockAccess(const std::string& msg) { this->msg = msg; }
-
-NullBlockAccess::NullBlockAccess(const F& msg): NullBlockAccess(msg.ss.str()) {}
-
-const char* NullBlockAccess::what() const noexcept { return msg.data(); }

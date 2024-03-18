@@ -44,13 +44,3 @@ public:
 
     const char* what() const noexcept override;
 };
-class NullBlockAccess: public std::exception {
-private:
-    std::string msg;
-
-public:
-    explicit NullBlockAccess(const std::string& msg);
-    explicit NullBlockAccess(const F& msg);
-
-    const char* what() const noexcept override;
-};
