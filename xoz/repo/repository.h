@@ -42,9 +42,6 @@ private:
     // but it does not contain the trailer
     uint64_t repo_sz;
 
-    // The size of the trailer
-    uint64_t trailer_sz;
-
     // The end position of the file.
     uint64_t fp_end;
 
@@ -154,7 +151,7 @@ private:
     // These are static/class method versions to work with
     // Repository::create TODO this method should relay on Repository's attr, not longer
     // they are static
-    void write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const std::vector<uint8_t>& root_sg_bytes);
+    void write_header(uint32_t blk_total_cnt, const std::vector<uint8_t>& root_sg_bytes);
     void write_trailer();
 
     /*
@@ -173,13 +170,16 @@ private:
      * */
     static std::vector<uint8_t> _encode_empty_root_segment();
 
-    // Read the header/trailer and check that the header/trailer
-    // is consistent
-    //
-    // clear_trailer, if true, will override the trailer with zeros
-    // after checking it
-    void read_and_check_header();
-    void read_and_check_trailer(bool clear_trailer);
+    /*
+     * Read the header/trailer and check that the header/trailer
+     * is consistent
+     * */
+    void read_and_check_header_and_trailer();
+
+    /*
+     * clear_trailer will override the trailer with zeros
+     * */
+    void clear_trailer();
 
     // If the repository is disk based open the real file fpath,
     // otherwise, if the repository is memory based, initialize it

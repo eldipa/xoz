@@ -60,8 +60,8 @@ void Repository::bootstrap_repository() {
     // the block array was initialized so we can read/write extents/header/trailer but we cannot
     // allocate yet.
     assert(not fblkarr.is_closed());
-    read_and_check_header();
-    read_and_check_trailer(true /* clear_trailer */);
+    read_and_check_header_and_trailer();
+    clear_trailer();
 
     // Let's load the root descriptor set.
     // So far we have the root segment loaded in root_sg *but*
@@ -134,7 +134,7 @@ std::ostream& Repository::print_stats(std::ostream& out) const {
     out << "\nRepository size: " << (blk_total_cnt << fblkarr.blk_sz_order()) << " bytes, " << blk_total_cnt
         << " blocks\n"
         << "\nBlock size: " << fblkarr.blk_sz() << " bytes (order: " << (uint32_t)fblkarr.blk_sz_order() << ")\n"
-        << "\nTrailer size: " << trailer_sz << " bytes\n";
+        << "\nTrailer size: " << fblkarr.trailer_sz() << " bytes\n";
 
     return out;
 }
@@ -202,7 +202,7 @@ struct repo_header_t {
 
     // Count of blocks in the repo at the moment of
     // its initialization (when it was created)
-    uint32_t blk_init_cnt;
+    uint32_t blk_init_cnt;  // TODO this is not longer the case.
 
     // Log base 2 of the block size in bytes
     // Order of 10 means block size of 1KB,
@@ -226,7 +226,7 @@ struct repo_header_t {
     uint32_t feature_flags_ro_compat;
 
     // Segment that points to the blocks that hold the root or main descriptor set
-    // See read_and_check_header for the complete interpretation of this.
+    // See read_and_check_header_and_trailer for the complete interpretation of this.
     uint8_t root_sg[12];
 
     uint32_t hdr_checksum;
@@ -280,7 +280,7 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
     return;
 }
 
-void Repository::read_and_check_header() {
+void Repository::read_and_check_header_and_trailer() {
     struct repo_header_t hdr;
     fblkarr.read_header((char*)&hdr, sizeof(hdr));  // TODO chk size
 
@@ -353,8 +353,6 @@ void Repository::read_and_check_header() {
         throw InconsistentXOZ(*this, "the repository has a declared initial block count of zero.");
     }
 
-    trailer_sz = u64_from_le(hdr.trailer_sz);
-
     // load root set's segment (tentative, see _init_repository)
     static_assert(sizeof(hdr.root_sg) >= 12);
     IOSpan io(hdr.root_sg, sizeof(hdr.root_sg));
@@ -366,40 +364,47 @@ void Repository::read_and_check_header() {
     if (!(root_sg.inline_data_sz() == 4 and root_sg.ext_cnt() == 1) and root_sg.inline_data_sz() != 0) {
         throw InconsistentXOZ(*this, "the repository header contains a root segment with an unexpected format.");
     }
-}
 
-void Repository::read_and_check_trailer(bool clear_trailer) {
+
     // TODO this *may* still be useful: assert(phy_repo_end_pos > 0);
 
+    uint64_t trailer_sz = u64_from_le(hdr.trailer_sz);  // TODO uint64_t ??
     if (trailer_sz < sizeof(struct repo_trailer_t)) {
         throw InconsistentXOZ(*this, F() << "the declared trailer size (" << trailer_sz
                                          << ") is too small, required at least " << sizeof(struct repo_trailer_t)
                                          << " bytes.");
     }
 
+    if (trailer_sz != fblkarr.trailer_sz()) {
+        throw InconsistentXOZ(*this, F() << "mismatch between the declared trailer size (" << trailer_sz
+                                         << " bytes) and the real trailer read from the file (" << fblkarr.trailer_sz()
+                                         << " bytes).");
+    }
+
     struct repo_trailer_t eof;
-    fblkarr.read_trailer((char*)&eof, sizeof(eof));  // TODO chk sizes
+    fblkarr.read_trailer((char*)&eof, sizeof(eof));
 
     if (strncmp((char*)&eof.magic, "EOF", 4) != 0) {
         throw InconsistentXOZ(*this, "magic string 'EOF' not found in the trailer.");
     }
-
-    if (clear_trailer) {
-        // TODO is still being necessary?
-        memset(&eof, 0, sizeof(eof));
-        fblkarr.write_trailer((const char*)&eof, sizeof(eof));
-        // TODO "flush" the trailer to disk
-    }
 }
 
-void Repository::write_header(uint64_t trailer_sz, uint32_t blk_total_cnt, const std::vector<uint8_t>& root_sg_bytes) {
+void Repository::clear_trailer() {
+    // TODO is still being necessary?
+    struct repo_trailer_t eof;
+    memset(&eof, 0, sizeof(eof));
+    fblkarr.write_trailer((const char*)&eof, sizeof(eof));
+    // TODO "flush" the trailer to disk
+}
+
+void Repository::write_header(uint32_t blk_total_cnt, const std::vector<uint8_t>& root_sg_bytes) {
     // Note: currently the trailer size is fixed but we may decide
     // to make it variable later.
     //
     // The header will store the trailer size so we may decide
     // here to change it because at the moment of calling close()
     // we should have all the info needed.
-    assert(trailer_sz == sizeof(struct repo_trailer_t));
+    uint64_t trailer_sz = sizeof(struct repo_trailer_t);
 
     struct repo_header_t hdr = {
             .magic = {'X', 'O', 'Z', 0},
@@ -529,9 +534,8 @@ void Repository::init_new_repository(const struct default_parameters_t& defaults
     }
 
 
-    uint64_t trailer_sz = sizeof(struct repo_trailer_t);
     const auto root_sg_bytes = _encode_empty_root_segment();
-    write_header(trailer_sz, defaults.blk_init_cnt, root_sg_bytes);
+    write_header(defaults.blk_init_cnt, root_sg_bytes);
     write_trailer();
 
     // defaults's blk_init_cnt counts for the 1 block header, but the grow_by_blocks
@@ -561,7 +565,7 @@ void Repository::close() {
     // the caveat is that it feels fragile to store something without being
     // 100% sure that it is true -- TODO store fblkarr.capacity() ? may be
     // store more details of fblkarr?
-    write_header(trailer_sz, fblkarr.blk_cnt() + fblkarr.begin_blk_nr(), root_sg_bytes);
+    write_header(fblkarr.blk_cnt() + fblkarr.begin_blk_nr(), root_sg_bytes);
     write_trailer();
 
     fblkarr.close();
