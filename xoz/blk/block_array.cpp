@@ -393,9 +393,14 @@ void BlockArray::fail_if_block_array_not_initialized() const {
     }
 }
 
-void BlockArray::fail_if_bad_blk_sz(uint32_t blk_sz, uint32_t min_subblk_sz) {
+void BlockArray::fail_if_bad_blk_sz(uint32_t blk_sz, uint32_t min_subblk_sz, uint32_t min_blk_sz) {
     if (blk_sz == 0) {
         throw std::runtime_error("Block size cannot be zero.");
+    }
+
+    if (blk_sz < min_blk_sz) {
+        throw std::runtime_error(
+                (F() << "The minimum block size is " << min_blk_sz << " but given " << blk_sz << ".").str());
     }
 
     if (blk_sz != uint32_t(1 << u32_log2_floor(blk_sz))) {

@@ -9,6 +9,16 @@
 #include "xoz/mem/bits.h"
 
 class BlockArray {
+public:
+    /*
+     * Raise if the given block size is not suitable.
+     *
+     * If min_subblk_sz is non zero, the block size also must be large enough
+     * to be suitable for suballocation with sub blocks of min_subblk_sz size at minimum.
+     * If zero, no check is made.
+     * */
+    static void fail_if_bad_blk_sz(uint32_t blk_sz, uint32_t min_subblk_sz = 0, uint32_t min_blk_sz = 0);
+
 protected:
     /*
      * Initialize the array of blocks of positive size <blk_sz>, with the blocks <begin_blk_nr>
@@ -115,15 +125,6 @@ protected:
     BlockArray& operator=(const BlockArray& blkarr) = delete;
 
 protected:
-    /*
-     * Raise if the given block size is not suitable.
-     *
-     * If min_subblk_sz is non zero, the block size also must be large enough
-     * to be suitable for suballocation with sub blocks of min_subblk_sz size at minimum.
-     * If zero, no check is made.
-     * */
-    static void fail_if_bad_blk_sz(uint32_t blk_sz, uint32_t min_subblk_sz = 0);
-
     /*
      * Raise if the given block number is not a valid one.
      * */
