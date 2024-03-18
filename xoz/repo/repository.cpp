@@ -141,16 +141,6 @@ std::ostream& Repository::print_stats(std::ostream& out) const {
 
 const std::stringstream& Repository::expose_mem_fp() const { return fblkarr.expose_mem_fp(); }
 
-uint32_t Repository::chk_extent_for_rw(bool is_read_op, const Extent& ext, [[maybe_unused]] uint32_t max_data_sz,
-                                       [[maybe_unused]] uint32_t start) {
-    if (ext.blk_nr() == 0x0) {
-        throw NullBlockAccess(F() << "The block 0x00 cannot be " << (is_read_op ? "read" : "written"));
-    }  // TODO blk 0x0 but may be 0x1 too
-
-    assert(ext.blk_nr() != 0x0);
-    return 0;  // TODO BlockArray::chk_extent_for_rw(is_read_op, ext, max_data_sz, start);
-}
-
 std::list<Segment> Repository::scan_descriptor_sets() {
     // TODO this should be recursive to scan *all*, not just the root.
 

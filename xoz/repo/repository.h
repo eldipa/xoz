@@ -194,8 +194,6 @@ private:
     friend class InconsistentXOZ;
     friend class ExtentOutOfBounds;
 
-    uint32_t chk_extent_for_rw(bool is_read_op, const Extent& ext, uint32_t max_data_sz, uint32_t start);
-
     /*
      * Function to retrieve the file block array geometry pre-loading the repository.
      * See FileBlockArray
