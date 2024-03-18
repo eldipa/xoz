@@ -42,9 +42,6 @@ private:
     // but it does not contain the trailer
     uint64_t repo_sz;
 
-    // The end position of the file.
-    uint64_t fp_end;
-
     IDManager idmgr;
 
     // The root segment points to the root descriptor set. This is the
