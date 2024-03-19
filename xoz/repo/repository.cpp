@@ -189,9 +189,7 @@ struct repo_header_t {
     // It should be equal to repo_sz/blk_sz
     uint32_t blk_total_cnt;
 
-    // Count of blocks in the repo at the moment of
-    // its initialization (when it was created)
-    uint32_t blk_init_cnt;  // TODO this is not longer the case.
+    uint32_t unused;  // TODO
 
     // Log base 2 of the block size in bytes
     // Order of 10 means block size of 1KB,
@@ -344,11 +342,6 @@ void Repository::read_and_check_header_and_trailer() {
     */
 
 
-    uint32_t blk_init_cnt = u32_from_le(hdr.blk_init_cnt);
-    if (blk_init_cnt == 0) {
-        throw InconsistentXOZ(*this, "the repository has a declared initial block count of zero.");
-    }
-
     // load root set's segment (tentative, see _init_repository)
     static_assert(sizeof(hdr.root_sg) >= 12);
     IOSpan io(hdr.root_sg, sizeof(hdr.root_sg));
@@ -385,7 +378,7 @@ void Repository::read_and_check_header_and_trailer() {
     }
 }
 
-void Repository::write_header(uint32_t blk_total_cnt, const std::vector<uint8_t>& root_sg_bytes) {
+void Repository::write_header(const std::vector<uint8_t>& root_sg_bytes) {
     // Note: currently the trailer size is fixed but we may decide
     // to make it variable later.
     //
@@ -394,12 +387,27 @@ void Repository::write_header(uint32_t blk_total_cnt, const std::vector<uint8_t>
     // we should have all the info needed.
     uint64_t trailer_sz = sizeof(struct repo_trailer_t);
 
+    // note: we declare that the repository has the same block count
+    // than the file block array *plus* its begin blk number to count
+    // for the array's header (where the repo's header will be written into)
+    //
+    // one comment on this: the file block array *may* have more blocks than
+    // the blk_cnt() says because it may be keeping some unused blocks for
+    // future allocations (this is the fblkarr.capacity()).
+    //
+    // the call to fblkarr.close() *should* release those blocks and resize
+    // the file to the correct size.
+    // the caveat is that it feels fragile to store something without being
+    // 100% sure that it is true -- TODO store fblkarr.capacity() ? may be
+    // store more details of fblkarr?
+    uint32_t blk_total_cnt = fblkarr.blk_cnt() + fblkarr.begin_blk_nr();
+
     struct repo_header_t hdr = {
             .magic = {'X', 'O', 'Z', 0},
             .repo_sz = u64_to_le(blk_total_cnt << fblkarr.blk_sz_order()),
             .trailer_sz = u64_to_le(trailer_sz),
             .blk_total_cnt = u32_to_le(blk_total_cnt),
-            .blk_init_cnt = u32_to_le(fblkarr.blk_cnt() + fblkarr.begin_blk_nr()),  // TODO
+            .unused = 0,  // TODO
             .blk_sz_order = u8_to_le(fblkarr.blk_sz_order()),
             .reserved = {0, 0, 0, 0, 0, 0, 0},
             .feature_flags_compat = u32_to_le(0),
@@ -513,22 +521,11 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
 }
 
 void Repository::init_new_repository(const struct default_parameters_t& defaults) {
-    if (defaults.blk_init_cnt == 0) {
-        throw std::runtime_error("invalid initial blocks count of zero");
-    }
-
     fblkarr.fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
 
     const auto root_sg_bytes = _encode_empty_root_segment();
-    write_header(defaults.blk_init_cnt, root_sg_bytes);
+    write_header(root_sg_bytes);
     write_trailer();
-
-    // defaults's blk_init_cnt counts for the 1 block header, but the grow_by_blocks
-    // doesn't.
-    // TODO szies
-    if (defaults.blk_init_cnt > 1) {
-        fblkarr.grow_by_blocks(assert_u16(defaults.blk_init_cnt) - 1);
-    }
 }
 
 void Repository::close() {
@@ -537,20 +534,7 @@ void Repository::close() {
 
     const auto root_sg_bytes = update_and_encode_root_segment_and_loc();
 
-    // note: we declare that the repository has the same block count
-    // than the file block array *plus* its begin blk number to count
-    // for the array's header (where the repo's header will be written into)
-    //
-    // one comment on this: the file block array *may* have more blocks than
-    // the blk_cnt() says because it may be keeping some unused blocks for
-    // future allocations (this is the fblkarr.capacity()).
-    //
-    // the call to fblkarr.close() *should* release those blocks and resize
-    // the file to the correct size.
-    // the caveat is that it feels fragile to store something without being
-    // 100% sure that it is true -- TODO store fblkarr.capacity() ? may be
-    // store more details of fblkarr?
-    write_header(fblkarr.blk_cnt() + fblkarr.begin_blk_nr(), root_sg_bytes);
+    write_header(root_sg_bytes);
     write_trailer();
 
     fblkarr.close();

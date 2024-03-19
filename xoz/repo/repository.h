@@ -22,16 +22,16 @@ class Repository {
 public:
     struct default_parameters_t {
         uint32_t blk_sz;
-        uint32_t blk_init_cnt;
     };
 
-    constexpr static struct default_parameters_t DefaultsParameters = {.blk_sz = 512, .blk_init_cnt = 1};
+    constexpr static struct default_parameters_t DefaultsParameters = {.blk_sz = 512};
 
     /*
      * This is the minimum size of the blocks that the repository can use.
      * Larger blocks are allowed as long as they are power of 2.
      * */
     constexpr static uint32_t REPOSITORY_MIN_BLK_SZ = 64;
+    constexpr static uint32_t REPOSITORY_HEADER_BLK_CNT = 1;
 
 private:
     std::string fpath;
@@ -154,7 +154,7 @@ private:
     // These are static/class method versions to work with
     // Repository::create TODO this method should relay on Repository's attr, not longer
     // they are static
-    void write_header(uint32_t blk_total_cnt, const std::vector<uint8_t>& root_sg_bytes);
+    void write_header(const std::vector<uint8_t>& root_sg_bytes);
     void write_trailer();
 
     /*

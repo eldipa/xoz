@@ -61,7 +61,7 @@ namespace {
                 "0002 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "09"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -110,7 +110,7 @@ namespace {
                 "0002 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "09"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -127,8 +127,7 @@ namespace {
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 4
+            .blk_sz = 64
         };
 
         const char* fpath = SCRATCH_HOME "CreateNonDefaultsThenOpen.xoz";
@@ -136,24 +135,24 @@ namespace {
 
         // Check repository's parameters after create
         EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(new_repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(new_repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(new_repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(new_repo.expose_block_array().blk_cnt(), (uint32_t)0);
         EXPECT_EQ(new_repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         new_repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "0001 0000 0000 0000 "  // repo_sz
+                "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
-                "0400 0000 "            // blk_total_cnt
-                "0400 0000 "            // blk_init_cnt
+                "0100 0000 "            // blk_total_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -166,30 +165,30 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 64 bytes, 1 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters after open
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
         EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "0001 0000 0000 0000 "  // repo_sz
+                "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
-                "0400 0000 "            // blk_total_cnt
-                "0400 0000 "            // blk_init_cnt
+                "0100 0000 "            // blk_total_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -200,8 +199,7 @@ namespace {
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 4
+            .blk_sz = 64
         };
 
         const char* fpath = SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz";
@@ -223,30 +221,30 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 64 bytes, 1 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters after open
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
         EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "0001 0000 0000 0000 "  // repo_sz
+                "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
-                "0400 0000 "            // blk_total_cnt
-                "0400 0000 "            // blk_init_cnt
+                "0100 0000 "            // blk_total_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -257,8 +255,7 @@ namespace {
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 4
+            .blk_sz = 64
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateAndOverride.xoz";
@@ -275,7 +272,7 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 64 bytes, 1 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
@@ -284,24 +281,24 @@ namespace {
         // repository with a default params **but** it opened the previously
         // created repository.
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
         EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "0001 0000 0000 0000 "  // repo_sz
+                "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
-                "0400 0000 "            // blk_total_cnt
-                "0400 0000 "            // blk_init_cnt
+                "0100 0000 "            // blk_total_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -312,8 +309,7 @@ namespace {
 
         // Custom non-default parameters
        struct Repository::default_parameters_t  gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 4
+            .blk_sz = 64
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateButFail.xoz";
@@ -342,7 +338,7 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 64 bytes, 1 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
@@ -351,24 +347,24 @@ namespace {
         // repository with a default params **but** it opened the previously
         // created repository.
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
         EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "0001 0000 0000 0000 "  // repo_sz
+                "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
-                "0400 0000 "            // blk_total_cnt
-                "0400 0000 "            // blk_init_cnt
+                "0100 0000 "            // blk_total_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -378,8 +374,7 @@ namespace {
         DELETE("CreateThenExpand.xoz");
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 1
+            .blk_sz = 64
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenExpand.xoz";
@@ -430,7 +425,7 @@ namespace {
                 "8002 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0a00 0000 "            // blk_total_cnt
-                "0a00 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -464,7 +459,7 @@ namespace {
                 "8002 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0a00 0000 "            // blk_total_cnt
-                "0a00 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -481,8 +476,7 @@ namespace {
         DELETE("CreateThenExpandThenRevert.xoz");
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 1
+            .blk_sz = 64
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevert.xoz";
@@ -532,7 +526,7 @@ namespace {
                 "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -566,7 +560,7 @@ namespace {
                 "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -583,8 +577,7 @@ namespace {
         DELETE("CreateThenExpandCloseThenShrink.xoz");
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 1
+            .blk_sz = 64
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz";
@@ -617,7 +610,7 @@ namespace {
                 "0001 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0400 0000 "            // blk_total_cnt
-                "0400 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -627,7 +620,7 @@ namespace {
         // Also note the length: -1 means read to the end of the file
         // We should read the trailer only proving that the file grow
         // to that position *and* nothing else follows.
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64 * 4, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -658,7 +651,7 @@ namespace {
                 "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"

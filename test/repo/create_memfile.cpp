@@ -28,7 +28,7 @@ namespace {
     //
     // The check of the dump is simplistic: it is only to validate
     // that the .xoz file was created and it is non-empty.
-    TEST(RepositoryTest, CreateNewDefaults) {
+    TEST(RepositoryTest, MemCreateNewDefaults) {
 
         Repository repo = Repository::create_mem_based();
 
@@ -58,7 +58,7 @@ namespace {
                 "0002 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "09"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -70,12 +70,11 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateNonDefaults) {
+    TEST(RepositoryTest, MemCreateNonDefaults) {
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 4
+            .blk_sz = 64
         };
 
         Repository repo = Repository::create_mem_based(gp);
@@ -86,41 +85,40 @@ namespace {
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
+        EXPECT_THAT(stats_str, HasSubstr("Repository size: 64 bytes, 1 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
         EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
 
         // Check repository's parameters after create
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
         EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
 
         repo.close();
         XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 64,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "0001 0000 0000 0000 "  // repo_sz
+                "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
-                "0400 0000 "            // blk_total_cnt
-                "0400 0000 "            // blk_init_cnt
+                "0100 0000 "            // blk_total_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 256, -1,
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 64, -1,
                 // trailer
                 "454f 4600"
                 );
     }
 
-    TEST(RepositoryTest, CreateThenExpand) {
+    TEST(RepositoryTest, MemCreateThenExpand) {
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 1
+            .blk_sz = 64
         };
 
         Repository repo = Repository::create_mem_based(gp);
@@ -138,7 +136,7 @@ namespace {
         repo.print_stats(ss);
 
         auto stats_str = ss.str();
-        std::cout << stats_str; // for easy debug
+        // std::cout << stats_str; // for easy debug
 
         EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
         EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
@@ -170,7 +168,7 @@ namespace {
                 "8002 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0a00 0000 "            // blk_total_cnt
-                "0a00 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
@@ -183,11 +181,10 @@ namespace {
 
     }
 
-    TEST(RepositoryTest, CreateThenExpandThenRevert) {
+    TEST(RepositoryTest, MemCreateThenExpandThenRevert) {
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64,
-            .blk_init_cnt = 1
+            .blk_sz = 64
         };
 
         Repository repo = Repository::create_mem_based(gp);
@@ -236,7 +233,7 @@ namespace {
                 "4000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
-                "0100 0000 "            // blk_init_cnt
+                "0000 0000 "            // unused
                 "06"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
