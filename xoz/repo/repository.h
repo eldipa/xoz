@@ -146,14 +146,22 @@ private:
      * */
     std::list<Segment> scan_descriptor_sets();
 
-    // Initialize  a new repository in the specified file. TODO: better doc
+    /*
+     * Initialize freshly new repository backed by an allocated but empty file block array.
+     * The array must have allocated space in its header but otherwise nothing else is assumed.
+     * This method will perform special write operations to initialize the repository
+     * but it will not perform the bootstrap_repository() call.
+     * This *must* be made by the caller.
+     *
+     * The defaults parameters defines with which values initialize the repository.
+     * */
     void init_new_repository(const struct default_parameters_t& defaults);
 
-    // Write the header/trailer TODO: better doc
-    //
-    // These are static/class method versions to work with
-    // Repository::create TODO this method should relay on Repository's attr, not longer
-    // they are static
+    /*
+     * Write the header/trailer.
+     * Note that the write may be not flushed to disk depending of the implementation
+     * of the file block array.
+     * */
     void write_header(const std::vector<uint8_t>& root_sg_bytes);
     void write_trailer();
 
@@ -186,23 +194,28 @@ private:
 
 
 public:
-    struct preload_repo_ctx_t {
-        bool was_file_created;
-        struct default_parameters_t defaults;
-    };
-
 private:
     friend class InconsistentXOZ;
     friend class ExtentOutOfBounds;
 
     /*
-     * Function to retrieve the file block array geometry pre-loading the repository.
-     * See FileBlockArray
+     * The preload_repo function defines  the file block array geometry pre-loading the repository
+     * and detect if the file was created recently or if not.
      *
-     * The on_create_defaults argument is a read-only struct passed by copy
-     * that must be read only if on_create is true, otherwise it is undefined.
-     * TODO
+     * The ctx is where we pass the default geometry (defaults) and we collect if the file
+     * was created or not (was_file_created).
+     *
+     * See FileBlockArray for more context on how this function is used.
+     *
+     * The dummy static instance is used for the (internal) cases where no real ctx is needed.
      * */
+    struct preload_repo_ctx_t {
+        bool was_file_created;
+        struct default_parameters_t defaults;
+    };
+
+    static struct preload_repo_ctx_t dummy;
+
     static void preload_repo(struct preload_repo_ctx_t& ctx, std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg,
                              bool on_create);
 };

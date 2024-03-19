@@ -8,9 +8,7 @@
 #include "xoz/io/iospan.h"
 #include "xoz/mem/endianness.h"
 
-namespace {
-struct Repository::preload_repo_ctx_t dummy;
-}
+struct Repository::preload_repo_ctx_t Repository::dummy = {false, {0}};
 
 Repository::Repository(const char* fpath):
         fpath(fpath), fblkarr(fpath, std::bind_front(Repository::preload_repo, dummy)), closed(true) {
