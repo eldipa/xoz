@@ -827,6 +827,13 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
     assert(SegmentAllocator::StatsExtPerSegmLen == 8);
 }
 
+
+std::ostream& operator<<(std::ostream& out, const SegmentAllocator& sg_alloc) {
+    PrintTo(sg_alloc, &out);
+    return out;
+}
+
+
 void SegmentAllocator::fail_if_block_array_not_initialized() const {
     if (not _blkarr) {
         throw std::runtime_error("Block array not initialized (managed). Missed call to manage_block_array?");

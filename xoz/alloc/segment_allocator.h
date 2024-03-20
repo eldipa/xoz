@@ -256,6 +256,7 @@ public:
     // Pretty print. The signature of the method is required
     // by GoogleTest
     friend void PrintTo(const SegmentAllocator& alloc, std::ostream* out);
+    friend std::ostream& operator<<(std::ostream& out, const SegmentAllocator& sg_alloc);
 
 private:
     uint32_t allocate_extents(Segment& segm, uint32_t blk_cnt_remain, uint16_t segm_frag_threshold,
