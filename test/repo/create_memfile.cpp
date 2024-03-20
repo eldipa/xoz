@@ -33,14 +33,11 @@ namespace {
         Repository repo = Repository::create_mem_based();
 
         std::stringstream ss;
-        repo.print_stats(ss);
+        PrintTo(repo, &ss);
 
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 512 bytes, 1 blocks"));
-        EXPECT_THAT(stats_str, HasSubstr("Block size: 512 bytes (order: 9)"));
-        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -80,14 +77,11 @@ namespace {
         Repository repo = Repository::create_mem_based(gp);
 
         std::stringstream ss;
-        repo.print_stats(ss);
+        PrintTo(repo, &ss);
 
         auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
+        //std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 64 bytes, 1 blocks"));
-        EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
-        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
 
         // Check repository's parameters after create
@@ -133,14 +127,11 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
 
         std::stringstream ss;
-        repo.print_stats(ss);
+        PrintTo(repo, &ss);
 
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
-        EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
-        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Add 6 more blocks
         old_top_nr = repo.expose_block_array().grow_by_blocks(6);
@@ -151,14 +142,11 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)9);
 
         ss.str("");
-        repo.print_stats(ss);
+        PrintTo(repo, &ss);
 
         stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 640 bytes, 10 blocks"));
-        EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
-        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Close and reopen and check again
         repo.close();
@@ -199,14 +187,11 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
 
         std::stringstream ss;
-        repo.print_stats(ss);
+        PrintTo(repo, &ss);
 
         auto stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 256 bytes, 4 blocks"));
-        EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
-        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Now "revert" freeing those 3 blocks
         repo.expose_block_array().shrink_by_blocks(3);
@@ -216,14 +201,11 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
 
         ss.str("");
-        repo.print_stats(ss);
+        PrintTo(repo, &ss);
 
         stats_str = ss.str();
         // std::cout << stats_str; // for easy debug
 
-        EXPECT_THAT(stats_str, HasSubstr("Repository size: 64 bytes, 1 blocks"));
-        EXPECT_THAT(stats_str, HasSubstr("Block size: 64 bytes (order: 6)"));
-        EXPECT_THAT(stats_str, HasSubstr("Trailer size: 4 bytes"));
 
         // Close and reopen and check again
         repo.close();

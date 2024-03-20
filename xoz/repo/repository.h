@@ -11,6 +11,7 @@
 #include <tuple>
 #include <vector>
 
+#include "xoz/alloc/segment_allocator.h"
 #include "xoz/blk/block_array.h"
 #include "xoz/blk/file_block_array.h"
 #include "xoz/dsc/descriptor_set.h"
@@ -106,14 +107,6 @@ public:
 
     inline std::shared_ptr<DescriptorSet> root() { return root_dset; }
 
-    struct stats_t {
-        struct BlockArray::stats_t blkarr_st;
-    };
-
-    struct stats_t stats() const;
-
-    // Pretty print stats
-    std::ostream& print_stats(std::ostream& out) const;
 
     const std::stringstream& expose_mem_fp() const;
 
@@ -194,6 +187,31 @@ private:
 
 
 public:
+    struct stats_t {
+        // repository dimensions
+        uint64_t capacity_repo_sz;
+        double capacity_repo_sz_kb;
+
+        uint64_t in_use_repo_sz;
+        double in_use_repo_sz_kb;
+        double in_use_repo_sz_rel;
+
+        uint64_t header_sz;
+        uint64_t trailer_sz;
+
+        // FileBlockArray and SegmentAllocator own stats
+        struct FileBlockArray::stats_t fblkarr_stats;
+        struct SegmentAllocator::stats_t allocator_stats;
+
+        // TODO add root descriptor set's stats and descriptors
+        // in general, and idmgr's stats
+    };
+
+    struct stats_t stats() const;
+
+    friend void PrintTo(const Repository& repo, std::ostream* out);
+    friend std::ostream& operator<<(std::ostream& out, const Repository& repo);
+
 private:
     friend class InconsistentXOZ;
     friend class ExtentOutOfBounds;

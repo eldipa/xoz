@@ -107,35 +107,6 @@ void Repository::bootstrap_repository() {
     closed = false;
 }
 
-std::ostream& Repository::print_stats(std::ostream& out) const {
-    // TODO make the Repository print stats much alignes with the resto fo the object
-    out << "XOZ Repository\n"
-           "File: '"
-        << fpath
-        << "' "
-           "[start pos: "
-        // TODO << phy_repo_start_pos << ", end pos: " << phy_repo_end_pos
-        << "]\n"
-           "File status: ";
-
-    if (closed) {
-        out << "closed\n";
-    } else {
-        // out << "open [fail: " << fp.fail() << ", bad: " << fp.bad() << ", eof: " << fp.eof() << ", good: " <<
-        // fp.good()
-        //     << "]\n";  TODO
-    }
-
-    // TODO better stats!!
-    auto blk_total_cnt = fblkarr.blk_cnt() + fblkarr.begin_blk_nr();
-    out << "\nRepository size: " << (blk_total_cnt << fblkarr.blk_sz_order()) << " bytes, " << blk_total_cnt
-        << " blocks\n"
-        << "\nBlock size: " << fblkarr.blk_sz() << " bytes (order: " << (uint32_t)fblkarr.blk_sz_order() << ")\n"
-        << "\nTrailer size: " << fblkarr.trailer_sz() << " bytes\n";
-
-    return out;
-}
-
 const std::stringstream& Repository::expose_mem_fp() const { return fblkarr.expose_mem_fp(); }
 
 std::list<Segment> Repository::scan_descriptor_sets() {
@@ -157,10 +128,65 @@ std::list<Segment> Repository::scan_descriptor_sets() {
 struct Repository::stats_t Repository::stats() const {
     struct stats_t st;
 
-    auto blkarr_st = fblkarr.stats();
-    memcpy(&st.blkarr_st, &blkarr_st, sizeof(st.blkarr_st));
+    auto fblkarr_st = fblkarr.stats();
+    memcpy(&st.fblkarr_stats, &fblkarr_st, sizeof(st.fblkarr_stats));
 
+    auto allocator_st = fblkarr.allocator().stats();
+    memcpy(&st.allocator_stats, &allocator_st, sizeof(st.allocator_stats));
+
+    st.capacity_repo_sz = (fblkarr.capacity() + fblkarr.begin_blk_nr()) << fblkarr.blk_sz_order();
+    st.in_use_repo_sz = (fblkarr.blk_cnt() + fblkarr.begin_blk_nr()) << fblkarr.blk_sz_order();
+
+    st.capacity_repo_sz += fblkarr.trailer_sz();
+    st.in_use_repo_sz += fblkarr.trailer_sz();
+
+    st.capacity_repo_sz_kb = double(st.capacity_repo_sz) / double(1024.0);
+    st.in_use_repo_sz_kb = double(st.in_use_repo_sz) / double(1024.0);
+
+    st.in_use_repo_sz_rel = (st.capacity_repo_sz == 0) ? 0 : (double(st.in_use_repo_sz) / double(st.capacity_repo_sz));
+
+    st.header_sz = fblkarr.header_sz();
+    st.trailer_sz = fblkarr.trailer_sz();
     return st;
+}
+
+void PrintTo(const Repository& repo, std::ostream* out) {
+    struct Repository::stats_t st = repo.stats();
+    std::ios_base::fmtflags ioflags = out->flags();
+
+    (*out) << "File:              " << std::setfill(' ') << std::setw(12) << repo.fblkarr.get_file_path() << "\n";
+
+    auto& fp = repo.fblkarr.phy_file_stream();
+    (*out) << "Status:            ";
+    if (repo.fblkarr.is_closed()) {
+        (*out) << std::setfill(' ') << std::setw(12) << "closed\n\n";
+    } else {
+        (*out) << "        open "
+               << "[fail: " << fp.fail() << ", bad: " << fp.bad() << ", eof: " << fp.eof() << ", good: " << fp.good()
+               << "]\n\n";
+    }
+
+    (*out) << "-- Repository -----------------\n"
+           << "Capacity:          " << std::setfill(' ') << std::setw(12) << st.capacity_repo_sz_kb << " kb\n"
+           << "In use:            " << std::setfill(' ') << std::setw(12) << st.in_use_repo_sz_kb << " kb ("
+           << std::setfill(' ') << std::setw(5) << std::fixed << std::setprecision(2) << (st.in_use_repo_sz_rel * 100)
+           << "%)\n"
+           << " - Header:         " << std::setfill(' ') << std::setw(12) << st.header_sz << " bytes\n"
+           << " - Trailer:        " << std::setfill(' ') << std::setw(12) << st.trailer_sz << " bytes\n"
+           << "\n";
+
+    (*out) << "-- Block Array ----------------\n"
+           << repo.fblkarr << "\n"
+           << "\n"
+           << "-- Allocator ------------------\n"
+           << repo.fblkarr.allocator() << "\n";
+
+    out->flags(ioflags);
+}
+
+std::ostream& operator<<(std::ostream& out, const Repository& repo) {
+    PrintTo(repo, &out);
+    return out;
 }
 
 namespace {
