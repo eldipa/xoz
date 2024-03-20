@@ -185,6 +185,7 @@ public:
     inline uint8_t blk_sz_order() const { return _blk_sz_order; }
 
     SegmentAllocator& allocator() { return sg_alloc; }
+    const SegmentAllocator& allocator() const { return sg_alloc; }
 
     /*
      * Convenient block-to-bytes and bytes-to-block functions. When bytes-to-blocks conversion
