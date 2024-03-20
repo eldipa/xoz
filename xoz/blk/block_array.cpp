@@ -354,29 +354,29 @@ void PrintTo(const BlockArray& blkarr, std::ostream* out) {
     struct BlockArray::stats_t st = blkarr.stats();
     std::ios_base::fmtflags ioflags = out->flags();
 
-    (*out) << "Calls to grow:    " << std::setfill(' ') << std::setw(12) << st.grow_call_cnt << "\n"
-           << " - than expanded: " << std::setfill(' ') << std::setw(12) << st.grow_expand_capacity_call_cnt << "\n"
-           << "Calls to shrink:  " << std::setfill(' ') << std::setw(12) << st.shrink_call_cnt << "\n"
-           << "Calls to release: " << std::setfill(' ') << std::setw(12) << st.release_call_cnt << "\n"
+    (*out) << "Calls to grow:     " << std::setfill(' ') << std::setw(12) << st.grow_call_cnt << "\n"
+           << " - than expanded:  " << std::setfill(' ') << std::setw(12) << st.grow_expand_capacity_call_cnt << "\n"
+           << "Calls to shrink:   " << std::setfill(' ') << std::setw(12) << st.shrink_call_cnt << "\n"
+           << "Calls to release:  " << std::setfill(' ') << std::setw(12) << st.release_call_cnt << "\n"
            << "\n"
 
            << "Array layout:\n"
-           << " - Begin at:      " << std::setfill(' ') << std::setw(12) << st.begin_blk_nr
+           << " - Begin at:       " << std::setfill(' ') << std::setw(12) << st.begin_blk_nr
            << " block number (inclusive) -"
            << " " << st.begin_blk_nr << " inaccessible blocks\n"
-           << " - Past-end at:   " << std::setfill(' ') << std::setw(12) << st.past_end_blk_nr
+           << " - Past-end at:    " << std::setfill(' ') << std::setw(12) << st.past_end_blk_nr
            << " block number (exclusive) -"
            << " " << st.blk_cnt << " accessible blocks\n"
-           << " - Alloc-end at:  " << std::setfill(' ') << std::setw(12) << st.real_past_end_blk_nr
+           << " - Alloc-end at:   " << std::setfill(' ') << std::setw(12) << st.real_past_end_blk_nr
            << " block number (exclusive) -"
            << " " << (st.blk_cnt - st.capacity) << " next-grow accessible blocks\n"
            << "\n"
 
-           << "Accessible:       " << std::setfill(' ') << std::setw(12) << st.blk_cnt << " blocks, "
+           << "Accessible:        " << std::setfill(' ') << std::setw(12) << st.blk_cnt << " blocks, "
            << st.accessible_blk_sz_kb << " kb\n"
-           << "Capacity:         " << std::setfill(' ') << std::setw(12) << st.capacity << " blocks, "
+           << "Capacity:          " << std::setfill(' ') << std::setw(12) << st.capacity << " blocks, "
            << st.capacity_blk_sz_kb << " kb\n"
-           << "Total:            " << std::setfill(' ') << std::setw(12) << st.total_blk_cnt << " blocks, "
+           << "Total:             " << std::setfill(' ') << std::setw(12) << st.total_blk_cnt << " blocks, "
            << st.total_blk_sz_kb << " kb\n";
 
     out->flags(ioflags);
