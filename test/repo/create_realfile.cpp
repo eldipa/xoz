@@ -24,7 +24,6 @@ using ::testing_xoz::helpers::file2mem;
 } while (0)
 
 namespace {
-#if 0
     // Create a new repository with default settings.
     // Close it and check the dump of the file.
     //
@@ -625,5 +624,4 @@ namespace {
                 "454f 4600"
                 );
     }
-#endif
 }
