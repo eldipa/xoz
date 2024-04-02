@@ -33,6 +33,12 @@ Repository::Repository(FileBlockArray&& fblkarr, const struct default_parameters
 Repository::~Repository() { close(); }
 
 Repository Repository::create(const char* fpath, bool fail_if_exists, const struct default_parameters_t& defaults) {
+    // Check that the default block size is large enough and valid.
+    // The same check will happen in FileBlockArray::create but we do it here because
+    // the minimum block size (REPOSITORY_MIN_BLK_SZ) is an extra requirement of us
+    // not of FileBlockArray.
+    FileBlockArray::fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
+
     // We pass defaults to the FileBlockArray::create via preload_repo function
     // so the array is created with the correct dimensions.
     // However, no header is written there so resulting file is not a valid repository yet
@@ -46,6 +52,12 @@ Repository Repository::create(const char* fpath, bool fail_if_exists, const stru
 }
 
 Repository Repository::create_mem_based(const struct default_parameters_t& defaults) {
+    // Check that the default block size is large enough and valid.
+    // The same check will happen in FileBlockArray::create but we do it here because
+    // the minimum block size (REPOSITORY_MIN_BLK_SZ) is an extra requirement of us
+    // not of FileBlockArray.
+    FileBlockArray::fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
+
     FileBlockArray fblkarr = FileBlockArray::create_mem_based(defaults.blk_sz, 1 /* begin_blk_nr */);
 
     // Memory based file block arrays (and therefore Repository too) are always created
@@ -280,7 +292,7 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
     uint8_t blk_sz_order = u8_from_le(hdr.blk_sz_order);
 
     if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > 16) {
-        throw std::runtime_error((F() << "block size order " << blk_sz_order
+        throw std::runtime_error((F() << "block size order " << (int)blk_sz_order
                                       << " is out of range [7 to 16] (block sizes of 128 to 64K).")
                                          .str());
     }
@@ -324,7 +336,7 @@ void Repository::read_and_check_header_and_trailer() {
     uint32_t blk_sz = (1 << hdr.blk_sz_order);
 
     if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > 16) {
-        throw InconsistentXOZ(*this, F() << "block size order " << blk_sz_order
+        throw InconsistentXOZ(*this, F() << "block size order " << (int)blk_sz_order
                                          << " is out of range [7 to 16] (block sizes of 128 to 64K).");
     }
 

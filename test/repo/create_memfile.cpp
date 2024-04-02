@@ -234,5 +234,21 @@ namespace {
                 "454f 4600"
                 );
     }
+
+    TEST(RepositoryTest, MemCreateTooSmallBlockSize) {
+        // Too small
+        struct Repository::default_parameters_t gp = {
+            .blk_sz = 64
+        };
+
+        EXPECT_THAT(
+            [&]() { Repository::create_mem_based(gp); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("The minimum block size is 128 but given 64.")
+                    )
+                )
+        );
+    }
 }
 

@@ -650,4 +650,81 @@ namespace {
                 "454f 4600"
                 );
     }
+
+    TEST(RepositoryTest, CreateTooSmallBlockSize) {
+        DELETE("CreateTooSmallBlockSize.xoz");
+
+        // Too small
+        struct Repository::default_parameters_t gp = {
+            .blk_sz = 64
+        };
+
+        const char* fpath = SCRATCH_HOME "CreateTooSmallBlockSize.xoz";
+        EXPECT_THAT(
+            [&]() { Repository::create(fpath, true, gp); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("The minimum block size is 128 but given 64.")
+                    )
+                )
+        );
+    }
+
+    TEST(RepositoryTest, OpenTooSmallBlockSize) {
+        DELETE("OpenTooSmallBlockSize.xoz");
+
+        // Large enough
+        struct Repository::default_parameters_t gp = {
+            .blk_sz = 128
+        };
+
+        const char* fpath = SCRATCH_HOME "OpenTooSmallBlockSize.xoz";
+        Repository new_repo = Repository::create(fpath, true, gp);
+
+        // Check repository's parameters after create
+        EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(new_repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(new_repo.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(new_repo.expose_block_array().blk_sz(), (uint32_t)128);
+
+        new_repo.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "            // magic XOZ\0
+                "8000 0000 0000 0000 "  // repo_sz
+                "0400 0000 0000 0000 "  // trailer_sz
+                "0100 0000 "            // blk_total_cnt
+                "0000 0000 "            // unused
+                "07"                    // blk_sz_order
+                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        // Now patch the file to make it look to be of a smaller block size
+        // at 28th byte, the blk_sz_order is changed to 6 (64 bytes)
+        std::fstream f(fpath, std::fstream::in | std::fstream::out | std::fstream::binary);
+        f.seekp(28);
+        char blk_sz_order = 6;
+        f.write(&blk_sz_order, 1);
+        f.close();
+
+
+        // Open, this should fail
+        EXPECT_THAT(
+            [&]() { Repository repo(SCRATCH_HOME "OpenTooSmallBlockSize.xoz"); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("block size order 6 is out of range [7 to 16] (block sizes of 128 to 64K)")
+                    )
+                )
+        );
+
+    }
 }
