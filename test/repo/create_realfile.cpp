@@ -52,7 +52,7 @@ namespace {
 
         // Close and check what we have on disk.
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
                 "0002 0000 0000 0000 "  // repo_sz
@@ -61,7 +61,9 @@ namespace {
                 "0000 0000 "            // unused
                 "09"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 512, -1,
@@ -98,7 +100,7 @@ namespace {
         // Note: in CreateNewDefaults test we create-close-check, here
         // we do create-close-open-close-check.
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
                 "0002 0000 0000 0000 "  // repo_sz
@@ -107,7 +109,9 @@ namespace {
                 "0000 0000 "            // unused
                 "09"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 512, -1,
@@ -121,7 +125,7 @@ namespace {
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         const char* fpath = SCRATCH_HOME "CreateNonDefaultsThenOpen.xoz";
@@ -131,22 +135,24 @@ namespace {
         EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(new_repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(new_repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(new_repo.expose_block_array().blk_sz(), (uint32_t)64);
+        EXPECT_EQ(new_repo.expose_block_array().blk_sz(), (uint32_t)128);
 
         new_repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -164,22 +170,24 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
 
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -190,7 +198,7 @@ namespace {
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         const char* fpath = SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz";
@@ -217,22 +225,24 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
 
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -243,7 +253,7 @@ namespace {
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateAndOverride.xoz";
@@ -268,22 +278,24 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
 
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -294,7 +306,7 @@ namespace {
 
         // Custom non-default parameters
        struct Repository::default_parameters_t  gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateButFail.xoz";
@@ -331,22 +343,24 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
 
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -356,7 +370,7 @@ namespace {
         DELETE("CreateThenExpand.xoz");
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenExpand.xoz";
@@ -395,19 +409,21 @@ namespace {
 
         // Close and reopen and check again
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "8002 0000 0000 0000 "  // repo_sz
+                "0005 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0a00 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 640, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 1280, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -426,19 +442,21 @@ namespace {
         EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)9);
 
         repo2.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "8002 0000 0000 0000 "  // repo_sz
+                "0005 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0a00 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 640, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 1280, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -449,7 +467,7 @@ namespace {
         DELETE("CreateThenExpandThenRevert.xoz");
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevert.xoz";
@@ -487,19 +505,21 @@ namespace {
 
         // Close and reopen and check again
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -518,19 +538,21 @@ namespace {
         EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)0);
 
         repo2.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -541,7 +563,7 @@ namespace {
         DELETE("CreateThenExpandCloseThenShrink.xoz");
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz";
@@ -565,23 +587,25 @@ namespace {
 
         // Close and check: the file should be grown
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "0001 0000 0000 0000 "  // repo_sz
+                "0002 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0400 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         // Note the position: 256 is at the end of the last block
         // Also note the length: -1 means read to the end of the file
         // We should read the trailer only proving that the file grow
         // to that position *and* nothing else follows.
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64 * 4, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128 * 4, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -603,23 +627,25 @@ namespace {
 
         // Close and check again: the file should shrank
         repo2.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 64,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        // The position 64 is where the trailer should be present
+        // The position 128 is where the trailer should be present
         // if the file shrank at the "logical" level.
         // With a length of -1 (read to the end of the file), we check
         // that also the file shrank at the "physical" level (in disk)
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 64, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );

@@ -31,7 +31,8 @@ public:
      * This is the minimum size of the blocks that the repository can use.
      * Larger blocks are allowed as long as they are power of 2.
      * */
-    constexpr static uint32_t REPOSITORY_MIN_BLK_SZ = 64;
+    constexpr static uint32_t REPOSITORY_MIN_BLK_SZ = 128;
+    constexpr static uint32_t REPOSITORY_MIN_BLK_SZ_ORDER = 7;
     constexpr static uint32_t REPOSITORY_HEADER_BLK_CNT = 1;
 
 private:

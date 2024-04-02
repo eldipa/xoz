@@ -49,7 +49,7 @@ namespace {
 
         // Close and check what we have on disk.
         repo.close();
-        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 64,
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
                 "0002 0000 0000 0000 "  // repo_sz
@@ -58,7 +58,9 @@ namespace {
                 "0000 0000 "            // unused
                 "09"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 512, -1,
@@ -71,7 +73,7 @@ namespace {
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         Repository repo = Repository::create_mem_based(gp);
@@ -88,22 +90,24 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)64);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
 
         repo.close();
-        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 64,
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 128, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -112,7 +116,7 @@ namespace {
     TEST(RepositoryTest, MemCreateThenExpand) {
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         Repository repo = Repository::create_mem_based(gp);
@@ -150,19 +154,21 @@ namespace {
 
         // Close and reopen and check again
         repo.close();
-        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 64,
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "8002 0000 0000 0000 "  // repo_sz
+                "0005 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0a00 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 640, -1,
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 1280, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -172,7 +178,7 @@ namespace {
     TEST(RepositoryTest, MemCreateThenExpandThenRevert) {
 
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 64
+            .blk_sz = 128
         };
 
         Repository repo = Repository::create_mem_based(gp);
@@ -209,19 +215,21 @@ namespace {
 
         // Close and reopen and check again
         repo.close();
-        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 64,
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 128,
                 // header
                 "584f 5a00 "            // magic XOZ\0
-                "4000 0000 0000 0000 "  // repo_sz
+                "8000 0000 0000 0000 "  // repo_sz
                 "0400 0000 0000 0000 "  // trailer_sz
                 "0100 0000 "            // blk_total_cnt
                 "0000 0000 "            // unused
-                "06"                    // blk_sz_order
+                "07"                    // blk_sz_order
                 "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000"
+                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 64, -1,
+        XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 128, -1,
                 // trailer
                 "454f 4600"
                 );

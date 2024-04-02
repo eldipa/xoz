@@ -249,7 +249,7 @@ struct repo_trailer_t {
     uint8_t magic[4];
 } __attribute__((packed));
 
-static_assert(sizeof(struct repo_header_t) == 64);
+static_assert(sizeof(struct repo_header_t) == 64);  // TODO this can be increased to 128
 }  // namespace
 
 void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::istream& is,
@@ -279,10 +279,10 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
 
     uint8_t blk_sz_order = u8_from_le(hdr.blk_sz_order);
 
-    if (blk_sz_order < 6 or blk_sz_order > 16) {
-        throw std::runtime_error(
-                (F() << "block size order " << blk_sz_order << " is out of range [6 to 16] (block sizes of 64 to 64K).")
-                        .str());
+    if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > 16) {
+        throw std::runtime_error((F() << "block size order " << blk_sz_order
+                                      << " is out of range [7 to 16] (block sizes of 128 to 64K).")
+                                         .str());
     }
 
     cfg.blk_sz = (1 << hdr.blk_sz_order);
@@ -323,9 +323,9 @@ void Repository::read_and_check_header_and_trailer() {
     uint8_t blk_sz_order = u8_from_le(hdr.blk_sz_order);
     uint32_t blk_sz = (1 << hdr.blk_sz_order);
 
-    if (blk_sz_order < 6 or blk_sz_order > 16) {
+    if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > 16) {
         throw InconsistentXOZ(*this, F() << "block size order " << blk_sz_order
-                                         << " is out of range [6 to 16] (block sizes of 64 to 64K).");
+                                         << " is out of range [7 to 16] (block sizes of 128 to 64K).");
     }
 
     auto blk_total_cnt = u32_from_le(hdr.blk_total_cnt);
@@ -503,7 +503,7 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
     } else {
         // Either the root_sg is too large to fit in the header or it is small
         // enough but we cannot put there because with the addition of the end-of-segment
-        // it will not fit.
+        // it will make it to not fit.
 
         // root segment is too large to fit in the header, try to use
         // the space allocated in external_root_sg_loc first, allocate more
@@ -533,8 +533,10 @@ std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
         IOSpan io3(root_sg_bytes);
         external_root_sg_loc.write_struct_into(io3);
 
-        // We don't really want to store the checksum, it was put here just for
+        // We don't really want to store the checksum in memory, it was put here just for
         // the write_struct_into call above. Remove the inline then.
+        // This is an implementation detail that we *must* honor: no inline in external_root_sg_loc
+        // in its in-memory version
         external_root_sg_loc.remove_inline_data();
     }
 
