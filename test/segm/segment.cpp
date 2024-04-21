@@ -231,10 +231,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
     }
 
-#if 0
-    TODO review these!!
-
-    TEST(SegmentTest, InlineDataAsEndOfSegmentButFail) {
+    TEST(SegmentTest, UnexpectedInlineDataAsEndOfSegmentMakesFail) {
         const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
@@ -256,7 +253,7 @@ namespace {
         // Now we expect a segment of length 3 which obviously will not happen
         // (the segment has a length of 2)
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), 3); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::ExplicitLen, 3); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -270,12 +267,28 @@ namespace {
                 )
         );
 
+        // We want to load until the end of the io but the end-of-segment will be found earlier
+        // and bytes will kept unread and that is an error.
+        EXPECT_THAT(
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::IOEnd); }),
+            ThrowsMessage<InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "Repository seems inconsistent/corrupt. "
+                        "Expected to read a segment that ends at the end of the io object "
+                        "but an inline-extent was found before that, obtaining a segment "
+                        "with a length of 2 and in the io still remains 58 bytes."
+                        )
+                    )
+                )
+        );
+
         // Now we try to load until the inline data but we shrink the fp (truncate)
         // such the inline data is missing
         // (but the first 1-block extent is intact so no half/partial read happens)
         fp.resize(4);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::InlineEnd); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -288,7 +301,6 @@ namespace {
                 )
         );
     }
-#endif
 
     TEST(SegmentTest, InlineDataBadSize) {
         const uint8_t blk_sz_order = 10;
@@ -1537,7 +1549,7 @@ namespace {
                     AllOf(
                         HasSubstr(
                             "Expected to read a segment that ends "
-                            "at the end of the io object but an inline-extent was found before that "
+                            "at the end of the io object but an inline-extent was found before that, "
                             "obtaining a segment with a length of 1 and "
                             "in the io still remains 2 bytes."
                             )

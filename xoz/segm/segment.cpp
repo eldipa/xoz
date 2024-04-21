@@ -319,7 +319,7 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
 
     if (mode == EndMode::IOEnd and io.remain_rd() > 0) {
         throw InconsistentXOZ(F() << "Expected to read a segment that ends "
-                                     "at the end of the io object but an inline-extent was found before that "
+                                     "at the end of the io object but an inline-extent was found before that, "
                                   << "obtaining a segment with a length of " << cnt
                                   << " and "
                                      "in the io still remains "
