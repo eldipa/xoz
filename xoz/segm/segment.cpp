@@ -12,6 +12,7 @@
 #include "xoz/ext/extent.h"
 #include "xoz/mem/bits.h"
 #include "xoz/mem/endianness.h"
+#include "xoz/mem/inet_checksum.h"
 #include "xoz/segm/internals.h"
 
 void PrintTo(const Segment& segm, std::ostream* out) {
@@ -158,7 +159,7 @@ constexpr void fail_remain_exhausted_during_partial_read(uint64_t requested_sz, 
     *available_sz -= requested_sz;
 }
 
-void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t segm_len) {
+void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t segm_len, uint32_t* checksum_p) {
     uint32_t cnt = 0;
     if (mode != EndMode::ExplicitLen and segm_len != uint32_t(-1)) {
         throw std::runtime_error("Explicit segment length not allowed");
@@ -166,6 +167,8 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
     if (mode == EndMode::ExplicitLen and segm_len == uint32_t(-1)) {
         throw std::runtime_error("Explicit segment length required");
     }
+
+    uint32_t checksum = 0;
 
     const uint32_t initial_segm_len = segm_len;
     const uint64_t initial_sz = io.remain_rd();
@@ -182,6 +185,7 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
                                                   "stop before reading extent header");
 
         hdr_ext = io.read_u16_from_le();
+        checksum += hdr_ext;
 
         bool is_suballoc = read_bitsfield_from_u16<bool>(hdr_ext, MASK_SUBALLOC_FLAG);
         bool is_inline = read_bitsfield_from_u16<bool>(hdr_ext, MASK_INLINE_FLAG);
@@ -206,6 +210,7 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
                 fail_remain_exhausted_during_partial_read(inline_sz, &available_sz, initial_sz,
                                                           "inline data is partially read");
                 io.readall(segm.raw, inline_sz);
+                checksum += inet_checksum((uint8_t*)segm.raw.data(), inline_sz);
             }
 
             // inline data *is* the last element of a segment
@@ -231,6 +236,7 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
                                                           "cannot read LSB block number");
 
                 lo_blk_nr = io.read_u16_from_le();
+                checksum += lo_blk_nr;
 
                 blk_nr = ((uint32_t(hi_blk_nr & MASK_HI_BLK_NR) << 16) | lo_blk_nr);
             }
@@ -247,6 +253,7 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
                 fail_remain_exhausted_during_partial_read(sizeof(blk_cnt), &available_sz, initial_sz,
                                                           "cannot read block count");
                 blk_cnt = io.read_u16_from_le();
+                checksum += blk_cnt;
             }
 
             // If it is a near extent, we know now its block count so we can
@@ -341,9 +348,13 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
     this->arr = std::move(segm.arr);
     this->raw = std::move(segm.raw);
     this->inline_present = segm.inline_present;
+
+    if (checksum_p) {
+        *checksum_p = fold_inet_checksum(checksum);
+    }
 }
 
-void Segment::write_struct_into(IOBase& io) const {
+void Segment::write_struct_into(IOBase& io, uint32_t* checksum_p) const {
     const Segment& segm = *this;
     Extent prev(0, 0, false);
 
@@ -363,6 +374,7 @@ void Segment::write_struct_into(IOBase& io) const {
         ++remain_cnt;
     }
 
+    uint32_t checksum = 0;
     for (const auto& ext: segm.arr) {
         assert(remain_cnt > 0);
         assert(remain_sz >= 2);
@@ -398,6 +410,7 @@ void Segment::write_struct_into(IOBase& io) const {
             // Now hdr_ext is complete: write it to disk
             assert_write_room_and_consume(sizeof(hdr_ext), &remain_sz);
             io.write_u16_to_le(hdr_ext);
+            checksum += hdr_ext;
 
         } else {
             // Split the block number in two parts
@@ -412,6 +425,8 @@ void Segment::write_struct_into(IOBase& io) const {
 
             io.write_u16_to_le(hdr_ext);
             io.write_u16_to_le(lo_blk_nr);
+            checksum += hdr_ext;
+            checksum += lo_blk_nr;
         }
 
         assert(not(is_suballoc and smallcnt));
@@ -420,6 +435,7 @@ void Segment::write_struct_into(IOBase& io) const {
             uint16_t blk_cnt_bitmap = is_suballoc ? u16_to_le(ext.blk_bitmap()) : u16_to_le(ext.blk_cnt());
             assert_write_room_and_consume(sizeof(blk_cnt_bitmap), &remain_sz);
             io.write_u16_to_le(blk_cnt_bitmap);
+            checksum += blk_cnt_bitmap;
         }
 
         prev = ext;
@@ -457,10 +473,12 @@ void Segment::write_struct_into(IOBase& io) const {
         // Now hdr_ext is complete: write it to disk
         assert_write_room_and_consume(sizeof(hdr_ext) + inline_sz, &remain_sz);
         io.write_u16_to_le(hdr_ext);
+        checksum += hdr_ext;
 
         // After the uint8_t raw follows, if any
         if (inline_sz > 0) {
             io.writeall(segm.raw, inline_sz);
+            checksum += inet_checksum((uint8_t*)segm.raw.data(), inline_sz);
         }
     }
 
@@ -472,6 +490,10 @@ void Segment::write_struct_into(IOBase& io) const {
     // The same goes for the remaining size: we calculated the footprint
     // of the segment and we expect to write all of it
     assert(remain_sz == 0);
+
+    if (checksum_p) {
+        *checksum_p = fold_inet_checksum(checksum);
+    }
 }
 
 bool Segment::operator==(const Segment& segm) const {

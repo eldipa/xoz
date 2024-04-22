@@ -159,26 +159,29 @@ public:
         ExplicitLen = 4,
     };
 
-    static Segment load_struct_from(IOBase& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1)) {
+    static Segment load_struct_from(IOBase& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1),
+                                    uint32_t* checksum_p = nullptr) {
         Segment segm;
-        segm.read_struct_from(io, mode, segm_len);
+        segm.read_struct_from(io, mode, segm_len, checksum_p);
         return segm;
     }
 
 
-    void read_struct_from(IOBase& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1));
-    void write_struct_into(IOBase& io) const;
+    void read_struct_from(IOBase& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1),
+                          uint32_t* checksum_p = nullptr);
+    void write_struct_into(IOBase& io, uint32_t* checksum_p = nullptr) const;
 
 
-    static Segment load_struct_from(IOBase&& io, enum EndMode mode = EndMode::AnyEnd,
-                                    uint32_t segm_len = uint32_t(-1)) {
-        return load_struct_from(io, mode, segm_len);
+    static Segment load_struct_from(IOBase&& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1),
+                                    uint32_t* checksum_p = nullptr) {
+        return load_struct_from(io, mode, segm_len, checksum_p);
     }
 
-    void read_struct_from(IOBase&& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1)) {
-        read_struct_from(io, mode, segm_len);
+    void read_struct_from(IOBase&& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1),
+                          uint32_t* checksum_p = nullptr) {
+        read_struct_from(io, mode, segm_len, checksum_p);
     }
-    void write_struct_into(IOBase&& io) const { write_struct_into(io); }
+    void write_struct_into(IOBase&& io, uint32_t* checksum_p = nullptr) const { write_struct_into(io, checksum_p); }
 
 
     // Return the size in bytes to represent the Segment structure in disk.
