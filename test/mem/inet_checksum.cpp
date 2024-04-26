@@ -86,4 +86,132 @@ namespace {
         // The inet_checksum over a buffer it will always does the fold
         EXPECT_EQ(inet_checksum(buf+7, 2), (uint32_t)0x0000ffff);
     }
+
+    TEST(InetChecksumTest, EquivalenceSingleUint16) {
+        {
+            const uint16_t buf[] = {1};
+            std::vector<char> fp(sizeof(buf));
+
+            auto io = IOSpan(fp);
+
+            for (unsigned i = 0; i < sizeof(buf)/sizeof(buf[0]); ++i) {
+                io.write_u16_to_le(buf[i]);
+            }
+
+            assert(io.tell_wr() == 2);
+
+            uint32_t chk_from_uint8_buf = inet_checksum((uint8_t*)buf, sizeof(buf));
+            uint32_t chk_from_uint16_buf = inet_checksum(buf, sizeof(buf) >> 1);
+            uint32_t chk_from_io = inet_checksum(io, 0, sizeof(buf));
+
+            EXPECT_EQ(chk_from_uint8_buf, (uint32_t)0x00000001);
+            EXPECT_EQ(chk_from_uint16_buf, (uint32_t)0x00000001);
+            EXPECT_EQ(chk_from_io, (uint32_t)0x00000001);
+        }
+        {
+            const uint16_t buf[] = {0x8000};
+            std::vector<char> fp(sizeof(buf));
+
+            auto io = IOSpan(fp);
+
+            for (unsigned i = 0; i < sizeof(buf)/sizeof(buf[0]); ++i) {
+                io.write_u16_to_le(buf[i]);
+            }
+
+            assert(io.tell_wr() == 2);
+
+            uint32_t chk_from_uint8_buf = inet_checksum((uint8_t*)buf, sizeof(buf));
+            uint32_t chk_from_uint16_buf = inet_checksum(buf, sizeof(buf) >> 1);
+            uint32_t chk_from_io = inet_checksum(io, 0, sizeof(buf));
+
+            EXPECT_EQ(chk_from_uint8_buf, (uint32_t)0x00008000);
+            EXPECT_EQ(chk_from_uint16_buf, (uint32_t)0x00008000);
+            EXPECT_EQ(chk_from_io, (uint32_t)0x00008000);
+        }
+    }
+
+    TEST(InetChecksumTest, EquivalenceTwoUint16) {
+        {
+            const uint16_t buf[] = {1, 2};
+            std::vector<char> fp(sizeof(buf));
+
+            auto io = IOSpan(fp);
+
+            for (unsigned i = 0; i < sizeof(buf)/sizeof(buf[0]); ++i) {
+                io.write_u16_to_le(buf[i]);
+            }
+
+            assert(io.tell_wr() == 4);
+
+            uint32_t chk_from_uint8_buf = inet_checksum((uint8_t*)buf, sizeof(buf));
+            uint32_t chk_from_uint16_buf = inet_checksum(buf, sizeof(buf) >> 1);
+            uint32_t chk_from_io = inet_checksum(io, 0, sizeof(buf));
+
+            EXPECT_EQ(chk_from_uint8_buf, (uint32_t)0x00000003);
+            EXPECT_EQ(chk_from_uint16_buf, (uint32_t)0x00000003);
+            EXPECT_EQ(chk_from_io, (uint32_t)0x00000003);
+        }
+        {
+            const uint16_t buf[] = {0x8000, 1};
+            std::vector<char> fp(sizeof(buf));
+
+            auto io = IOSpan(fp);
+
+            for (unsigned i = 0; i < sizeof(buf)/sizeof(buf[0]); ++i) {
+                io.write_u16_to_le(buf[i]);
+            }
+
+            assert(io.tell_wr() == 4);
+
+            uint32_t chk_from_uint8_buf = inet_checksum((uint8_t*)buf, sizeof(buf));
+            uint32_t chk_from_uint16_buf = inet_checksum(buf, sizeof(buf) >> 1);
+            uint32_t chk_from_io = inet_checksum(io, 0, sizeof(buf));
+
+            EXPECT_EQ(chk_from_uint8_buf, (uint32_t)0x00008001);
+            EXPECT_EQ(chk_from_uint16_buf, (uint32_t)0x00008001);
+            EXPECT_EQ(chk_from_io, (uint32_t)0x00008001);
+        }
+        {
+            const uint16_t buf[] = {0x8000, 0x8000};
+            std::vector<char> fp(sizeof(buf));
+
+            auto io = IOSpan(fp);
+
+            // TODO understand endianness
+            for (unsigned i = 0; i < sizeof(buf)/sizeof(buf[0]); ++i) {
+                io.write_u16_to_le(buf[i]);
+            }
+
+            assert(io.tell_wr() == 4);
+
+            uint32_t chk_from_uint8_buf = inet_checksum((uint8_t*)buf, sizeof(buf));
+            uint32_t chk_from_uint16_buf = inet_checksum(buf, sizeof(buf) >> 1);
+            uint32_t chk_from_io = inet_checksum(io, 0, sizeof(buf));
+
+            EXPECT_EQ(chk_from_uint8_buf, (uint32_t)0x00000001);
+            EXPECT_EQ(chk_from_uint16_buf, (uint32_t)0x00000001);
+            EXPECT_EQ(chk_from_io, (uint32_t)0x00000001);
+        }
+    }
+
+    TEST(InetChecksumTest, EquivalenceMultipleUint16) {
+        const uint16_t buf[] = {0, 1, 1, 1, 0xff, 0, 0xffff, 0xffff};
+        std::vector<char> fp(sizeof(buf));
+
+        auto io = IOSpan(fp);
+
+        for (unsigned i = 0; i < sizeof(buf)/sizeof(buf[0]); ++i) {
+            io.write_u16_to_le(buf[i]);
+        }
+
+        assert(io.tell_wr() == 16);
+
+        uint32_t chk_from_uint8_buf = inet_checksum((uint8_t*)buf, sizeof(buf));
+        uint32_t chk_from_uint16_buf = inet_checksum(buf, sizeof(buf) >> 1);
+        uint32_t chk_from_io = inet_checksum(io, 0, sizeof(buf));
+
+        EXPECT_EQ(chk_from_uint8_buf, (uint32_t)0x00000102);
+        EXPECT_EQ(chk_from_uint16_buf, (uint32_t)0x00000102);
+        EXPECT_EQ(chk_from_io, (uint32_t)0x00000102);
+    }
 }
