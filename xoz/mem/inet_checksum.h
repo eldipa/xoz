@@ -49,16 +49,22 @@ constexpr inline uint32_t inet_checksum(const uint16_t* const buf, const uint16_
         checksum += buf[ix];
     }
 
+    // In the worst case, we have 0xffff words all of 0xffff value.
+    // So the sum will be at most 0xffff * 0xffff which fits perfectly
+    // in a uint32_t without overflow.
     return fold_inet_checksum(checksum);
 }
 
 /*
- * The function works up to  uint16_t(0xffff) word count of 2 bytes words.
+ * The size given is in terms of bytes. It must be a multiple of 2.
+ * Internally, the function works up to  uint16_t(0xffff) word count of 2 bytes words
+ * so sz cannot be larger than (0xffff << 1).
  * Larger inputs must be split by the caller.
  * */
 inline uint32_t inet_checksum(const uint8_t* const buf, const uint32_t sz) {
     assert(sz % 2 == 0);
-    return inet_checksum((uint16_t*)buf, assert_u16(sz));
+    assert(is_aligned(buf, 2));
+    return inet_checksum((uint16_t*)buf, assert_u16(sz >> 1));
 }
 
 
