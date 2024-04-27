@@ -9,6 +9,7 @@
 #include "xoz/dsc/internals.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/mem/bits.h"
+#include "xoz/mem/inet_checksum.h"
 #include "xoz/repo/id_manager.h"
 
 namespace {
@@ -177,8 +178,12 @@ fail:
 
 std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& idmgr, BlockArray& ed_blkarr) {
     throw_if_descriptor_mapping_not_initialized();
+    uint32_t checksum = 0;
+
     uint32_t dsc_begin_pos = io.tell_rd();
     uint16_t firstfield = io.read_u16_from_le();
+
+    checksum += firstfield;
 
     bool own_edata = read_bitsfield_from_u16<bool>(firstfield, MASK_OWN_EDATA_FLAG);
     uint8_t lo_dsize = read_bitsfield_from_u16<uint8_t>(firstfield, MASK_LO_DSIZE);
@@ -191,6 +196,8 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     if (has_id) {
         uint32_t idfield = io.read_u32_from_le();
 
+        checksum += inet_checksum(idfield);
+
         hi_dsize = read_bitsfield_from_u32<uint8_t>(idfield, MASK_HI_DSIZE);
         id = read_bitsfield_from_u32<uint32_t>(idfield, MASK_ID);
     }
@@ -201,11 +208,16 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     if (own_edata) {
         uint16_t sizefield = io.read_u16_from_le();
 
+        checksum += sizefield;
+
         bool large = read_bitsfield_from_u16<bool>(sizefield, MASK_LARGE_FLAG);
         lo_esize = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_LO_ESIZE);
 
         if (large) {
             uint16_t largefield = io.read_u16_from_le();
+
+            checksum += largefield;
+
             hi_esize = read_bitsfield_from_u16<uint32_t>(largefield, MASK_HI_ESIZE);
         }
     }
@@ -253,7 +265,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     hdr.id = id;
 
     if (own_edata) {
-        hdr.segm = Segment::load_struct_from(io);
+        hdr.segm = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, -1, &checksum);
     }
 
     /* TODO
@@ -268,6 +280,9 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     bool ex_type_used = false;
     if (type == EXTENDED_TYPE_VAL_THRESHOLD) {
         type = io.read_u16_from_le();
+
+        checksum += type;
+
         hdr.type = type;
         ex_type_used = true;
     }
@@ -289,6 +304,14 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
 
     chk_rw_specifics_on_data(true, io, data_begin_pos, dsc_end_pos, hdr.dsize);
     chk_struct_footprint(true, io, dsc_begin_pos, dsc_end_pos, dsc.get(), ex_type_used);
+
+    // note: as the check in chk_rw_specifics_on_data and the following assert
+    // we can be 100% sure that we are checksuming all the data field from
+    // data_begin_pos to data_begin_pos+hdr.dsize.
+    assert(dsc_end_pos == data_begin_pos + hdr.dsize);
+    checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
+
+    dsc->checksum = fold_inet_checksum(checksum);
 
     return dsc;
 }
@@ -328,6 +351,8 @@ void Descriptor::write_struct_into(IOBase& io) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor esize is larger than allowed " << hdr);
     }
 
+    uint32_t checksum = 0;
+
     /* TODO
     const auto segm_sz = hdr.segm.calc_data_space_size(????);
     if (segm_sz < hdr.esize) {
@@ -355,6 +380,7 @@ void Descriptor::write_struct_into(IOBase& io) {
 
     // Write the first field
     io.write_u16_to_le(firstfield);
+    checksum += firstfield;
 
     // Write the second, if present
     chk_dsize_fit_or_fail(has_id, hdr);
@@ -374,6 +400,7 @@ void Descriptor::write_struct_into(IOBase& io) {
         }
 
         io.write_u32_to_le(idfield);
+        checksum += inet_checksum(idfield);
     }
 
 
@@ -386,6 +413,7 @@ void Descriptor::write_struct_into(IOBase& io) {
             write_bitsfield_into_u16(sizefield, hdr.esize, MASK_LO_ESIZE);
 
             io.write_u16_to_le(sizefield);
+            checksum += sizefield;
         } else {
             if (hdr.esize >= uint32_t(0x80000000)) {  // TODO test
                 throw WouldEndUpInconsistentXOZ(F()
@@ -401,11 +429,13 @@ void Descriptor::write_struct_into(IOBase& io) {
 
             io.write_u16_to_le(sizefield);
             io.write_u16_to_le(largefield);
+            checksum += sizefield;
+            checksum += largefield;
         }
 
 
         // Write the segment
-        hdr.segm.write_struct_into(io);
+        hdr.segm.write_struct_into(io, &checksum);
     }
 
     // extended-type
@@ -414,6 +444,7 @@ void Descriptor::write_struct_into(IOBase& io) {
     bool ex_type_used = false;
     if (hdr.type >= EXTENDED_TYPE_VAL_THRESHOLD) {
         io.write_u16_to_le(hdr.type);
+        checksum += hdr.type;
         ex_type_used = true;
     }
 
@@ -428,6 +459,10 @@ void Descriptor::write_struct_into(IOBase& io) {
 
     chk_rw_specifics_on_data(false, io, data_begin_pos, dsc_end_pos, hdr.dsize);
     chk_struct_footprint(false, io, dsc_begin_pos, dsc_end_pos, this, ex_type_used);
+    assert(dsc_end_pos == data_begin_pos + hdr.dsize);
+
+    checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
+    this->checksum = fold_inet_checksum(checksum);
 }
 
 uint32_t Descriptor::calc_struct_footprint_size() const {

@@ -101,7 +101,7 @@ public:  // public but it should be interpreted as an opaque section
     /*
      * Return a const reference to the segment that points to the owned external
      * data.
-     * The segment is **undefined** of does_own_edata() returns false.
+     * The segment is **undefined** if does_own_edata() returns false.
      * */
     const Segment& edata_segment_ref() const {
         assert(does_own_edata());
@@ -120,7 +120,7 @@ protected:
      * too much its header.
      * */
     Descriptor(const struct header_t& hdr, BlockArray& ed_blkarr):
-            hdr(hdr), ext(Extent::EmptyExtent()), ed_blkarr(ed_blkarr) {}
+            hdr(hdr), ext(Extent::EmptyExtent()), ed_blkarr(ed_blkarr), checksum(0) {}
 
     static void chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
@@ -157,6 +157,14 @@ private:
 
     // Block array that holds the external data of the descriptor (if any).
     BlockArray& ed_blkarr;
+
+public:
+    /*
+     * This is the inet checksum computed during the
+     * last read_struct_from/load_struct_from/write_struct_into call.
+     * It does *not* reflect the checksum of the current in-memory state of the descriptor.
+     * */
+    uint32_t /* internal */ checksum;
 
 private:
     static void chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end,
