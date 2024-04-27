@@ -98,6 +98,11 @@ void DescriptorSet::load_descriptors(IOBase& io) {
         // not duplicated against other descriptor in other stream. That's why the real and
         // truly useful check is performed in IDManager (that has a global view) during the
         // descriptor load..
+        if (id == 0) {
+            throw InternalError(F() << "Descriptor id " << id << " is not allowed. "
+                                    << "Mostly likely an internal bug");
+        }
+
         if (owned.count(id) != 0) {
             throw InternalError(F() << "Descriptor id " << id
                                     << " found duplicated within the stream. This should never had happen. "
