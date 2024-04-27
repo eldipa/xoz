@@ -6,6 +6,7 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/repo/id_manager.h"
 #include "xoz/blk/vector_block_array.h"
+#include "xoz/mem/inet_checksum.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -47,15 +48,28 @@ const size_t FP_SZ = 224;
     EXPECT_EQ(are_all_zeros((fp), (dsc).calc_struct_footprint_size()), (bool)true);  \
 } while (0)
 
+// Calc checksum over the fp (bytes) and expect to be the same as the descriptor's checksum
+// Note: this requires a load_struct_from/write_struct_into call before to make
+// the descriptor's checksum updated
+#define XOZ_EXPECT_CHECKSUM(fp, dsc) do {    \
+    EXPECT_EQ(inet_checksum((uint8_t*)(fp).data(), (dsc).calc_struct_footprint_size()), (dsc).checksum); \
+} while (0)
+
 // Load from fp the obj and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
 #define XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr) do {                         \
     std::vector<char> buf2;                                              \
     XOZ_RESET_FP(buf2, FP_SZ);                                           \
+    uint32_t checksum2 = 0;                                              \
+    uint32_t checksum3 = 0;                                              \
                                                                          \
     auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (idmgr), (ed_blkarr));   \
+    checksum2 = dsc2_ptr->checksum;                                      \
+    dsc2_ptr->checksum = 0;                                              \
     dsc2_ptr->write_struct_into(IOSpan(buf2));                           \
+    checksum3 = dsc2_ptr->checksum;                                      \
     EXPECT_EQ((fp), buf2);                                               \
+    EXPECT_EQ(checksum2, checksum3);                                     \
 } while (0)
 
 
@@ -97,6 +111,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff00"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -142,6 +157,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff08 0102 0304"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -187,6 +203,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "fe09 0102 0304"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -232,6 +249,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff09 ff01 0102 0304"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -277,6 +295,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff09 ffff 0102 0304"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -319,6 +338,7 @@ namespace {
 
         // Write
         dsc.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_CHECKSUM(fp, dsc); // check here before the patch
 
         // Now patch the string to make the ex_type smaller than the EXTENDED_TYPE_VAL_THRESHOLD
         fp[3] = 0; fp[2] = 0xa; // the new type should be 10 or 0x0a
@@ -335,10 +355,24 @@ namespace {
         idmgr.reset(0x80000001);
 
         auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), idmgr, ed_blkarr);
+
+        auto checksum2 = dsc2_ptr->checksum;
+        dsc2_ptr->checksum = 0;
+
         dsc2_ptr->write_struct_into(IOSpan(buf2));
         XOZ_EXPECT_SERIALIZATION(buf2, *dsc2_ptr,
                 "0a08 0102 0304"
                 );
+        XOZ_EXPECT_CHECKSUM(buf2, *dsc2_ptr);
+
+        // We do *not* expect to see the same checksum: on load, the checksum
+        // matches what it is in the file (fp), on write, the checksum
+        // matches what it is going to be written.
+        //
+        // Because we intentinally written to fp a descriptor encoded inefficently,
+        // the load got its checksum but on the second write, the write *did*
+        // a efficient encoding so its checksum  will be different from the former.
+        EXPECT_NE(checksum2, dsc2_ptr->checksum);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdMaxLoData) {
@@ -385,6 +419,7 @@ namespace {
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 "
                 "3233 3435 3637 3839 3a3b 3c3d"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -435,6 +470,7 @@ namespace {
                 "1415 1617 1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d "
                 "2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -487,6 +523,7 @@ namespace {
                 "5455 5657 5859 5a5b 5c5d 5e5f 6061 6263 6465 6667 6869 6a6b 6c6d 6e6f 7071 "
                 "7273 7475 7677 7879 7a7b 7c7d"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -537,6 +574,7 @@ namespace {
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 "
                 "3233 3435 3637 3839 3a3b 3c3d"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -588,6 +626,7 @@ namespace {
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 "
                 "3233 3435 3637 3839 3a3b 3c3d"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -631,6 +670,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 0000 00c0"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -674,6 +714,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "fe83 0100 0000 0000 00c0"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -717,6 +758,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff83 0100 0000 0000 00c0 ff01"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -760,6 +802,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff83 0100 0000 0000 00c0 ffff"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -811,6 +854,7 @@ namespace {
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f "
                 "3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -854,6 +898,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 0100 00c0"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -897,6 +942,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 ff7f 00c0"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -940,6 +986,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 0080 0100 00c0"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -983,6 +1030,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 ffff ffff 00c0"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -1028,6 +1076,7 @@ namespace {
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 0100 03c3 0102"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
 
         // Load, write it back and check both byte-strings
         // are the same
@@ -1316,6 +1365,7 @@ namespace {
         hdr.id = 0xffff;
         DefaultDescriptor dsc2 = DefaultDescriptor(hdr, ed_blkarr);
         dsc2.write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_CHECKSUM(fp, dsc2); // check before the patch
 
         // ...and now we nullify the id field so it would look like a descriptor
         // that has_id but it has a id = 0
@@ -1359,6 +1409,7 @@ namespace {
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
+        XOZ_EXPECT_CHECKSUM(fp, dsc3);
 
 
         // Load should be ok even if the id is 0 in the string. A temporal id should be then
