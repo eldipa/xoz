@@ -91,6 +91,7 @@ namespace {
                 );
 
         // Write and check the dump
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "");
         EXPECT_EQ(are_all_zeros(fp), (bool)true);
@@ -116,6 +117,7 @@ namespace {
                 );
 
         // Write and check the dump
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c0");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -138,6 +140,7 @@ namespace {
                 2 /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c2 4142");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -151,6 +154,7 @@ namespace {
                 4 /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c4 4142 4344");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -164,6 +168,7 @@ namespace {
                 3 /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "43c3 4142");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -177,6 +182,7 @@ namespace {
                 1 /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -201,6 +207,7 @@ namespace {
 
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c0");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -223,6 +230,7 @@ namespace {
 
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ff02 00c0");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -251,6 +259,7 @@ namespace {
 
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -276,6 +285,7 @@ namespace {
 
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
 
         // Now we expect a segment of length 3 which obviously will not happen
@@ -365,6 +375,7 @@ namespace {
                 )
         );
         EXPECT_EQ(are_all_zeros(fp), (bool)true);
+        EXPECT_EQ(checksum, (uint32_t)0); // no checksum was added
 
         // This check the maximum allowed
         segm.set_inline_data(std::vector<char>((1 << 6) - 1));
@@ -376,6 +387,7 @@ namespace {
                 63 /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         EXPECT_EQ(hexdump(fp, 0, 6), "78ff 4100 0000");
         EXPECT_EQ(are_all_zeros(fp, 6), true); // all zeros to the end
@@ -393,6 +405,7 @@ namespace {
                 62 /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         EXPECT_EQ(hexdump(fp, 0, 6), "00fe 4100 0000");
         EXPECT_EQ(are_all_zeros(fp, 6, 57), true); // all zeros to the end except the last byte
@@ -417,6 +430,7 @@ namespace {
                 0 << blk_sz_order /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab02 0000");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -433,6 +447,7 @@ namespace {
                 0 << blk_sz_order /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0104 0000");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -449,6 +464,7 @@ namespace {
                 1 << blk_sz_order /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ab0f");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -464,6 +480,7 @@ namespace {
                 3 << blk_sz_order /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "011c");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -479,6 +496,7 @@ namespace {
                 15 << blk_sz_order /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0078 ab0f");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -495,6 +513,7 @@ namespace {
                 16 << blk_sz_order /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab0f 1000");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -510,6 +529,7 @@ namespace {
                 (1 << 15) << blk_sz_order /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab0f 0080");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -534,6 +554,7 @@ namespace {
                 0 /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "ab84 0000");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -552,6 +573,7 @@ namespace {
                 2 << (blk_sz_order - 4)  /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab0d 0900");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -567,6 +589,7 @@ namespace {
                 8 << (blk_sz_order - 4)  /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab0d ff00");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -582,6 +605,7 @@ namespace {
                 16 << (blk_sz_order - 4)  /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab0d ffff");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -598,6 +622,7 @@ namespace {
                 16 << (blk_sz_order - 4)  /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0684 ffff");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
@@ -623,6 +648,7 @@ namespace {
                 16 << blk_sz_order   /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000"
@@ -646,6 +672,7 @@ namespace {
                 (0)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000 "
@@ -672,6 +699,7 @@ namespace {
                 (1 << blk_sz_order)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000 "
@@ -698,6 +726,7 @@ namespace {
                 (2 << (blk_sz_order - 4))
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000 "
@@ -730,6 +759,7 @@ namespace {
                 (0)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000 "
@@ -755,6 +785,7 @@ namespace {
                 (4)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000 "
@@ -808,6 +839,7 @@ namespace {
                 (8 << blk_sz_order)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000 "
@@ -846,6 +878,7 @@ namespace {
                 16 << blk_sz_order   /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 1000"
@@ -869,6 +902,7 @@ namespace {
                 (0)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 1000 "
@@ -902,6 +936,7 @@ namespace {
                 16 << blk_sz_order   /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 1000"
@@ -924,6 +959,7 @@ namespace {
                 (0)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0004 1000 "
@@ -951,6 +987,7 @@ namespace {
                 16 << blk_sz_order   /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0104 1000"
@@ -975,6 +1012,7 @@ namespace {
                 (0)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0104 1000 "
@@ -1002,6 +1040,7 @@ namespace {
                 16 << blk_sz_order   /* allocated size */
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000"
@@ -1024,6 +1063,7 @@ namespace {
                 (0)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000 "
@@ -1100,6 +1140,7 @@ namespace {
                 (4)
                 );
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm,
                 "0000 000e 1000 "
@@ -1171,6 +1212,7 @@ namespace {
 
         // Nothing was written
         EXPECT_EQ(are_all_zeros(fp), (bool)true);
+        EXPECT_EQ(checksum, (uint32_t)0); // no checksum added
 
         XOZ_RESET_FP(fp, FP_SZ / 2);
         segm.remove_inline_data();
@@ -1201,6 +1243,7 @@ namespace {
 
         // Nothing was written
         EXPECT_EQ(are_all_zeros(fp), (bool)true);
+        EXPECT_EQ(checksum, (uint32_t)0); // no checksum added
     }
 
     TEST(SegmentTest, PartialReadError) {
@@ -1218,14 +1261,15 @@ namespace {
                 0x1f << blk_sz_order /* allocated size */
                 );
 
-        segm.write_struct_into(IOSpan(fp), &checksum);
+        checksum = 0;
+        segm.write_struct_into(IOSpan(fp));
 
         // Try to read only 2 bytes: this should fail
         // because Segment::load_struct_from will know that
         // more bytes are needed to complete the extent
         fp.resize(2);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1240,14 +1284,16 @@ namespace {
                     )
                 )
         );
+        EXPECT_EQ(checksum, (uint32_t)0);
 
         XOZ_RESET_FP(fp, FP_SZ);
-        segm.write_struct_into(IOSpan(fp), &checksum);
+        checksum = 0;
+        segm.write_struct_into(IOSpan(fp));
 
         // The same but with 4 bytes
         fp.resize(4);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1262,6 +1308,7 @@ namespace {
                     )
                 )
         );
+        EXPECT_EQ(checksum, (uint32_t)0);
 
         // Let's add an another 4-bytes extent
         segm.add_extent(Extent(0x5ff, 1, false)); // size: 10 bytes
@@ -1275,11 +1322,12 @@ namespace {
                 );
 
         XOZ_RESET_FP(fp, FP_SZ);
-        segm.write_struct_into(IOSpan(fp), &checksum);
+        checksum = 0;
+        segm.write_struct_into(IOSpan(fp));
 
         fp.resize(8);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1294,6 +1342,7 @@ namespace {
                     )
                 )
         );
+        EXPECT_EQ(checksum, (uint32_t)0);
 
         // Let's add inline of 4 bytes (+2 header)
         segm.set_inline_data({char(0xaa), char(0xbb), char(0xcc), char(0xdd)}); // size: 16 bytes
@@ -1308,13 +1357,14 @@ namespace {
                 );
 
         XOZ_RESET_FP(fp, FP_SZ);
-        segm.write_struct_into(IOSpan(fp), &checksum);
+        checksum = 0;
+        segm.write_struct_into(IOSpan(fp));
 
         // Segment::load_struct_from will read the inline header and it will
         // try to read 4 bytes *but* no available bytes exists
         fp.resize(12);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1329,16 +1379,18 @@ namespace {
                     )
                 )
         );
+        EXPECT_EQ(checksum, (uint32_t)0);
 
 
         XOZ_RESET_FP(fp, FP_SZ);
-        segm.write_struct_into(IOSpan(fp), &checksum);
+        checksum = 0;
+        segm.write_struct_into(IOSpan(fp));
 
         // The same but only 2 bytes are available, not enough for
         // completing the 4 bytes inline payload
         fp.resize(14);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1353,18 +1405,20 @@ namespace {
                     )
                 )
         );
+        EXPECT_EQ(checksum, (uint32_t)0);
     }
 
     TEST(SegmentTest, CorruptedData) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
+        uint32_t checksum = 0;
 
         // Because is_suballoc is set and smallcnt > 0, it is expected
         // that the is_inline bi set bit it is not, hence the error
         fp = {'\x00', '\x90', '\x01', '\x00'};
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1374,13 +1428,14 @@ namespace {
                     )
                 )
         );
+        EXPECT_EQ(checksum, (uint32_t)0);
 
         XOZ_RESET_FP(fp, FP_SZ);
 
         fp = {'\x01', '\x24', '\x01', '\x26'};
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp)); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1393,6 +1448,7 @@ namespace {
                     )
                 )
         );
+        EXPECT_EQ(checksum, (uint32_t)0);
     }
 
     TEST(SegmentTest, InlineEnd) {
@@ -1406,6 +1462,7 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
 
         uint32_t segm_sz = segm.calc_struct_footprint_size();
@@ -1419,13 +1476,17 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, FP_SZ);
+            uint32_t checksum2 = 0;
+            checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd);
-            segm2.write_struct_into(IOSpan(buf2));
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2);
+            segm2.write_struct_into(IOSpan(buf2), &checksum);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
             // Same serialization
             EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(checksum, checksum2);
 
             // What was read is exactly what it was required (the segment size in disc),
             // no more, no less.
@@ -1443,12 +1504,17 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            uint32_t checksum2 = 0;
+            checksum = 0;
+
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd);
-            segm2.write_struct_into(IOSpan(buf2));
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2);
+            segm2.write_struct_into(IOSpan(buf2), &checksum);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
             EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(checksum, checksum2);
             EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
             EXPECT_EQ(io.remain_rd(), uint32_t(0));
         }
@@ -1462,6 +1528,7 @@ namespace {
         segm.add_extent(Extent(0, 0, false));
         segm.add_end_of_segment();
 
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
 
         XOZ_EXPECT_SERIALIZATION(fp, segm,
@@ -1475,12 +1542,16 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, FP_SZ);
+            uint32_t checksum2 = 0;
+            checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd);
-            segm2.write_struct_into(IOSpan(buf2));
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2);
+            segm2.write_struct_into(IOSpan(buf2), &checksum);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
             EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(checksum, checksum2);
             // no more, no less.
             EXPECT_EQ(FP_SZ - io.remain_rd(), segm_sz);
             EXPECT_NE(io.remain_rd(), uint32_t(0));
@@ -1493,12 +1564,17 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            uint32_t checksum2 = 0;
+            checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd);
-            segm2.write_struct_into(IOSpan(buf2));
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2);
+            segm2.write_struct_into(IOSpan(buf2), &checksum);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
+            EXPECT_EQ(checksum, checksum2);
 
             EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(checksum, checksum2);
             EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
             EXPECT_EQ(io.remain_rd(), uint32_t(0));
         }
@@ -1511,6 +1587,7 @@ namespace {
 
         // Same but without inline
         segm.remove_inline_data();
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
 
         XOZ_EXPECT_SERIALIZATION(fp, segm,
@@ -1527,10 +1604,11 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            uint32_t checksum2 = 0;
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::InlineEnd); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2); }),
                 ThrowsMessage<InconsistentXOZ>(
                     AllOf(
                         HasSubstr(
@@ -1542,16 +1620,18 @@ namespace {
                     )
                 );
             EXPECT_EQ(io.remain_rd(), uint32_t(0));
+            EXPECT_EQ(checksum2, uint32_t(0));
         }
 
         // Using an explicit segment length is invalid with InlineEnd mode
         {
             std::vector<char> buf2;
+            uint32_t checksum2 = 0;
             XOZ_RESET_FP(buf2, fp.size());
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::InlineEnd, 1); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::InlineEnd, 1, &checksum2); }),
                 ThrowsMessage<std::runtime_error>(
                     AllOf(
                         HasSubstr(
@@ -1561,6 +1641,7 @@ namespace {
                     )
                 );
             EXPECT_EQ(io.remain_rd(), uint32_t(4)); // nothing was read, invalid arg detected earlier
+            EXPECT_EQ(checksum2, uint32_t(0));
         }
     }
 
@@ -1573,6 +1654,7 @@ namespace {
         // Write it into a buffer that fits perfectly
         std::vector<char> fp;
         uint32_t checksum = 0;
+
         XOZ_RESET_FP(fp, FP_SZ);
         segm.write_struct_into(IOSpan(fp), &checksum);
 
@@ -1591,13 +1673,17 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            uint32_t checksum2 = 0;
+            checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::IOEnd);
-            segm2.write_struct_into(IOSpan(buf2));
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::IOEnd, -1, &checksum);
+            segm2.write_struct_into(IOSpan(buf2), &checksum2);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum2);
 
             // Same serialization
             EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(checksum, checksum2);
 
             // What was read is exactly what it was required (the segment size in disc),
             // no more, no less.
@@ -1614,10 +1700,11 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            uint32_t checksum2 = 0;
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::IOEnd); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::IOEnd, -1, &checksum2); }),
                 ThrowsMessage<InconsistentXOZ>(
                     AllOf(
                         HasSubstr(
@@ -1630,6 +1717,7 @@ namespace {
                     )
                 );
             EXPECT_EQ(io.remain_rd(), uint32_t(2));
+            EXPECT_EQ(checksum2, uint32_t(0));
         }
 
         // Shrink back
@@ -1639,10 +1727,11 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            uint32_t checksum2 = 0;
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::IOEnd, 1); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::IOEnd, 1, &checksum2); }),
                 ThrowsMessage<std::runtime_error>(
                     AllOf(
                         HasSubstr(
@@ -1652,6 +1741,7 @@ namespace {
                     )
                 );
             EXPECT_EQ(io.remain_rd(), uint32_t(2)); // nothing was read, invalid arg detected earlier
+            EXPECT_EQ(checksum2, uint32_t(0));
         }
     }
 
@@ -1664,6 +1754,7 @@ namespace {
         // Write it into a buffer that fits perfectly
         std::vector<char> fp;
         uint32_t checksum = 0;
+
         XOZ_RESET_FP(fp, FP_SZ);
         segm.write_struct_into(IOSpan(fp), &checksum);
 
@@ -1682,13 +1773,17 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            uint32_t checksum2 = 0;
+            checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd);
-            segm2.write_struct_into(IOSpan(buf2));
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, -1, &checksum);
+            segm2.write_struct_into(IOSpan(buf2), &checksum2);
 
             // Same serialization
             EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(checksum, checksum2);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
             // What was read is exactly what it was required (the segment size in disc),
             // no more, no less.
@@ -1705,13 +1800,17 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            uint32_t checksum2 = 0;
+            checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd);
-            segm2.write_struct_into(IOSpan(buf2));
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, -1, &checksum);
+            segm2.write_struct_into(IOSpan(buf2), &checksum2);
 
             // Same serialization
             EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(checksum, checksum2);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
             EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
             EXPECT_EQ(io.remain_rd(), uint32_t(2));
@@ -1720,6 +1819,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Now let's use a segment without inline
+        checksum = 0;
         segm.remove_inline_data();
         segm.add_extent(Extent(0, 0, false));
         segm.write_struct_into(IOSpan(fp), &checksum);
@@ -1739,13 +1839,17 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            uint32_t checksum2 = 0;
+            checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd);
-            segm2.write_struct_into(IOSpan(buf2));
+            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, -1, &checksum);
+            segm2.write_struct_into(IOSpan(buf2), &checksum2);
 
             // Same serialization
             EXPECT_EQ(fp, buf2);
+            EXPECT_EQ(checksum, checksum2);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
             EXPECT_EQ(buf2.size() - io.remain_rd(), segm_sz);
             EXPECT_EQ(io.remain_rd(), uint32_t(0));
@@ -1757,9 +1861,10 @@ namespace {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
 
+            checksum = 0;
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::AnyEnd, 1); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::AnyEnd, 1, &checksum); }),
                 ThrowsMessage<std::runtime_error>(
                     AllOf(
                         HasSubstr(
@@ -1769,6 +1874,7 @@ namespace {
                     )
                 );
             EXPECT_EQ(io.remain_rd(), uint32_t(4)); // nothing was read, invalid arg detected earlier
+            EXPECT_EQ(checksum, uint32_t(0));
         }
     }
 
@@ -1783,6 +1889,7 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
+        checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
 
         uint32_t segm_sz = segm.calc_struct_footprint_size();
@@ -1800,10 +1907,11 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            checksum = 0;
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 2); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 2, &checksum); }),
                 ThrowsMessage<InconsistentXOZ>(
                     AllOf(
                         HasSubstr(
@@ -1816,6 +1924,7 @@ namespace {
                     )
                 );
             EXPECT_EQ(io.remain_rd(), uint32_t(2));
+            EXPECT_EQ(checksum, uint32_t(0));
         }
 
 
@@ -1823,13 +1932,15 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            checksum = 0;
 
             IOSpan io(fp);
             Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 1);
-            segm2.write_struct_into(IOSpan(buf2));
+            segm2.write_struct_into(IOSpan(buf2), &checksum);
 
             // Same serialization
             EXPECT_EQ(fp, buf2);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
             // What was read is exactly what it was required (the segment size in disc),
             // no more, no less.
@@ -1841,6 +1952,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Now let's use a segment without inline
+        checksum = 0;
         segm.remove_inline_data();
         segm.add_extent(Extent(0, 0, false));
         segm.write_struct_into(IOSpan(fp), &checksum);
@@ -1858,10 +1970,11 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            checksum = 0;
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 2); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 2, &checksum); }),
                 ThrowsMessage<InconsistentXOZ>(
                     AllOf(
                         HasSubstr(
@@ -1874,6 +1987,7 @@ namespace {
                     )
                 );
             EXPECT_EQ(io.remain_rd(), uint32_t(0));
+            EXPECT_EQ(checksum, uint32_t(0));
         }
 
 
@@ -1881,13 +1995,15 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            checksum = 0;
 
             IOSpan io(fp);
             Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 1);
-            segm2.write_struct_into(IOSpan(buf2));
+            segm2.write_struct_into(IOSpan(buf2), &checksum);
 
             // Same serialization
             EXPECT_EQ(fp, buf2);
+            XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
             // What was read is exactly what it was required (the segment size in disc),
             // no more, no less.
@@ -1901,10 +2017,11 @@ namespace {
         {
             std::vector<char> buf2;
             XOZ_RESET_FP(buf2, fp.size());
+            checksum = 0;
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, (uint32_t)(-1)); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, (uint32_t)(-1), &checksum); }),
                 ThrowsMessage<std::runtime_error>(
                     AllOf(
                         HasSubstr(
@@ -1914,6 +2031,7 @@ namespace {
                     )
                 );
             EXPECT_EQ(io.remain_rd(), uint32_t(4)); // nothing was read, invalid arg detected earlier
+            EXPECT_EQ(checksum, uint32_t(0));
         }
     }
 
@@ -1938,6 +2056,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "0104 0000 000c"
@@ -1964,6 +2083,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "021c 0106 0000 000c 010c"
@@ -1988,6 +2108,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "0104 0000 0004 0000"
@@ -2013,6 +2134,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "0004 0000 0004 0000"
@@ -2044,6 +2166,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "0184 0000 0080 0100 0100"
@@ -2070,6 +2193,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "0284 0300 0086 0000 0080 0100 0100 0184 0100"
@@ -2095,6 +2219,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "0184 0000 0080 0100 0000"
@@ -2120,6 +2245,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "0184 00f0 0080 0100 0f00"
@@ -2145,6 +2271,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "0084 0000 0080 0000 0000"
@@ -2170,6 +2297,7 @@ namespace {
                     );
 
             // Write and check the dump
+            checksum = 0;
             segm.write_struct_into(IOSpan(fp), &checksum);
             XOZ_EXPECT_SERIALIZATION(fp, segm,
                     "0084 00f0 0080 0000 0f00"
