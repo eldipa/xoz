@@ -350,7 +350,7 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
     this->inline_present = segm.inline_present;
 
     if (checksum_p) {
-        *checksum_p = fold_inet_checksum(checksum);
+        *checksum_p += fold_inet_checksum(checksum);
     }
 }
 
@@ -492,7 +492,7 @@ void Segment::write_struct_into(IOBase& io, uint32_t* checksum_p) const {
     assert(remain_sz == 0);
 
     if (checksum_p) {
-        *checksum_p = fold_inet_checksum(checksum);
+        *checksum_p += fold_inet_checksum(checksum);
     }
 }
 
