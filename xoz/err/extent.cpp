@@ -33,8 +33,12 @@ ExtentOutOfBounds::ExtentOutOfBounds(const BlockArray& blkarr, const Extent& ext
         ss << " partially falls out of bounds. ";
     }
 
-    ss << "The blocks from " << blkarr.begin_blk_nr() << " to " << (blkarr.past_end_blk_nr() - 1)
-       << " (inclusive) are within the bounds and allowed. ";
+    if (blkarr.blk_cnt() > 0) {
+        ss << "The blocks from " << blkarr.begin_blk_nr() << " to " << (blkarr.past_end_blk_nr() - 1)
+           << " (inclusive) are within the bounds and allowed. ";
+    } else {
+        ss << "The block array has 0 blocks (it is empty, with " << blkarr.capacity() << " blocks of capacity)";
+    }
 
     ss << msg;
 
