@@ -95,3 +95,11 @@ constexpr inline bool is_inet_checksum_good(const uint32_t checksum) {
     uint16_t ls16 = uint16_t(checksum);
     return ls16 == 0 or ls16 == 0xffff;
 }
+
+constexpr inline uint32_t inet_add(const uint32_t checksum, const uint16_t add_checksum) {
+    return checksum + add_checksum;
+}
+
+constexpr inline uint32_t inet_remove(const uint32_t checksum, const uint16_t remove_checksum) {
+    return checksum + uint16_t(~remove_checksum);
+}
