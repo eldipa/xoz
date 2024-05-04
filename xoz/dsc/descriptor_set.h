@@ -68,6 +68,20 @@ private:
 
     bool set_loaded;
 
+    uint16_t reserved;
+    uint32_t checksum;
+
+    /*
+     * track if we changed the header and it requires a write
+     *
+     * note: the header may be written anyways even if this
+     * variable is false. For example, if there were
+     * changes in the descriptors (because we require an update
+     * of the checksum).
+     * */
+    bool header_does_require_write;
+
+public:
 public:
     /*
      * The segment is where the descriptor set lives. It must be a segment
@@ -80,6 +94,9 @@ public:
      *
      * Writes/additions/deletions of the content of these external data blocks are made by
      * the descriptors and not handled by the set.
+     *
+     * Once the instance is created, the caller must call load_set() or create_set()
+     * to use it.
      **/
     DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr);
 
@@ -88,6 +105,13 @@ public:
      * properly.
      * */
     void load_set();
+
+    /*
+     * Create a new set (nothing is written to disk but there would be pending writes).
+     * This must be called once.
+     * */
+    void create_set();
+
 
     /*
      * Write the set to disk. This can be called multiple times: the implementation
@@ -199,7 +223,7 @@ public:
     void /* internal */ release_free_space();
 
 private:
-    void load_descriptors(IOBase& io);
+    void load_descriptors(const bool is_new);
     void write_modified_descriptors(IOBase& io);
 
     void add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id);

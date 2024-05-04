@@ -7,6 +7,7 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/io/iosegment.h"
+#include "xoz/mem/inet_checksum.h"
 #include "xoz/repo/id_manager.h"
 
 DescriptorSet::DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr):
@@ -15,19 +16,44 @@ DescriptorSet::DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& e
         ed_blkarr(ed_blkarr),
         st_blkarr(segm, sg_blkarr, 2),
         idmgr(idmgr),
-        set_loaded(false) {}
+        set_loaded(false),
+        reserved(0),
+        checksum(0),
+        header_does_require_write(false) {}
 
-void DescriptorSet::load_set() {
+void DescriptorSet::load_set() { load_descriptors(false); }
+
+void DescriptorSet::create_set() { load_descriptors(true); }
+
+void DescriptorSet::load_descriptors(const bool is_new) {
     if (set_loaded) {
         throw std::runtime_error("DescriptorSet cannot be reloaded.");
     }
 
-    auto io = IOSegment(sg_blkarr, segm);
-    load_descriptors(io);
-    set_loaded = true;
-}
+    if (is_new and st_blkarr.blk_cnt() != 0) {
+        throw std::runtime_error("");
+    }
 
-void DescriptorSet::load_descriptors(IOBase& io) {
+    if (not is_new and st_blkarr.blk_cnt() == 0) {
+        throw std::runtime_error("");
+    }
+
+    const uint32_t header_size = 4;
+
+    if (is_new) {
+        // If the set is new we don't have the header of the set.
+        // Make room for it know before initializing the st_blkarr's allocator()
+        //
+        // This is needed because we will later claim that the Extent from
+        // blocks 0 and 1 (4 bytes, the header size) are already used and they should be added
+        // as an already-allocated extent. Hence, we *need* to actually have something
+        // allocated for real.
+        st_blkarr.grow_by_blocks(st_blkarr.bytes2blk_cnt(header_size));
+        header_does_require_write = true;
+    }
+
+    auto io = IOSegment(sg_blkarr, segm);
+
     const uint32_t align = st_blkarr.blk_sz();  // better semantic name
     assert(align == 2);                         // pre RFC
 
@@ -41,12 +67,30 @@ void DescriptorSet::load_descriptors(IOBase& io) {
                                   << " at loading descriptors: " << io.tell_rd() << " bytes position");
     }
 
+    checksum = 0;
+    uint16_t stored_checksum = 0;
+
     std::list<Extent> allocated_exts;
+    if (not is_new) {
+        // read the header
+        reserved = io.read_u16_from_le();
+        stored_checksum = io.read_u16_from_le();
+
+        // stored_checksum is not part of the checksum
+        checksum = inet_add(checksum, reserved);
+    }
+
+    {
+        // ensure that the allocator knows that our header is already reserved by us
+        const auto ext = Extent(st_blkarr.bytes2blk_nr(0), st_blkarr.bytes2blk_cnt(header_size), false);
+        allocated_exts.push_back(ext);
+    }
+
     while (io.remain_rd()) {
         // Try to read padding and if it so, skip the descriptor load
         if (io.remain_rd() >= align) {
             if (io.read_u16_from_le() == 0x0000) {
-                // padding, move on
+                // padding, move on, not need to checksum-them
                 continue;
             }
 
@@ -109,15 +153,25 @@ void DescriptorSet::load_descriptors(IOBase& io) {
                                     << "Mostly likely an internal bug");
         }
 
+        checksum = fold_inet_checksum(inet_add(checksum, dsc->checksum));
+
         owned[id] = std::move(dsc);
 
         // dsc cannot be used any longer, it was transferred/moved to the dictionaries above
         // assert(!dsc); (ok, linter is detecting this)
     }
 
+    auto checksum_check = fold_inet_checksum(inet_remove(checksum, stored_checksum));
+    if (not is_inet_checksum_good(checksum_check)) {
+        throw InconsistentXOZ(F() << "Mismatch checksum for descriptor set, remained " << std::hex << checksum);
+    }
+
     // let the allocator know which extents are allocated (contain the descriptors) and
     // which are free for further allocation (padding or space between the boundaries of the io)
     st_blkarr.allocator().initialize_from_allocated(allocated_exts);
+
+    // Officially loaded.
+    set_loaded = true;
 }
 
 
@@ -133,7 +187,7 @@ void DescriptorSet::write_set() {
 
 bool DescriptorSet::does_require_write() const {
     fail_if_set_not_loaded();
-    return to_add.size() != 0 or to_remove.size() != 0 or to_update.size() != 0;
+    return header_does_require_write or to_add.size() != 0 or to_remove.size() != 0 or to_update.size() != 0;
 }
 
 void DescriptorSet::write_modified_descriptors(IOBase& io) {
@@ -219,14 +273,26 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 
     for (const auto dsc: to_update) {
         auto pos = st_blkarr.blk2bytes(dsc->ext.blk_nr());
+        checksum = inet_remove(checksum, dsc->checksum);
 
         io2.seek_wr(pos);
         dsc->write_struct_into(io2);
+        checksum = inet_add(checksum, dsc->checksum);
     }
     to_update.clear();
 
+    checksum = inet_add(checksum, this->reserved);
+    checksum = fold_inet_checksum(checksum);
 
-    // TODO compute checksum
+    if (checksum == 0xffff) {
+        checksum = 0x0000;
+    }
+
+    io2.seek_wr(0);
+
+    io2.write_u16_to_le(this->reserved);
+    io2.write_u16_to_le((uint16_t)this->checksum);
+    header_does_require_write = false;
 }
 
 void DescriptorSet::release_free_space() { st_blkarr.allocator().release(); }
@@ -277,6 +343,8 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
     auto dsc = dscptr.get();
     to_add.insert(dsc);
 
+    checksum = fold_inet_checksum(inet_add(checksum, dsc->checksum));
+
     assert(not to_update.contains(dsc));
 }
 
@@ -324,6 +392,11 @@ std::shared_ptr<Descriptor> DescriptorSet::impl_remove(uint32_t id, bool moved) 
     }
 
     owned.erase(dscptr->id());
+
+    if (dscptr->checksum != 0) {
+        checksum = fold_inet_checksum(inet_remove(checksum, dscptr->checksum));
+    }
+
     return dscptr;
 }
 
