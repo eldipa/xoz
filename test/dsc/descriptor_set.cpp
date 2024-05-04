@@ -67,15 +67,17 @@ namespace {
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         // Mandatory: we load the descriptors from the segment above (of course, none)
-        dset.load_set();
+        dset.create_set();
 
+        // 0 descriptors by default, however the set requires a write because
+        // its header is pending of being written.
         EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
 
-        // Write down the set: expected an empty set
+        // Write down the set: expected only its header with a 0x0000 checksum
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                ""
+                "0000 0000"
                 );
 
         // Load another set from the previous set's segment to see that
@@ -83,12 +85,13 @@ namespace {
         DescriptorSet dset2(sg, d_blkarr, d_blkarr, idmgr);
         dset2.load_set();
 
+        // Header already written before, so no need to write it back (because it didn't change)
         EXPECT_EQ(dset2.count(), (uint32_t)0);
         EXPECT_EQ(dset2.does_require_write(), (bool)false);
 
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                ""
+                "0000 0000"
                 );
     }
 
@@ -107,7 +110,7 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -130,7 +133,7 @@ namespace {
         // Write down the set: we expect to see that single descriptor there
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00"
+                "0000 fa00 fa00"
                 );
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
@@ -145,7 +148,7 @@ namespace {
 
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00"
+                "0000 fa00 fa00"
                 );
 
         // Mark the descriptor as modified so the set requires a new write
@@ -156,7 +159,7 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00"
+                "0000 fa00 fa00"
                 );
 
         // Retrieve the descriptor object, change it a little, mark it as modified
@@ -171,7 +174,7 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa04 4142"
+                "0000 3b47 fa04 4142"
                 );
 
         // Delete it
@@ -183,13 +186,13 @@ namespace {
         // The deleted descriptors are left as padding.
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "0000 0000"
+                "0000 0000 0000 0000"
                 );
 
         // Release free space
         dset.release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                ""
+                "0000 0000"
                 );
     }
 
@@ -208,7 +211,7 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -229,7 +232,7 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa04 4142"
+                "0000 3b47 fa04 4142"
                 );
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
@@ -243,7 +246,7 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa04 4344"
+                "0000 3d49 fa04 4344"
                 );
 
         // Grow descriptor's data
@@ -253,7 +256,7 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa08 4142 4344"
+                "0000 7e8f fa08 4142 4344"
                 );
 
 
@@ -264,7 +267,7 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa04 4546 0000"
+                "0000 3f4b fa04 4546 0000"
                 );
 
 
@@ -275,12 +278,12 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00 0000 0000"
+                "0000 fa00 fa00 0000 0000"
                 );
 
         dset.release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00"
+                "0000 fa00 fa00"
                 );
     }
 
@@ -299,7 +302,7 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -318,7 +321,7 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00"
+                "0000 fa00 fa00"
                 );
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
@@ -327,11 +330,11 @@ namespace {
         Segment sg2;
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
 
-        dset2.load_set();
+        dset2.create_set();
 
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                ""
+                "0000 0000"
                 );
 
         // Move the descriptor from dset to dset2
@@ -345,12 +348,12 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "0000"
+                "0000 0000 0000"
                 );
 
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                "fa00"
+                "0000 fa00 fa00"
                 );
     }
 
@@ -369,7 +372,7 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -388,7 +391,7 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00"
+                "0000 fa00 fa00"
                 );
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
@@ -397,11 +400,11 @@ namespace {
         Segment sg2;
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
 
-        dset2.load_set();
+        dset2.create_set();
 
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                ""
+                "0000 0000"
                 );
 
         // Modify the descriptor living in dset
@@ -421,12 +424,12 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "0000"
+                "0000 0000 0000"
                 );
 
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                "fa04 4142"
+                "0000 3b47 fa04 4142"
                 );
     }
 
@@ -445,7 +448,7 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -464,7 +467,7 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00"
+                "0000 fa00 fa00"
                 );
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
@@ -473,11 +476,11 @@ namespace {
         Segment sg2;
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
 
-        dset2.load_set();
+        dset2.create_set();
 
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                ""
+                "0000 0000"
                 );
 
         // Move the descriptor from dset to dset2
@@ -498,12 +501,12 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "0000"
+                "0000 0000 0000"
                 );
 
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                "fa04 4142"
+                "0000 3b47 fa04 4142"
                 );
     }
 
@@ -527,7 +530,13 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
+
+        // Any descriptor set has a header of 4 bytes
+        d_blkarr.allocator().release();
+        d_blkarr.release_blocks();
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1); // this block is for suballocation
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2));
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -537,22 +546,25 @@ namespace {
             .id = 0x80000001,
 
             .dsize = 0,
-            .esize = 0,
-            .segm = d_blkarr.allocator().alloc(130)
+            .esize = 130,
+            .segm = d_blkarr.allocator().alloc(130) // <-- allocation here
         };
 
         // Check that the block array grew due the descriptor's external data (alloc 130 bytes)
+        // plus the header of the set (4 bytes).
+        // This requires 5 blocks, one for suballocation, with 3 subblocks allocated
+        // (one for the external data and 2 for the header)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1));
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2));
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa80 0000 0024 0084 0080"
+                "0000 7e4b fa80 8200 0124 0086 0020"
                 );
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
@@ -561,27 +573,28 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 5));
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2 + 5));
 
         // Delete the descriptor: its external data blocks should be released too
         dset.erase(id1);
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000"
                 );
         EXPECT_EQ(dset.count(), (uint32_t)0);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
         dset.release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                ""
+                "0000 0000"
                 );
 
-        // Check that the array shrank to 0 (no external blocks + no data in the set)
+        // Check that the array shrank to 4 bytes (no external blocks + no data in the set
+        // but 4 bytes of header)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
-        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2));
     }
 
     TEST(DescriptorSetTest, OwnExternalDataMovedDescriptor) {
@@ -604,7 +617,13 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
+
+        // Any descriptor set has a header of 4 bytes
+        d_blkarr.allocator().release();
+        d_blkarr.release_blocks();
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1); // this block is for suballocation
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2));
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -614,22 +633,22 @@ namespace {
             .id = 0x80000001,
 
             .dsize = 0,
-            .esize = 0,
-            .segm = d_blkarr.allocator().alloc(130)
+            .esize = 130,
+            .segm = d_blkarr.allocator().alloc(130) // <-- allocation here
         };
 
         // Check that the block array grew due the descriptor's external data (alloc 130 bytes)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1));
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2));
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa80 0000 0024 0084 0080"
+                "0000 7e4b fa80 8200 0124 0086 0020"
                 );
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
@@ -638,12 +657,18 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 5));
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2 + 5));
 
         // Create another set
         Segment sg2;
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
-        dset2.load_set();
+        dset2.create_set();
+
+        // Check for the new descriptor set's header
+        d_blkarr.allocator().release();
+        d_blkarr.release_blocks();
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2 + 5 + 2));
 
         // Move the descriptor from dset to dset2: while the descriptor is deleted from dset,
         // its external blocks should not be deallocated because the descriptor "moved" to
@@ -652,22 +677,22 @@ namespace {
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000"
                 );
 
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                "fa80 0000 0024 0084 0080"
+                "0000 7e4b fa80 8200 0124 0086 0020"
                 );
 
         dset.release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                ""
+                "0000 0000"
                 );
 
         dset2.release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                "fa80 0000 0024 0084 0080"
+                "0000 7e4b fa80 8200 0124 0086 0020"
                 );
 
         // Expected no change: what the dset2 grew, the dset shrank and the external blocks
@@ -675,27 +700,29 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 5));
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2 + 5 + 2));
 
 
         // Delete the descriptor: its external data blocks should be released too
         dset2.erase(id1);
         dset2.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                "0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000"
                 );
 
         dset2.release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                ""
+                "0000 0000"
                 );
 
-        // Check that the array shrank to 0 (no external blocks + no data in the set)
+        // Check that the array shrank to 8 bytes (no external blocks + no data in the set,
+        // but 2 headers for 4 bytes each
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
-        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2 + 2));
     }
+
 
     TEST(DescriptorSetTest, MultipleDescriptors) {
         IDManager idmgr;
@@ -720,8 +747,8 @@ namespace {
         Segment sg2;
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
-        dset2.load_set();
+        dset.create_set();
+        dset2.create_set();
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -780,11 +807,11 @@ namespace {
         EXPECT_EQ(dset2.does_require_write(), (bool)false);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00 0000 0000 fa04 4344"
+                "0000 374a fa00 0000 0000 fa04 4344"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
-                "fa00 fa00 fa04 4142 fa00 fa00 fa00"
+                "0000 1d4c fa00 fa00 fa04 4142 fa00 fa00 fa00"
                 );
 
 
@@ -795,7 +822,7 @@ namespace {
         dset.release_free_space();
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00 0000 0000 fa04 4344"
+                "0000 374a fa00 0000 0000 fa04 4344"
                 );
 
 
@@ -813,7 +840,7 @@ namespace {
         dset.release_free_space();
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
-                "fa00"
+                "0000 fa00 fa00"
                 );
     }
 
@@ -837,7 +864,7 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -923,7 +950,7 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -1025,7 +1052,7 @@ namespace {
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        dset.load_set();
+        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
