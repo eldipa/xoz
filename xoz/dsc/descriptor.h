@@ -164,7 +164,7 @@ public:
      * last read_struct_from/load_struct_from/write_struct_into call.
      * It does *not* reflect the checksum of the current in-memory state of the descriptor.
      * */
-    uint32_t /* internal */ checksum;
+    uint16_t /* internal */ checksum;
 
 private:
     static void chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end,

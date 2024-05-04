@@ -311,7 +311,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     assert(dsc_end_pos == data_begin_pos + hdr.dsize);
     checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
 
-    dsc->checksum = fold_inet_checksum(checksum);
+    dsc->checksum = (uint16_t)fold_inet_checksum(checksum);
 
     return dsc;
 }
@@ -462,7 +462,7 @@ void Descriptor::write_struct_into(IOBase& io) {
     assert(dsc_end_pos == data_begin_pos + hdr.dsize);
 
     checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
-    this->checksum = fold_inet_checksum(checksum);
+    this->checksum = (uint16_t)fold_inet_checksum(checksum);
 }
 
 uint32_t Descriptor::calc_struct_footprint_size() const {
