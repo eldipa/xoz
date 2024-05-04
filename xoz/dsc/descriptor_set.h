@@ -38,16 +38,30 @@ private:
     // data block is deleted.
     std::set<Extent, Extent::Compare> to_remove;
 
-    // The segment that holds the descriptors of this set. The segment points to blocks
-    // in the sg_blkarr block array while the descriptors may point to "external" data blocks in
-    // the ed_blkarr blocks array.
+    /*
+     * <segm> is the segment that holds the descriptors of this set. The segment points to blocks
+     * in the <sg_blkarr> block array that contains the header of the set and the descriptors
+     * of the set. These descriptors may point to "external" data blocks in
+     * the <ed_blkarr> blocks array.
+     *
+     * The <st_blkarr> is the block array constructed from the segment and <sg_blkarr> used to alloc/dealloc
+     * descriptors. We use <st_blkarr> to track the allocated space within the space pointed
+     * by the segment.
+     * For reading/writing descriptors (including padding), we use <sg_blkarr> directly.
+     * See load_descriptors / write_modified_descriptors.
+     *
+     *                                   <st_blkarr> of 2 bytes blks
+     *        <segm>                     <sg_blkarr> of N bytes blks      <ed_blkarr> of M bytes blks
+     *   segment of the set                segment-pointed blocks          external data blocks
+     *         +--+                              +-------+                      +--------+
+     *         |  |                              |       |                      |        |
+     *       extents  --------------------->    descriptors  ---------------->     data
+     *         |  |                              |       |                      |        |
+     *         +--+                              +-------+                      +--------+
+     * */
     Segment& segm;
     BlockArray& sg_blkarr;
     BlockArray& ed_blkarr;
-
-    // This is the block array constructed from the segment and sg_blkarr used to alloc/dealloc
-    // descriptors.
-    // For reading/writing descriptors (including padding), we use sg_blkarr directly.
     SegmentBlockArray st_blkarr;
 
     IDManager& idmgr;
