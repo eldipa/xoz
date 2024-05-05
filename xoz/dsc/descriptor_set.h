@@ -112,6 +112,16 @@ public:
      * */
     void create_set();
 
+    /*
+     * Remove all the descriptors of the set but do not remove the set itself.
+     * */
+    void clear_set();
+
+    /*
+     * Remove all the descriptors *and* the set. Once called, the DescriptorSet instance
+     * becomes invalid and it should be throw away.
+     * */
+    void remove_set();
 
     /*
      * Write the set to disk. This can be called multiple times: the implementation

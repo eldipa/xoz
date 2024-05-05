@@ -386,6 +386,9 @@ std::shared_ptr<Descriptor> DescriptorSet::impl_remove(uint32_t id, bool moved) 
 
     to_remove.insert(dsc->ext);
 
+    // TODO: call descriptor's "destructor" before deallocating its external blocks
+    // and from removing it from the set
+
     // Dealloc the external blocks if the descriptor was not moved outside
     if (not moved and dscptr->hdr.own_edata) {
         ed_blkarr.allocator().dealloc(dscptr->hdr.segm);
@@ -398,6 +401,51 @@ std::shared_ptr<Descriptor> DescriptorSet::impl_remove(uint32_t id, bool moved) 
     }
 
     return dscptr;
+}
+
+void DescriptorSet::clear_set() {
+    fail_if_set_not_loaded();
+    for (const auto& p: owned) {
+        auto dscptr = p.second;
+        auto dsc = dscptr.get();
+        to_remove.insert(dsc->ext);
+
+        // TODO: call descriptor's "destructor" before deallocating its external blocks
+        // and from removing it from the set
+
+        // Dealloc the external blocks if any
+        if (dscptr->hdr.own_edata) {
+            ed_blkarr.allocator().dealloc(dscptr->hdr.segm);
+        }
+
+        if (dscptr->checksum != 0) {
+            checksum = fold_inet_checksum(inet_remove(checksum, dscptr->checksum));
+        }
+    }
+
+    owned.clear();
+    to_add.clear();
+    to_update.clear();
+}
+
+void DescriptorSet::remove_set() {
+    fail_if_set_not_loaded();
+    clear_set();
+
+    // We don't want to write to disk that these extents are freed
+    // because the whole set will not exist anymore.
+    // So we drop these
+    to_remove.clear();
+
+    // Remove any space associated with the set, even its header
+    st_blkarr.shrink_by_blocks(st_blkarr.blk_cnt());
+
+    // The set now is officially "unloaded". The caller will have
+    // to call create_set() again.
+    set_loaded = false;
+    header_does_require_write = false;
+    reserved = 0;
+    checksum = 0;
 }
 
 uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
