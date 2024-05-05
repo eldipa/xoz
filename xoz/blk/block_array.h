@@ -230,7 +230,7 @@ public:
 
     /*
      * This method release any pending shrink operation that may
-     * exit. The caller should call this once the operations with
+     * exists. The caller should call this once the operations with
      * the block array are done or very sporadically (for example when
      * there is a need to release the space as much as possible).
      *
