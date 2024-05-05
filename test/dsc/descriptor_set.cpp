@@ -1126,4 +1126,323 @@ namespace {
                 )
         );
     }
+
+    TEST(DescriptorSetTest, ClearRemoveEmptySet) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        // Data block array: this will be the block array that the set will
+        // use to access "external data blocks" *and* to access its own
+        // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
+        VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        // Mandatory: we load the descriptors from the segment above (of course, none)
+        dset.create_set();
+
+        // 0 descriptors by default, however the set requires a write because
+        // its header is pending of being written.
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Write down the set: expected only its header with a 0x0000 checksum
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000"
+                );
+
+        // Clear an empty set: no effect
+        dset.clear_set();
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)false);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000"
+                );
+
+        // Remove the set removes also the header
+        dset.remove_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                ""
+                );
+    }
+
+    TEST(DescriptorSetTest, AddThenRemove) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        dset.create_set();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
+        dset.add(std::move(dscptr));
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Write down the set: we expect to see that single descriptor there
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 fa00 fa00"
+                );
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)false);
+
+        // Clear the set
+        dset.clear_set();
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000 0000"
+                );
+
+        // Another descriptor but this time, do not write it
+        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
+        dset.add(std::move(dscptr2));
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Clear the set with pending writes (the addition).
+        dset.clear_set();
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000 0000"
+                );
+
+        // Remove the set removes also the header
+        dset.remove_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                ""
+                );
+    }
+
+    TEST(DescriptorSetTest, AddUpdateThenRemoveDescriptor) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        dset.create_set();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
+        uint32_t id1 = dset.add(std::move(dscptr));
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Write down the set: we expect to see that single descriptor there
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 fa00 fa00"
+                );
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)false);
+
+        // Mark the descriptor as modified so the set requires a new write
+        dset.mark_as_modified(id1);
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 fa00 fa00"
+                );
+
+        // Clear the set
+        dset.clear_set();
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000 0000"
+                );
+
+        // Another descriptor, write it, then modify it but do not write it again
+        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
+        auto id2 = dset.add(std::move(dscptr2));
+        dset.write_set();
+        dset.mark_as_modified(id2);
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Clear the set with pending writes (the update).
+        dset.clear_set();
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000 0000"
+                );
+
+        // Remove the set removes also the header
+        dset.remove_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                ""
+                );
+    }
+
+    TEST(DescriptorSetTest, AddEraseThenRemoveDescriptor) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        VectorBlockArray e_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        dset.create_set();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
+        uint32_t id1 = dset.add(std::move(dscptr));
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Write down the set: we expect to see that single descriptor there
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 fa00 fa00"
+                );
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)false);
+
+        // Delete the descriptor
+        dset.erase(id1);
+
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000 0000"
+                );
+
+        // Clear the set: no change
+        dset.clear_set();
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)false);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000 0000"
+                );
+
+        // Another descriptor, write it, then delete it but do not write it again
+        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
+        auto id2 = dset.add(std::move(dscptr2));
+        dset.write_set();
+        dset.erase(id2);
+
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Clear the set with pending writes (the deletion).
+        dset.clear_set();
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000 0000"
+                );
+
+        // A second clear does not change anything
+        dset.clear_set();
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)false);
+
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 0000 0000"
+                );
+
+        // Remove the set removes also the header
+        dset.remove_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                ""
+                );
+    }
 }
