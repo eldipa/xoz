@@ -38,7 +38,7 @@ struct descriptor_t {
     /* to be interpreted based on descriptor/object type;
          dsize = lo_dsize if hi_dsize is not present
          dsize = hi_dsize << 5 | lo_dsize if hi_dsize is present */
-    uint8 data[dsize * 2];
+    uint8_t data[dsize * 2];
 };
 ```
 
@@ -70,7 +70,7 @@ The term *external* data is to distinguis it from the `data` field
 embebbed in `struct descriptor_t`.
 
 When a descriptor owns a segment it implies that if the descriptor
-is deleted from the descriptor set, the segment is freed and, if the descriptor
+is deleted from the *descriptor set*, the segment is freed and, if the descriptor
 is not deleted, the segments must be allocated.
 
 How much of the owned segment is in use (has meaningful external data) is given
@@ -142,8 +142,7 @@ In any case, if a resize is required, the `xoz` library will just write
 a new descriptor with the same type and id than the former
 to override it (this of course comes at expenses of wasted space).
 
-
-## Descriptor Type 0: padding
+# Descriptor Type 0: padding
 
 The `type` 0x00 has a special meaning: if `own_edata`, `has_id` and `lo_dsize` are 0,
 the descriptor works as 2 bytes padding (zeros), any other setting is
@@ -152,22 +151,104 @@ known how many bytes the header and the descriptor occupy.
 
 
 
-TODO: checksum
+# Descriptor Type 1: descriptor set holder
 
+The *holder* is a descriptor with type number 1 that always owns an external data:
+the `own_edata` is always true. When `own_edata` is false the whole
+descriptor should be treated as reserved.
 
-
-
-
- ```cpp
-struct dsc_position_t {
-    uint16_t x;
-    uint16_t y;
+```cpp
+struct dsc_dset_holder_t {
     uint16_t {
-        uint has_more : 1;
-        uint z        : 15;
+        uint indirect : 1;
+        uint reserved : 15;
     }
 
-    /* if has_more == 1 */
-    .. rotate / flip / mirror / skew
+    /* present if indirect is 1 */
+    uint16_t segm2_checksum;
+}
+```
+
+The segment of the descriptor has two possible meanings, based on
+`indirect`:
+ - *direct:* it either points to block of data where the descriptors that
+   belong to the set are stored
+ - *indirect:* it points to a single *extent* of contiguous blocks that hold an
+   segment: this secondary segment is the one that holds the
+   descriptors.
+
+The *indirect* mode is for cases where the content of the set has
+so many data blocks and/or they are so spread that the segment
+that points to those blocks is too large.
+In this case, the *holder* can opt to store a segment that points
+to a single *extent* where this very large segment exists.
+
+There is no support for more than one level of indirection.
+
+The `reserved` field is reserved for future use.
+
+For *indirect* mode, the `segm2_checksum`
+is the *internet checksum* of the segment that points to the set,
+not of the set itself.
+
+## Reserved space for the segment
+
+Because a *descriptor set* is expected to have a dynamic nature,
+descriptors are added and removed from the set all the time, the length
+of the segment to hold the set (the segment stored in *holder*) is
+expected to be changed quite often, specially changing it size.
+
+The `xoz` library is designed to have *descriptors* of a fixed size
+where their size may change sporadically. A *holder* does not fit
+in this use case. The implementation then may reserve a larger segment
+filled of empty extents to mitigate this.
+
+# Descriptor set
+
+The descriptors are put together in *descriptor set*. This set
+has a *header* followed by zero or more descriptors with any
+amount of padding in between or after.
+
+The *header* is as follows:
+
+```cpp
+struct dset_header_t {
+    uint16_t reserved;
+    uint16_t checksum;
 };
 ```
+
+The `reserved` are reserved for future use; the `checksum` is a 16 bits *internet checksum*
+
+The checksum of the *descriptor set* is stored in the *header*
+and not in the *holder* for performance: if the set changes, its
+checksum also changes and if we store the checksum in the *holder*,
+**its** descriptor set will have different checksum that needs
+to be updated on **its** *holder*. On a modification a chain of
+checksum updates is propagated. That's why we store the checksum
+in the *header*: to prevent the chain reaction.
+
+
+# Internet checksum
+
+`xoz` implements the same checksum than the one described in the RFC 1071 *"Internet Checksum"*.
+
+The process consists in taking each 2-bytes word, seeing them as a 2-byte
+unsigned integer (in little endian order) and sum them with 1's complement logic.
+
+The result is a 16 bits checksum.
+
+For 1's complement, there are 2 different ways to represent 0: either 16
+bits of zeros or 16 bits of 1. When the checksum is written to disk
+however, if the checksum is 16 bits of 1, it is mapped to its other
+representation.
+
+The *internet checksum* was chosen due its simplicity, and because it is very
+easy to update a checksum if part of the payload changed without
+requiring to compute the checksum for the whole.
+It is not particularly strong, specially if it only has 16 bits. In
+`xoz`, it is not designed with the intention of catch any possible
+corruption but only a few cases. A complete and more robust corruption
+detection is out of the scope of this RFC.
+
+Reference: https://datatracker.ietf.org/doc/html/rfc1071
