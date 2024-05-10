@@ -332,6 +332,8 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
         idmgr.register_persistent_id(dscptr->id());
     }
 
+    // TODO chk that descriptor is using the same "external" block array than us
+
     if (assign_persistent_id) {
         if (dscptr->id() == 0 or idmgr.is_temporal(dscptr->id())) {
             dscptr->hdr.id = idmgr.request_persistent_id();
@@ -412,15 +414,9 @@ void DescriptorSet::clear_set() {
     for (const auto& p: owned) {
         auto dscptr = p.second;
         auto dsc = dscptr.get();
+
         to_remove.insert(dsc->ext);
-
-        // TODO: call descriptor's "destructor" before deallocating its external blocks
-        // and from removing it from the set
-
-        // Dealloc the external blocks if any
-        if (dscptr->hdr.own_edata) {
-            ed_blkarr.allocator().dealloc(dscptr->hdr.segm);
-        }
+        to_destroy.insert(dscptr);
 
         if (dscptr->checksum != 0) {
             checksum = fold_inet_checksum(inet_remove(checksum, dscptr->checksum));
