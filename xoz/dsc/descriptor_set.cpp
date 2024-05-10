@@ -332,7 +332,7 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
         idmgr.register_persistent_id(dscptr->id());
     }
 
-    // TODO chk that descriptor is using the same "external" block array than us
+    fail_if_using_incorret_blkarray(dscptr.get());
 
     if (assign_persistent_id) {
         if (dscptr->id() == 0 or idmgr.is_temporal(dscptr->id())) {
@@ -496,4 +496,14 @@ std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
     }
 
     return dscptr;
+}
+
+void DescriptorSet::fail_if_using_incorret_blkarray(const Descriptor* dsc) const {
+    assert(dsc != nullptr);
+    if (std::addressof(dsc->ed_blkarr) != std::addressof(ed_blkarr)) {
+        throw std::runtime_error((F() << (*dsc) << " claims to use a block array for external data at " << std::hex
+                                      << std::addressof(dsc->ed_blkarr) << " but the descriptor set is using one at "
+                                      << std::hex << std::addressof(ed_blkarr))
+                                         .str());
+    }
 }
