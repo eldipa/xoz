@@ -518,9 +518,7 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
-        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
-        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -559,7 +557,7 @@ namespace {
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
         EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2));
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
@@ -605,9 +603,7 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
-        VectorBlockArray e_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
-        e_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -643,7 +639,7 @@ namespace {
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
         EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2));
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, e_blkarr);
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
