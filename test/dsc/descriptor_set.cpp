@@ -1483,4 +1483,128 @@ namespace {
                 ""
                 );
     }
+
+    TEST(DescriptorSetTest, IncompatibleExternalBlockArray) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr_1(32);
+        VectorBlockArray d_blkarr_2(32);
+        d_blkarr_1.allocator().initialize_from_allocated(std::list<Segment>());
+        d_blkarr_2.allocator().initialize_from_allocated(std::list<Segment>());
+
+        // Create set with two different block arrays, one for the descriptor set
+        // the other for the external data.
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr_1, d_blkarr_2, idmgr);
+
+        dset.create_set();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        // Descriptor uses the same block array for the external data than
+        // the set so it is OK.
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr_2);
+        dset.add(std::move(dscptr));
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        dset.write_set();
+
+        // This descriptor uses other block array, which makes the add() to fail
+        hdr.id += 1;
+        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr_1);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.add(std::move(dscptr2));
+                }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "descriptor {id: 2147483650, type: 250, dsize: 0} "
+                        "claims to use a block array for external data at 0x"
+                        ),
+                    HasSubstr(
+                        " but the descriptor set is using one at 0x"
+                        )
+                    )
+                )
+        );
+
+        // The set didn't accept the descriptor
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)false);
+    }
+
+    TEST(DescriptorSetTest, AddFail) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        dset.create_set();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        dset.add(std::move(dscptr));
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // This descriptor uses the same id than the previous one
+        // so the add should fail
+        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.add(std::move(dscptr2));
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "descriptor {id: 2147483649, type: 250, dsize: 0} "
+                        "has an id that collides with descriptor "
+                        "{id: 2147483649, type: 250, dsize: 0} "
+                        "that it is already owned by the set"
+                        )
+                    )
+                )
+        );
+
+        // The set didn't accept the descriptor
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+    }
 }

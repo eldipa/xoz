@@ -313,7 +313,9 @@ uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_pers
     // unique_ptr to the descriptor to call add() for a second time
     // (unless it is doing nasty things).
     if (owned.contains(dscptr->id())) {
-        throw std::invalid_argument("Descriptor is already owned by the set");
+        throw std::invalid_argument((F() << (*dscptr) << " has an id that collides with " << (*owned[dscptr->id()])
+                                         << " that it is already owned by the set")
+                                            .str());
     }
 
     // Grab ownership
