@@ -558,3 +558,9 @@ void Descriptor::chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::hea
 uint32_t Descriptor::calc_external_data_space_size() const {
     return hdr.own_edata ? hdr.segm.calc_data_space_size(ed_blkarr.blk_sz_order()) : 0;
 }
+
+void Descriptor::destroy() {
+    if (hdr.own_edata) {
+        ed_blkarr.allocator().dealloc(hdr.segm);
+    }
+}

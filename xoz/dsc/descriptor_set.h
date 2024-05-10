@@ -4,7 +4,6 @@
 #include <map>
 #include <memory>
 #include <set>
-#include <vector>
 
 #include "xoz/alloc/segment_allocator.h"
 #include "xoz/blk/segment_block_array.h"
@@ -37,6 +36,7 @@ private:
     // are removed (see erase()); in the second case, the descriptor is still alive (in another set) so no external
     // data block is deleted.
     std::set<Extent, Extent::Compare> to_remove;
+    std::set<std::shared_ptr<Descriptor>> to_destroy;
 
     /*
      * <segm> is the segment that holds the descriptors of this set. The segment points to blocks

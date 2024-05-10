@@ -257,6 +257,12 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         st_blkarr.allocator().dealloc_single_extent(ext);
     }
 
+    // Destroy (including dealloc any external blocks) now that their owners (descriptors) were erased
+    for (const auto& dscptr: to_destroy) {
+        dscptr->destroy();
+    }
+    to_destroy.clear();
+
     // Alloc space for the new descriptors but do not write anything yet
     for (const auto dsc: to_add) {
         dsc->ext = st_blkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
@@ -386,12 +392,10 @@ std::shared_ptr<Descriptor> DescriptorSet::impl_remove(uint32_t id, bool moved) 
 
     to_remove.insert(dsc->ext);
 
-    // TODO: call descriptor's "destructor" before deallocating its external blocks
-    // and from removing it from the set
-
-    // Dealloc the external blocks if the descriptor was not moved outside
-    if (not moved and dscptr->hdr.own_edata) {
-        ed_blkarr.allocator().dealloc(dscptr->hdr.segm);
+    // Defer the descriptor destruction if it was removed and not moved outside
+    // For that, keep a reference to the descriptor
+    if (not moved) {
+        to_destroy.insert(dscptr);
     }
 
     owned.erase(dscptr->id());

@@ -139,6 +139,15 @@ protected:
     void read_struct_specifics_from(IOBase&& io) { read_struct_specifics_from(io); }
     void write_struct_specifics_into(IOBase&& io) { write_struct_specifics_into(io); }
 
+    /*
+     * Subclasses must to do any deallocation and clean up because the descriptor
+     * is about to be removed (destroyed).
+     *
+     * By default this method dealloc any allocated block in the external block array
+     * if the descriptor owns any.
+     * */
+    virtual void destroy();
+
     constexpr inline bool is_dsize_greater_than_allowed(uint8_t dsize) { return dsize > 127; }
 
     constexpr inline bool is_esize_greater_than_allowed(uint32_t esize) { return esize > 0x7fffffff; }
