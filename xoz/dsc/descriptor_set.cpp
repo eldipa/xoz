@@ -489,7 +489,7 @@ void DescriptorSet::fail_if_set_not_loaded() const {
 
 std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
     if (not owned.contains(id)) {
-        throw std::runtime_error((F() << "Descriptor " << id << " does not belong to the set.").str());
+        throw std::invalid_argument((F() << "Descriptor " << id << " does not belong to the set.").str());
     }
 
     auto dscptr = owned[id];

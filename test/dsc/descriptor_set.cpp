@@ -1080,7 +1080,7 @@ namespace {
                 [[maybe_unused]]
                 auto dscptr3 = dset.get<DescriptorSubRW>(99);
                 }),
-            ThrowsMessage<std::runtime_error>(
+            ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
                         "Descriptor 99 does not belong to the set."
@@ -1093,7 +1093,7 @@ namespace {
                 [[maybe_unused]]
                 auto dscptr3 = dset.get<DescriptorSubRW>(99, true);
                 }),
-            ThrowsMessage<std::runtime_error>(
+            ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
                         "Descriptor 99 does not belong to the set."
@@ -1631,6 +1631,173 @@ namespace {
                     )
                 )
         );
+    }
 
+    TEST(DescriptorSetTest, IdDoesNotExist) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        dset.create_set();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline()
+        };
+
+        // Store 1 descriptor and write it
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto id1 = dset.add(std::move(dscptr));
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        dset.write_set();
+
+        // Add another descriptor but do not write it.
+        hdr.id += 1;
+        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto id2 = dset.add(std::move(dscptr2));
+
+        EXPECT_EQ(dset.count(), (uint32_t)2);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Now delete both descriptors and do not write it
+        dset.erase(id1);
+        dset.erase(id2);
+
+        auto id3 = hdr.id + 1; // this descriptor never existed
+
+        // Try to erase an id that does not exist
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.erase(id1);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 2147483649 does not belong to the set."
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.erase(id2);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 2147483650 does not belong to the set."
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.erase(id3);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 2147483651 does not belong to the set."
+                        )
+                    )
+                )
+        );
+
+        // Try to modify an id that does not exist
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.mark_as_modified(id1);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 2147483649 does not belong to the set."
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.mark_as_modified(id2);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 2147483650 does not belong to the set."
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.mark_as_modified(id3);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 2147483651 does not belong to the set."
+                        )
+                    )
+                )
+        );
+
+        // Try to move out an id that does not exist
+        Segment sg2;
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+        dset2.create_set();
+
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.move_out(id1, dset2);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 2147483649 does not belong to the set."
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.move_out(id2, dset2);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 2147483650 does not belong to the set."
+                        )
+                    )
+                )
+        );
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.move_out(id3, dset2);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "Descriptor 2147483651 does not belong to the set."
+                        )
+                    )
+                )
+        );
     }
 }
