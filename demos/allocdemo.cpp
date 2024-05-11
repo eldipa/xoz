@@ -1,20 +1,24 @@
 #include <iostream>
-#include "xoz/blk/file_block_array.h"
-#include "xoz/ext/extent.h"
-#include "xoz/err/exceptions.h"
-#include "xoz/alloc/segment_allocator.h"
-#include "xoz/trace.h"
-
 #include <map>
+
+#include "xoz/alloc/segment_allocator.h"
+#include "xoz/blk/file_block_array.h"
+#include "xoz/err/exceptions.h"
+#include "xoz/ext/extent.h"
+#include "xoz/trace.h"
 
 //#define TRACE_BEGIN do
 //#define TRACE_END while(0)
 
-#define TRACE_BEGIN do { if(0)
-#define TRACE_END } while(0)
+#define TRACE_BEGIN \
+    do {            \
+        if (0)
+#define TRACE_END \
+    }             \
+    while (0)
 
 class Demo {
-    private:
+private:
     BlockArray& blkarr;
     SegmentAllocator& sg_alloc;
     const SegmentAllocator::req_t& req;
@@ -22,133 +26,130 @@ class Demo {
     int next_segm_id = 1;
     std::map<int, Segment> segm_by_id;
 
-    public:
-        Demo(BlockArray& blkarr, SegmentAllocator& sg_alloc, const SegmentAllocator::req_t& req) : blkarr(blkarr), sg_alloc(sg_alloc), req(req) {}
+public:
+    Demo(BlockArray& blkarr, SegmentAllocator& sg_alloc, const SegmentAllocator::req_t& req):
+            blkarr(blkarr), sg_alloc(sg_alloc), req(req) {}
 
-        void alloc() {
-            uint32_t sz;
-            std::cin >> sz;
+    void alloc() {
+        uint32_t sz;
+        std::cin >> sz;
 
-            TRACE_BEGIN {
-                std::cerr << "A " << sz << " bytes...\n";
-            } TRACE_END;
+        TRACE_BEGIN { std::cerr << "A " << sz << " bytes...\n"; }
+        TRACE_END;
 
-            Segment segm = sg_alloc.alloc(sz, req);
-            segm_by_id[next_segm_id] = segm;
+        Segment segm = sg_alloc.alloc(sz, req);
+        segm_by_id[next_segm_id] = segm;
 
-            TRACE_BEGIN {
-                std::cerr << "Ret: blocks in blkarr " << blkarr.blk_cnt() << "; ";
-                std::cerr << "segment assigned " << next_segm_id << ", ";
-                std::cerr << segm.ext_cnt() << " exts: ";
-            } TRACE_END;
+        TRACE_BEGIN {
+            std::cerr << "Ret: blocks in blkarr " << blkarr.blk_cnt() << "; ";
+            std::cerr << "segment assigned " << next_segm_id << ", ";
+            std::cerr << segm.ext_cnt() << " exts: ";
+        }
+        TRACE_END;
 
 
-            std::cout << next_segm_id << " ";
-            ++next_segm_id;
+        std::cout << next_segm_id << " ";
+        ++next_segm_id;
 
-            std::cout << blkarr.blk_cnt() << " " << segm.ext_cnt() << " ";
-            for (auto const& ext : segm.exts()) {
-                std::cout << ext.is_suballoc() << " " << ext.blk_nr() << " ";
-                if (ext.is_suballoc()) {
-                    std::cout << ext.blk_bitmap() << " ";
-                } else {
-                    std::cout << ext.blk_cnt() << " ";
-                }
-
-                TRACE_BEGIN {
-                    PrintTo(ext, &std::cerr);
-                    std::cerr << ' ';
-                } TRACE_END;
+        std::cout << blkarr.blk_cnt() << " " << segm.ext_cnt() << " ";
+        for (auto const& ext: segm.exts()) {
+            std::cout << ext.is_suballoc() << " " << ext.blk_nr() << " ";
+            if (ext.is_suballoc()) {
+                std::cout << ext.blk_bitmap() << " ";
+            } else {
+                std::cout << ext.blk_cnt() << " ";
             }
 
             TRACE_BEGIN {
-                std::cerr << '\n';
-            } TRACE_END;
-
-            // format:
-            // segm_id repo_data_blk_cnt ext_cnt (is_suballoc blk_nr blk_cnt/bitmap)* \n
-            std::cout << std::endl;
-        }
-
-        void dealloc() {
-            uint32_t tmp_segm_id;
-            std::cin >> tmp_segm_id;
-
-            TRACE_BEGIN {
-                std::cerr << "D segment " << tmp_segm_id << " ";
-            } TRACE_END;
-
-            auto it = segm_by_id.find(tmp_segm_id);
-            if (it == segm_by_id.end()) {
-                assert(0);
+                PrintTo(ext, &std::cerr);
+                std::cerr << ' ';
             }
-
-            const Segment& segm = it->second;
-
-            TRACE_BEGIN {
-                for (auto const& ext : segm.exts()) {
-                    PrintTo(ext, &std::cerr);
-                    std::cerr << ' ';
-                }
-                std::cerr << "...\n";
-            } TRACE_END;
-
-
-            sg_alloc.dealloc(segm);
-            segm_by_id.erase(it);
-
-            std::cout << blkarr.blk_cnt() << " ";
-
-            TRACE_BEGIN {
-                std::cerr << "Ret: blocks in blkarr: " << blkarr.blk_cnt() << "\n";
-            } TRACE_END;
-
-            // format:
-            // repo_data_blk_cnt
-            std::cout << std::endl;
+            TRACE_END;
         }
 
-        void release() {
-            TRACE_BEGIN {
-                std::cerr << "R...\n";
-            } TRACE_END;
+        TRACE_BEGIN { std::cerr << '\n'; }
+        TRACE_END;
 
-            sg_alloc.release();
+        // format:
+        // segm_id repo_data_blk_cnt ext_cnt (is_suballoc blk_nr blk_cnt/bitmap)* \n
+        std::cout << std::endl;
+    }
 
-            std::cout << blkarr.blk_cnt() << " ";
+    void dealloc() {
+        uint32_t tmp_segm_id;
+        std::cin >> tmp_segm_id;
 
-            TRACE_BEGIN {
-                std::cerr << "Ret: blocks in blkarr: " << blkarr.blk_cnt() << "\n";
-            } TRACE_END;
+        TRACE_BEGIN { std::cerr << "D segment " << tmp_segm_id << " "; }
+        TRACE_END;
 
-            // format:
-            // repo_data_blk_cnt
-            std::cout << std::endl;
+        auto it = segm_by_id.find(tmp_segm_id);
+        if (it == segm_by_id.end()) {
+            assert(0);
+            throw std::runtime_error("impossible condition");
         }
 
-        void stats() {
-            // format:
-            // <pretty print>
-            // EOF
-            TRACE_BEGIN {
-                std::cerr << "S...\n";
-            } TRACE_END;
+        const Segment& segm = it->second;
 
-            PrintTo(sg_alloc, &std::cout);
-            std::cout << "\n" << "EOF\n";
-
-            TRACE_BEGIN {
-                std::cerr << "Ret: done\n";
-            } TRACE_END;
-
-            std::cout << std::endl;
+        TRACE_BEGIN {
+            for (auto const& ext: segm.exts()) {
+                PrintTo(ext, &std::cerr);
+                std::cerr << ' ';
+            }
+            std::cerr << "...\n";
         }
+        TRACE_END;
 
+
+        sg_alloc.dealloc(segm);
+        segm_by_id.erase(it);
+
+        std::cout << blkarr.blk_cnt() << " ";
+
+        TRACE_BEGIN { std::cerr << "Ret: blocks in blkarr: " << blkarr.blk_cnt() << "\n"; }
+        TRACE_END;
+
+        // format:
+        // repo_data_blk_cnt
+        std::cout << std::endl;
+    }
+
+    void release() {
+        TRACE_BEGIN { std::cerr << "R...\n"; }
+        TRACE_END;
+
+        sg_alloc.release();
+
+        std::cout << blkarr.blk_cnt() << " ";
+
+        TRACE_BEGIN { std::cerr << "Ret: blocks in blkarr: " << blkarr.blk_cnt() << "\n"; }
+        TRACE_END;
+
+        // format:
+        // repo_data_blk_cnt
+        std::cout << std::endl;
+    }
+
+    void stats() {
+        // format:
+        // <pretty print>
+        // EOF
+        TRACE_BEGIN { std::cerr << "S...\n"; }
+        TRACE_END;
+
+        PrintTo(sg_alloc, &std::cout);
+        std::cout << "\n"
+                  << "EOF\n";
+
+        TRACE_BEGIN { std::cerr << "Ret: done\n"; }
+        TRACE_END;
+
+        std::cout << std::endl;
+    }
 };
 
 
 int main(int argc, char* argv[]) {
-    const uint32_t blk_sz = 512; // you can change this
+    const uint32_t blk_sz = 512;  // you can change this
 
     if (argc != 7)
         return -1;
@@ -166,12 +167,10 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    const SegmentAllocator::req_t req = {
-        .segm_frag_threshold = segm_frag_threshold,
-        .max_inline_sz = allow_inline ? inline_sz : (uint8_t)0,
-        .allow_suballoc = allow_suballoc,
-        .single_extent = false
-    };
+    const SegmentAllocator::req_t req = {.segm_frag_threshold = segm_frag_threshold,
+                                         .max_inline_sz = allow_inline ? inline_sz : (uint8_t)0,
+                                         .allow_suballoc = allow_suballoc,
+                                         .single_extent = false};
 
     FileBlockArray fblkarr = FileBlockArray::create_mem_based(blk_sz);
     SegmentAllocator sg_alloc(coalescing_enabled, split_above_threshold);
@@ -188,19 +187,19 @@ int main(int argc, char* argv[]) {
         }
 
         switch (cmd) {
-            case 0: // alloc
+            case 0:  // alloc
                 demo.alloc();
                 break;
-            case 1: // dealloc
+            case 1:  // dealloc
                 demo.dealloc();
                 break;
-            case 2: // release
+            case 2:  // release
                 demo.release();
                 break;
-            case 3: // stats
+            case 3:  // stats
                 demo.stats();
                 break;
-            case 4: // end
+            case 4:  // end
                 break;
             default:
                 assert(0);
