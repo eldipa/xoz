@@ -292,7 +292,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     }
 
     descriptor_create_fn fn = descriptor_create_lookup(type);
-    std::unique_ptr<Descriptor> dsc = fn(hdr, ed_blkarr);
+    std::unique_ptr<Descriptor> dsc = fn(hdr, ed_blkarr, idmgr);
 
     if (!dsc) {
         throw std::runtime_error((F() << "Subclass create for " << hdr << " returned a null pointer").str());

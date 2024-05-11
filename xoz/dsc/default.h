@@ -21,7 +21,8 @@ private:
 public:
     DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr);
 
-    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr);
+    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
+                                              IDManager& idmgr);
 
 
 public:

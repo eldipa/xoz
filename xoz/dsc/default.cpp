@@ -9,7 +9,8 @@ void DefaultDescriptor::read_struct_specifics_from(IOBase& io) { io.readall(dsc_
 
 void DefaultDescriptor::write_struct_specifics_into(IOBase& io) { io.writeall(dsc_data, hdr.dsize); }
 
-std::unique_ptr<Descriptor> DefaultDescriptor::create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) {
+std::unique_ptr<Descriptor> DefaultDescriptor::create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
+                                                      [[maybe_unused]] IDManager& idmgr) {
     return std::make_unique<DefaultDescriptor>(hdr, ed_blkarr);
 }
 

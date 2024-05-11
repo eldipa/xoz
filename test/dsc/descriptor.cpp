@@ -1237,7 +1237,7 @@ namespace {
         void write_struct_specifics_into(IOBase&) override {
             return; // 0 write
         }
-        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) {
+        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, [[maybe_unused]] IDManager& idmgr) {
             return std::make_unique<DescriptorSubRW>(hdr, ed_blkarr);
         }
     };

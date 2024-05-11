@@ -189,7 +189,7 @@ private:
 // Once created the read_struct_specifics_from is invoked to complete the initialization
 // of the subclass descriptor
 typedef std::unique_ptr<Descriptor> (*descriptor_create_fn)(const struct Descriptor::header_t& hdr,
-                                                            BlockArray& ed_blkarr);
+                                                            BlockArray& ed_blkarr, IDManager& idmgr);
 
 void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& descriptors);
 
