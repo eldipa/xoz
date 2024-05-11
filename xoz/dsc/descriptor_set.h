@@ -160,6 +160,17 @@ public:
      * will not reflect this until the descriptor set is written to.
      *
      * Return the id of the descriptor added.
+     *
+     * Note: the caller should call fail_if_not_allowed_to_add() on the descriptor
+     * *before* calling add() to validate that the addition will not fail.
+     * The method add() will do the same validations anyways but by the time
+     * add() is running, the ownership of the descriptor via unique_ptr<> was already
+     * transfered to the add() and in case of an error, the caller will have lost
+     * its descriptor.
+     * This is a limitation of C++'s unique_ptr<> that we cannot pass by reference
+     * when the unique_ptr<> is pointing to a parent/base class (like Descriptor is).
+     * Sorry.
+     *
      * */
     uint32_t add(std::unique_ptr<Descriptor> dscptr, bool assign_persistent_id = false);
 
@@ -232,6 +243,9 @@ public:
 
     void /* internal */ release_free_space();
 
+public:
+    void fail_if_not_allowed_to_add(const Descriptor* dsc) const;
+
 private:
     void load_descriptors(const bool is_new);
     void write_modified_descriptors(IOBase& io);
@@ -255,9 +269,6 @@ private:
 private:
     void fail_if_set_not_loaded() const;
     void fail_if_using_incorrect_blkarray(const Descriptor* dsc) const;
-    void fail_if_null(const std::unique_ptr<Descriptor>& dscptr) const;
-    void fail_if_null(const std::shared_ptr<Descriptor>& dscptr) const;
+    void fail_if_null(const Descriptor* dsc) const;
     void fail_if_duplicated_id(const Descriptor* dsc) const;
-    void fail_if_not_allowed_to_add(const std::unique_ptr<Descriptor>& dsc) const;
-    void fail_if_not_allowed_to_add(const std::shared_ptr<Descriptor>& dsc) const;
 };

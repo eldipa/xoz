@@ -1579,7 +1579,7 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        dset.add(std::move(dscptr));
+        auto id1 = dset.add(std::move(dscptr));
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)true);
@@ -1632,6 +1632,10 @@ namespace {
                     )
                 )
         );
+
+        // On a failed move_out(), both sets will protect their descriptors
+        EXPECT_EQ((bool)(dset.get(id1)), (bool)true);
+        EXPECT_EQ((bool)(dset2.get(id1)), (bool)true);
     }
 
     TEST(DescriptorSetTest, IdDoesNotExist) {

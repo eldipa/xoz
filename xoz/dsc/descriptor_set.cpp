@@ -304,8 +304,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 void DescriptorSet::release_free_space() { st_blkarr.allocator().release(); }
 
 uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_persistent_id) {
-    fail_if_set_not_loaded();
-    fail_if_not_allowed_to_add(dscptr);
+    fail_if_not_allowed_to_add(dscptr.get());
 
     // Grab ownership
     auto p = std::shared_ptr<Descriptor>(dscptr.release());
@@ -315,7 +314,7 @@ uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_pers
 }
 
 void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id) {
-    fail_if_not_allowed_to_add(dscptr);
+    fail_if_not_allowed_to_add(dscptr.get());
 
     if (idmgr.is_persistent(dscptr->id())) {
         idmgr.register_persistent_id(dscptr->id());
@@ -352,7 +351,7 @@ void DescriptorSet::move_out(uint32_t id, DescriptorSet& new_home) {
     //  - because we don't have the descriptor pointed by id
     //  - because we cannot add the descriptor to the new set
     auto dscptr = get_owned_dsc_or_fail(id);
-    new_home.fail_if_not_allowed_to_add(dscptr);
+    new_home.fail_if_not_allowed_to_add(dscptr.get());
 
     impl_remove(dscptr, true);
     new_home.add_s(dscptr, false);
@@ -500,14 +499,8 @@ void DescriptorSet::fail_if_using_incorrect_blkarray(const Descriptor* dsc) cons
     }
 }
 
-void DescriptorSet::fail_if_null(const std::unique_ptr<Descriptor>& dscptr) const {
-    if (!dscptr) {
-        throw std::invalid_argument("Pointer to descriptor cannot by null");
-    }
-}
-
-void DescriptorSet::fail_if_null(const std::shared_ptr<Descriptor>& dscptr) const {
-    if (!dscptr) {
+void DescriptorSet::fail_if_null(const Descriptor* dsc) const {
+    if (!dsc) {
         throw std::invalid_argument("Pointer to descriptor cannot by null");
     }
 }
@@ -525,14 +518,9 @@ void DescriptorSet::fail_if_duplicated_id(const Descriptor* dsc) const {
     }
 }
 
-void DescriptorSet::fail_if_not_allowed_to_add(const std::unique_ptr<Descriptor>& dscptr) const {
-    fail_if_null(dscptr);
-    fail_if_using_incorrect_blkarray(dscptr.get());
-    fail_if_duplicated_id(dscptr.get());
-}
-
-void DescriptorSet::fail_if_not_allowed_to_add(const std::shared_ptr<Descriptor>& dscptr) const {
-    fail_if_null(dscptr);
-    fail_if_using_incorrect_blkarray(dscptr.get());
-    fail_if_duplicated_id(dscptr.get());
+void DescriptorSet::fail_if_not_allowed_to_add(const Descriptor* dsc) const {
+    fail_if_set_not_loaded();
+    fail_if_null(dsc);
+    fail_if_using_incorrect_blkarray(dsc);
+    fail_if_duplicated_id(dsc);
 }
