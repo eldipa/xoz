@@ -257,4 +257,7 @@ private:
     void fail_if_using_incorrect_blkarray(const Descriptor* dsc) const;
     void fail_if_null(const std::unique_ptr<Descriptor>& dscptr) const;
     void fail_if_null(const std::shared_ptr<Descriptor>& dscptr) const;
+    void fail_if_duplicated_id(const Descriptor* dsc) const;
+    void fail_if_not_allowed_to_add(const std::unique_ptr<Descriptor>& dsc) const;
+    void fail_if_not_allowed_to_add(const std::shared_ptr<Descriptor>& dsc) const;
 };

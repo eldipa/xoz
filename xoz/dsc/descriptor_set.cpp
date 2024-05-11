@@ -305,16 +305,7 @@ void DescriptorSet::release_free_space() { st_blkarr.allocator().release(); }
 
 uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_persistent_id) {
     fail_if_set_not_loaded();
-    fail_if_null(dscptr);
-
-    // This should never happen because the caller should never have another
-    // unique_ptr to the descriptor to call add() for a second time
-    // (unless it is doing nasty things).
-    if (owned.contains(dscptr->id())) {
-        throw std::invalid_argument((F() << (*dscptr) << " has an id that collides with " << (*owned[dscptr->id()])
-                                         << " that it is already owned by the set")
-                                            .str());
-    }
+    fail_if_not_allowed_to_add(dscptr);
 
     // Grab ownership
     auto p = std::shared_ptr<Descriptor>(dscptr.release());
@@ -324,13 +315,11 @@ uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_pers
 }
 
 void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id) {
-    fail_if_null(dscptr);
+    fail_if_not_allowed_to_add(dscptr);
 
     if (idmgr.is_persistent(dscptr->id())) {
         idmgr.register_persistent_id(dscptr->id());
     }
-
-    fail_if_using_incorrect_blkarray(dscptr.get());
 
     if (assign_persistent_id) {
         if (dscptr->id() == 0 or idmgr.is_temporal(dscptr->id())) {
@@ -358,13 +347,8 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
 void DescriptorSet::move_out(uint32_t id, DescriptorSet& new_home) {
     fail_if_set_not_loaded();
 
-    if (new_home.owned.contains(id)) {
-        throw std::invalid_argument(
-                (F() << "There is a " << (*new_home.owned[id])
-                     << " already owned by the new-home set with the same id than the one to be moved out.")
-                        .str());
-    }
     auto dscptr = impl_remove(id, true);
+    new_home.fail_if_not_allowed_to_add(dscptr);
     new_home.add_s(dscptr, false);
 }
 
@@ -523,4 +507,29 @@ void DescriptorSet::fail_if_null(const std::shared_ptr<Descriptor>& dscptr) cons
     if (!dscptr) {
         throw std::invalid_argument("Pointer to descriptor cannot by null");
     }
+}
+
+void DescriptorSet::fail_if_duplicated_id(const Descriptor* dsc) const {
+    assert(dsc);
+
+    // This should never happen because the caller should never have another
+    // unique_ptr to the descriptor to call add() for a second time
+    // (unless it is doing nasty things).
+    if (owned.contains(dsc->id())) {
+        throw std::invalid_argument((F() << (*dsc) << " has an id that collides with " << (*owned.at(dsc->id()))
+                                         << " that it is already owned by the set")
+                                            .str());
+    }
+}
+
+void DescriptorSet::fail_if_not_allowed_to_add(const std::unique_ptr<Descriptor>& dscptr) const {
+    fail_if_null(dscptr);
+    fail_if_using_incorrect_blkarray(dscptr.get());
+    fail_if_duplicated_id(dscptr.get());
+}
+
+void DescriptorSet::fail_if_not_allowed_to_add(const std::shared_ptr<Descriptor>& dscptr) const {
+    fail_if_null(dscptr);
+    fail_if_using_incorrect_blkarray(dscptr.get());
+    fail_if_duplicated_id(dscptr.get());
 }

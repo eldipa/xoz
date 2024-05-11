@@ -1624,9 +1624,10 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "There is a "
-                        "descriptor {id: 2147483649, type: 250, dsize: 0}"
-                        " already owned by the new-home set with the same id than the one to be moved out."
+                        "descriptor {id: 2147483649, type: 250, dsize: 0} "
+                        "has an id that collides with descriptor "
+                        "{id: 2147483649, type: 250, dsize: 0} "
+                        "that it is already owned by the set"
                         )
                     )
                 )
