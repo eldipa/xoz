@@ -157,6 +157,17 @@ protected:
     constexpr inline bool is_id_persistent(const uint32_t id) const { return not is_id_temporal(id); }
 
 private:
+    /*
+     * No copy nor move constructors/assign operators
+     * Make the descriptor no-copyable and pointer-stable.
+     * */
+    Descriptor(const Descriptor&) = delete;
+    Descriptor(Descriptor&&) = delete;
+
+    Descriptor& operator=(const Descriptor&) = delete;
+    Descriptor& operator=(Descriptor&&) = delete;
+
+private:
     // This field is meant to be filled and controlled by the DescriptorSet that owns
     // this descriptor
     //

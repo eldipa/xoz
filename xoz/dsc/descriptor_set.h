@@ -247,20 +247,28 @@ public:
     void fail_if_not_allowed_to_add(const Descriptor* dsc) const;
 
 private:
+    /*
+     * No copy nor move constructors/assign operators
+     * Make the descriptor set no-copyable and pointer-stable.
+     * */
+    DescriptorSet(const DescriptorSet&) = delete;
+    DescriptorSet& operator=(const DescriptorSet&) = delete;
+
+    /*
+     * The descriptors have a pointer to the descriptor set
+     * that owns them so we cannot allow move semantics
+     * otherwise we cannot guarantee pointer stability.
+     * */
+    DescriptorSet(DescriptorSet&&) = delete;
+    DescriptorSet& operator=(DescriptorSet&&) = delete;
+
+
+private:
     void load_descriptors(const bool is_new);
     void write_modified_descriptors(IOBase& io);
 
     void add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id);
     void zeros(IOBase& io, const Extent& ext);
-
-    DescriptorSet(const DescriptorSet&) = delete;
-    DescriptorSet& operator=(const DescriptorSet&) = delete;
-
-    // The descriptors have a pointer to the descriptor set
-    // that owns them so we cannot allow move semantics
-    // otherwise we cannot guarantee pointer stability.
-    DescriptorSet(DescriptorSet&&) = delete;
-    DescriptorSet& operator=(DescriptorSet&&) = delete;
 
     void impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved);
 
