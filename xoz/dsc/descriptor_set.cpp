@@ -361,6 +361,13 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
 
 void DescriptorSet::move_out(uint32_t id, DescriptorSet& new_home) {
     fail_if_set_not_loaded();
+
+    if (new_home.owned.contains(id)) {
+        throw std::invalid_argument(
+                (F() << "There is a " << (*new_home.owned[id])
+                     << " already owned by the new-home set with the same id than the one to be moved out.")
+                        .str());
+    }
     auto dscptr = impl_remove(id, true);
     new_home.add_s(dscptr, false);
 }

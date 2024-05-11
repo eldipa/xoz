@@ -1551,7 +1551,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)false);
     }
 
-    TEST(DescriptorSetTest, AddFail) {
+    TEST(DescriptorSetTest, AddMoveFailDueDuplicatedId) {
         IDManager idmgr;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
@@ -1606,5 +1606,31 @@ namespace {
 
         // The set didn't accept the descriptor
         EXPECT_EQ(dset.count(), (uint32_t)1);
+
+        // Create another descriptor with the same id and store it in a different set
+        // No problem because the new set does not know about the former.
+        auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+
+        Segment sg2;
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+        dset2.create_set();
+
+        dset2.add(std::move(dscptr3));
+
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset.move_out(hdr.id, dset2);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "There is a "
+                        "descriptor {id: 2147483649, type: 250, dsize: 0}"
+                        " already owned by the new-home set with the same id than the one to be moved out."
+                        )
+                    )
+                )
+        );
+
     }
 }
