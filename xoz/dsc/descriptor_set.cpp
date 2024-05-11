@@ -347,14 +347,21 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
 void DescriptorSet::move_out(uint32_t id, DescriptorSet& new_home) {
     fail_if_set_not_loaded();
 
-    auto dscptr = impl_remove(id, true);
+    // before modifying this ot the new set, check any possible (and reasonable)
+    // condition where the move_out could fail:
+    //  - because we don't have the descriptor pointed by id
+    //  - because we cannot add the descriptor to the new set
+    auto dscptr = get_owned_dsc_or_fail(id);
     new_home.fail_if_not_allowed_to_add(dscptr);
+
+    impl_remove(dscptr, true);
     new_home.add_s(dscptr, false);
 }
 
 void DescriptorSet::erase(uint32_t id) {
     fail_if_set_not_loaded();
-    impl_remove(id, false);
+    auto dscptr = get_owned_dsc_or_fail(id);
+    impl_remove(dscptr, false);
 }
 
 void DescriptorSet::mark_as_modified(uint32_t id) {
@@ -369,9 +376,7 @@ void DescriptorSet::mark_as_modified(uint32_t id) {
     }
 }
 
-std::shared_ptr<Descriptor> DescriptorSet::impl_remove(uint32_t id, bool moved) {
-    auto dscptr = get_owned_dsc_or_fail(id);
-
+void DescriptorSet::impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved) {
     auto dsc = dscptr.get();
 
     // Remove the descriptor from everywhere but add it to to_remove.
@@ -394,8 +399,6 @@ std::shared_ptr<Descriptor> DescriptorSet::impl_remove(uint32_t id, bool moved) 
     if (dscptr->checksum != 0) {
         checksum = fold_inet_checksum(inet_remove(checksum, dscptr->checksum));
     }
-
-    return dscptr;
 }
 
 void DescriptorSet::clear_set() {

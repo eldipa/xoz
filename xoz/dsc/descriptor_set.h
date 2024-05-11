@@ -248,7 +248,7 @@ private:
     DescriptorSet(DescriptorSet&&) = delete;
     DescriptorSet& operator=(DescriptorSet&&) = delete;
 
-    std::shared_ptr<Descriptor> impl_remove(uint32_t id, bool moved);
+    void impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved);
 
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
 
