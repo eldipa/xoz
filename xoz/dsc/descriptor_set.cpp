@@ -305,9 +305,7 @@ void DescriptorSet::release_free_space() { st_blkarr.allocator().release(); }
 
 uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_persistent_id) {
     fail_if_set_not_loaded();
-    if (!dscptr) {
-        throw std::invalid_argument("Pointer to descriptor cannot by null");
-    }
+    fail_if_null(dscptr);
 
     // This should never happen because the caller should never have another
     // unique_ptr to the descriptor to call add() for a second time
@@ -326,15 +324,13 @@ uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_pers
 }
 
 void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id) {
-    if (!dscptr) {
-        throw std::invalid_argument("Pointer to descriptor cannot by null");
-    }
+    fail_if_null(dscptr);
 
     if (idmgr.is_persistent(dscptr->id())) {
         idmgr.register_persistent_id(dscptr->id());
     }
 
-    fail_if_using_incorret_blkarray(dscptr.get());
+    fail_if_using_incorrect_blkarray(dscptr.get());
 
     if (assign_persistent_id) {
         if (dscptr->id() == 0 or idmgr.is_temporal(dscptr->id())) {
@@ -507,12 +503,24 @@ std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
     return dscptr;
 }
 
-void DescriptorSet::fail_if_using_incorret_blkarray(const Descriptor* dsc) const {
+void DescriptorSet::fail_if_using_incorrect_blkarray(const Descriptor* dsc) const {
     assert(dsc != nullptr);
     if (std::addressof(dsc->ed_blkarr) != std::addressof(ed_blkarr)) {
         throw std::runtime_error((F() << (*dsc) << " claims to use a block array for external data at " << std::hex
                                       << std::addressof(dsc->ed_blkarr) << " but the descriptor set is using one at "
                                       << std::hex << std::addressof(ed_blkarr))
                                          .str());
+    }
+}
+
+void DescriptorSet::fail_if_null(const std::unique_ptr<Descriptor>& dscptr) const {
+    if (!dscptr) {
+        throw std::invalid_argument("Pointer to descriptor cannot by null");
+    }
+}
+
+void DescriptorSet::fail_if_null(const std::shared_ptr<Descriptor>& dscptr) const {
+    if (!dscptr) {
+        throw std::invalid_argument("Pointer to descriptor cannot by null");
     }
 }

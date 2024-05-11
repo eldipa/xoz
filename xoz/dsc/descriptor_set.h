@@ -250,8 +250,11 @@ private:
 
     std::shared_ptr<Descriptor> impl_remove(uint32_t id, bool moved);
 
-    void fail_if_set_not_loaded() const;
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
 
-    void fail_if_using_incorret_blkarray(const Descriptor* dsc) const;
+private:
+    void fail_if_set_not_loaded() const;
+    void fail_if_using_incorrect_blkarray(const Descriptor* dsc) const;
+    void fail_if_null(const std::unique_ptr<Descriptor>& dscptr) const;
+    void fail_if_null(const std::shared_ptr<Descriptor>& dscptr) const;
 };
