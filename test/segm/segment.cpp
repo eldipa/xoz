@@ -29,9 +29,10 @@ const size_t FP_SZ = 64;
 
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
-#define XOZ_EXPECT_SIZES(segm, blk_sz_order, disk_sz, allocated_sz) do {                  \
+#define XOZ_EXPECT_SIZES(segm, blk_sz_order, disk_sz, allocated_sz, allocated_sz_without_inline) do {                  \
     EXPECT_EQ((segm).calc_struct_footprint_size(), (unsigned)(disk_sz));                    \
     EXPECT_EQ((segm).calc_data_space_size((blk_sz_order)), (unsigned)(allocated_sz));   \
+    EXPECT_EQ((segm).calc_data_space_size((blk_sz_order), false), (unsigned)(allocated_sz_without_inline));   \
 } while (0)
 
 // Check that the serialization of the extents in fp match
@@ -87,7 +88,8 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 0, /* disc size */
-                0 /* allocated size */
+                0, /* allocated size */
+                0
                 );
 
         // Write and check the dump
@@ -113,7 +115,8 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 2, /* disc size */
-                0 /* allocated size */
+                0, /* allocated size */
+                0
                 );
 
         // Write and check the dump
@@ -137,7 +140,8 @@ namespace {
         segm.set_inline_data({0x41, 0x42});
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                2 /* allocated size */
+                2, /* allocated size */
+                0
                 );
 
         checksum = 0;
@@ -151,7 +155,8 @@ namespace {
         segm.set_inline_data({0x41, 0x42, 0x43, 0x44});
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                4 /* allocated size */
+                4, /* allocated size */
+                0
                 );
 
         checksum = 0;
@@ -165,7 +170,8 @@ namespace {
         segm.set_inline_data({0x41, 0x42, 0x43});
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                3 /* allocated size */
+                3, /* allocated size */
+                0
                 );
 
         checksum = 0;
@@ -179,7 +185,8 @@ namespace {
         segm.set_inline_data({0x41});
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 2, /* disc size */
-                1 /* allocated size */
+                1, /* allocated size */
+                0
                 );
 
         checksum = 0;
@@ -202,7 +209,8 @@ namespace {
         // Expect the same as an empty segment with 0-bytes inline data
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 2, /* disc size */
-                0 /* allocated size */
+                0, /* allocated size */
+                0
                 );
 
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
@@ -225,7 +233,8 @@ namespace {
         // Expect the same as a segment with one extent + 0-bytes inline data
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                1 << blk_sz_order /* allocated size */
+                1 << blk_sz_order, /* allocated size */
+                1 << blk_sz_order
                 );
 
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
@@ -254,7 +263,8 @@ namespace {
         // Expect the same as a segment with 1-byte inline data
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 2, /* disc size */
-                1 /* allocated size */
+                1, /* allocated size */
+                0
                 );
 
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
@@ -280,7 +290,8 @@ namespace {
         // Expect the same as a segment with one extent + 0-bytes inline data
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                1 << blk_sz_order /* allocated size */
+                1 << blk_sz_order, /* allocated size */
+                1 << blk_sz_order
                 );
 
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
@@ -384,7 +395,8 @@ namespace {
 
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 64, /* disc size */
-                63 /* allocated size */
+                63, /* allocated size */
+                0
                 );
 
         checksum = 0;
@@ -402,7 +414,8 @@ namespace {
 
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 64, /* disc size */
-                62 /* allocated size */
+                62, /* allocated size */
+                0
                 );
 
         checksum = 0;
@@ -427,7 +440,8 @@ namespace {
         segm.add_extent(Extent(0x2ab, 0, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                0 << blk_sz_order /* allocated size */
+                0 << blk_sz_order, /* allocated size */
+                0
                 );
 
         checksum = 0;
@@ -444,7 +458,8 @@ namespace {
         segm.add_extent(Extent(0x01, 0, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                0 << blk_sz_order /* allocated size */
+                0 << blk_sz_order, /* allocated size */
+                0
                 );
 
         checksum = 0;
@@ -461,7 +476,8 @@ namespace {
         segm.add_extent(Extent(0xfab, 1, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                1 << blk_sz_order /* allocated size */
+                1 << blk_sz_order, /* allocated size */
+                1 << blk_sz_order
                 );
 
         checksum = 0;
@@ -477,7 +493,8 @@ namespace {
         segm.add_extent(Extent(1, 3, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 2, /* disc size */
-                3 << blk_sz_order /* allocated size */
+                3 << blk_sz_order, /* allocated size */
+                3 << blk_sz_order
                 );
 
         checksum = 0;
@@ -493,7 +510,8 @@ namespace {
         segm.add_extent(Extent(0xfab, 15, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                15 << blk_sz_order /* allocated size */
+                15 << blk_sz_order, /* allocated size */
+                15 << blk_sz_order
                 );
 
         checksum = 0;
@@ -510,7 +528,8 @@ namespace {
         segm.add_extent(Extent(0xfab, 16, false));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                16 << blk_sz_order /* allocated size */
+                16 << blk_sz_order, /* allocated size */
+                16 << blk_sz_order
                 );
 
         checksum = 0;
@@ -526,7 +545,8 @@ namespace {
         segm.add_extent(Extent(0xfab, (1 << 15), false)); // 32k full blocks (large extent)
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                (1 << 15) << blk_sz_order /* allocated size */
+                (1 << 15) << blk_sz_order, /* allocated size */
+                (1 << 15) << blk_sz_order
                 );
 
         checksum = 0;
@@ -551,7 +571,8 @@ namespace {
         segm.add_extent(Extent(0xab, 0, true));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                0 /* allocated size */
+                0, /* allocated size */
+                0
                 );
 
         checksum = 0;
@@ -570,7 +591,8 @@ namespace {
         segm.add_extent(Extent(0xdab, 0b00001001, true));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                2 << (blk_sz_order - 4)  /* allocated size */
+                2 << (blk_sz_order - 4),  /* allocated size */
+                2 << (blk_sz_order - 4)
                 );
 
         checksum = 0;
@@ -586,7 +608,8 @@ namespace {
         segm.add_extent(Extent(0xdab, 0b11111111, true));
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                8 << (blk_sz_order - 4)  /* allocated size */
+                8 << (blk_sz_order - 4),  /* allocated size */
+                8 << (blk_sz_order - 4)
                 );
 
         checksum = 0;
@@ -602,7 +625,8 @@ namespace {
         segm.add_extent(Extent(0xdab, 0b1111111111111111, true));    // 16 sub-alloc'd blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                16 << (blk_sz_order - 4)  /* allocated size */
+                16 << (blk_sz_order - 4),  /* allocated size */
+                16 << (blk_sz_order - 4)
                 );
 
         checksum = 0;
@@ -619,7 +643,8 @@ namespace {
         segm.add_extent(Extent(0x6, 0b1111111111111111, true));    // 16 sub-alloc'd blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                16 << (blk_sz_order - 4)  /* allocated size */
+                16 << (blk_sz_order - 4),  /* allocated size */
+                16 << (blk_sz_order - 4)
                 );
 
         checksum = 0;
@@ -645,7 +670,8 @@ namespace {
         segm.add_extent(Extent(0xe00, 16, false)); // 16 blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                16 << blk_sz_order   /* allocated size */
+                16 << blk_sz_order,   /* allocated size */
+                16 << blk_sz_order
                 );
 
         checksum = 0;
@@ -668,6 +694,9 @@ namespace {
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6+4, /* disc size */
                 /* allocated size */
+                (16 << blk_sz_order) +
+                (0),
+                /* allocated size without inline */
                 (16 << blk_sz_order) +
                 (0)
                 );
@@ -696,6 +725,10 @@ namespace {
                 /* allocated size */
                 (16 << blk_sz_order) +
                 (0) +
+                (1 << blk_sz_order),
+                /* allocated size without inline */
+                (16 << blk_sz_order) +
+                (0) +
                 (1 << blk_sz_order)
                 );
 
@@ -720,6 +753,11 @@ namespace {
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6+4+2+6, /* disc size */
                 /* allocated size */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4)),
+                /* allocated size without inline */
                 (16 << blk_sz_order) +
                 (0) +
                 (1 << blk_sz_order) +
@@ -756,6 +794,12 @@ namespace {
                 (0) +
                 (1 << blk_sz_order) +
                 (2 << (blk_sz_order - 4)) +
+                (0),
+                /* allocated size without inline */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4)) +
                 (0)
                 );
 
@@ -782,7 +826,13 @@ namespace {
                 (1 << blk_sz_order) +
                 (2 << (blk_sz_order - 4)) +
                 (0) +
-                (4)
+                (4),
+                /* allocated size without inline */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4)) +
+                (0)
                 );
 
         checksum = 0;
@@ -836,6 +886,13 @@ namespace {
                 (2 << (blk_sz_order - 4)) +
                 (0) +
                 (4) +
+                (8 << blk_sz_order),
+                /* allocated size without inline */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4)) +
+                (0) +
                 (8 << blk_sz_order)
                 );
 
@@ -875,7 +932,8 @@ namespace {
         segm.add_extent(Extent(0x00, 16, false)); // 16 blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                16 << blk_sz_order   /* allocated size */
+                16 << blk_sz_order,   /* allocated size */
+                16 << blk_sz_order
                 );
 
         checksum = 0;
@@ -898,6 +956,9 @@ namespace {
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4+4, /* disc size */
                 /* allocated size */
+                (16 << blk_sz_order) +
+                (0),
+                /* allocated size without inline */
                 (16 << blk_sz_order) +
                 (0)
                 );
@@ -933,7 +994,8 @@ namespace {
         segm.add_extent(Extent(0x00, 16, false)); // 16 blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                16 << blk_sz_order   /* allocated size */
+                16 << blk_sz_order,   /* allocated size */
+                16 << blk_sz_order
                 );
 
         checksum = 0;
@@ -955,6 +1017,9 @@ namespace {
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4+6, /* disc size */
                 /* allocated size */
+                (16 << blk_sz_order) +
+                (0),
+                /* allocated size without inline */
                 (16 << blk_sz_order) +
                 (0)
                 );
@@ -984,7 +1049,8 @@ namespace {
         segm.add_extent(Extent(0x01, 16, false)); // 16 blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4, /* disc size */
-                16 << blk_sz_order   /* allocated size */
+                16 << blk_sz_order,   /* allocated size */
+                16 << blk_sz_order
                 );
 
         checksum = 0;
@@ -1008,6 +1074,9 @@ namespace {
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 4+4, /* disc size */
                 /* allocated size */
+                (16 << blk_sz_order) +
+                (0),
+                /* allocated size without inline */
                 (16 << blk_sz_order) +
                 (0)
                 );
@@ -1037,7 +1106,8 @@ namespace {
         segm.add_extent(Extent(0xe00, 16, false)); // 16 blocks
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                16 << blk_sz_order   /* allocated size */
+                16 << blk_sz_order,   /* allocated size */
+                16 << blk_sz_order
                 );
 
         checksum = 0;
@@ -1059,6 +1129,9 @@ namespace {
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6+6, /* disc size */
                 /* allocated size */
+                (16 << blk_sz_order) +
+                (0),
+                /* allocated size without inline */
                 (16 << blk_sz_order) +
                 (0)
                 );
@@ -1137,7 +1210,13 @@ namespace {
                 (1 << blk_sz_order) +
                 (2 << (blk_sz_order - 4)) +
                 (0) +
-                (4)
+                (4),
+                /* allocated size without inline */
+                (16 << blk_sz_order) +
+                (0) +
+                (1 << blk_sz_order) +
+                (2 << (blk_sz_order - 4)) +
+                (0)
                 );
 
         checksum = 0;
@@ -1194,7 +1273,8 @@ namespace {
 
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 34, /* disc size */
-                32 /* allocated size */
+                32, /* allocated size */
+                0
                 );
 
         // The write however exceeds the file size
@@ -1225,7 +1305,8 @@ namespace {
         }
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 36, /* 6 extents times 6 bytes each -- disc size */
-                6 << blk_sz_order /* allocated size */
+                6 << blk_sz_order, /* allocated size */
+                6 << blk_sz_order
                 );
 
         // The write however exceeds the file size
@@ -1258,7 +1339,8 @@ namespace {
 
         XOZ_EXPECT_SIZES(segm, blk_sz_order,
                 6, /* disc size */
-                0x1f << blk_sz_order /* allocated size */
+                0x1f << blk_sz_order, /* allocated size */
+                0x1f << blk_sz_order
                 );
 
         checksum = 0;
@@ -1318,6 +1400,9 @@ namespace {
 
                 /* allocated size */
                 (0x1f << blk_sz_order) +
+                (1 << blk_sz_order),
+                /* allocated size without inline */
+                (0x1f << blk_sz_order) +
                 (1 << blk_sz_order)
                 );
 
@@ -1353,7 +1438,10 @@ namespace {
                 /* allocated size */
                 (0x1f << blk_sz_order) +
                 (1 << blk_sz_order) +
-                (4)
+                (4),
+                /* allocated size without inline */
+                (0x1f << blk_sz_order) +
+                (1 << blk_sz_order)
                 );
 
         XOZ_RESET_FP(fp, FP_SZ);
@@ -2052,7 +2140,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     6, /* disc size */
-                    1024 /* allocated size */
+                    1024, /* allocated size */
+                    1024
                     );
 
             // Write and check the dump
@@ -2079,7 +2168,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     10, /* disc size */
-                    5120 /* allocated size */
+                    5120, /* allocated size */
+                    5120
                     );
 
             // Write and check the dump
@@ -2104,7 +2194,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     8, /* disc size */
-                    0 /* allocated size */
+                    0, /* allocated size */
+                    0
                     );
 
             // Write and check the dump
@@ -2130,7 +2221,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     8, /* disc size */
-                    0 /* allocated size */
+                    0, /* allocated size */
+                    0
                     );
 
             // Write and check the dump
@@ -2162,7 +2254,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     10, /* disc size */
-                    64 /* allocated size */
+                    64, /* allocated size */
+                    64
                     );
 
             // Write and check the dump
@@ -2189,7 +2282,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     18, /* disc size */
-                    256 /* allocated size */
+                    256, /* allocated size */
+                    256
                     );
 
             // Write and check the dump
@@ -2215,7 +2309,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     10, /* disc size */
-                    0 /* allocated size */
+                    0, /* allocated size */
+                    0
                     );
 
             // Write and check the dump
@@ -2241,7 +2336,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     10, /* disc size */
-                    512 /* allocated size */
+                    512, /* allocated size */
+                    512
                     );
 
             // Write and check the dump
@@ -2267,7 +2363,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     10, /* disc size */
-                    0 /* allocated size */
+                    0, /* allocated size */
+                    0
                     );
 
             // Write and check the dump
@@ -2293,7 +2390,8 @@ namespace {
             // Check sizes
             XOZ_EXPECT_SIZES(segm, blk_sz_order,
                     10, /* disc size */
-                    512 /* allocated size */
+                    512, /* allocated size */
+                    512
                     );
 
             // Write and check the dump

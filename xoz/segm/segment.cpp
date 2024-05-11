@@ -92,14 +92,14 @@ uint32_t Segment::calc_struct_footprint_size() const {
 }
 
 
-uint32_t Segment::calc_data_space_size(uint8_t blk_sz_order) const {
+uint32_t Segment::calc_data_space_size(uint8_t blk_sz_order, bool include_inline) const {
     const Segment& segm = *this;
 
     uint32_t sz = std::accumulate(
             segm.arr.cbegin(), segm.arr.cend(), 0,
             [&blk_sz_order](uint32_t sz, const Extent& ext) { return sz + ext.calc_data_space_size(blk_sz_order); });
 
-    if (segm.inline_present) {
+    if (segm.inline_present and include_inline) {
         segm.fail_if_bad_inline_sz();
 
         // Note: the cast from size_t to uint16_t should be

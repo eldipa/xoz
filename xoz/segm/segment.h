@@ -190,9 +190,9 @@ public:
     uint32_t calc_struct_footprint_size() const;
 
     // Return the size in bytes of all the space usable (aka data).
-    // This is the sum of the space referenced by the extents' blocks and
-    // the inline data.
-    uint32_t calc_data_space_size(uint8_t blk_sz_order) const;
+    // This is the sum of the space referenced by the extents' blocks and,
+    // if include_inline is True, the inline data.
+    uint32_t calc_data_space_size(uint8_t blk_sz_order, bool include_inline = true) const;
 
     uint32_t estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const;
 
