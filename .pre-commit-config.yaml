@@ -4,22 +4,26 @@ repos:
     rev: v14.0.0
     hooks:
       - id: clang-format
-        files: ^xoz/(.*[.]cpp|.*[.]h)$
+        files: ^(xoz/|demos/)
+        types: ["c++", "file"]
         args: ["--style=file", "-i"]
   - repo: https://github.com/cpplint/cpplint
     rev: 1.6.0
     hooks:
       - id: cpplint
-        files: ^xoz/(.*[.]cpp|.*[.]h)$
+        files: ^(xoz/|demos/)
+        types: ["c++", "file"]
   - repo: https://github.com/pocc/pre-commit-hooks
     rev: 9a9bbc00895bbdb7670231c2565d4f1309c42905  # SHA of v1.3.5
     hooks:
       - id: cppcheck
-        files: ^xoz/(.*[.]cpp|.*[.]h)$
+        files: ^(xoz/|demos/)
+        types: ["c++", "file"]
         args: ["--inline-suppr", "--enable=all", "--suppress=unusedFunction", "--suppress=unusedStructMember", "--suppress=missingIncludeSystem", "--suppress=missingInclude", "--suppress=unmatchedSuppression", "--language=c++", "--std=c++20", "--error-exitcode=1"]
       - id: clang-tidy
         stages: [manual]
-        files: ^xoz/(.*[.]cpp)$
+        files: ^(xoz/|demos/)
+        types: ["c++", "file"]
         args: ["--", "-I./", "-std=c++20"]
         additional_dependencies: ["clang-tidy==v14.0.6"]
 
