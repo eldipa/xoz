@@ -119,7 +119,7 @@ public:
 
     /*
      * Remove all the descriptors *and* the set. Once called, the DescriptorSet instance
-     * becomes invalid and it should be throw away.
+     * becomes invalid and it should be throw away or create_set()/load_set() must be called.
      * */
     void remove_set();
 

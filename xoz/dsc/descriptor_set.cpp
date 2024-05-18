@@ -163,7 +163,10 @@ void DescriptorSet::load_descriptors(const bool is_new) {
 
     auto checksum_check = fold_inet_checksum(inet_remove(checksum, stored_checksum));
     if (not is_inet_checksum_good(checksum_check)) {
-        throw InconsistentXOZ(F() << "Mismatch checksum for descriptor set, remained " << std::hex << checksum);
+        throw InconsistentXOZ(F() << "Mismatch checksum for descriptor set on loading. "
+                                  << "Read: " << std::hex << stored_checksum << ", "
+                                  << "computed: " << std::hex << checksum << ", "
+                                  << "remained: " << std::hex << checksum_check);
     }
 
     // let the allocator know which extents are allocated (contain the descriptors) and
@@ -432,7 +435,7 @@ void DescriptorSet::remove_set() {
     st_blkarr.shrink_by_blocks(st_blkarr.blk_cnt());
 
     // The set now is officially "unloaded". The caller will have
-    // to call create_set() again.
+    // to call create_set()/load_set() again.
     set_loaded = false;
     header_does_require_write = false;
     reserved = 0;
