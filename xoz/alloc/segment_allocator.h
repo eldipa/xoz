@@ -84,6 +84,8 @@ private:
 
     struct req_t default_req;
 
+    bool ops_blocked;
+
 public:
     constexpr static struct req_t XOZDefaultReq = {
             .segm_frag_threshold = 2, .max_inline_sz = 8, .allow_suballoc = true, .single_extent = false};
@@ -258,6 +260,46 @@ public:
     friend void PrintTo(const SegmentAllocator& alloc, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const SegmentAllocator& sg_alloc);
 
+public:
+    struct BlockOperations {
+    public:
+        explicit BlockOperations(SegmentAllocator& sg_alloc): sg_alloc(sg_alloc), hold(true) {
+            sg_alloc.block_all_alloc_dealloc();
+        }
+        ~BlockOperations() { sg_alloc.unblock_all_alloc_dealloc(); }
+
+        BlockOperations(BlockOperations&& other): sg_alloc(other.sg_alloc), hold(other.hold) { other.hold = false; }
+        BlockOperations& operator=(BlockOperations&& other) = delete;
+
+        BlockOperations(const BlockOperations&) = delete;
+        BlockOperations& operator=(const BlockOperations&) = delete;
+
+    private:
+        SegmentAllocator& sg_alloc;
+        bool hold;
+    };
+
+    /*
+     * block_all_alloc_dealloc() prevents any allocation/deallocation,
+     * even a release on the allocator.
+     * This is meant to protect the allocator and the underlying block array
+     * while during an operation that should not use the allocator but
+     * it may call use it by mistake.
+     * On any attempt, raise an exception.
+     *
+     * The unblock_all_alloc_dealloc() removes the blocking.
+     *
+     * Blocking twice or unblocking when the allocator isn't blocked is
+     * an error and it will throw.
+     *
+     * Call block_all_alloc_dealloc_guard to create an object that calls
+     * block_all_alloc_dealloc on its construction and
+     * and unblock_all_alloc_dealloc in its destruction.
+     * */
+    void block_all_alloc_dealloc();
+    void unblock_all_alloc_dealloc();
+    BlockOperations block_all_alloc_dealloc_guard() { return BlockOperations(*this); }
+
 private:
     uint32_t allocate_extents(Segment& segm, uint32_t blk_cnt_remain, uint16_t segm_frag_threshold,
                               bool ignore_segm_frag_threshold, bool use_parent);
@@ -274,6 +316,7 @@ private:
 
     void fail_if_block_array_not_initialized() const;
     void fail_if_allocator_not_initialized() const;
+    void fail_if_allocator_is_blocked() const;
 
     void _initialize_from_allocated(std::list<Extent>& allocated);
 };

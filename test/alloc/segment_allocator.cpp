@@ -3105,5 +3105,99 @@ namespace {
 
         EXPECT_THAT(stats2.in_use_ext_per_segm, ElementsAre(0,0,0,0,0,0,0,0));
     }
+
+    TEST(SegmentAllocatorTest, BlockUnblock) {
+
+        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(blkarr);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
+
+        // Block: any call to alloc/dealloc/release should fail
+        sg_alloc.block_all_alloc_dealloc();
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc.alloc(1); }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "SegmentAllocator is blocked: no allocation/deallocation/release is allowed."
+                        )
+                    )
+                )
+        );
+
+        Segment segm;
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc.dealloc(segm); }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "SegmentAllocator is blocked: no allocation/deallocation/release is allowed."
+                        )
+                    )
+                )
+        );
+
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc.release(); }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "SegmentAllocator is blocked: no allocation/deallocation/release is allowed."
+                        )
+                    )
+                )
+        );
+
+        // Block twice is a bug too
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc.block_all_alloc_dealloc(); }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "SegmentAllocator is already blocked and cannot be blocked again."
+                        )
+                    )
+                )
+        );
+
+        // Unblock: alloc/dealloc/release are functional again
+        sg_alloc.unblock_all_alloc_dealloc();
+
+        segm = sg_alloc.alloc(1);
+        sg_alloc.dealloc(segm);
+        sg_alloc.release();
+
+        // Unblock twice is a bug too
+        EXPECT_THAT(
+            ensure_called_once([&]() { sg_alloc.unblock_all_alloc_dealloc(); }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "SegmentAllocator cannot be unblocked because it is not blocked in the first place."
+                        )
+                    )
+                )
+        );
+
+        // Test that creating object l blocks the allocator and on its destructions, unblocks the allocator
+        {
+            auto l = sg_alloc.block_all_alloc_dealloc_guard();
+
+            EXPECT_THAT(
+                ensure_called_once([&]() { sg_alloc.alloc(1); }),
+                ThrowsMessage<std::runtime_error>(
+                    AllOf(
+                        HasSubstr(
+                            "SegmentAllocator is blocked: no allocation/deallocation/release is allowed."
+                            )
+                        )
+                    )
+            );
+        }
+        // No problem
+        segm = sg_alloc.alloc(1);
+    }
 }
 
