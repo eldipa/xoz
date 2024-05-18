@@ -299,7 +299,10 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     }
 
     uint32_t data_begin_pos = io.tell_rd();
-    dsc->read_struct_specifics_from(io);
+    {
+        auto guard = ed_blkarr.allocator().block_all_alloc_dealloc_guard();  // cppcheck-suppress unreadVariable
+        dsc->read_struct_specifics_from(io);
+    }
     uint32_t dsc_end_pos = io.tell_rd();
 
     chk_rw_specifics_on_data(true, io, data_begin_pos, dsc_end_pos, hdr.dsize);
