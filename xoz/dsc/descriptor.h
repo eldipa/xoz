@@ -140,6 +140,13 @@ protected:
     void write_struct_specifics_into(IOBase&& io) { write_struct_specifics_into(io); }
 
     /*
+     * Method called just at the begin of the write_struct_into() method.
+     * It is meant to be extended by subclasses that wish to sync the descriptor's header (hdr)
+     * or perform some tweak before writing the descriptor to disk
+     * */
+    virtual void pre_write_struct() {}
+
+    /*
      * Subclasses must to do any deallocation and clean up because the descriptor
      * is about to be removed (destroyed).
      *

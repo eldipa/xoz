@@ -319,6 +319,10 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
 
 void Descriptor::write_struct_into(IOBase& io) {
     throw_if_descriptor_mapping_not_initialized();
+
+    // Call the subclass to update the header before doing any check
+    pre_write_struct();
+
     uint32_t dsc_begin_pos = io.tell_wr();
 
     if (hdr.dsize % 2 != 0) {
