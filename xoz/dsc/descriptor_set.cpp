@@ -290,7 +290,8 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     }
     to_update.clear();
 
-    checksum = inet_add(checksum, this->reserved);
+    // note: we don't checksum this->reserved because it should had been checksum
+    // earlier and in each change to this->reserved.
     checksum = fold_inet_checksum(checksum);
 
     if (checksum == 0xffff) {
