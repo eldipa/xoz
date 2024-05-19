@@ -164,9 +164,9 @@ void DescriptorSet::load_descriptors(const bool is_new) {
     auto checksum_check = fold_inet_checksum(inet_remove(checksum, stored_checksum));
     if (not is_inet_checksum_good(checksum_check)) {
         throw InconsistentXOZ(F() << "Mismatch checksum for descriptor set on loading. "
-                                  << "Read: " << std::hex << stored_checksum << ", "
-                                  << "computed: " << std::hex << checksum << ", "
-                                  << "remained: " << std::hex << checksum_check);
+                                  << "Read: 0x" << std::hex << stored_checksum << ", "
+                                  << "computed: 0x" << std::hex << checksum << ", "
+                                  << "remained: 0x" << std::hex << checksum_check);
     }
 
     // let the allocator know which extents are allocated (contain the descriptors) and
