@@ -1198,6 +1198,52 @@ namespace {
                 );
     }
 
+    TEST(DescriptorSetTest, ClearRemoveEmptySetNeverWritten) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        // Data block array: this will be the block array that the set will
+        // use to access "external data blocks" *and* to access its own
+        // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        // Mandatory: we load the descriptors from the segment above (of course, none)
+        dset.create_set();
+
+        // 0 descriptors by default, however the set requires a write because
+        // its header is pending of being written.
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                ""
+                );
+
+        // Clear an empty set: no effect and no error
+        // The does_require_write() is still true because the header is still pending
+        // to be written
+        dset.clear_set();
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                ""
+                );
+
+        // Remove the set does not fail if nothing was written before
+        dset.remove_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                ""
+                );
+    }
+
     TEST(DescriptorSetTest, AddThenRemove) {
         IDManager idmgr;
 
