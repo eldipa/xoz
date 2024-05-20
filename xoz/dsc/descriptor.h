@@ -121,7 +121,7 @@ protected:
      * too much its header.
      * */
     Descriptor(const struct header_t& hdr, BlockArray& ed_blkarr):
-            hdr(hdr), ext(Extent::EmptyExtent()), ed_blkarr(ed_blkarr), checksum(0) {}
+            hdr(hdr), ext(Extent::EmptyExtent()), ed_blkarr(ed_blkarr), owner_raw_ptr(nullptr), checksum(0) {}
 
     static void chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
@@ -185,6 +185,26 @@ private:
 
     // Block array that holds the external data of the descriptor (if any).
     BlockArray& ed_blkarr;
+
+private:
+    /*
+     * Raw pointer to the set that owns this descriptor. There is at most one owner.
+     * Raw pointer is used because once a sets owns a descriptor, the lifetime
+     * of the set supersedes the lifetime of the descriptor so using a raw pointer
+     * should be safe.
+     *
+     * Of course, the pointer can be null if the descriptor is not owned by a set.
+     * */
+    DescriptorSet* owner_raw_ptr;
+
+
+public:  // Meant to be accesible from the tests and from the DescriptorSet
+    /*
+     * Set/get the descriptor set owner of the descriptor (this).
+     * It may be null if the descriptor has no owner.
+     * */
+    void set_owner(DescriptorSet* owner) { this->owner_raw_ptr = owner; }
+    DescriptorSet* get_owner() const { return this->owner_raw_ptr; }
 
 public:
     /*

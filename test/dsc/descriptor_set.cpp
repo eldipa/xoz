@@ -170,6 +170,7 @@ namespace {
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
 
         // Write down the set: we expect to see that single descriptor there
         dset.write_set();
@@ -197,6 +198,7 @@ namespace {
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
@@ -212,6 +214,7 @@ namespace {
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
@@ -356,6 +359,8 @@ namespace {
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
 
+        EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
+
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
                 "0000 fa00 fa00"
@@ -382,6 +387,7 @@ namespace {
 
         EXPECT_EQ(dset2.count(), (uint32_t)1);
         EXPECT_EQ(dset2.does_require_write(), (bool)true);
+        EXPECT_EQ(dset2.get(id1)->get_owner(), (DescriptorSet*)(&dset2));
 
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
@@ -820,9 +826,13 @@ namespace {
             }
             dset2.write_set();
 
+            EXPECT_EQ(dset.get(id2)->get_owner(), (DescriptorSet*)(&dset));
+
             dset.move_out(id2, dset2);
             dset.write_set();
             dset2.write_set();
+
+            EXPECT_EQ(dset2.get(id2)->get_owner(), (DescriptorSet*)(&dset2));
 
             for (int i = 0; i < 3; ++i) {
                 dset2.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));

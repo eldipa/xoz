@@ -152,6 +152,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
 
         checksum = fold_inet_checksum(inet_add(checksum, dsc->checksum));
 
+        dsc->set_owner(this);
         owned[id] = std::move(dsc);
 
         // dsc cannot be used any longer, it was transferred/moved to the dictionaries above
@@ -347,6 +348,7 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
     }
 
     // own it
+    dscptr->set_owner(this);
     owned[dscptr->id()] = dscptr;
     dscptr->ext = Extent::EmptyExtent();
 
@@ -409,6 +411,7 @@ void DescriptorSet::impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved)
         to_destroy.insert(dscptr);
     }
 
+    dscptr->set_owner(nullptr);
     owned.erase(dscptr->id());
 
     if (dscptr->checksum != 0) {
@@ -422,6 +425,7 @@ void DescriptorSet::clear_set() {
         auto dscptr = p.second;
         auto dsc = dscptr.get();
 
+        dsc->set_owner(nullptr);
         to_remove.insert(dsc->ext);
         to_destroy.insert(dscptr);
 
@@ -505,6 +509,14 @@ std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
     if (dscptr->id() != id) {
         throw std::runtime_error((F() << "Descriptor " << id << " claims to have a different id of " << dscptr->id()
                                       << " inside the set.")
+                                         .str());
+    }
+
+    if (dscptr->get_owner() != this) {
+        throw std::runtime_error((F() << "Descriptor " << id << " was found pointing to "
+                                      << (dscptr->get_owner() == nullptr ? "a null" : "a different") << " owner set (0x"
+                                      << std::hex << dscptr->get_owner() << ") instead of us (0x" << std::hex << this
+                                      << ")")
                                          .str());
     }
 
