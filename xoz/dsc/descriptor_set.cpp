@@ -42,13 +42,8 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
 
     if (is_new) {
         // If the set is new we don't have the header of the set.
-        // Make room for it know before initializing the st_blkarr's allocator()
-        //
-        // This is needed because we will later claim that the Extent from
-        // blocks 0 and 1 (4 bytes, the header size) are already used and they should be added
-        // as an already-allocated extent. Hence, we *need* to actually have something
-        // allocated for real.
-        st_blkarr.grow_by_blocks(st_blkarr.bytes2blk_cnt(header_size));
+        // Remember to make room for it later (we can initialize the st_blkarr's allocator()
+        // with an empty list of allocated segments now and alloc space for the header later)
         header_does_require_write = true;
     }
 
@@ -78,12 +73,14 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
 
         // stored_checksum is not part of the checksum
         checksum = inet_add(checksum, reserved);
-    }
 
-    {
         // ensure that the allocator knows that our header is already reserved by us
         const auto ext = Extent(st_blkarr.bytes2blk_nr(0), st_blkarr.bytes2blk_cnt(header_size), false);
         allocated_exts.push_back(ext);
+    } else {
+        reserved = u16data;
+        checksum = inet_add(checksum, reserved);
+        stored_checksum = (uint16_t)checksum;
     }
 
     while (io.remain_rd()) {
@@ -169,6 +166,8 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
                                   << "remained: 0x" << std::hex << checksum_check);
     }
 
+    assert((is_new and allocated_exts.size() == 0) or not is_new);
+
     // let the allocator know which extents are allocated (contain the descriptors) and
     // which are free for further allocation (padding or space between the boundaries of the io)
     st_blkarr.allocator().initialize_from_allocated(allocated_exts);
@@ -194,6 +193,19 @@ bool DescriptorSet::does_require_write() const {
 }
 
 void DescriptorSet::write_modified_descriptors(IOBase& io) {
+    if (segm.length() == 0) {
+        auto ext = st_blkarr.allocator().alloc_single_extent(4);
+
+        // Sanity check of the allocation for the header:
+        //  - 4 bytes allocated as 2 full blocks in a single extent,
+        //  - extent that it must be at the begin of the set (blk nr 0)
+        assert(ext.blk_cnt() == 2);
+        assert(ext.blk_nr() == 0);
+        assert(segm.length() != 0);
+
+        header_does_require_write = true;
+    }
+
     // Find any descriptor that shrank and it will require less space so we
     // can "split" the space and free a part.
     // Also, find any descriptor that grew so we remove it

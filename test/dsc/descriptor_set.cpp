@@ -562,6 +562,7 @@ namespace {
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
+        dset.write_set();
 
         // Any descriptor set has a header of 4 bytes
         d_blkarr.allocator().release();
@@ -647,6 +648,7 @@ namespace {
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
+        dset.write_set();
 
         // Any descriptor set has a header of 4 bytes
         d_blkarr.allocator().release();
@@ -692,6 +694,7 @@ namespace {
         Segment sg2;
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
         dset2.create_set();
+        dset2.write_set();
 
         // Check for the new descriptor set's header
         d_blkarr.allocator().release();
@@ -1285,6 +1288,7 @@ namespace {
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
+        dset.write_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
