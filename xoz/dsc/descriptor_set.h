@@ -72,7 +72,7 @@ private:
     uint32_t checksum;
 
     /*
-     * track if we changed the header and it requires a write
+     * Track if we changed the header and it requires a write
      *
      * note: the header may be written anyways even if this
      * variable is false. For example, if there were
@@ -81,7 +81,6 @@ private:
      * */
     bool header_does_require_write;
 
-public:
 public:
     /*
      * The segment is where the descriptor set lives. It must be a segment
