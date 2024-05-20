@@ -68,7 +68,7 @@ private:
 
     bool set_loaded;
 
-    uint16_t reserved;
+    uint16_t reserved;  // u16data (get/set)
     uint32_t checksum;
 
     /*
@@ -108,8 +108,10 @@ public:
     /*
      * Create a new set (nothing is written to disk but there would be pending writes).
      * This must be called once.
+     *
+     * Note: u16data is an opaque argument to configure the set creation.
      * */
-    void create_set();
+    void create_set(uint16_t u16data = 0);
 
     /*
      * Remove all the descriptors of the set but do not remove the set itself.
@@ -263,7 +265,7 @@ private:
 
 
 private:
-    void load_descriptors(const bool is_new);
+    void load_descriptors(const bool is_new, const uint16_t u16data);
     void write_modified_descriptors(IOBase& io);
 
     void add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id);
@@ -272,6 +274,9 @@ private:
     void impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved);
 
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
+
+public:
+    uint16_t /* private */ u16data() const { return this->reserved; }
 
 private:
     void fail_if_set_not_loaded() const;

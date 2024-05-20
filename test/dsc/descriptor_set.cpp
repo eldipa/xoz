@@ -93,6 +93,51 @@ namespace {
                 );
     }
 
+    TEST(DescriptorSetTest, EmptySetNoDefaultConstruction) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        // Data block array: this will be the block array that the set will
+        // use to access "external data blocks" *and* to access its own
+        // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        // Mandatory: we load the descriptors from the segment above (of course, none)
+        dset.create_set(0x41);
+
+        // 0 descriptors by default, however the set requires a write because
+        // its header is pending of being written.
+        EXPECT_EQ(dset.count(), (uint32_t)0);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Write down the set: expected only its header with a 0x0000 checksum
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "4100 4100"
+                );
+
+        // Load another set from the previous set's segment to see that
+        // both are consistent each other
+        DescriptorSet dset2(sg, d_blkarr, d_blkarr, idmgr);
+        dset2.load_set();
+
+        // Header already written before, so no need to write it back (because it didn't change)
+        EXPECT_EQ(dset2.count(), (uint32_t)0);
+        EXPECT_EQ(dset2.does_require_write(), (bool)false);
+
+        dset2.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "4100 4100"
+                );
+    }
+
     TEST(DescriptorSetTest, AddUpdateEraseDescriptor) {
         IDManager idmgr;
 

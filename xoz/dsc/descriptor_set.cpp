@@ -21,11 +21,11 @@ DescriptorSet::DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& e
         checksum(0),
         header_does_require_write(false) {}
 
-void DescriptorSet::load_set() { load_descriptors(false); }
+void DescriptorSet::load_set() { load_descriptors(false, 0); }
 
-void DescriptorSet::create_set() { load_descriptors(true); }
+void DescriptorSet::create_set(uint16_t u16data) { load_descriptors(true, u16data); }
 
-void DescriptorSet::load_descriptors(const bool is_new) {
+void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) {
     if (set_loaded) {
         throw std::runtime_error("DescriptorSet cannot be reloaded.");
     }
