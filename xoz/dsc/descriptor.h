@@ -55,6 +55,7 @@ public:
     friend std::ostream& operator<<(std::ostream& out, const Descriptor& dsc);
 
     uint32_t id() const { return hdr.id; }
+    void id(uint32_t new_id) { hdr.id = new_id; }
 
 
     /*
