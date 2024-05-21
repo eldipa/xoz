@@ -1388,6 +1388,10 @@ namespace {
         EXPECT_EQ(dset.count(), (uint32_t)0);
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
+        // The set's segment is not empty because it requires a write_set() call
+        // and even after it will not be empty because there is space for the header
+        EXPECT_EQ(dset.segment().length(), (uint32_t)2);
+
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
                 "0000 0000 0000 0000 0000 0000 0000"
@@ -1460,6 +1464,7 @@ namespace {
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
                 ""
                 );
+        EXPECT_EQ(dset.segment().length(), (uint32_t)0);
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();

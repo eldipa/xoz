@@ -469,6 +469,7 @@ void DescriptorSet::remove_set() {
     header_does_require_write = false;
     reserved = 0;
     checksum = 0;
+    segm = Segment::EmptySegment();
 }
 
 uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
