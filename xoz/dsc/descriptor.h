@@ -170,6 +170,20 @@ protected:
 
     constexpr inline bool is_id_persistent(const uint32_t id) const { return not is_id_temporal(id); }
 
+    /*
+     * Subclasses *must* call this method to notify that the instance had been modified
+     * (aka, something changed in their this->hdr).
+     *
+     * Subclasses does not need to notify about changes on the external data blocks
+     * as they are not written in the descriptor.
+     *
+     * Changes on the id() (this->hdr.id) must *not* be notified. The caller
+     * should make such change via an operation on DescriptorSet that owns
+     * this descriptor so the sets knows about the change directly from the caller
+     * and not from us.
+     * */
+    void notify_descriptor_changed();
+
 private:
     /*
      * No copy nor move constructors/assign operators

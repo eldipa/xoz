@@ -6,6 +6,7 @@
 
 #include "xoz/blk/block_array.h"
 #include "xoz/dsc/default.h"
+#include "xoz/dsc/descriptor_set.h"
 #include "xoz/dsc/internals.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/mem/bits.h"
@@ -566,5 +567,11 @@ uint32_t Descriptor::calc_external_data_space_size() const {
 void Descriptor::destroy() {
     if (hdr.own_edata) {
         ed_blkarr.allocator().dealloc(hdr.segm);
+    }
+}
+
+void Descriptor::notify_descriptor_changed() {
+    if (owner_raw_ptr != nullptr) {
+        owner_raw_ptr->mark_as_modified(this->id());
     }
 }
