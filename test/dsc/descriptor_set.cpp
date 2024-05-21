@@ -38,8 +38,8 @@ using ::testing_xoz::helpers::ensure_called_once;
     EXPECT_EQ((dsc).calc_external_data_size(), (unsigned)(obj_data_sz));       \
 } while (0)
 
-#define XOZ_EXPECT_SET_SERIALIZATION(blkarr, sg, data) do {         \
-    EXPECT_EQ(hexdump(IOSegment((blkarr), (sg))), (data));          \
+#define XOZ_EXPECT_SET_SERIALIZATION(blkarr, dset, data) do {       \
+    EXPECT_EQ(hexdump(IOSegment((blkarr), (dset).segment())), (data));          \
 } while (0)
 
 
@@ -74,13 +74,13 @@ namespace {
 
         // Write down the set: expected only its header with a 0x0000 checksum
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
 
         // Load another set from the previous set's segment to see that
         // both are consistent each other
-        DescriptorSet dset2(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, idmgr);
         dset2.load_set();
 
         // Header already written before, so no need to write it back (because it didn't change)
@@ -88,7 +88,7 @@ namespace {
         EXPECT_EQ(dset2.does_require_write(), (bool)false);
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
     }
@@ -119,13 +119,13 @@ namespace {
 
         // Write down the set: expected only its header with a 0x0000 checksum
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "4100 4100"
                 );
 
         // Load another set from the previous set's segment to see that
         // both are consistent each other
-        DescriptorSet dset2(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, idmgr);
         dset2.load_set();
 
         // Header already written before, so no need to write it back (because it didn't change)
@@ -133,7 +133,7 @@ namespace {
         EXPECT_EQ(dset2.does_require_write(), (bool)false);
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "4100 4100"
                 );
     }
@@ -174,14 +174,14 @@ namespace {
 
         // Write down the set: we expect to see that single descriptor there
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
-        DescriptorSet dset2(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, idmgr);
 
         dset2.load_set();
 
@@ -189,7 +189,7 @@ namespace {
         EXPECT_EQ(dset2.does_require_write(), (bool)false);
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 fa00 fa00"
                 );
 
@@ -201,7 +201,7 @@ namespace {
         EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
@@ -217,7 +217,7 @@ namespace {
         EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 3b47 fa04 4142"
                 );
 
@@ -229,13 +229,13 @@ namespace {
 
         // The deleted descriptors are left as padding.
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000 0000"
                 );
 
         // Release free space
         dset.release_free_space();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
     }
@@ -273,7 +273,7 @@ namespace {
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 3b47 fa04 4142"
                 );
 
@@ -287,7 +287,7 @@ namespace {
         dset.mark_as_modified(id1);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 3d49 fa04 4344"
                 );
 
@@ -297,7 +297,7 @@ namespace {
         dset.mark_as_modified(id1);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 7e8f fa08 4142 4344"
                 );
 
@@ -308,7 +308,7 @@ namespace {
         dset.mark_as_modified(id1);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 3f4b fa04 4546 0000"
                 );
 
@@ -319,12 +319,12 @@ namespace {
         dset.mark_as_modified(id1);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00 0000 0000"
                 );
 
         dset.release_free_space();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
     }
@@ -362,7 +362,7 @@ namespace {
         EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
@@ -375,7 +375,7 @@ namespace {
         dset2.create_set();
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
 
@@ -390,12 +390,12 @@ namespace {
         EXPECT_EQ(dset2.get(id1)->get_owner(), (DescriptorSet*)(&dset2));
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 fa00 fa00"
                 );
     }
@@ -431,7 +431,7 @@ namespace {
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
@@ -444,7 +444,7 @@ namespace {
         dset2.create_set();
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
 
@@ -464,12 +464,12 @@ namespace {
         EXPECT_EQ(dset2.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 3b47 fa04 4142"
                 );
     }
@@ -505,7 +505,7 @@ namespace {
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
@@ -518,7 +518,7 @@ namespace {
         dset2.create_set();
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
 
@@ -539,12 +539,12 @@ namespace {
         EXPECT_EQ(dset2.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 3b47 fa04 4142"
                 );
     }
@@ -601,7 +601,7 @@ namespace {
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 7e4b fa80 8200 0124 0086 0020"
                 );
         EXPECT_EQ(dset.count(), (uint32_t)1);
@@ -616,14 +616,14 @@ namespace {
         // Delete the descriptor: its external data blocks should be released too
         dset.erase(id1);
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000 0000 0000 0000 0000"
                 );
         EXPECT_EQ(dset.count(), (uint32_t)0);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
         dset.release_free_space();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
 
@@ -684,7 +684,7 @@ namespace {
         uint32_t id1 = dset.add(std::move(dscptr));
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 7e4b fa80 8200 0124 0086 0020"
                 );
         EXPECT_EQ(dset.count(), (uint32_t)1);
@@ -714,22 +714,22 @@ namespace {
         dset.move_out(id1, dset2);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000 0000 0000 0000 0000"
                 );
 
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 7e4b fa80 8200 0124 0086 0020"
                 );
 
         dset.release_free_space();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
 
         dset2.release_free_space();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 7e4b fa80 8200 0124 0086 0020"
                 );
 
@@ -744,12 +744,12 @@ namespace {
         // Delete the descriptor: its external data blocks should be released too
         dset2.erase(id1);
         dset2.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000 0000 0000 0000 0000 0000"
                 );
 
         dset2.release_free_space();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
 
@@ -846,11 +846,11 @@ namespace {
         EXPECT_EQ(dset2.count(), (uint32_t)6);
         EXPECT_EQ(dset2.does_require_write(), (bool)false);
 
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 374a fa00 0000 0000 fa04 4344"
                 );
 
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg2,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 1d4c fa00 fa00 fa04 4142 fa00 fa00 fa00"
                 );
 
@@ -861,7 +861,7 @@ namespace {
         // The following does not change the set.
         dset.release_free_space();
 
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 374a fa00 0000 0000 fa04 4344"
                 );
 
@@ -879,7 +879,7 @@ namespace {
         dset.write_set();
         dset.release_free_space();
 
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
     }
@@ -1187,7 +1187,7 @@ namespace {
 
         // Write down the set: expected only its header with a 0x0000 checksum
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
 
@@ -1197,13 +1197,13 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
 
         // Remove the set removes also the header
         dset.remove_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
     }
@@ -1232,7 +1232,7 @@ namespace {
         EXPECT_EQ(dset.count(), (uint32_t)0);
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
 
@@ -1243,13 +1243,13 @@ namespace {
         EXPECT_EQ(dset.count(), (uint32_t)0);
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
 
         // Remove the set does not fail if nothing was written before
         dset.remove_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
     }
@@ -1289,7 +1289,7 @@ namespace {
 
         // Write down the set: we expect to see that single descriptor there
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
@@ -1302,7 +1302,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
@@ -1319,13 +1319,13 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Remove the set removes also the header
         dset.remove_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
     }
@@ -1369,7 +1369,7 @@ namespace {
 
         // Write down the set: we expect to see that single descriptor there
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fc4a fa80 0000 0124 0086 0020"
                 );
 
@@ -1393,7 +1393,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000 0000 0000 0000 0000"
                 );
 
@@ -1454,7 +1454,7 @@ namespace {
 
         // Write down the set: we expect to see that single descriptor there
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fc4a fa80 0000 0124 0086 0020"
                 );
 
@@ -1476,7 +1476,7 @@ namespace {
         // and shrink the block array, thus, it will also make the set's segment empty
         // (not even a header is needed)
         dset.remove_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
         EXPECT_EQ(dset.segment().length(), (uint32_t)0);
@@ -1522,7 +1522,7 @@ namespace {
 
         // Write down the set: we expect to see that single descriptor there
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
@@ -1536,7 +1536,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
@@ -1546,7 +1546,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
@@ -1565,13 +1565,13 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Remove the set removes also the header
         dset.remove_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
     }
@@ -1611,7 +1611,7 @@ namespace {
 
         // Write down the set: we expect to see that single descriptor there
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
@@ -1625,7 +1625,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
@@ -1635,7 +1635,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
@@ -1654,7 +1654,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
@@ -1664,13 +1664,13 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
         dset.write_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Remove the set removes also the header
         dset.remove_set();
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
     }

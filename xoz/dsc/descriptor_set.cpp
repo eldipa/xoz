@@ -10,11 +10,11 @@
 #include "xoz/mem/inet_checksum.h"
 #include "xoz/repo/id_manager.h"
 
-DescriptorSet::DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr):
+DescriptorSet::DescriptorSet(const Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr):
         segm(segm),
         sg_blkarr(sg_blkarr),
         ed_blkarr(ed_blkarr),
-        st_blkarr(segm, sg_blkarr, 2),
+        st_blkarr(this->segm, sg_blkarr, 2),
         idmgr(idmgr),
         set_loaded(false),
         reserved(0),

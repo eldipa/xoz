@@ -59,7 +59,7 @@ private:
      *         |  |                              |       |                      |        |
      *         +--+                              +-------+                      +--------+
      * */
-    Segment& segm;
+    Segment segm;
     BlockArray& sg_blkarr;
     BlockArray& ed_blkarr;
     SegmentBlockArray st_blkarr;
@@ -84,8 +84,11 @@ private:
 public:
     /*
      * The segment is where the descriptor set lives. It must be a segment
-     * from the sg_blkarr. Changes to the segment are possible due the addition
-     * and remotion of descriptors.
+     * from the sg_blkarr. C
+     * The descriptor set will keep a private copy that it will mutate:
+     * changes to the segment are possible due the addition
+     * and remotion of descriptors to/from the set.
+     * The caller may get an updated segment calling segment() method.
      *
      * For descriptors that own external data, the descriptor set will remove
      * data blocks from ed_blkarr when the descriptor is removed from the set
@@ -97,7 +100,7 @@ public:
      * Once the instance is created, the caller must call load_set() or create_set()
      * to use it.
      **/
-    DescriptorSet(Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr);
+    DescriptorSet(const Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr);
 
     /*
      * Load the set into memory. This must be called once to initialize the internal allocator
