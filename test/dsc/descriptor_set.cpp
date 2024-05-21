@@ -1344,7 +1344,10 @@ namespace {
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
+        EXPECT_EQ(dset.segment().length(), (uint32_t)0); // nothing yet
+
         dset.write_set();
+        EXPECT_EQ(dset.segment().length(), (uint32_t)1); // room for the header
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1372,6 +1375,7 @@ namespace {
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset.segment().length(), (uint32_t)2); // room for the header + added descriptor
 
         // Check that we are using the expected block counts:
         //  - floor(130 / 32) blocks for the external data
@@ -1388,21 +1392,27 @@ namespace {
         EXPECT_EQ(dset.count(), (uint32_t)0);
         EXPECT_EQ(dset.does_require_write(), (bool)true);
 
-        // The set's segment is not empty because it requires a write_set() call
-        // and even after it will not be empty because there is space for the header
-        EXPECT_EQ(dset.segment().length(), (uint32_t)2);
-
         dset.write_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
                 "0000 0000 0000 0000 0000 0000 0000"
                 );
 
+        // The set's segment is not empty because clear_set()+write_set() does not
+        // shrink (aka release) the segment by default
+        EXPECT_EQ(dset.segment().length(), (uint32_t)2);
+
+        // The caller must explicitly call release_free_space(). Note the even it
+        // the set is empty, its segment will not because there is some room
+        // for its header
+        dset.release_free_space();
+        EXPECT_EQ(dset.segment().length(), (uint32_t)1);
+
         // We check that the external blocks were deallocated. Only 1 block
-        // should remain that holds the descriptor set.
+        // should remain that holds the descriptor set (header only).
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(7));
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2));
     }
 
     TEST(DescriptorSetTest, AddThenRemoveWithOwnExternalData) {
@@ -1419,7 +1429,10 @@ namespace {
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
+        EXPECT_EQ(dset.segment().length(), (uint32_t)0); // nothing yet
+
         dset.write_set();
+        EXPECT_EQ(dset.segment().length(), (uint32_t)1); // room for the header
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1447,6 +1460,7 @@ namespace {
 
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset.segment().length(), (uint32_t)2); // room for the header + added descriptor
 
         // Check that we are using the expected block counts:
         //  - floor(130 / 32) blocks for the external data
@@ -1459,7 +1473,8 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(7 + 1));
 
         // Remove the set, we expect that this will release the allocated blocks
-        // and shrink the block array
+        // and shrink the block array, thus, it will also make the set's segment empty
+        // (not even a header is needed)
         dset.remove_set();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
                 ""
