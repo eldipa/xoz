@@ -14,6 +14,11 @@ class BlockArray;
 class Descriptor {
 
 public:
+    /*
+     * Callers should call update_header() before calling write_struct_into()
+     * to ensure that the content of the descriptor is updated so any calculation
+     * of its size will be correct.
+     * */
     static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, IDManager& idmgr, BlockArray& ed_blkarr);
     void write_struct_into(IOBase& io);
 
@@ -21,6 +26,14 @@ public:
         return load_struct_from(io, idmgr, ed_blkarr);
     }
     void write_struct_into(IOBase&& io) { return write_struct_into(io); }
+
+    /*
+     * Subclass must update the content of this->hdr such
+     * calc_struct_footprint_size() and calc_data_space_size() reflect the updated
+     * sizes of the descriptor struct and a next write_struct_into() will work
+     * as expected (writing that amount of bytes)
+     * */
+    virtual void update_header() {}
 
 public:
     // Return the size in bytes to represent the Descriptor structure in disk
@@ -139,13 +152,6 @@ protected:
     virtual void write_struct_specifics_into(IOBase& io) = 0;
     void read_struct_specifics_from(IOBase&& io) { read_struct_specifics_from(io); }
     void write_struct_specifics_into(IOBase&& io) { write_struct_specifics_into(io); }
-
-    /*
-     * Method called just at the begin of the write_struct_into() method.
-     * It is meant to be extended by subclasses that wish to sync the descriptor's header (hdr)
-     * or perform some tweak before writing the descriptor to disk
-     * */
-    virtual void pre_write_struct() {}
 
     /*
      * Subclasses must to do any deallocation and clean up because the descriptor
