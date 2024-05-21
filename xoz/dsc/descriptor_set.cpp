@@ -443,6 +443,12 @@ void DescriptorSet::remove_set() {
     fail_if_set_not_loaded();
     clear_set();
 
+    // Call destructors
+    for (const auto& dscptr: to_destroy) {
+        dscptr->destroy();
+    }
+    to_destroy.clear();
+
     // We don't want to write to disk that these extents are freed
     // because the whole set will not exist anymore.
     // So we drop these

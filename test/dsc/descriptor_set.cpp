@@ -1330,7 +1330,7 @@ namespace {
                 );
     }
 
-    TEST(DescriptorSetTest, AddThenRemoveWithOwnExternalData) {
+    TEST(DescriptorSetTest, AddThenClearWithOwnExternalData) {
         IDManager idmgr;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
@@ -1399,6 +1399,72 @@ namespace {
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
         EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(7));
+    }
+
+    TEST(DescriptorSetTest, AddThenRemoveWithOwnExternalData) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        Segment sg;
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        dset.create_set();
+        dset.write_set();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = true,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = d_blkarr.allocator().alloc(130)
+        };
+
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        dset.add(std::move(dscptr));
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)true);
+
+        // Write down the set: we expect to see that single descriptor there
+        dset.write_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                "0000 fc4a fa80 0000 0124 0086 0020"
+                );
+
+        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset.does_require_write(), (bool)false);
+
+        // Check that we are using the expected block counts:
+        //  - floor(130 / 32) blocks for the external data
+        //  - 1 block for suballocation to hold:
+        //    - the remaining of the external data (1 subblock)
+        //    - the descriptor set (7 subblock, 14 bytes in total)
+        d_blkarr.allocator().release();
+        d_blkarr.release_blocks();
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(7 + 1));
+
+        // Remove the set, we expect that this will release the allocated blocks
+        // and shrink the block array
+        dset.remove_set();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, sg,
+                ""
+                );
+
+        d_blkarr.allocator().release();
+        d_blkarr.release_blocks();
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
     }
 
     TEST(DescriptorSetTest, AddUpdateThenRemoveDescriptor) {
