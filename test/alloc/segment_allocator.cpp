@@ -3150,13 +3150,17 @@ namespace {
                 )
         );
 
-        // Block twice is a bug too
+        // Blocks are accumulative, like in a stack
+        sg_alloc.block_all_alloc_dealloc();
+
+        // Unblock once is not enough: we did 2 blocks so it remains 1
+        sg_alloc.unblock_all_alloc_dealloc();
         EXPECT_THAT(
-            ensure_called_once([&]() { sg_alloc.block_all_alloc_dealloc(); }),
+            ensure_called_once([&]() { sg_alloc.alloc(1); }),
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(
-                        "SegmentAllocator is already blocked and cannot be blocked again."
+                        "SegmentAllocator is blocked: no allocation/deallocation/release is allowed."
                         )
                     )
                 )
@@ -3169,7 +3173,7 @@ namespace {
         sg_alloc.dealloc(segm);
         sg_alloc.release();
 
-        // Unblock twice is a bug too
+        // Unblock when no other blocking is active is a bug (like popping an empty stack)
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc.unblock_all_alloc_dealloc(); }),
             ThrowsMessage<std::runtime_error>(
@@ -3181,7 +3185,7 @@ namespace {
                 )
         );
 
-        // Test that creating object l blocks the allocator and on its destructions, unblocks the allocator
+        // Test that creating object <l> blocks the allocator and on its destructions, unblocks the allocator
         {
             auto l = sg_alloc.block_all_alloc_dealloc_guard();
 

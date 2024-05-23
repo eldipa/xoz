@@ -84,7 +84,7 @@ private:
 
     struct req_t default_req;
 
-    bool ops_blocked;
+    uint32_t ops_blocked_stack_cnt;
 
 public:
     constexpr static struct req_t XOZDefaultReq = {
@@ -289,8 +289,9 @@ public:
      *
      * The unblock_all_alloc_dealloc() removes the blocking.
      *
-     * Blocking twice or unblocking when the allocator isn't blocked is
-     * an error and it will throw.
+     * Blocking/unblocking are stacked: 2 blocking requires 2 unblocking.
+     * If the allocator isn't blocked (aka stack empty), an unblock call
+     * will throw.
      *
      * Call block_all_alloc_dealloc_guard to create an object that calls
      * block_all_alloc_dealloc on its construction and

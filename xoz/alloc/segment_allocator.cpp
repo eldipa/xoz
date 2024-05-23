@@ -44,7 +44,7 @@ SegmentAllocator::SegmentAllocator(bool coalescing_enabled, uint16_t split_above
         dealloc_call_cnt(0),
         internal_frag_avg_sz(0),
         default_req(default_req),
-        ops_blocked(false) {
+        ops_blocked_stack_cnt(0) {
     memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
 }
 
@@ -834,19 +834,19 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
 }
 
 void SegmentAllocator::block_all_alloc_dealloc() {
-    if (ops_blocked) {
-        throw std::runtime_error("SegmentAllocator is already blocked and cannot be blocked again.");
+    if (ops_blocked_stack_cnt >= (uint32_t)(-1)) {
+        throw std::runtime_error("SegmentAllocator cannot be blocked because it was blocked too many times.");
     }
 
-    ops_blocked = true;
+    ++ops_blocked_stack_cnt;
 }
 
 void SegmentAllocator::unblock_all_alloc_dealloc() {
-    if (not ops_blocked) {
+    if (ops_blocked_stack_cnt <= 0) {
         throw std::runtime_error("SegmentAllocator cannot be unblocked because it is not blocked in the first place.");
     }
 
-    ops_blocked = false;
+    --ops_blocked_stack_cnt;
 }
 
 std::ostream& operator<<(std::ostream& out, const SegmentAllocator& sg_alloc) {
@@ -868,7 +868,7 @@ void SegmentAllocator::fail_if_allocator_not_initialized() const {
 }
 
 void SegmentAllocator::fail_if_allocator_is_blocked() const {
-    if (ops_blocked) {
+    if (ops_blocked_stack_cnt) {
         throw std::runtime_error("SegmentAllocator is blocked: no allocation/deallocation/release is allowed.");
     }
 }
