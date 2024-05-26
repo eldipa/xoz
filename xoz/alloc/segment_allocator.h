@@ -125,6 +125,7 @@ public:
      * */
     void initialize_from_allocated(const std::list<Segment>& allocated_segms);
     void initialize_from_allocated(const std::list<Extent>& allocated_exts);
+    void initialize_with_nothing_allocated();
 
     /*
      * Release any pending-to-be-free space. The allocator may keep as "allocated"
