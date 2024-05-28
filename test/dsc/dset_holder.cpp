@@ -530,4 +530,93 @@ namespace {
         );
     }
 
+    TEST(DescriptorSetHolderTest, IndirectEmptySet) {
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map {
+            {0x01, DescriptorSetHolder::create }
+        };
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(16);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        // Create the holder descriptor that will create the descriptor set
+        auto holder = DescriptorSetHolder::create(d_blkarr, idmgr);
+        holder->id(idmgr.request_temporal_id());
+        holder->is_indirect(true);
+
+        testing_xoz::zbreak();
+
+        // 0 descriptors by default, however the set requires a write because
+        // its header is pending of being written.
+        XOZ_EXPECT_SET(holder, 0, true);
+
+        // Write the holder to disk. Because we are in indirect mode, this will trigger
+        // the write of the set *even* if the set is empty.
+        holder->update_header();
+        holder->write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SET(holder, 0, false);
+
+        // Check sizes
+        // 2 bytes for the descriptor's own metadata/header, 2 bytes for holder's reserved field
+        // 4 bytes for the segment (2 bytes for the extent and 2 bytes for the inlined checksum)
+        XOZ_EXPECT_SIZES(*holder,
+                6,  /* struct size */
+                4,  /* descriptor data size */
+                0,  /* segment data size */
+                0   /* obj data size */
+                );
+
+        XOZ_EXPECT_SERIALIZATION(fp, *holder,
+                // holder (descriptor) header (from Descriptor)
+                "0184 0400 "    // 04 -> esize == 4 bytes
+
+                // segment's single extent
+                "010c 00c2"     // TODO ???
+
+                // segment's inline (checksum)
+                "0000 " // TODO ???
+
+                // holder's reserved uint16_t (flag 'indirect' is set)
+                "0080"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *holder);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder, idmgr, d_blkarr);
+
+        // Load the set again, and check it
+        // Note: does_require_write() is true because the set loaded was empty
+        // so technically its header still needs to be written
+        auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), idmgr, d_blkarr);
+        auto holder2 = dsc2->cast<DescriptorSetHolder>();
+        XOZ_EXPECT_SET(holder2, 0, true);
+
+        // Write it back, we expect the same serialization
+        holder2->update_header();
+        holder2->write_struct_into(IOSpan(fp));
+        XOZ_EXPECT_SET(holder2, 0, true);
+
+        XOZ_EXPECT_SIZES(*holder2,
+                6, /* struct size */
+                4,   /* descriptor data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        XOZ_EXPECT_SERIALIZATION(fp, *holder2,
+                "0108 0000 0000"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *holder2);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, idmgr, d_blkarr);
+    }
 }

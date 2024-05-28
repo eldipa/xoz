@@ -79,7 +79,6 @@ void DescriptorSetHolder::read_struct_specifics_from(IOBase& io) {
     Segment dset_segm;
     uint16_t dset_reserved = 0;
     if (is_indirect()) {
-        assert(false);
         if (not hdr.own_edata) {
             throw InconsistentXOZ("");
         }
@@ -120,6 +119,10 @@ void DescriptorSetHolder::read_struct_specifics_from(IOBase& io) {
 
         // Keep a reference to the indirect extent, because we are its owner
         this->ext_indirect = hdr.segm.exts()[0];
+        if (ext_indirect.is_empty()) {
+            // TODO this should never happen, not even if w stored an empty set in indirect mode
+            throw "";
+        }
     } else {
         if (hdr.own_edata) {
             // Easiest case: the holder's segment points to the set's blocks
@@ -177,21 +180,24 @@ void DescriptorSetHolder::update_header() {
         // trigger unnecessary writes. However, because the set is truly empty, it should not
         // trigger a chain reaction of writes.
         // To meditate.
-    } else {
+    }
+
+    // We need to get the exact segment of the set before continuing.
+    // Because the set is not empty or we are in indirect mode we know
+    // that the segment is going to be non-empty.
+    if (dset->count() != 0 or is_indirect()) {
         // TODO this will trigger a recursive chain reaction of writes if the set has other holders
         dset->write_set();
     }
 
-    // TODO decide if we should be is_indirect or not outside (let make it a caller's choice)
-    // including the allocation/deallocation
     if (is_indirect()) {
         uint32_t ext_indirect_chksum = 0;
-        assert(false);
 
         // Now, after ensuring that the set's segment was updated
-        // (via write_set() or release_free_space()) we can call this method
+        // (via write_set() or remove_set()+create_set()) we can call this method
         // to get an updated ext_indirect Extent large enough to hold set's segment
         realloc_extent_to_store_dset_segment();
+        assert(not ext_indirect.is_empty());
 
         {
             // Build the segment to be stored in the header by first adding the single
@@ -243,19 +249,29 @@ void DescriptorSetHolder::update_header() {
 }
 
 void DescriptorSetHolder::destroy() {
-    // TODO dealloc extent in is_indirect() mode
     dset->remove_set();
+
+    // Note we may be in indirect mode but still have an empty ext_indirect
+    // This can happen if the user turn the is_indirect mode but it didn't
+    // call update_header ever.
+    if (is_indirect() and not ext_indirect.is_empty()) {
+        ed_blkarr.allocator().dealloc_single_extent(ext_indirect);
+    }
 }
 
 void DescriptorSetHolder::realloc_extent_to_store_dset_segment() {
     uint32_t cur_sz = ext_indirect.calc_data_space_size(ed_blkarr.blk_sz_order());
     uint32_t req_sz = dset->segment().calc_struct_footprint_size();
+    assert(req_sz > 0);
 
-    if (cur_sz < req_sz) {
-        // TODO alloc
-    } else if ((cur_sz >> 2) >= req_sz) {
-        // TODO dealloc + alloc (shrink)
-    } else {
-        // The current allocated extent is large enough to hold the set's segment
+    const bool should_expand = (cur_sz < req_sz);
+    const bool should_shrink = ((cur_sz >> 1) >= req_sz);
+    if (should_expand or should_shrink) {
+        // TODO in the case of (cur_sz < req_sz), should we alloc more than req_sz?
+        if (ext_indirect.is_empty()) {
+            ext_indirect = ed_blkarr.allocator().alloc_single_extent(req_sz);
+        } else {
+            ext_indirect = ed_blkarr.allocator().realloc_single_extent(ext_indirect, req_sz);
+        }
     }
 }

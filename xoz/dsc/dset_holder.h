@@ -22,6 +22,13 @@ public:
     */
 
     bool is_indirect() const { return reserved & 0x8000; }
+    void is_indirect(bool mode) {
+        if (mode) {
+            reserved |= uint16_t(0x8000);
+        } else {
+            reserved &= uint16_t(~0x8000);
+        }
+    }
 
     // TODO warn the caller to *not* remove the set. Instead, delete the DescriptorSetHolder descriptor.
     // NOTE: very likely we need a hook on_destroy() or on_remove() in the Descriptor API
@@ -46,5 +53,11 @@ private:
     Extent ext_indirect;
 
 private:
+    /*
+     * Alloc/realloc a single extent to store the descriptor set's segment
+     * in indirect mode.
+     *
+     * Note: caller must dealloc the extent if the indirect mode is disabled.
+     * */
     void realloc_extent_to_store_dset_segment();
 };
