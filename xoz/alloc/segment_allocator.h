@@ -115,6 +115,19 @@ public:
     void dealloc_single_extent(const Extent& ext);
 
     /*
+     * Allocs a new extent of the given size (sz)
+     * deallocating the one given by parameter (ext).
+     *
+     * Caller must use the returned extent and consider <ext> invalid.
+     *
+     * The extent <ext> cannot be empty and <sz> cannot be zero.
+     *
+     * Note: the reallocation does not copy the content of the old extent
+     * to the new one. No data is preserved.
+     * */
+    Extent realloc_single_extent(const Extent& ext, const uint32_t sz);
+
+    /*
      * Initialize the segment allocator saying which segments/extents are already
      * allocated. Any space in between or between them and the boundaries of the
      * block array will be considered free and allowed to be allocated.

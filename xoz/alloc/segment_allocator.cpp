@@ -336,6 +336,19 @@ void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
     this->dealloc(segm);
 }
 
+Extent SegmentAllocator::realloc_single_extent(const Extent& ext, const uint32_t sz) {
+    fail_if_block_array_not_initialized();
+    fail_if_allocator_not_initialized();
+    fail_if_allocator_is_blocked();
+
+    if (sz == 0) {
+        throw std::runtime_error("Cannot reallocate a single extent to a new of zero bytes");
+    }
+
+    dealloc_single_extent(ext);
+    return alloc_single_extent(sz);
+}
+
 void SegmentAllocator::initialize_with_nothing_allocated() { initialize_from_allocated(std::list<Segment>()); }
 
 void SegmentAllocator::initialize_from_allocated(const std::list<Segment>& allocated_segms) {
