@@ -280,6 +280,10 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     to_destroy.clear();
 
     // Alloc space for the new descriptors but do not write anything yet
+    // XXX pre-alloc the sum of the descriptors' sizes so the allocator can reserve
+    // in one shot all the required space. Then, we alloc each single extent hopefully
+    // from that pre-allocated space.
+    // This should reduce the fragmentation of the set's segment making it much smaller
     for (const auto dsc: to_add) {
         dsc->ext = st_blkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
     }
