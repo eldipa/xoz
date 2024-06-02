@@ -323,6 +323,19 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     reclaim_free_space_from_subfr_map();
 }
 
+Segment SegmentAllocator::realloc(const Segment& segm, const uint32_t sz) {
+    fail_if_block_array_not_initialized();
+    fail_if_allocator_not_initialized();
+    fail_if_allocator_is_blocked();
+
+    if (sz == 0) {
+        throw std::runtime_error("Cannot reallocate a segment to a new one of zero bytes");
+    }
+
+    dealloc(segm);
+    return alloc(sz);
+}
+
 void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
     fail_if_block_array_not_initialized();
     fail_if_allocator_not_initialized();
@@ -342,7 +355,7 @@ Extent SegmentAllocator::realloc_single_extent(const Extent& ext, const uint32_t
     fail_if_allocator_is_blocked();
 
     if (sz == 0) {
-        throw std::runtime_error("Cannot reallocate a single extent to a new of zero bytes");
+        throw std::runtime_error("Cannot reallocate a single extent to a new one of zero bytes");
     }
 
     dealloc_single_extent(ext);
