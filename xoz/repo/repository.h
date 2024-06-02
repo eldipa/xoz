@@ -15,6 +15,7 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/blk/file_block_array.h"
 #include "xoz/dsc/descriptor_set.h"
+#include "xoz/dsc/dset_holder.h"
 #include "xoz/ext/extent.h"
 #include "xoz/repo/id_manager.h"
 #include "xoz/segm/segment.h"
@@ -52,13 +53,8 @@ private:
 
     IDManager idmgr;
 
-    // The root segment points to the root descriptor set. This is the
-    // root of the file: other descriptor sets can exist being owned
-    // by descriptors in the root set. (it works as a tree)
-    Segment root_sg;
-    std::shared_ptr<DescriptorSet> root_dset;
-
-    Segment external_root_sg_loc;
+    Segment trampoline_segm;
+    std::shared_ptr<DescriptorSetHolder> root_holder;
 
 public:
     // Open a physical file and read/load the repository.
@@ -106,7 +102,7 @@ public:
     // Call to close()
     ~Repository();
 
-    inline std::shared_ptr<DescriptorSet> root() { return root_dset; }
+    // TODO inline std::shared_ptr<DescriptorSet> root() { return root_dset; }
 
 
     const std::stringstream& expose_mem_fp() const;
@@ -155,25 +151,13 @@ private:
      * Write the header/trailer.
      * Note that the write may be not flushed to disk depending of the implementation
      * of the file block array.
+     *
+     * The write_header() will write any pending change in the root descriptor set and (re)allocates
+     * the trampoline space to fit the root holder if it does not fit in the header or
+     * it deallocates the trampoline space otherwise (in that case the holder is written in the header).
      * */
-    void write_header(const std::vector<uint8_t>& root_sg_bytes);
+    void write_header();
     void write_trailer();
-
-    /*
-     * Write any pending change in the root descriptor set and update (indirectly) the root segment.
-     * If there is enough space in the header to store the root segment, encode the segment
-     * in the returned buffer and update external_root_sg_loc to be empty.
-     * Otherwise, allocate space outside the header, store the root segment there and update the new allocated
-     * external_root_sg_loc that it is this what is written in the returned buffer.
-     * */
-    std::vector<uint8_t> update_and_encode_root_segment_and_loc();
-
-    /*
-     * Write into the returned buffer an empty root segment.
-     * This is for being used by _init_new_repository_into() at the moment of a new Repository
-     * creation (and therefore with an empty DescriptorSet & Segment).
-     * */
-    static std::vector<uint8_t> _encode_empty_root_segment();
 
     /*
      * Read the header/trailer and check that the header/trailer
@@ -237,4 +221,81 @@ private:
 
     static void preload_repo(struct preload_repo_ctx_t& ctx, std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg,
                              bool on_create);
+
+private:
+    // In-disk repository's header
+    struct repo_header_t {
+        // It should be "XOZ" followed by a NUL
+        uint8_t magic[4];
+
+        // Size of the whole repository, including the header
+        // but not the trailer, in bytes. It is a multiple
+        // of the block total count
+        uint64_t repo_sz;
+
+        // The size in bytes of the trailer
+        //
+        // TODO it must be smaller than the block size
+        //
+        // TODO this could be much smaller than 64 bits
+        // Like 16 bits should be enough
+        uint64_t trailer_sz;
+
+        // Count of blocks in the repo.
+        // It should be equal to repo_sz/blk_sz
+        uint32_t blk_total_cnt;
+
+        uint32_t unused;  // TODO
+
+        // Log base 2 of the block size in bytes
+        // Order of 10 means block size of 1KB,
+        // order of 11 means block size of 2KB, and so on
+        uint8_t blk_sz_order;
+
+        // For more future metadata
+        uint8_t reserved[7];
+
+        // Feature flags. If the xoz library does not recognize one of those bits
+        // it may or may not proceed reading. In specific:
+        //
+        // - if the unknown bit is in feature_flags_compat, it should be safe for
+        //   the library to read and write the xoz file
+        // - if the unknown bit is in feature_flags_incompat, the library must
+        //   not read further and do not write anything.
+        // - if the unknown bit is in feature_flags_ro_compat, the library can
+        //   read the file bit it cannot write/update it.
+        uint32_t feature_flags_compat;
+        uint32_t feature_flags_incompat;
+        uint32_t feature_flags_ro_compat;
+
+        // Segment that points to the blocks that hold the root or main descriptor set
+        // See read_and_check_header_and_trailer for the complete interpretation of this.
+        uint8_t root[12];
+
+        uint32_t hdr_checksum;
+    } __attribute__((packed));
+
+    // In-disk repository's trailer
+    struct repo_trailer_t {
+        // It should be "EOF" followed by a NUL
+        uint8_t magic[4];
+    } __attribute__((packed));
+
+    static_assert(sizeof(struct repo_header_t) == 64);  // TODO this can be increased to 128
+
+private:
+    /*
+     * Read and load the root descriptor set holder, root of the rest of the xoz content.
+     *
+     * If the has_trampoline is true, the root field of the xoz file header points
+     * to another part of the file where the holder is stored.
+     * Otherwise, the holder is read directly from the root field.
+     *
+     * In any case, the attribute root_holder is initialized with a DescriptorSetHolder object
+     * and the attribute trampoline_segm with the segment that points to the allocated trampoline
+     * blocks. In the case of has_trampoline equals false, this segment will be empty.
+     * */
+    void load_root_holder(struct repo_header_t& hdr);
+    void write_root_holder(struct repo_header_t& hdr);
+    void update_trampoline_space();
 };

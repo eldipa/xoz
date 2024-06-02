@@ -7,6 +7,7 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/io/iospan.h"
 #include "xoz/mem/endianness.h"
+#include "xoz/mem/inet_checksum.h"
 
 struct Repository::preload_repo_ctx_t Repository::dummy = {false, {0}};
 
@@ -72,44 +73,6 @@ void Repository::bootstrap_repository() {
     assert(not fblkarr.is_closed());
     read_and_check_header_and_trailer();
 
-    // Let's load the root descriptor set.
-    // So far we have the root segment loaded in root_sg *but*
-    // if the particular setting is set, assume that the recently loaded root_sg is
-    // not the root segment but a single extent that points a block(s) with the real
-    // root segment.
-    // This additional indirection allow us to encode large root segments outside the header.
-    if (root_sg.inline_data_sz() == 4 and root_sg.ext_cnt() == 1) {
-        external_root_sg_loc.add_extent(root_sg.exts()[0]);
-
-        IOSegment io2(fblkarr, external_root_sg_loc);
-        root_sg = Segment::load_struct_from(io2);
-
-        // In the inline data we have the checksum of the root segment.
-        // We don't have such checksum when the root segment is written in the header
-        // because there is a checksum for the entire header.
-        // But when the root segment is outside the header, we need this extra protection.
-        IOSpan io3(root_sg.inline_data());
-
-        [[maybe_unused]] uint32_t root_sg_chksum = io3.read_u32_from_le();
-
-        // TODO check assert(checksum(io2) == root_sg_chksum);
-
-    } else if (root_sg.inline_data_sz() != 0) {
-        throw InconsistentXOZ(*this, "the repository header contains a root segment with an unexpected format.");
-    }
-
-    // Discard any checksum and the end-of-segment by removing the inline data
-    root_sg.remove_inline_data();
-    assert(root_sg.has_end_of_segment() == false);
-
-    // Load the root set.
-    // NOTE: if a single descriptor tries to allocate blocks from the array
-    // it will crash because the allocator is not initialized yet and we cannot do it
-    // because we need to scan the sets to find which extents/segments are already
-    // allocated.
-    root_dset = std::make_shared<DescriptorSet>(this->root_sg, fblkarr, fblkarr, idmgr);
-    root_dset->load_set();
-
     // Scan which extents/segments are allocated so we can initialize the allocator.
     auto allocated = scan_descriptor_sets();
 
@@ -126,8 +89,8 @@ std::list<Segment> Repository::scan_descriptor_sets() {
 
     std::list<Segment> allocated;
 
-    allocated.push_back(root_dset->segment());
-    for (auto it = root_dset->begin(); it != root_dset->end(); ++it) {
+    allocated.push_back(root_holder->set()->segment());
+    for (auto it = root_holder->set()->begin(); it != root_holder->set()->end(); ++it) {
         auto& dsc(*it);
         if (dsc->does_own_edata()) {
             allocated.push_back(dsc->edata_segment_ref());
@@ -201,68 +164,6 @@ std::ostream& operator<<(std::ostream& out, const Repository& repo) {
     return out;
 }
 
-namespace {
-
-// In-disk repository's header
-struct repo_header_t {
-    // It should be "XOZ" followed by a NUL
-    uint8_t magic[4];
-
-    // Size of the whole repository, including the header
-    // but not the trailer, in bytes. It is a multiple
-    // of the block total count
-    uint64_t repo_sz;
-
-    // The size in bytes of the trailer
-    //
-    // TODO it must be smaller than the block size
-    //
-    // TODO this could be much smaller than 64 bits
-    // Like 16 bits should be enough
-    uint64_t trailer_sz;
-
-    // Count of blocks in the repo.
-    // It should be equal to repo_sz/blk_sz
-    uint32_t blk_total_cnt;
-
-    uint32_t unused;  // TODO
-
-    // Log base 2 of the block size in bytes
-    // Order of 10 means block size of 1KB,
-    // order of 11 means block size of 2KB, and so on
-    uint8_t blk_sz_order;
-
-    // For more future metadata
-    uint8_t reserved[7];
-
-    // Feature flags. If the xoz library does not recognize one of those bits
-    // it may or may not proceed reading. In specific:
-    //
-    // - if the unknown bit is in feature_flags_compat, it should be safe for
-    //   the library to read and write the xoz file
-    // - if the unknown bit is in feature_flags_incompat, the library must
-    //   not read further and do not write anything.
-    // - if the unknown bit is in feature_flags_ro_compat, the library can
-    //   read the file bit it cannot write/update it.
-    uint32_t feature_flags_compat;
-    uint32_t feature_flags_incompat;
-    uint32_t feature_flags_ro_compat;
-
-    // Segment that points to the blocks that hold the root or main descriptor set
-    // See read_and_check_header_and_trailer for the complete interpretation of this.
-    uint8_t root_sg[12];
-
-    uint32_t hdr_checksum;
-} __attribute__((packed));
-
-// In-disk repository's trailer
-struct repo_trailer_t {
-    // It should be "EOF" followed by a NUL
-    uint8_t magic[4];
-} __attribute__((packed));
-
-static_assert(sizeof(struct repo_header_t) == 64);  // TODO this can be increased to 128
-}  // namespace
 
 void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::istream& is,
                               struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create) {
@@ -378,18 +279,8 @@ void Repository::read_and_check_header_and_trailer() {
     */
 
 
-    // load root set's segment (tentative, see _init_repository)
-    static_assert(sizeof(hdr.root_sg) >= 12);
-    IOSpan io(hdr.root_sg, sizeof(hdr.root_sg));
-    root_sg = Segment::load_struct_from(io);
-
-    // the root_sg is located in the header so we mark this with an empty extent
-    external_root_sg_loc = Segment::EmptySegment();
-
-    if (!(root_sg.inline_data_sz() == 4 and root_sg.ext_cnt() == 1) and root_sg.inline_data_sz() != 0) {
-        throw InconsistentXOZ(*this, "the repository header contains a root segment with an unexpected format.");
-    }
-
+    static_assert(sizeof(hdr.root) >= 12);
+    load_root_holder(hdr);
 
     // TODO this *may* still be useful: assert(phy_repo_end_pos > 0);
 
@@ -414,7 +305,7 @@ void Repository::read_and_check_header_and_trailer() {
     }
 }
 
-void Repository::write_header(const std::vector<uint8_t>& root_sg_bytes) {
+void Repository::write_header() {
     // Note: currently the trailer size is fixed but we may decide
     // to make it variable later.
     //
@@ -449,12 +340,11 @@ void Repository::write_header(const std::vector<uint8_t>& root_sg_bytes) {
             .feature_flags_compat = u32_to_le(0),
             .feature_flags_incompat = u32_to_le(0),
             .feature_flags_ro_compat = u32_to_le(0),
-            .root_sg = {0},
+            .root = {0},
             .hdr_checksum = u32_to_le(0),
     };
 
-    assert(sizeof(hdr.root_sg) == root_sg_bytes.size());
-    memcpy(hdr.root_sg, root_sg_bytes.data(), sizeof(hdr.root_sg));
+    write_root_holder(hdr);
 
     fblkarr.write_header((const char*)&hdr, sizeof(hdr));
 }
@@ -464,105 +354,16 @@ void Repository::write_trailer() {
     fblkarr.write_trailer((const char*)&eof, sizeof(eof));
 }
 
-std::vector<uint8_t> Repository::_encode_empty_root_segment() {
-    const auto hdr_capacity = sizeof(((struct repo_header_t*)nullptr)->root_sg);
-    std::vector<uint8_t> root_sg_bytes(hdr_capacity);
-
-    Segment root_sg_empty = Segment::EmptySegment();
-    root_sg_empty.add_end_of_segment();
-
-    IOSpan io(root_sg_bytes.data(), (uint32_t)root_sg_bytes.size());
-    root_sg_empty.write_struct_into(io);
-
-    assert(root_sg_bytes.size() == hdr_capacity);
-    return root_sg_bytes;
-}
-
-// TODO: most of this code could be handled by a (future) special descriptor type to hold
-// descriptor sets
-std::vector<uint8_t> Repository::update_and_encode_root_segment_and_loc() {
-    const auto hdr_capacity = sizeof(((struct repo_header_t*)nullptr)->root_sg);
-    std::vector<uint8_t> root_sg_bytes(hdr_capacity);
-
-    root_dset->write_set();
-    assert(root_sg.has_end_of_segment() == false);
-    assert(external_root_sg_loc.has_end_of_segment() == false);
-
-    auto root_sg_sz = root_sg.calc_struct_footprint_size();
-    if (root_sg_sz == hdr_capacity or root_sg_sz + Segment::EndOfSegmentSize <= hdr_capacity) {
-
-        // If it does not fit perfectly we need to mark somehow the end of the segment
-        // otherwise the reader will overflow and read garbage after the segment.
-        if (root_sg_sz != hdr_capacity) {
-            root_sg.add_end_of_segment();
-            root_sg_sz = root_sg.calc_struct_footprint_size();
-        }
-
-        assert(root_sg_sz <= hdr_capacity);
-
-        // the root segment is small enough to be stored in the header;
-        // release any allocated space
-        if (not external_root_sg_loc.is_empty_space()) {
-            fblkarr.allocator().dealloc(external_root_sg_loc);
-            external_root_sg_loc = Segment::EmptySegment();
-        }
-
-        IOSpan io(root_sg_bytes);
-        root_sg.write_struct_into(io);
-
-        // remove the end of segment
-        root_sg.remove_inline_data();
-    } else {
-        // Either the root_sg is too large to fit in the header or it is small
-        // enough but we cannot put there because with the addition of the end-of-segment
-        // it will make it to not fit.
-
-        // root segment is too large to fit in the header, try to use
-        // the space allocated in external_root_sg_loc first, allocate more
-        // if required
-        auto external_capacity = external_root_sg_loc.calc_data_space_size(fblkarr.blk_sz_order());
-        if ((external_capacity >> 2) > root_sg_sz) {
-            // the space needed is less than 25% of the current capacity: dealloc + (re)alloc
-            // to shrink and save some space
-            fblkarr.allocator().dealloc(external_root_sg_loc);
-            external_root_sg_loc = fblkarr.allocator().alloc(root_sg_sz);
-        } else if (external_capacity >= root_sg_sz) {
-            // the current capacity can hold the root segm: do nothing
-        } else {
-            fblkarr.allocator().dealloc(external_root_sg_loc);
-            external_root_sg_loc = fblkarr.allocator().alloc(root_sg_sz);
-        }
-
-        // Write the root segment in an external location
-        IOSegment io(fblkarr, external_root_sg_loc);
-        root_sg.write_struct_into(io);
-
-        uint32_t root_sg_chksum = 0;  // TODO
-        external_root_sg_loc.reserve_inline_data(sizeof(root_sg_chksum));
-        IOSpan io2(external_root_sg_loc.inline_data());
-        io2.write_u32_to_le(root_sg_chksum);
-
-        IOSpan io3(root_sg_bytes);
-        external_root_sg_loc.write_struct_into(io3);
-
-        // We don't really want to store the checksum in memory, it was put here just for
-        // the write_struct_into call above. Remove the inline then.
-        // This is an implementation detail that we *must* honor: no inline in external_root_sg_loc
-        // in its in-memory version
-        external_root_sg_loc.remove_inline_data();
-    }
-
-    assert(root_sg_bytes.size() == hdr_capacity);
-    assert(root_sg.has_end_of_segment() == false);
-    assert(external_root_sg_loc.has_end_of_segment() == false);
-    return root_sg_bytes;
-}
-
 void Repository::init_new_repository(const struct default_parameters_t& defaults) {
     fblkarr.fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
 
-    const auto root_sg_bytes = _encode_empty_root_segment();
-    write_header(root_sg_bytes);
+    trampoline_segm = Segment::EmptySegment();
+    root_holder = DescriptorSetHolder::create(fblkarr, idmgr);
+
+    // Ensure that the holder has a valid id.
+    root_holder->id(idmgr.request_temporal_id());
+
+    write_header();
     write_trailer();
 }
 
@@ -570,11 +371,100 @@ void Repository::close() {
     if (closed)
         return;
 
-    const auto root_sg_bytes = update_and_encode_root_segment_and_loc();
-
-    write_header(root_sg_bytes);
+    write_header();
     write_trailer();
 
     fblkarr.close();
     closed = true;
+}
+
+void Repository::load_root_holder(struct repo_header_t& hdr) {
+    IOSpan root_io(hdr.root, sizeof(hdr.root));
+
+    if (hdr.reserved[0] & 0x80) {
+        // The root field in the xoz header contains 2 bytes for the trampoline's content
+        // checksum and the segment to the trampoline.
+        uint32_t checksum = uint32_t(root_io.read_u16_from_le());
+        trampoline_segm = Segment::load_struct_from(root_io);
+
+        // Read trampoline's content. We expect to find a set descriptor holder there.
+        auto trampoline_io = IOSegment(fblkarr, trampoline_segm);
+
+        // See if the holder is in the trampoline. Build a shared ptr to DescriptorSetHolder.
+        auto dsc = DescriptorSetHolder::load_struct_from(trampoline_io, idmgr, fblkarr);
+        auto rawptr = dsc->cast<DescriptorSetHolder>();
+        root_holder = std::shared_ptr<DescriptorSetHolder>(rawptr);
+        dsc.release();
+
+        // Check that trampoline's content checksum is correct.
+        auto checksum_check = fold_inet_checksum(inet_remove(checksum, root_holder->checksum));
+        if (not is_inet_checksum_good(checksum_check)) {
+            throw "";
+        }
+    } else {
+        // No trampoline
+        trampoline_segm = Segment::EmptySegment();
+
+        // The root field has the descriptor set holder
+        auto dsc = DescriptorSetHolder::load_struct_from(root_io, idmgr, fblkarr);
+        auto rawptr = dsc->cast<DescriptorSetHolder>();
+        root_holder = std::shared_ptr<DescriptorSetHolder>(rawptr);
+        dsc.release();
+    }
+}
+
+void Repository::write_root_holder(struct repo_header_t& hdr) {
+    IOSpan root_io(hdr.root, sizeof(hdr.root));
+    root_holder->update_header();
+
+    bool trampoline_required = root_holder->calc_struct_footprint_size() > sizeof(hdr.root);
+
+    if (trampoline_required) {
+        // Expand/shrink the trampoline space to make room for the
+        // root descriptor set holder (with its space was updated/recalculated
+        // in the above call to update_header())
+        update_trampoline_space();
+
+        // Write the holder in the trampoline
+        auto trampoline_io = IOSegment(fblkarr, trampoline_segm);
+        root_holder->write_struct_into(trampoline_io);
+
+        // Write in the xoz file header the checksum of the trampoline
+        // and the segment that points to.
+        root_io.write_u16_to_le(inet_to_u16(root_holder->checksum));
+        trampoline_segm.write_struct_into(root_io);
+
+        hdr.reserved[0] |= uint8_t((trampoline_required) << 7);
+    } else {
+        // No trampoline required, release/dealloc it if we have one
+        if (trampoline_segm.length() != 0) {
+            fblkarr.allocator().dealloc(trampoline_segm);
+            trampoline_segm.clear();
+        }
+
+        root_holder->write_struct_into(root_io);
+
+        hdr.reserved[0] &= uint8_t(0x7f);
+    }
+}
+
+void Repository::update_trampoline_space() {
+    uint32_t cur_sz = trampoline_segm.calc_struct_footprint_size();
+    uint32_t req_sz = root_holder->calc_struct_footprint_size();
+    assert(req_sz > 0);
+
+    const bool should_expand = (cur_sz < req_sz);
+    const bool should_shrink = ((cur_sz >> 1) >= req_sz);
+    if (should_expand or should_shrink) {
+        if (trampoline_segm.length() == 0) {
+            trampoline_segm = fblkarr.allocator().alloc(req_sz);
+        } else {
+            trampoline_segm = fblkarr.allocator().realloc(trampoline_segm, req_sz);
+        }
+    }
+
+    // TODO what happen if trampoline_segm->calc_struct_footprint_size() > sizeof(hdr.root)?
+    // (aka, it still does not fit?) We need to ensure that the call to alloc()/realloc()
+    // above does not fragment too much the allocation so the trampoline_segm fits in the header
+    trampoline_segm.add_end_of_segment();
 }
