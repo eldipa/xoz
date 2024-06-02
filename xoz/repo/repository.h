@@ -26,7 +26,7 @@ public:
         uint32_t blk_sz;
     };
 
-    constexpr static struct default_parameters_t DefaultsParameters = {.blk_sz = 512};
+    constexpr static struct default_parameters_t DefaultsParameters = {.blk_sz = 128};
 
     /*
      * This is the minimum size of the blocks that the repository can use.
@@ -42,14 +42,6 @@ private:
     FileBlockArray fblkarr;
 
     bool closed;
-
-    // TODO almost all of these variables should gone
-    // The size in bytes of the whole repository and it is
-    // a multiple of the block size.
-    //
-    // This include the block 0 which contains the header
-    // but it does not contain the trailer
-    uint64_t repo_sz;
 
     IDManager idmgr;
 

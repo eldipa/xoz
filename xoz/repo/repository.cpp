@@ -231,7 +231,7 @@ void Repository::read_and_check_header_and_trailer() {
     }
 
     // Calculate the repository size based on the block count.
-    repo_sz = blk_total_cnt << blk_sz_order;
+    uint64_t repo_sz = blk_total_cnt << blk_sz_order;
 
     // Read the declared repository size from the header and
     // check that it matches with what we calculated
