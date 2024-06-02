@@ -376,9 +376,7 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
 
         // See if the holder is in the trampoline. Build a shared ptr to DescriptorSetHolder.
         auto dsc = DescriptorSetHolder::load_struct_from(trampoline_io, idmgr, fblkarr);
-        auto rawptr = dsc->cast<DescriptorSetHolder>();
-        root_holder = std::shared_ptr<DescriptorSetHolder>(rawptr);
-        dsc.release();
+        root_holder = Descriptor::cast<DescriptorSetHolder>(dsc);
 
         // Check that trampoline's content checksum is correct.
         auto checksum_check = fold_inet_checksum(inet_remove(checksum, root_holder->checksum));
@@ -391,9 +389,7 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
 
         // The root field has the descriptor set holder
         auto dsc = DescriptorSetHolder::load_struct_from(root_io, idmgr, fblkarr);
-        auto rawptr = dsc->cast<DescriptorSetHolder>();
-        root_holder = std::shared_ptr<DescriptorSetHolder>(rawptr);
-        dsc.release();
+        root_holder = Descriptor::cast<DescriptorSetHolder>(dsc);
     }
 }
 

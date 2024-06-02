@@ -91,6 +91,38 @@ public:
         return ptr;
     }
 
+    /*
+     * Dynamically downcast a unique pointer to Descriptor (<base_ptr>)
+     * to an unique pointer to the given concrete subclass T.
+     *
+     * See the instance method cast<T>() documentation about the ret_null parameter.
+     * Regardless of the value of ret_null, if the provided base_ptr is null, raise
+     * an exception.
+     * */
+    template <typename T>
+    static std::unique_ptr<T> cast(std::unique_ptr<Descriptor>& base_ptr, bool ret_null = false) {
+        if (!base_ptr) {
+            throw std::runtime_error("Pointer to descriptor (base class) cannot be null.");
+        }
+
+        // Down cast. The cast<T> method should fail if ret_null is false and something fails.
+        auto subcls_ptr_raw = base_ptr->cast<T>(ret_null);
+
+        // If the raw pointer to the subclass is null return a shared_ptr to null.
+        // This could happen only if the base_ptr does not point to a T instance and ret_null
+        // is true. Otherwise, we should never get a null ptr from the cast<T>() call above.
+        if (!subcls_ptr_raw) {
+            return std::unique_ptr<T>(nullptr);
+        }
+
+        // Take ownership of the subclass instance with a unique_ptr to a Subclass
+        // and release the ownership from the unique_ptr to a Base class.
+        auto subcls_ptr = std::unique_ptr<T>(subcls_ptr_raw);
+        base_ptr.release();
+
+        return subcls_ptr;
+    }
+
 public:  // public but it should be interpreted as an opaque section
     struct header_t {
         bool own_edata;
