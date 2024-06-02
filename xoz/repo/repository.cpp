@@ -69,7 +69,7 @@ Repository Repository::create_mem_based(const struct default_parameters_t& defau
 void Repository::bootstrap_repository() {
     // During the construction of Repository, in particular of FileBlockArray fblkarr,
     // the block array was initialized so we can read/write extents/header/trailer but we cannot
-    // allocate yet.
+    // allocate yet (we cannot use fblkarr.allocator() yet).
     assert(not fblkarr.is_closed());
     read_and_check_header_and_trailer();
 
@@ -169,7 +169,7 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
                               struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create) {
     if (on_create) {
         cfg.blk_sz = ctx.defaults.blk_sz;
-        cfg.begin_blk_nr = 1;  // TODO
+        cfg.begin_blk_nr = 1;
 
         ctx.was_file_created = true;
         return;
@@ -178,28 +178,14 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
     struct repo_header_t hdr;
     is.read((char*)&hdr, sizeof(hdr));
 
-    if (strncmp((char*)&hdr.magic, "XOZ", 4) != 0) {
-        throw std::runtime_error("magic string 'XOZ' not found in the header.");
-    }
-
-    // TODO
-    // check checksum of (char*)(&hdr) against hdr.hdr_checksum
-
-    if (hdr.feature_flags_incompat) {
-        // TODO eventually we want to fail iff we don't understand one of those flags only
-        throw std::runtime_error("the repository has incompatible features.");
-    }
+    check_header_magic(hdr);
+    compute_and_check_header_checksum(hdr);
 
     uint8_t blk_sz_order = u8_from_le(hdr.blk_sz_order);
+    check_blk_sz_order(blk_sz_order);
 
-    if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > 16) {
-        throw std::runtime_error((F() << "block size order " << (int)blk_sz_order
-                                      << " is out of range [7 to 16] (block sizes of 128 to 64K).")
-                                         .str());
-    }
-
-    cfg.blk_sz = (1 << hdr.blk_sz_order);
-    cfg.begin_blk_nr = 1;  // TODO it should be 1 or 2
+    cfg.blk_sz = (1 << blk_sz_order);
+    cfg.begin_blk_nr = 1;
 
     return;
 }
@@ -215,18 +201,18 @@ void Repository::read_and_check_header_and_trailer() {
 
     fblkarr.read_header((char*)&hdr, sizeof(hdr));
 
-    if (strncmp((char*)&hdr.magic, "XOZ", 4) != 0) {
-        throw InconsistentXOZ(*this, "magic string 'XOZ' not found in the header.");
-    }
+    check_header_magic(hdr);
+    compute_and_check_header_checksum(hdr);
 
-    // TODO
-    // check checksum of (char*)(&hdr) against hdr.hdr_checksum
+    feature_flags_compat = u32_from_le(hdr.feature_flags_compat);
+    feature_flags_incompat = u32_from_le(hdr.feature_flags_incompat);
+    feature_flags_ro_compat = u32_from_le(hdr.feature_flags_ro_compat);
 
-    if (hdr.feature_flags_incompat) {
+    if (feature_flags_incompat) {
         throw InconsistentXOZ(*this, "the repository has incompatible features.");
     }
 
-    if (hdr.feature_flags_ro_compat) {
+    if (feature_flags_ro_compat) {
         // TODO implement read-only mode
         throw InconsistentXOZ(
                 *this,
@@ -234,12 +220,10 @@ void Repository::read_and_check_header_and_trailer() {
     }
 
     uint8_t blk_sz_order = u8_from_le(hdr.blk_sz_order);
-    uint32_t blk_sz = (1 << hdr.blk_sz_order);
+    check_blk_sz_order(blk_sz_order);
 
-    if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > 16) {
-        throw InconsistentXOZ(*this, F() << "block size order " << (int)blk_sz_order
-                                         << " is out of range [7 to 16] (block sizes of 128 to 64K).");
-    }
+    uint32_t blk_sz = (1 << blk_sz_order);
+
 
     auto blk_total_cnt = u32_from_le(hdr.blk_total_cnt);
     if (blk_total_cnt == 0) {
@@ -279,19 +263,19 @@ void Repository::read_and_check_header_and_trailer() {
     */
 
 
-    static_assert(sizeof(hdr.root) >= 12);
+    static_assert(sizeof(hdr.root) >= 32);
     load_root_holder(hdr);
 
     // TODO this *may* still be useful: assert(phy_repo_end_pos > 0);
 
-    uint64_t trailer_sz = u64_from_le(hdr.trailer_sz);  // TODO uint64_t ??
-    if (trailer_sz < sizeof(struct repo_trailer_t)) {
+    uint16_t trailer_sz = u16_from_le(hdr.trailer_sz);
+    if (uint64_t(trailer_sz) < sizeof(struct repo_trailer_t)) {
         throw InconsistentXOZ(*this, F() << "the declared trailer size (" << trailer_sz
-                                         << ") is too small, required at least " << sizeof(struct repo_trailer_t)
+                                         << " bytes) is too small, required at least " << sizeof(struct repo_trailer_t)
                                          << " bytes.");
     }
 
-    if (trailer_sz != fblkarr.trailer_sz()) {
+    if (uint64_t(trailer_sz) != fblkarr.trailer_sz()) {
         throw InconsistentXOZ(*this, F() << "mismatch between the declared trailer size (" << trailer_sz
                                          << " bytes) and the real trailer read from the file (" << fblkarr.trailer_sz()
                                          << " bytes).");
@@ -312,7 +296,7 @@ void Repository::write_header() {
     // The header will store the trailer size so we may decide
     // here to change it because at the moment of calling close()
     // we should have all the info needed.
-    uint64_t trailer_sz = sizeof(struct repo_trailer_t);
+    uint16_t trailer_sz = assert_u16(sizeof(struct repo_trailer_t));
 
     // note: we declare that the repository has the same block count
     // than the file block array *plus* its begin blk number to count
@@ -329,22 +313,22 @@ void Repository::write_header() {
     // store more details of fblkarr?
     uint32_t blk_total_cnt = fblkarr.blk_cnt() + fblkarr.begin_blk_nr();
 
-    struct repo_header_t hdr = {
-            .magic = {'X', 'O', 'Z', 0},
-            .repo_sz = u64_to_le(blk_total_cnt << fblkarr.blk_sz_order()),
-            .trailer_sz = u64_to_le(trailer_sz),
-            .blk_total_cnt = u32_to_le(blk_total_cnt),
-            .unused = 0,  // TODO
-            .blk_sz_order = u8_to_le(fblkarr.blk_sz_order()),
-            .reserved = {0, 0, 0, 0, 0, 0, 0},
-            .feature_flags_compat = u32_to_le(0),
-            .feature_flags_incompat = u32_to_le(0),
-            .feature_flags_ro_compat = u32_to_le(0),
-            .root = {0},
-            .hdr_checksum = u32_to_le(0),
-    };
+    struct repo_header_t hdr = {.magic = {'X', 'O', 'Z', 0},
+                                .app_name = {0},
+                                .repo_sz = u64_to_le(blk_total_cnt << fblkarr.blk_sz_order()),
+                                .trailer_sz = u16_to_le(trailer_sz),
+                                .blk_total_cnt = u32_to_le(blk_total_cnt),
+                                .blk_sz_order = u8_to_le(fblkarr.blk_sz_order()),
+                                .flags = u8_to_le(0),
+                                .feature_flags_compat = u32_to_le(0),
+                                .feature_flags_incompat = u32_to_le(0),
+                                .feature_flags_ro_compat = u32_to_le(0),
+                                .root = {0},
+                                .checksum = u16_to_le(0),
+                                .padding = {0}};
 
     write_root_holder(hdr);
+    hdr.checksum = u16_to_le(compute_header_checksum(hdr));
 
     fblkarr.write_header((const char*)&hdr, sizeof(hdr));
 }
@@ -381,7 +365,7 @@ void Repository::close() {
 void Repository::load_root_holder(struct repo_header_t& hdr) {
     IOSpan root_io(hdr.root, sizeof(hdr.root));
 
-    if (hdr.reserved[0] & 0x80) {
+    if (hdr.flags & 0x80) {
         // The root field in the xoz header contains 2 bytes for the trampoline's content
         // checksum and the segment to the trampoline.
         uint32_t checksum = uint32_t(root_io.read_u16_from_le());
@@ -434,7 +418,7 @@ void Repository::write_root_holder(struct repo_header_t& hdr) {
         root_io.write_u16_to_le(inet_to_u16(root_holder->checksum));
         trampoline_segm.write_struct_into(root_io);
 
-        hdr.reserved[0] |= uint8_t((trampoline_required) << 7);
+        hdr.flags |= uint8_t((trampoline_required) << 7);
     } else {
         // No trampoline required, release/dealloc it if we have one
         if (trampoline_segm.length() != 0) {
@@ -444,7 +428,7 @@ void Repository::write_root_holder(struct repo_header_t& hdr) {
 
         root_holder->write_struct_into(root_io);
 
-        hdr.reserved[0] &= uint8_t(0x7f);
+        hdr.flags &= uint8_t(0x7f);
     }
 }
 
@@ -467,4 +451,42 @@ void Repository::update_trampoline_space() {
     // (aka, it still does not fit?) We need to ensure that the call to alloc()/realloc()
     // above does not fragment too much the allocation so the trampoline_segm fits in the header
     trampoline_segm.add_end_of_segment();
+}
+
+void Repository::check_header_magic(struct repo_header_t& hdr) {
+    if (strncmp((char*)&hdr.magic, "XOZ", 4) != 0) {
+        throw std::runtime_error("magic string 'XOZ' not found in the header.");
+    }
+}
+
+uint16_t Repository::compute_header_checksum(struct repo_header_t& hdr) {
+    // Compute the checksum of the header. The field 'checksum' must be temporally
+    // zeroed to do the computation
+    uint16_t stored_checksum = hdr.checksum;
+    hdr.checksum = 0;
+
+    uint32_t checksum = inet_checksum((uint8_t*)(&hdr), sizeof(hdr));
+    hdr.checksum = stored_checksum;
+
+    return inet_to_u16(checksum);
+}
+
+void Repository::compute_and_check_header_checksum(struct repo_header_t& hdr) {
+    uint16_t stored_checksum = hdr.checksum;
+    uint32_t checksum = uint32_t(compute_header_checksum(hdr));
+
+    // Check the checksum of the header against the one stored in the header itself.
+    auto checksum_check = fold_inet_checksum(inet_remove(checksum, stored_checksum));
+    if (not is_inet_checksum_good(checksum_check)) {
+        throw InconsistentXOZ("");
+    }
+}
+
+void Repository::check_blk_sz_order(const uint8_t blk_sz_order) {
+    // TODO: is blk_sz_order > 16 a good upper limit? It seems a little artificial.
+    if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > 16) {
+        throw std::runtime_error((F() << "block size order " << (int)blk_sz_order
+                                      << " is out of range [7 to 16] (block sizes of 128 to 64K).")
+                                         .str());
+    }
 }

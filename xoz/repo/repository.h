@@ -56,6 +56,10 @@ private:
     Segment trampoline_segm;
     std::shared_ptr<DescriptorSetHolder> root_holder;
 
+    uint32_t feature_flags_compat;
+    uint32_t feature_flags_incompat;
+    uint32_t feature_flags_ro_compat;
+
 public:
     // Open a physical file and read/load the repository.
     //
@@ -228,32 +232,31 @@ private:
         // It should be "XOZ" followed by a NUL
         uint8_t magic[4];
 
+        // This is the application name using xoz.
+        // For Xournal++ it could be "Xournal++" but
+        // the exact value is up to the application.
+        // It may be NULL terminated but it is not required.
+        uint8_t app_name[12];
+
         // Size of the whole repository, including the header
         // but not the trailer, in bytes. It is a multiple
         // of the block total count
         uint64_t repo_sz;
 
         // The size in bytes of the trailer
-        //
-        // TODO it must be smaller than the block size
-        //
-        // TODO this could be much smaller than 64 bits
-        // Like 16 bits should be enough
-        uint64_t trailer_sz;
+        uint16_t trailer_sz;
 
         // Count of blocks in the repo.
         // It should be equal to repo_sz/blk_sz
         uint32_t blk_total_cnt;
-
-        uint32_t unused;  // TODO
 
         // Log base 2 of the block size in bytes
         // Order of 10 means block size of 1KB,
         // order of 11 means block size of 2KB, and so on
         uint8_t blk_sz_order;
 
-        // For more future metadata
-        uint8_t reserved[7];
+        // Flags to control certain aspects of the xoz file
+        uint8_t flags;
 
         // Feature flags. If the xoz library does not recognize one of those bits
         // it may or may not proceed reading. In specific:
@@ -268,11 +271,20 @@ private:
         uint32_t feature_flags_incompat;
         uint32_t feature_flags_ro_compat;
 
-        // Segment that points to the blocks that hold the root or main descriptor set
-        // See read_and_check_header_and_trailer for the complete interpretation of this.
-        uint8_t root[12];
+        // This is where we store the "root" of the file. This can be a DescriptorSetHolder
+        // serialized here *or* a segment that points to somewhere else outside the xoz header
+        // where the DescriptorSetHolder lives.
+        // See load_root_holder() and write_root_holder() methods.
+        //
+        // TODO ensure that the read and write preserves this "padding" for backward/forward compat
+        // in the case of the root field not being fully used
+        uint8_t root[32];
 
-        uint32_t hdr_checksum;
+        // Inet checksum of the header, including the padding.
+        uint16_t checksum;
+
+        // TODO ensure that the read and write preserves this "padding" for backward/forward compat
+        uint8_t padding[50];
     } __attribute__((packed));
 
     // In-disk repository's trailer
@@ -281,7 +293,7 @@ private:
         uint8_t magic[4];
     } __attribute__((packed));
 
-    static_assert(sizeof(struct repo_header_t) == 64);  // TODO this can be increased to 128
+    static_assert(sizeof(struct repo_header_t) == 128);
 
 private:
     /*
@@ -298,4 +310,10 @@ private:
     void load_root_holder(struct repo_header_t& hdr);
     void write_root_holder(struct repo_header_t& hdr);
     void update_trampoline_space();
+
+private:
+    static void check_header_magic(struct repo_header_t& hdr);
+    static uint16_t compute_header_checksum(struct repo_header_t& hdr);
+    static void compute_and_check_header_checksum(struct repo_header_t& hdr);
+    static void check_blk_sz_order(const uint8_t blk_sz_order);
 };
