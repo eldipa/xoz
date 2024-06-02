@@ -102,6 +102,11 @@ public:
         arr.clear();
     }
 
+    void clear() {
+        remove_inline_data();
+        clear_extents();
+    }
+
     uint32_t ext_cnt() const {
         // TODO check cast
         return uint32_t(arr.size());
