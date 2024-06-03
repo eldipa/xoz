@@ -98,7 +98,8 @@ public:
     // Call to close()
     ~Repository();
 
-    // TODO inline std::shared_ptr<DescriptorSet> root() { return root_dset; }
+    inline std::shared_ptr<DescriptorSetHolder> root() { return root_holder; }
+    inline const std::unique_ptr<DescriptorSet>& root_set() { return root_holder->set(); }
 
 
     const std::stringstream& expose_mem_fp() const;
@@ -109,6 +110,7 @@ public:
 public:
     /*
      * This is only for testing. Don't use it.
+     * TODO this probably is not for testing at all!
      * */
     BlockArray& /* internal - for testing */ expose_block_array() { return *fblkarr.get(); }
 

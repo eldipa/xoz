@@ -18,7 +18,7 @@ public:
 
     // TODO warn the caller to *not* remove the set. Instead, delete the DescriptorSetHolder descriptor.
     // NOTE: very likely we need a hook on_destroy() or on_remove() in the Descriptor API
-    std::unique_ptr<DescriptorSet>& set() { return dset; }
+    const std::unique_ptr<DescriptorSet>& set() { return dset; }
 
 protected:
     void read_struct_specifics_from(IOBase& io) override;
