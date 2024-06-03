@@ -12,14 +12,17 @@
 struct Repository::preload_repo_ctx_t Repository::dummy = {false, {0}};
 
 Repository::Repository(const char* fpath):
-        fpath(fpath), fblkarr(fpath, std::bind_front(Repository::preload_repo, dummy)), closed(true) {
+        fpath(fpath),
+        fblkarr(std::make_unique<FileBlockArray>(fpath, std::bind_front(Repository::preload_repo, dummy))),
+        closed(true) {
     bootstrap_repository();
     assert(not closed);
-    assert(fblkarr.begin_blk_nr() >= 1);
+    assert(this->fblkarr->begin_blk_nr() >= 1);
 }
 
-Repository::Repository(FileBlockArray&& fblkarr, const struct default_parameters_t& defaults, bool is_a_new_repository):
-        fpath(fblkarr.get_file_path()), fblkarr(std::move(fblkarr)), closed(true) {
+Repository::Repository(std::unique_ptr<FileBlockArray>&& fblkarr, const struct default_parameters_t& defaults,
+                       bool is_a_new_repository):
+        fpath(fblkarr->get_file_path()), fblkarr(std::move(fblkarr)), closed(true) {
     if (is_a_new_repository) {
         // The given file block array has a valid and open file but it is not initialized as
         // a repository yet. We do that here.
@@ -28,7 +31,7 @@ Repository::Repository(FileBlockArray&& fblkarr, const struct default_parameters
 
     bootstrap_repository();
     assert(not closed);
-    assert(fblkarr.begin_blk_nr() >= 1);
+    assert(this->fblkarr->begin_blk_nr() >= 1);
 }
 
 Repository::~Repository() { close(); }
@@ -44,12 +47,12 @@ Repository Repository::create(const char* fpath, bool fail_if_exists, const stru
     // so the array is created with the correct dimensions.
     // However, no header is written there so resulting file is not a valid repository yet
     struct preload_repo_ctx_t ctx = {false, defaults};
-    FileBlockArray fblkarr =
+    auto fblkarr_ptr =
             FileBlockArray::create(fpath, std::bind_front(Repository::preload_repo, std::ref(ctx)), fail_if_exists);
 
     // We delegate the initialization of the new repository to the Repository constructor
     // that it should call init_new_repository iff ctx.was_file_created
-    return Repository(std::move(fblkarr), defaults, ctx.was_file_created);
+    return Repository(std::move(fblkarr_ptr), defaults, ctx.was_file_created);
 }
 
 Repository Repository::create_mem_based(const struct default_parameters_t& defaults) {
@@ -59,30 +62,30 @@ Repository Repository::create_mem_based(const struct default_parameters_t& defau
     // not of FileBlockArray.
     FileBlockArray::fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
 
-    FileBlockArray fblkarr = FileBlockArray::create_mem_based(defaults.blk_sz, 1 /* begin_blk_nr */);
+    auto fblkarr_ptr = FileBlockArray::create_mem_based(defaults.blk_sz, 1 /* begin_blk_nr */);
 
     // Memory based file block arrays (and therefore Repository too) are always created
     // empty and require an initialization (so is_a_new_repository is always true)
-    return Repository(std::move(fblkarr), defaults, true);
+    return Repository(std::move(fblkarr_ptr), defaults, true);
 }
 
 void Repository::bootstrap_repository() {
     // During the construction of Repository, in particular of FileBlockArray fblkarr,
     // the block array was initialized so we can read/write extents/header/trailer but we cannot
-    // allocate yet (we cannot use fblkarr.allocator() yet).
-    assert(not fblkarr.is_closed());
+    // allocate yet (we cannot use fblkarr->allocator() yet).
+    assert(not fblkarr->is_closed());
     read_and_check_header_and_trailer();
 
     // Scan which extents/segments are allocated so we can initialize the allocator.
     auto allocated = scan_descriptor_sets();
 
     // With this, we can do alloc/dealloc and the Repository is fully operational.
-    fblkarr.allocator().initialize_from_allocated(allocated);
+    fblkarr->allocator().initialize_from_allocated(allocated);
 
     closed = false;
 }
 
-const std::stringstream& Repository::expose_mem_fp() const { return fblkarr.expose_mem_fp(); }
+const std::stringstream& Repository::expose_mem_fp() const { return fblkarr->expose_mem_fp(); }
 
 std::list<Segment> Repository::scan_descriptor_sets() {
     // TODO this should be recursive to scan *all*, not just the root.
@@ -103,25 +106,25 @@ std::list<Segment> Repository::scan_descriptor_sets() {
 struct Repository::stats_t Repository::stats() const {
     struct stats_t st;
 
-    auto fblkarr_st = fblkarr.stats();
+    auto fblkarr_st = fblkarr->stats();
     memcpy(&st.fblkarr_stats, &fblkarr_st, sizeof(st.fblkarr_stats));
 
-    auto allocator_st = fblkarr.allocator().stats();
+    auto allocator_st = fblkarr->allocator().stats();
     memcpy(&st.allocator_stats, &allocator_st, sizeof(st.allocator_stats));
 
-    st.capacity_repo_sz = (fblkarr.capacity() + fblkarr.begin_blk_nr()) << fblkarr.blk_sz_order();
-    st.in_use_repo_sz = (fblkarr.blk_cnt() + fblkarr.begin_blk_nr()) << fblkarr.blk_sz_order();
+    st.capacity_repo_sz = (fblkarr->capacity() + fblkarr->begin_blk_nr()) << fblkarr->blk_sz_order();
+    st.in_use_repo_sz = (fblkarr->blk_cnt() + fblkarr->begin_blk_nr()) << fblkarr->blk_sz_order();
 
-    st.capacity_repo_sz += fblkarr.trailer_sz();
-    st.in_use_repo_sz += fblkarr.trailer_sz();
+    st.capacity_repo_sz += fblkarr->trailer_sz();
+    st.in_use_repo_sz += fblkarr->trailer_sz();
 
     st.capacity_repo_sz_kb = double(st.capacity_repo_sz) / double(1024.0);
     st.in_use_repo_sz_kb = double(st.in_use_repo_sz) / double(1024.0);
 
     st.in_use_repo_sz_rel = (st.capacity_repo_sz == 0) ? 0 : (double(st.in_use_repo_sz) / double(st.capacity_repo_sz));
 
-    st.header_sz = fblkarr.header_sz();
-    st.trailer_sz = fblkarr.trailer_sz();
+    st.header_sz = fblkarr->header_sz();
+    st.trailer_sz = fblkarr->trailer_sz();
     return st;
 }
 
@@ -129,11 +132,11 @@ void PrintTo(const Repository& repo, std::ostream* out) {
     struct Repository::stats_t st = repo.stats();
     std::ios_base::fmtflags ioflags = out->flags();
 
-    (*out) << "File:              " << std::setfill(' ') << std::setw(12) << repo.fblkarr.get_file_path() << "\n";
+    (*out) << "File:              " << std::setfill(' ') << std::setw(12) << repo.fblkarr->get_file_path() << "\n";
 
-    auto& fp = repo.fblkarr.phy_file_stream();
+    auto& fp = repo.fblkarr->phy_file_stream();
     (*out) << "Status:            ";
-    if (repo.fblkarr.is_closed()) {
+    if (repo.fblkarr->is_closed()) {
         (*out) << std::setfill(' ') << std::setw(12) << "closed\n\n";
     } else {
         (*out) << "        open "
@@ -154,7 +157,7 @@ void PrintTo(const Repository& repo, std::ostream* out) {
            << repo.fblkarr << "\n"
            << "\n"
            << "-- Allocator ------------------\n"
-           << repo.fblkarr.allocator() << "\n";
+           << repo.fblkarr->allocator() << "\n";
 
     out->flags(ioflags);
 }
@@ -193,13 +196,13 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
 void Repository::read_and_check_header_and_trailer() {
     struct repo_header_t hdr;
 
-    if (fblkarr.header_sz() < sizeof(hdr)) {
+    if (fblkarr->header_sz() < sizeof(hdr)) {
         throw InconsistentXOZ(*this, F() << "mismatch between the minimum size of the header (" << sizeof(hdr)
-                                         << " bytes) and the real header read from the file (" << fblkarr.header_sz()
+                                         << " bytes) and the real header read from the file (" << fblkarr->header_sz()
                                          << " bytes).");
     }
 
-    fblkarr.read_header((char*)&hdr, sizeof(hdr));
+    fblkarr->read_header((char*)&hdr, sizeof(hdr));
 
     check_header_magic(hdr);
     compute_and_check_header_checksum(hdr);
@@ -275,14 +278,14 @@ void Repository::read_and_check_header_and_trailer() {
                                          << " bytes.");
     }
 
-    if (uint64_t(trailer_sz) != fblkarr.trailer_sz()) {
+    if (uint64_t(trailer_sz) != fblkarr->trailer_sz()) {
         throw InconsistentXOZ(*this, F() << "mismatch between the declared trailer size (" << trailer_sz
-                                         << " bytes) and the real trailer read from the file (" << fblkarr.trailer_sz()
+                                         << " bytes) and the real trailer read from the file (" << fblkarr->trailer_sz()
                                          << " bytes).");
     }
 
     struct repo_trailer_t eof;
-    fblkarr.read_trailer((char*)&eof, sizeof(eof));
+    fblkarr->read_trailer((char*)&eof, sizeof(eof));
 
     if (strncmp((char*)&eof.magic, "EOF", 4) != 0) {
         throw InconsistentXOZ(*this, "magic string 'EOF' not found in the trailer.");
@@ -304,21 +307,21 @@ void Repository::write_header() {
     //
     // one comment on this: the file block array *may* have more blocks than
     // the blk_cnt() says because it may be keeping some unused blocks for
-    // future allocations (this is the fblkarr.capacity()).
+    // future allocations (this is the fblkarr->capacity()).
     //
-    // the call to fblkarr.close() *should* release those blocks and resize
+    // the call to fblkarr->close() *should* release those blocks and resize
     // the file to the correct size.
     // the caveat is that it feels fragile to store something without being
-    // 100% sure that it is true -- TODO store fblkarr.capacity() ? may be
+    // 100% sure that it is true -- TODO store fblkarr->capacity() ? may be
     // store more details of fblkarr?
-    uint32_t blk_total_cnt = fblkarr.blk_cnt() + fblkarr.begin_blk_nr();
+    uint32_t blk_total_cnt = fblkarr->blk_cnt() + fblkarr->begin_blk_nr();
 
     struct repo_header_t hdr = {.magic = {'X', 'O', 'Z', 0},
                                 .app_name = {0},
-                                .repo_sz = u64_to_le(blk_total_cnt << fblkarr.blk_sz_order()),
+                                .repo_sz = u64_to_le(blk_total_cnt << fblkarr->blk_sz_order()),
                                 .trailer_sz = u16_to_le(trailer_sz),
                                 .blk_total_cnt = u32_to_le(blk_total_cnt),
-                                .blk_sz_order = u8_to_le(fblkarr.blk_sz_order()),
+                                .blk_sz_order = u8_to_le(fblkarr->blk_sz_order()),
                                 .flags = u8_to_le(0),
                                 .feature_flags_compat = u32_to_le(0),
                                 .feature_flags_incompat = u32_to_le(0),
@@ -330,19 +333,19 @@ void Repository::write_header() {
     write_root_holder(hdr);
     hdr.checksum = u16_to_le(compute_header_checksum(hdr));
 
-    fblkarr.write_header((const char*)&hdr, sizeof(hdr));
+    fblkarr->write_header((const char*)&hdr, sizeof(hdr));
 }
 
 void Repository::write_trailer() {
     struct repo_trailer_t eof = {.magic = {'E', 'O', 'F', 0}};
-    fblkarr.write_trailer((const char*)&eof, sizeof(eof));
+    fblkarr->write_trailer((const char*)&eof, sizeof(eof));
 }
 
 void Repository::init_new_repository(const struct default_parameters_t& defaults) {
-    fblkarr.fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
+    fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
 
     trampoline_segm = Segment::EmptySegment();
-    root_holder = DescriptorSetHolder::create(fblkarr, idmgr);
+    root_holder = DescriptorSetHolder::create(*fblkarr.get(), idmgr);
 
     // Ensure that the holder has a valid id.
     root_holder->id(idmgr.request_temporal_id());
@@ -358,12 +361,14 @@ void Repository::close() {
     write_header();
     write_trailer();
 
-    fblkarr.close();
+    fblkarr->close();
     closed = true;
 }
 
 void Repository::load_root_holder(struct repo_header_t& hdr) {
     IOSpan root_io(hdr.root, sizeof(hdr.root));
+
+    FileBlockArray& fblkarr_ref = *fblkarr.get();
 
     if (hdr.flags & 0x80) {
         // The root field in the xoz header contains 2 bytes for the trampoline's content
@@ -372,10 +377,10 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
         trampoline_segm = Segment::load_struct_from(root_io);
 
         // Read trampoline's content. We expect to find a set descriptor holder there.
-        auto trampoline_io = IOSegment(fblkarr, trampoline_segm);
+        auto trampoline_io = IOSegment(fblkarr_ref, trampoline_segm);
 
         // See if the holder is in the trampoline. Build a shared ptr to DescriptorSetHolder.
-        auto dsc = DescriptorSetHolder::load_struct_from(trampoline_io, idmgr, fblkarr);
+        auto dsc = DescriptorSetHolder::load_struct_from(trampoline_io, idmgr, fblkarr_ref);
         root_holder = Descriptor::cast<DescriptorSetHolder>(dsc);
 
         // Check that trampoline's content checksum is correct.
@@ -388,7 +393,7 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
         trampoline_segm = Segment::EmptySegment();
 
         // The root field has the descriptor set holder
-        auto dsc = DescriptorSetHolder::load_struct_from(root_io, idmgr, fblkarr);
+        auto dsc = DescriptorSetHolder::load_struct_from(root_io, idmgr, fblkarr_ref);
         root_holder = Descriptor::cast<DescriptorSetHolder>(dsc);
     }
 }
@@ -396,6 +401,8 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
 void Repository::write_root_holder(struct repo_header_t& hdr) {
     IOSpan root_io(hdr.root, sizeof(hdr.root));
     root_holder->update_header();
+
+    FileBlockArray& fblkarr_ref = *fblkarr.get();
 
     bool trampoline_required = root_holder->calc_struct_footprint_size() > sizeof(hdr.root);
 
@@ -406,7 +413,7 @@ void Repository::write_root_holder(struct repo_header_t& hdr) {
         update_trampoline_space();
 
         // Write the holder in the trampoline
-        auto trampoline_io = IOSegment(fblkarr, trampoline_segm);
+        auto trampoline_io = IOSegment(fblkarr_ref, trampoline_segm);
         root_holder->write_struct_into(trampoline_io);
 
         // Write in the xoz file header the checksum of the trampoline
@@ -418,7 +425,7 @@ void Repository::write_root_holder(struct repo_header_t& hdr) {
     } else {
         // No trampoline required, release/dealloc it if we have one
         if (trampoline_segm.length() != 0) {
-            fblkarr.allocator().dealloc(trampoline_segm);
+            fblkarr_ref.allocator().dealloc(trampoline_segm);
             trampoline_segm.clear();
         }
 
@@ -437,9 +444,9 @@ void Repository::update_trampoline_space() {
     const bool should_shrink = ((cur_sz >> 1) >= req_sz);
     if (should_expand or should_shrink) {
         if (trampoline_segm.length() == 0) {
-            trampoline_segm = fblkarr.allocator().alloc(req_sz);
+            trampoline_segm = fblkarr->allocator().alloc(req_sz);
         } else {
-            trampoline_segm = fblkarr.allocator().realloc(trampoline_segm, req_sz);
+            trampoline_segm = fblkarr->allocator().realloc(trampoline_segm, req_sz);
         }
     }
 

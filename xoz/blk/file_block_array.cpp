@@ -35,22 +35,6 @@ FileBlockArray::~FileBlockArray() {
     }
 }
 
-FileBlockArray::FileBlockArray(FileBlockArray&& fblkarr):
-        BlockArray((BlockArray &&) fblkarr),
-        fpath(fblkarr.fpath),
-        disk_fp(std::move(fblkarr.disk_fp)),
-        mem_fp(std::move(fblkarr.mem_fp)),
-        fp(fblkarr.is_mem_based() ? *(std::iostream*)(&mem_fp) : *(std::iostream*)(&disk_fp)),
-        closed(fblkarr.closed),
-        closing(fblkarr.closing),
-        trailer(std::move(fblkarr.trailer)) {
-
-
-    // Mark as closed the othe file block array. From here we are the owner of the
-    // disk/mem file and we decide when it is closed or not.
-    fblkarr.closed = true;
-}
-
 std::tuple<uint32_t, uint16_t> FileBlockArray::impl_grow_by_blocks(uint16_t blk_cnt) {
     // BlockArray::grow_by_blocks should had checked for overflow on past_end_blk_nr() + blk_cnt.
     // If not overflow happen, shifting by blk_sz_order() assuming 64 bits should not
@@ -317,16 +301,18 @@ void FileBlockArray::_extend_file_with_zeros(std::iostream& fp, uint64_t sz) {
     }
 }
 
-FileBlockArray FileBlockArray::create(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr, bool fail_if_exists) {
+std::unique_ptr<FileBlockArray> FileBlockArray::create(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr,
+                                                       bool fail_if_exists) {
     return create_internal(fpath, blk_sz, begin_blk_nr, nullptr, fail_if_exists);
 }
 
-FileBlockArray FileBlockArray::create(const char* fpath, preload_fn fn, bool fail_if_exists) {
+std::unique_ptr<FileBlockArray> FileBlockArray::create(const char* fpath, preload_fn fn, bool fail_if_exists) {
     return create_internal(fpath, 0, 0, fn, fail_if_exists);
 }
 
-FileBlockArray FileBlockArray::create_internal(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr, preload_fn fn,
-                                               bool fail_if_exists) {
+std::unique_ptr<FileBlockArray> FileBlockArray::create_internal(const char* fpath, uint32_t blk_sz,
+                                                                uint32_t begin_blk_nr, preload_fn fn,
+                                                                bool fail_if_exists) {
     std::fstream test(fpath, std::fstream::in | std::fstream::binary);
     if (test) {
         // File already exists: ...
@@ -339,9 +325,9 @@ FileBlockArray FileBlockArray::create_internal(const char* fpath, uint32_t blk_s
             // ... ok, try to open (the constructor will fail
             // if it cannot open it)
             if (fn) {
-                return FileBlockArray(fpath, fn);
+                return std::make_unique<FileBlockArray>(fpath, fn);
             } else {
-                return FileBlockArray(fpath, blk_sz, begin_blk_nr);
+                return std::make_unique<FileBlockArray>(fpath, blk_sz, begin_blk_nr);
             }
         }
     } else {
@@ -357,22 +343,22 @@ FileBlockArray FileBlockArray::create_internal(const char* fpath, uint32_t blk_s
             fail_if_bad_blk_nr(cfg.begin_blk_nr);
 
             _create_initial_block_array_in_disk(fpath, cfg.blk_sz, cfg.begin_blk_nr);
-            return FileBlockArray(fpath, cfg.blk_sz, cfg.begin_blk_nr);
+            return std::make_unique<FileBlockArray>(fpath, cfg.blk_sz, cfg.begin_blk_nr);
         } else {
             fail_if_bad_blk_sz(blk_sz);
             fail_if_bad_blk_nr(begin_blk_nr);
             _create_initial_block_array_in_disk(fpath, blk_sz, begin_blk_nr);
-            return FileBlockArray(fpath, blk_sz, begin_blk_nr);
+            return std::make_unique<FileBlockArray>(fpath, blk_sz, begin_blk_nr);
         }
     }
 }
 
-FileBlockArray FileBlockArray::create_mem_based(uint32_t blk_sz, uint32_t begin_blk_nr) {
+std::unique_ptr<FileBlockArray> FileBlockArray::create_mem_based(uint32_t blk_sz, uint32_t begin_blk_nr) {
     std::stringstream fp;
     _extend_file_with_zeros(fp, begin_blk_nr * blk_sz);
     fp.seekp(0);
     fp.seekg(0);
-    return FileBlockArray(std::move(fp), blk_sz, begin_blk_nr);
+    return std::make_unique<FileBlockArray>(std::move(fp), blk_sz, begin_blk_nr);
 }
 
 void FileBlockArray::close() {

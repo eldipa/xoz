@@ -24,7 +24,8 @@ namespace {
     TEST(RWExtentFullAllocTest, OneBlock) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
                 ""
@@ -71,7 +72,8 @@ namespace {
     TEST(RWExtentFullAllocTest, OneBlockTwice) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -118,7 +120,8 @@ namespace {
     TEST(RWExtentFullAllocTest, OneBlockCompletely) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -169,7 +172,8 @@ namespace {
     TEST(RWExtentFullAllocTest, TwoBlocks) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(2);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -211,7 +215,8 @@ namespace {
 
         const auto max_blk_cnt = (1 << 16) - 1;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(max_blk_cnt);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -246,7 +251,8 @@ namespace {
     TEST(RWExtentFullAllocTest, ZeroBlocks) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -308,7 +314,8 @@ namespace {
     TEST(RWExtentFullAllocTest, ExtentOutOfBoundsSoFail) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -472,7 +479,8 @@ namespace {
     TEST(RWExtentFullAllocTest, OneBlockButWriteLessBytes) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -508,7 +516,8 @@ namespace {
     TEST(RWExtentFullAllocTest, OneBlockButWriteAtOffset) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -555,7 +564,8 @@ namespace {
     TEST(RWExtentFullAllocTest, OneBlockBoundary) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         // Alloc 2 blocks but we will create an extent of 1.
         // The idea is to have room *after* the extent to detect

@@ -25,7 +25,8 @@ using ::testing_xoz::helpers::subvec;
 namespace {
     TEST(IOSegmentTest, OneBlock) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -72,7 +73,8 @@ namespace {
 
     TEST(IOSegmentTest, OneBlockCompletely) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -132,7 +134,8 @@ namespace {
 
     TEST(IOSegmentTest, MultiExtentSegment) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(4);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -232,7 +235,8 @@ namespace {
 
     TEST(IOSegmentTest, MultiExtentSegmentMultiReadWrite) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(4);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -362,7 +366,8 @@ namespace {
 
     TEST(IOSegmentTest, RWBeyondBoundary) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -426,7 +431,8 @@ namespace {
 
     TEST(IOSegmentTest, Seek) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -569,7 +575,8 @@ namespace {
 
     TEST(IOSegmentTest, RWExactFail) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -635,7 +642,8 @@ namespace {
 
     TEST(IOSegmentTest, Fill) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);

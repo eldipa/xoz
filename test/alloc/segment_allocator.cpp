@@ -29,7 +29,8 @@ using ::testing_xoz::helpers::ensure_called_once;
 namespace {
     TEST(SegmentAllocatorTest, IterateOverEmptyFreeMap) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -46,7 +47,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, NoAllocs) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -75,7 +77,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocOneByte) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -118,7 +121,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocOneSubBlk) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -170,7 +174,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocTwoSubBlks) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -222,7 +227,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, IterateOverSingleElementFreeMap) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -267,7 +273,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocAlmostFullSingleBlk) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -322,7 +329,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocFullSingleBlk) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -376,7 +384,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocFullSingleBlkPlusOneByte) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -426,7 +435,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocFullSingleBlkPlusOneSubBlk) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -485,7 +495,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocMultiBlkAndSubBlkButFitInTwoExtents) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -541,7 +552,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocFullSingleExtent) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -588,7 +600,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocFullSingleExtentPlusOneByte) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -635,7 +648,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocFullSingleExtentPlusOneSubBlk) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -691,7 +705,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocFullSingleExtentPlusOneBlk) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -742,7 +757,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocFullSingleExtentPlusOneBlkOneSubBlkPlusOneByte) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -810,7 +826,8 @@ namespace {
             .single_extent = false
         };
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -869,7 +886,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, DeallocNoneAsAllItsInlined) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -933,7 +951,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, DellocAndReleaseSomeBlksThenAllWithCoalescing) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -1105,7 +1124,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, DellocAndReleaseSomeBlksThenAllWithoutCoalescing) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(false);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -1272,7 +1292,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, DellocSomeSubBlksThenAll) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -1435,7 +1456,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, DellocSomeBlksThenAllWithCoalescing) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -1615,7 +1637,8 @@ namespace {
 
         const uint8_t MaxInlineSize = req.max_inline_sz;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(128, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(128, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -1709,7 +1732,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocAndDeallocZeroBytes) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -1810,7 +1834,8 @@ namespace {
             .single_extent = false
         };
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -1901,7 +1926,8 @@ namespace {
             .single_extent = false
         };
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(false);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -1980,7 +2006,8 @@ namespace {
             .single_extent = false
         };
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -2108,7 +2135,8 @@ namespace {
             .single_extent = false
         };
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -2232,7 +2260,8 @@ namespace {
         };
         */
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -2375,7 +2404,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsOfMultipleExtentsOfMultipleBlocks) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -2472,7 +2502,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsWithLargeGaps) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -2570,7 +2601,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsWithLargeGapsAtEnd) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -2688,7 +2720,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsOfMultipleExtentsOfMultipleBlocksAndSubblocks) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -2824,7 +2857,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, InitializeAllocatorWithErrors) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -3028,7 +3062,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, AllocSingleExtent) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc;
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
@@ -3108,7 +3143,8 @@ namespace {
 
     TEST(SegmentAllocatorTest, BlockUnblock) {
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         SegmentAllocator sg_alloc(true);
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());

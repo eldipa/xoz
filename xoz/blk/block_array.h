@@ -113,13 +113,9 @@ protected:
                const struct SegmentAllocator::req_t& default_req = SegmentAllocator::XOZDefaultReq);
 
     /*
-     * Move constructor (for subclasses only).
+     * Move constructor/assignation and copy constructor/assignation is not allowed
      * */
-    BlockArray(BlockArray&& blkarr) = default;
-
-    /*
-     * Move assignation and copy constructor/assignation is not allowed
-     * */
+    BlockArray(BlockArray&& blkarr) = delete;
     BlockArray& operator=(BlockArray&& blkarr) = delete;
     BlockArray(const BlockArray& blkarr) = delete;
     BlockArray& operator=(const BlockArray& blkarr) = delete;

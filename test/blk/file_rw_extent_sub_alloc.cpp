@@ -24,7 +24,8 @@ namespace {
     TEST(RWExtentSubAllocTest, OneSubBlock) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -62,7 +63,8 @@ namespace {
     TEST(RWExtentSubAllocTest, TwoSubBlocks) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -100,7 +102,8 @@ namespace {
     TEST(RWExtentSubAllocTest, TwoSubBlocksTwice) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -155,7 +158,8 @@ namespace {
     TEST(RWExtentSubAllocTest, AllSubBlocks) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -207,7 +211,8 @@ namespace {
     TEST(RWExtentSubAllocTest, ZeroSubBlock) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -265,7 +270,8 @@ namespace {
     TEST(RWExtentSubAllocTest, ExtentOutOfBoundsSoFail) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -385,7 +391,8 @@ namespace {
     TEST(RWExtentSubAllocTest, OneSubBlockButWriteLessBytes) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -420,7 +427,8 @@ namespace {
     TEST(RWExtentSubAllocTest, ThreeSubBlockButWriteAtOffset) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
@@ -468,7 +476,8 @@ namespace {
     TEST(RWExtentSubAllocTest, TwoSubBlockBoundary) {
        const uint32_t blk_sz = 64;
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(blk_sz);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
 
         // Alloc 2 blocks but we will create an extent of 1.
         // The idea is to have room *after* the extent to detect

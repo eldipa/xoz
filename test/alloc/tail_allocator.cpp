@@ -23,7 +23,8 @@ using ::testing_xoz::helpers::subvec;
 
 namespace {
     TEST(TailAllocatorTest, AllocAndGrow) {
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         TailAllocator alloc;
         alloc.manage_block_array(blkarr);
 
@@ -78,7 +79,8 @@ namespace {
         std::vector<char> wrbuf(64);
         std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         TailAllocator alloc;
         alloc.manage_block_array(blkarr);
 
@@ -185,7 +187,8 @@ namespace {
         std::vector<char> wrbuf(64);
         std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..64
 
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         TailAllocator alloc;
         alloc.manage_block_array(blkarr);
 
@@ -253,7 +256,8 @@ namespace {
 
     TEST(TailAllocatorTest, OOBDealloc) {
         {
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         TailAllocator alloc;
         alloc.manage_block_array(blkarr);
 
@@ -306,7 +310,8 @@ namespace {
         }
 
         {
-            FileBlockArray blkarr = FileBlockArray::create_mem_based(64, 1);
+            auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+            FileBlockArray& blkarr = *blkarr_ptr.get();
             TailAllocator alloc;
             alloc.manage_block_array(blkarr);
 
@@ -331,7 +336,8 @@ namespace {
     }
 
     TEST(TailAllocatorTest, InvalidAllocOfZeroBlocks) {
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         TailAllocator alloc;
         alloc.manage_block_array(blkarr);
 
@@ -346,7 +352,8 @@ namespace {
     }
 
     TEST(TailAllocatorTest, InvalidDeallocOfZeroBlocks) {
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         TailAllocator alloc;
         alloc.manage_block_array(blkarr);
 
@@ -361,7 +368,8 @@ namespace {
     }
 
     TEST(TailAllocatorTest, InvalidDeallocOfSuballocatedBlock) {
-        FileBlockArray blkarr = FileBlockArray::create_mem_based(64);
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
         TailAllocator alloc;
         alloc.manage_block_array(blkarr);
 

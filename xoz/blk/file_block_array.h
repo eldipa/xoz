@@ -4,6 +4,7 @@
 #include <fstream>
 #include <functional>
 #include <ios>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -82,16 +83,16 @@ public:
      * be open/created, it is good. If the preload function is used, it may perform
      * a simplified initial check and abort the opening by raising an exception.
      * */
-    static FileBlockArray create(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr = 0,
-                                 bool fail_if_exists = false);
+    static std::unique_ptr<FileBlockArray> create(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr = 0,
+                                                  bool fail_if_exists = false);
 
-    static FileBlockArray create(const char* fpath, preload_fn fn, bool fail_if_exists = false);
+    static std::unique_ptr<FileBlockArray> create(const char* fpath, preload_fn fn, bool fail_if_exists = false);
     /*
      * Like FileBlockArray::create but make the file be memory based.
      * In this case there is no possible to "open" a preexisting file so this
      * is truly a create-only method.
      * */
-    static FileBlockArray create_mem_based(uint32_t blk_sz, uint32_t begin_blk_nr = 0);
+    static std::unique_ptr<FileBlockArray> create_mem_based(uint32_t blk_sz, uint32_t begin_blk_nr = 0);
 
     /*
      * Release any block, shrink the file and close it.
@@ -113,12 +114,9 @@ public:
     bool is_closed() const;
 
     /*
-     * Construction by movement is allowed.
-     *
-     * Assignation by movement or construction/assignation by copy is not allowed.
+     * Construction/assignation by movement/by copy are not allowed.
      * */
-    FileBlockArray(FileBlockArray&&);
-
+    FileBlockArray(FileBlockArray&&) = delete;
     FileBlockArray(const FileBlockArray&) = delete;
     FileBlockArray& operator=(const FileBlockArray&) = delete;
     FileBlockArray& operator=(FileBlockArray&&) = delete;
@@ -301,8 +299,8 @@ private:
     /*
      * See the documentation of create()
      * */
-    static FileBlockArray create_internal(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr, preload_fn fn,
-                                          bool fail_if_exists);
+    static std::unique_ptr<FileBlockArray> create_internal(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr,
+                                                           preload_fn fn, bool fail_if_exists);
 
     /*
      * Create an "empty" block array if the does not exist; truncate the file if it does.

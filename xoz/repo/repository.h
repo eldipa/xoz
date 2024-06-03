@@ -39,7 +39,7 @@ public:
 private:
     std::string fpath;
 
-    FileBlockArray fblkarr;
+    std::unique_ptr<FileBlockArray> fblkarr;
 
     bool closed;
 
@@ -110,7 +110,7 @@ public:
     /*
      * This is only for testing. Don't use it.
      * */
-    BlockArray& /* internal - for testing */ expose_block_array() { return fblkarr; }
+    BlockArray& /* internal - for testing */ expose_block_array() { return *fblkarr.get(); }
 
 private:
     /*
@@ -119,7 +119,8 @@ private:
      * into to initialize it as a Repository with the given defaults if is_a_new_repository
      * is true.
      * */
-    Repository(FileBlockArray&& fblkarr, const struct default_parameters_t& defaults, bool is_a_new_repository);
+    Repository(std::unique_ptr<FileBlockArray>&& fblkarr_ptr, const struct default_parameters_t& defaults,
+               bool is_a_new_repository);
 
     /*
      * Initialize a repository: its block array, its allocator, any index and check for errors or inconsistencies.

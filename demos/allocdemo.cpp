@@ -172,7 +172,8 @@ int main(int argc, char* argv[]) {
                                          .allow_suballoc = allow_suballoc,
                                          .single_extent = false};
 
-    FileBlockArray fblkarr = FileBlockArray::create_mem_based(blk_sz);
+    auto fblkarr_ptr = FileBlockArray::create_mem_based(blk_sz);
+    FileBlockArray& fblkarr = *fblkarr_ptr.get();
     SegmentAllocator sg_alloc(coalescing_enabled, split_above_threshold);
     sg_alloc.manage_block_array(fblkarr);
 
