@@ -42,6 +42,14 @@ void TailAllocator::release() {
     blkarr->release_blocks();
 }
 
+void TailAllocator::reset() {
+    fail_if_block_array_not_initialized();
+    if (blkarr->blk_cnt()) {
+        blkarr->shrink_by_blocks(blkarr->blk_cnt());
+    }
+    release();
+}
+
 bool TailAllocator::is_at_the_end(const Extent& ext) const {
     fail_if_block_array_not_initialized();
     fail_if_suballoc_or_zero_cnt(ext);

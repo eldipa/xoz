@@ -28,7 +28,20 @@ public:
 
     bool dealloc(const uint32_t blk_nr, const uint16_t blk_cnt);
 
+    /*
+     * Free any pending-to-free in the allocator and in the block
+     * array.
+     * */
     void release();
+
+    /*
+     * Dealloc all the currently allocated space, shrinking to zero
+     * the block array managed by this allocator.
+     * This method implies calling release() so any pending-to-free
+     * block (either in the allocator or in the block array) will be
+     * freed
+     * */
+    void reset();
 
     bool is_at_the_end(const Extent& ext) const;
 };

@@ -22,6 +22,48 @@ using ::testing_xoz::helpers::subvec;
 } while (0)
 
 namespace {
+    TEST(TailAllocatorTest, ResetAnEmptyAllocator) {
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+        TailAllocator alloc;
+        alloc.manage_block_array(blkarr);
+
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)0);
+
+        alloc.reset();
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)0);
+    }
+
+    TEST(TailAllocatorTest, ReleaseAnEmptyAllocator) {
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+        TailAllocator alloc;
+        alloc.manage_block_array(blkarr);
+
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)0);
+
+        alloc.release();
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)0);
+    }
+
     TEST(TailAllocatorTest, AllocAndGrow) {
         auto blkarr_ptr = FileBlockArray::create_mem_based(64);
         FileBlockArray& blkarr = *blkarr_ptr.get();
@@ -71,6 +113,19 @@ namespace {
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)5);
         EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)5);
+
+        // A reset() dealloc all the extents and it implies a call to release()
+        // so the blkarr should free any pending-to-free blocks
+        // We expect then an empty block array at the end.
+        alloc.reset();
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                ""
+                );
+
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)0);
     }
 
     TEST(TailAllocatorTest, DeallocAndShrink) {
