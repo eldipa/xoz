@@ -3368,5 +3368,109 @@ namespace {
         // No problem
         segm = sg_alloc.alloc(1);
     }
+
+    TEST(SegmentAllocatorTest, InitializeAllocatorSegmentsOfMultipleExtentsOfMultipleBlocksThenReset) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+        SegmentAllocator sg_alloc(true);
+        sg_alloc.manage_block_array(blkarr);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
+
+        // Alloc 15 blocks
+        auto main_segm = sg_alloc.alloc(blkarr.blk_sz() * 15);
+        auto main_ext = main_segm.exts().back();
+
+        // Hand-craft segments using those 15 blocks
+        // Note that there are unused blocks at the begin and at the end
+        std::list<Segment> allocated;
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 9, 2, false));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 3, false));
+
+        allocated.push_back(Segment());
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 1, false));
+        allocated.back().add_extent(Extent(main_ext.blk_nr() + 7, 2, false));
+
+
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)15);
+
+
+        SegmentAllocator sg_alloc1(true);
+        sg_alloc1.manage_block_array(blkarr);
+        sg_alloc1.initialize_from_allocated(allocated);
+
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)16);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)15);
+
+        auto stats1 = sg_alloc1.stats();
+
+        EXPECT_EQ(stats1.current.in_use_by_user_sz, uint64_t(blkarr.blk_sz() * (2+3+1+2)));
+        EXPECT_EQ(stats1.current.in_use_blk_cnt, uint64_t(2+3+1+2));
+        EXPECT_EQ(stats1.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.current.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats1.current.in_use_ext_cnt, uint64_t(2+2));
+        EXPECT_EQ(stats1.current.in_use_inlined_sz, uint64_t(0));
+
+        // Alloc/Dealloc call count cannot be deduced reliable cross
+        // multiple segment allocators. The safest thing is to set them to 0
+        EXPECT_EQ(stats1.current.alloc_call_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.current.dealloc_call_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats1.current.external_frag_sz, uint64_t(blkarr.blk_sz() * (15 - (2+3+1+2))));
+        EXPECT_EQ(stats1.current.internal_frag_avg_sz, uint64_t((blkarr.blk_sz() >> 1) * (1+1)));
+        EXPECT_EQ(stats1.current.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats1.current.in_use_ext_per_segm, ElementsAre(0,0,2,0,0,0,0,0));
+
+        XOZ_EXPECT_ALL_ZERO_STATS(stats1.before_reset);
+        EXPECT_EQ(stats1.reset_cnt, uint64_t(0));
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, ElementsAre(
+                    Extent(1, 1, false),
+                    Extent(5, 2, false),
+                    Extent(12, 4, false)
+                    ));
+
+        // Reset, dealloc everything and reset the stats. This should also release()
+        // any pending-to-free block in the allocator and in the underlying blk array
+        sg_alloc1.reset();
+
+        EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)0);
+
+        XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc1, IsEmpty());
+
+        // Current stats were zero'd
+        auto stats2 = sg_alloc1.stats();
+
+        XOZ_EXPECT_ALL_ZERO_STATS(stats2.current);
+        EXPECT_EQ(stats2.reset_cnt, uint64_t(1));
+
+        // But the stats "before reset" were preserved
+        EXPECT_EQ(stats2.before_reset.in_use_by_user_sz, uint64_t(blkarr.blk_sz() * (2+3+1+2)));
+        EXPECT_EQ(stats2.before_reset.in_use_blk_cnt, uint64_t(2+3+1+2));
+        EXPECT_EQ(stats2.before_reset.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats2.before_reset.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats2.before_reset.in_use_ext_cnt, uint64_t(2+2));
+        EXPECT_EQ(stats2.before_reset.in_use_inlined_sz, uint64_t(0));
+
+        // Alloc/Dealloc call count cannot be deduced reliable cross
+        // multiple segment allocators. The safest thing is to set them to 0
+        EXPECT_EQ(stats2.before_reset.alloc_call_cnt, uint64_t(0));
+        EXPECT_EQ(stats2.before_reset.dealloc_call_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats2.before_reset.external_frag_sz, uint64_t(blkarr.blk_sz() * (15 - (2+3+1+2))));
+        EXPECT_EQ(stats2.before_reset.internal_frag_avg_sz, uint64_t((blkarr.blk_sz() >> 1) * (1+1)));
+        EXPECT_EQ(stats2.before_reset.allocable_internal_frag_sz, uint64_t(0));
+
+        EXPECT_THAT(stats2.before_reset.in_use_ext_per_segm, ElementsAre(0,0,2,0,0,0,0,0));
+    }
 }
 
