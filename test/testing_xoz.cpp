@@ -41,21 +41,22 @@ std::string testing_xoz::helpers::hexdump(const std::stringstream& fp, unsigned 
     return out.str();
 }
 
-bool testing_xoz::helpers::are_all_zeros(const std::vector<char>& buf, unsigned at, unsigned len) {
-    std::stringstream fp;
-    fp.write(buf.data(), buf.size());
 
-    return are_all_zeros(fp, at, len);
+bool testing_xoz::helpers::are_all_zeros(const std::vector<char>& buf, unsigned at, unsigned len) {
+    return are_all_zeros(buf.data(), unsigned(buf.size()), at, len);
 }
 
 bool testing_xoz::helpers::are_all_zeros(const std::stringstream& fp, unsigned at, unsigned len) {
+    return are_all_zeros(fp.str().c_str(), unsigned(fp.str().size()), at, len);
+}
+
+bool testing_xoz::helpers::are_all_zeros(const char* buf, unsigned buf_sz, unsigned at, unsigned len) {
     if (at + len < at) {
         len = unsigned(-1) - at;
     }
 
-    std::string bytes = fp.str();
-    for (unsigned i = at; i < bytes.size() and i < at + len; ++i) {
-        if (bytes[i] != 0) {
+    for (unsigned i = at; i < buf_sz and i < at + len; ++i) {
+        if (buf[i] != 0) {
             return false;
         }
     }
