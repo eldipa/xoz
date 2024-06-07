@@ -453,19 +453,18 @@ void DescriptorSet::remove_set() {
     }
     to_destroy.clear();
 
+    // Reset the allocator, deallocating and releasing all the space.
+    // It is expected to have an empty st_blkarr after the call.
+    // (calling reset() is much faster than calling dealloc_single_extent()
+    // on each descriptor's extent)
+    st_blkarr.allocator().reset();
+    assert(st_blkarr.blk_cnt() == 0);
+    assert(st_blkarr.capacity() == 0);
+
     // We don't want to write to disk that these extents are freed
     // because the whole set will not exist anymore.
     // So we drop these
     to_remove.clear();
-
-    // Remove any space associated with the set, even its header
-    // (if any: because we defer the write of the header on a new/fresh set,
-    // it may be possible to remove a set that didn't write anything, not
-    // even its header, hence, we need to avoid doing a shrink_by_blocks
-    // of 0 blocks)
-    if (st_blkarr.blk_cnt()) {
-        st_blkarr.shrink_by_blocks(st_blkarr.blk_cnt());
-    }
 
     // The set now is officially "unloaded". The caller will have
     // to call create_set()/load_set() again.
