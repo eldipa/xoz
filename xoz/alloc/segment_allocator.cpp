@@ -44,8 +44,10 @@ SegmentAllocator::SegmentAllocator(bool coalescing_enabled, uint16_t split_above
         dealloc_call_cnt(0),
         internal_frag_avg_sz(0),
         default_req(default_req),
-        ops_blocked_stack_cnt(0) {
+        ops_blocked_stack_cnt(0),
+        reset_cnt(0) {
     memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
+    memset(&stats_before_reset, 0, sizeof(stats_before_reset));
 }
 
 void SegmentAllocator::manage_block_array(BlockArray& blkarr) {
@@ -536,6 +538,36 @@ void SegmentAllocator::_initialize_from_allocated(std::list<Extent>& allocated) 
     alloc_initialized = true;
 }
 
+void SegmentAllocator::reset() {
+    fail_if_block_array_not_initialized();
+    fail_if_allocator_not_initialized();
+    fail_if_allocator_is_blocked();
+
+    // take a snapshot of the current stats before doing the reset
+    auto st = stats();
+    memcpy(&stats_before_reset, &st.current, sizeof(stats_before_reset));
+
+    fr_map.reset();
+    subfr_map.reset();
+
+    // this reset() call implies a call to tail.release() too
+    // and eventually to blkarr.release_blocks()
+    tail.reset();
+
+    in_use_by_user_sz = 0;
+    in_use_blk_cnt = 0;
+    in_use_blk_for_suballoc_cnt = 0;
+    in_use_subblk_cnt = 0;
+    in_use_ext_cnt = 0;
+    in_use_inlined_sz = 0;
+    alloc_call_cnt = 0;
+    dealloc_call_cnt = 0;
+    internal_frag_avg_sz = 0;
+    memset(in_use_ext_per_segm, 0, sizeof(in_use_ext_per_segm));
+
+    ++reset_cnt;
+}
+
 void SegmentAllocator::release() {
     fail_if_block_array_not_initialized();
     fail_if_allocator_not_initialized();
@@ -572,37 +604,42 @@ SegmentAllocator::stats_t SegmentAllocator::stats() const {
 
     double in_use_by_user_sz_kb = double(in_use_by_user_sz) / double(1024.0);
 
-    struct stats_t st = {.in_use_by_user_sz = in_use_by_user_sz,
-                         .in_use_by_user_sz_kb = in_use_by_user_sz_kb,
+    struct i_stats_t cur = {.in_use_by_user_sz = in_use_by_user_sz,
+                            .in_use_by_user_sz_kb = in_use_by_user_sz_kb,
 
-                         .in_use_blk_cnt = in_use_blk_cnt,
-                         .in_use_blk_for_suballoc_cnt = in_use_blk_for_suballoc_cnt,
-                         .in_use_subblk_cnt = in_use_subblk_cnt,
+                            .in_use_blk_cnt = in_use_blk_cnt,
+                            .in_use_blk_for_suballoc_cnt = in_use_blk_for_suballoc_cnt,
+                            .in_use_subblk_cnt = in_use_subblk_cnt,
 
-                         .in_use_ext_cnt = in_use_ext_cnt,
-                         .in_use_segment_cnt = in_use_segment_cnt,
-                         .in_use_inlined_sz = in_use_inlined_sz,
+                            .in_use_ext_cnt = in_use_ext_cnt,
+                            .in_use_segment_cnt = in_use_segment_cnt,
+                            .in_use_inlined_sz = in_use_inlined_sz,
 
-                         .alloc_call_cnt = alloc_call_cnt,
-                         .dealloc_call_cnt = dealloc_call_cnt,
+                            .alloc_call_cnt = alloc_call_cnt,
+                            .dealloc_call_cnt = dealloc_call_cnt,
 
-                         .external_frag_sz = external_frag_sz,
-                         .external_frag_sz_kb = external_frag_sz_kb,
-                         .external_frag_rel = external_frag_rel,
-                         .internal_frag_avg_sz = internal_frag_avg_sz,
-                         .internal_frag_avg_sz_kb = internal_frag_avg_sz_kb,
-                         .internal_frag_avg_rel = internal_frag_avg_rel,
+                            .external_frag_sz = external_frag_sz,
+                            .external_frag_sz_kb = external_frag_sz_kb,
+                            .external_frag_rel = external_frag_rel,
+                            .internal_frag_avg_sz = internal_frag_avg_sz,
+                            .internal_frag_avg_sz_kb = internal_frag_avg_sz_kb,
+                            .internal_frag_avg_rel = internal_frag_avg_rel,
 
-                         .allocable_internal_frag_sz = allocable_internal_frag_sz,
-                         .allocable_internal_frag_sz_kb = allocable_internal_frag_sz_kb,
-                         .allocable_internal_frag_rel = allocable_internal_frag_rel,
+                            .allocable_internal_frag_sz = allocable_internal_frag_sz,
+                            .allocable_internal_frag_sz_kb = allocable_internal_frag_sz_kb,
+                            .allocable_internal_frag_rel = allocable_internal_frag_rel,
 
-                         .in_use_ext_per_segm = {0},
-                         .suballoc_bin_cnts = {0}};
+                            .in_use_ext_per_segm = {0},
+                            .suballoc_bin_cnts = {0}};
 
-    memcpy(st.in_use_ext_per_segm, in_use_ext_per_segm, sizeof(st.in_use_ext_per_segm));
+    memcpy(cur.in_use_ext_per_segm, in_use_ext_per_segm, sizeof(cur.in_use_ext_per_segm));
 
-    subfr_map.fill_bin_stats(st.suballoc_bin_cnts, sizeof(st.suballoc_bin_cnts) / sizeof(st.suballoc_bin_cnts[0]));
+    subfr_map.fill_bin_stats(cur.suballoc_bin_cnts, sizeof(cur.suballoc_bin_cnts) / sizeof(cur.suballoc_bin_cnts[0]));
+
+    struct stats_t st;
+    memcpy(&st.current, &cur, sizeof(st.current));
+    memcpy(&st.before_reset, &stats_before_reset, sizeof(st.before_reset));
+    st.reset_cnt = reset_cnt;
 
     return st;
 }
@@ -797,19 +834,22 @@ void SegmentAllocator::calc_ext_per_segm_stats(const Segment& segm, bool is_allo
 
 void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
     struct SegmentAllocator::stats_t st = alloc.stats();
+    const struct SegmentAllocator::i_stats_t& cur = st.current;
+
     std::ios_base::fmtflags ioflags = out->flags();
 
-    (*out) << "Calls to alloc:    " << std::setfill(' ') << std::setw(12) << st.alloc_call_cnt << "\n"
-           << "Calls to dealloc:  " << std::setfill(' ') << std::setw(12) << st.dealloc_call_cnt << "\n"
+    (*out) << "Calls to alloc:    " << std::setfill(' ') << std::setw(12) << cur.alloc_call_cnt << "\n"
+           << "Calls to dealloc:  " << std::setfill(' ') << std::setw(12) << cur.dealloc_call_cnt << "\n"
+           << "Calls to reset:    " << std::setfill(' ') << std::setw(12) << st.reset_cnt << "\n"
            << "\n"
 
-           << "Available to user: " << std::setfill(' ') << std::setw(12) << st.in_use_by_user_sz_kb << " kb\n"
+           << "Available to user: " << std::setfill(' ') << std::setw(12) << cur.in_use_by_user_sz_kb << " kb\n"
            << "\n"
 
-           << "Blocks in use:     " << std::setfill(' ') << std::setw(12) << st.in_use_blk_cnt << " blocks\n"
-           << "- for suballoc:    " << std::setfill(' ') << std::setw(12) << st.in_use_blk_for_suballoc_cnt
+           << "Blocks in use:     " << std::setfill(' ') << std::setw(12) << cur.in_use_blk_cnt << " blocks\n"
+           << "- for suballoc:    " << std::setfill(' ') << std::setw(12) << cur.in_use_blk_for_suballoc_cnt
            << " blocks\n"
-           << "Subblocks in use:  " << std::setfill(' ') << std::setw(12) << st.in_use_subblk_cnt << " subblocks\n"
+           << "Subblocks in use:  " << std::setfill(' ') << std::setw(12) << cur.in_use_subblk_cnt << " subblocks\n"
            << "\n"
            << "Blocks for suballocation:\n";
 
@@ -817,44 +857,44 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
     assert(Extent::SUBBLK_CNT_PER_BLK == 16);
     for (unsigned i = 0; i < Extent::SUBBLK_CNT_PER_BLK / 2; ++i) {
         (*out) << "- with " << std::setfill(' ') << std::setw(2) << i + 1 << " subblks free: " << std::setfill(' ')
-               << std::setw(12) << st.suballoc_bin_cnts[i] << " blocks"
+               << std::setw(12) << cur.suballoc_bin_cnts[i] << " blocks"
                << "       "
                << "- with " << std::setfill(' ') << std::setw(2) << i + 9 << " subblks free: " << std::setfill(' ')
-               << std::setw(12) << st.suballoc_bin_cnts[i + 8] << " blocks"
+               << std::setw(12) << cur.suballoc_bin_cnts[i + 8] << " blocks"
                << "\n";
     }
 
     (*out) << "\n"
            << "External fragmentation:       " << std::setfill(' ') << std::setw(12) << std::setprecision(2)
-           << st.external_frag_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
-           << std::setprecision(2) << (st.external_frag_rel * 100) << "%)\n"
+           << cur.external_frag_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
+           << std::setprecision(2) << (cur.external_frag_rel * 100) << "%)\n"
 
            << "Internal fragmentation (avg): " << std::setfill(' ') << std::setw(12) << std::setprecision(2)
-           << st.internal_frag_avg_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
-           << std::setprecision(2) << (st.internal_frag_avg_rel * 100) << "%)\n"
+           << cur.internal_frag_avg_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
+           << std::setprecision(2) << (cur.internal_frag_avg_rel * 100) << "%)\n"
 
            << "Allocable fragmentation:      " << std::setfill(' ') << std::setw(12) << std::setprecision(2)
-           << st.allocable_internal_frag_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
-           << std::setprecision(2) << (st.allocable_internal_frag_rel * 100) << "%)\n"
+           << cur.allocable_internal_frag_sz_kb << " kb (" << std::setfill(' ') << std::setw(5) << std::fixed
+           << std::setprecision(2) << (cur.allocable_internal_frag_rel * 100) << "%)\n"
            << "\n"
 
-           << "Data inlined:      " << std::setfill(' ') << std::setw(12) << st.in_use_inlined_sz << " bytes\n"
+           << "Data inlined:      " << std::setfill(' ') << std::setw(12) << cur.in_use_inlined_sz << " bytes\n"
            << "\n"
 
-           << "Extent in use:     " << std::setfill(' ') << std::setw(12) << st.in_use_ext_cnt << " extents\n"
-           << "Segment in use:    " << std::setfill(' ') << std::setw(12) << st.in_use_segment_cnt << " segments\n"
+           << "Extent in use:     " << std::setfill(' ') << std::setw(12) << cur.in_use_ext_cnt << " extents\n"
+           << "Segment in use:    " << std::setfill(' ') << std::setw(12) << cur.in_use_segment_cnt << " segments\n"
            << "\n"
 
            << "Data fragmentation: \n"
 
-           << "- only 0 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[0] << " segments\n"
-           << "- only 1 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[1] << " segments\n"
-           << "- only 2 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[2] << " segments\n"
-           << "- only 3 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[3] << " segments\n"
-           << "- only 4 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[4] << " segments\n"
-           << "- 5 to 8 extents:  " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[5] << " segments\n"
-           << "- 9 to 16 extents: " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[6] << " segments\n"
-           << "- 17 to * extents: " << std::setfill(' ') << std::setw(12) << st.in_use_ext_per_segm[7] << " segments\n"
+           << "- only 0 extents:  " << std::setfill(' ') << std::setw(12) << cur.in_use_ext_per_segm[0] << " segments\n"
+           << "- only 1 extents:  " << std::setfill(' ') << std::setw(12) << cur.in_use_ext_per_segm[1] << " segments\n"
+           << "- only 2 extents:  " << std::setfill(' ') << std::setw(12) << cur.in_use_ext_per_segm[2] << " segments\n"
+           << "- only 3 extents:  " << std::setfill(' ') << std::setw(12) << cur.in_use_ext_per_segm[3] << " segments\n"
+           << "- only 4 extents:  " << std::setfill(' ') << std::setw(12) << cur.in_use_ext_per_segm[4] << " segments\n"
+           << "- 5 to 8 extents:  " << std::setfill(' ') << std::setw(12) << cur.in_use_ext_per_segm[5] << " segments\n"
+           << "- 9 to 16 extents: " << std::setfill(' ') << std::setw(12) << cur.in_use_ext_per_segm[6] << " segments\n"
+           << "- 17 to * extents: " << std::setfill(' ') << std::setw(12) << cur.in_use_ext_per_segm[7] << " segments\n"
            << "\n";
 
     out->flags(ioflags);

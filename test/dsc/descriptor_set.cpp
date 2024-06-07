@@ -562,7 +562,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -574,7 +574,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1); // this block is for suballocation
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2));
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -595,7 +595,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2));
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
@@ -611,7 +611,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2 + 5));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 5));
 
         // Delete the descriptor: its external data blocks should be released too
         dset.erase(id1);
@@ -632,7 +632,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2));
     }
 
     TEST(DescriptorSetTest, OwnExternalDataMovedDescriptor) {
@@ -648,7 +648,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -660,7 +660,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1); // this block is for suballocation
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2));
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -678,7 +678,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2));
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset.add(std::move(dscptr));
@@ -694,7 +694,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2 + 5));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 5));
 
         // Create another set
         Segment sg2;
@@ -706,7 +706,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2 + 5 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 5 + 2));
 
         // Move the descriptor from dset to dset2: while the descriptor is deleted from dset,
         // its external blocks should not be deallocated because the descriptor "moved" to
@@ -738,7 +738,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(1 + 2 + 5 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 5 + 2));
 
 
         // Delete the descriptor: its external data blocks should be released too
@@ -758,7 +758,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2 + 2));
     }
 
 
@@ -775,7 +775,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -897,7 +897,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -981,7 +981,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg;
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
@@ -1385,7 +1385,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(7 + 1));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(7 + 1));
 
         // Clear the set
         dset.clear_set();
@@ -1412,7 +1412,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2));
     }
 
     TEST(DescriptorSetTest, AddThenRemoveWithOwnExternalData) {
@@ -1470,7 +1470,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(7 + 1));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(7 + 1));
 
         // Remove the set, we expect that this will release the allocated blocks
         // and shrink the block array, thus, it will also make the set's segment empty
@@ -1484,7 +1484,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(d_blkarr.allocator().stats().in_use_subblk_cnt, (uint32_t)(0));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
     }
 
     TEST(DescriptorSetTest, AddUpdateThenRemoveDescriptor) {

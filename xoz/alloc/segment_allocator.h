@@ -144,13 +144,25 @@ public:
     void initialize_with_nothing_allocated();
 
     /*
-     * Release any pending-to-be-free space. The allocator may keep as "allocated"
+     * Deallocate everything. This method should be called only if the caller
+     * is sure that the current allocated extents/segments are not longer
+     * needed.
+     * This also reset the stats.
+     *
+     * Calling reset() implies release()
+     * */
+    void reset();
+
+    /*
+     * Release any pending-to-free space. The allocator may keep as "allocated"
      * some extents for performance reasons. With a call to release(), the allocator
      * will try to release anything pending as much as possible.
+     * This release() will also request a release of any pending-to-free blocks
+     * in the block array managed by this allocator.
      * */
     void release();
 
-    struct stats_t {
+    struct i_stats_t {
         // How many bytes are currently used (aka allocated / non-free)?
         uint64_t in_use_by_user_sz;
         double in_use_by_user_sz_kb;
@@ -250,6 +262,12 @@ public:
         uint64_t suballoc_bin_cnts[Extent::SUBBLK_CNT_PER_BLK];
     };
 
+    struct stats_t {
+        struct i_stats_t current;
+        struct i_stats_t before_reset;
+        uint64_t reset_cnt;
+    };
+
     struct stats_t stats() const;
 
     inline const BlockArray& blkarr() const {
@@ -337,4 +355,8 @@ private:
     void fail_if_allocator_is_blocked() const;
 
     void _initialize_from_allocated(std::list<Extent>& allocated);
+
+private:
+    struct i_stats_t stats_before_reset;
+    uint64_t reset_cnt;
 };
