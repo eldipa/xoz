@@ -31,9 +31,10 @@ protected:
 private:
     std::vector<char> buf;
     std::unique_ptr<IOSpan> io;
+    bool over_allocate;
 
 public:
-    explicit VectorBlockArray(uint32_t blk_sz);
+    explicit VectorBlockArray(uint32_t blk_sz, bool over_allocate = false);
     ~VectorBlockArray();
 
     const std::vector<char>& expose_mem_fp() const { return buf; }
