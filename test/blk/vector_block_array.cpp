@@ -649,5 +649,36 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
     }
+
+    TEST(VectorBlockArrayTest, OverAllocateOnGrow) {
+
+        VectorBlockArray blkarr(64, true);
+
+        // Grow by 2 blocks, but the capacity gets +1 additional block
+        auto old_top_nr = blkarr.grow_by_blocks(2);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)2);
+        EXPECT_EQ(blkarr.capacity(), (uint32_t)3);
+
+        // On release, this additional block goes away
+        blkarr.release_blocks();
+
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)2);
+        EXPECT_EQ(blkarr.capacity(), (uint32_t)2);
+
+        // Grow by 8 blocks, but get an additiona 8/4=2 blocks
+        auto old_top_nr2 = blkarr.grow_by_blocks(8);
+        EXPECT_EQ(old_top_nr2, (uint32_t)2);
+
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)10);
+        EXPECT_EQ(blkarr.capacity(), (uint32_t)12);
+
+        // On release, these additional blocks go away
+        blkarr.release_blocks();
+
+        EXPECT_EQ(blkarr.blk_cnt(), (uint32_t)10);
+        EXPECT_EQ(blkarr.capacity(), (uint32_t)10);
+    }
 }
 
