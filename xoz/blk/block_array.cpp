@@ -99,19 +99,20 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
     //
     //  - _real_past_end_blk_nr >= _past_end_blk_nr to it is non-negative
     //  - _real_past_end_blk_nr - _past_end_blk_nr < blk_cnt so fits in a uint16_t
-    //    and the blk_cnt -= ... does not underflow.
-    blk_cnt -= uint16_t(_real_past_end_blk_nr - _past_end_blk_nr);
+    //    and the (blk_cnt - ...) does not underflow.
+    uint16_t req_blk_cnt = blk_cnt - uint16_t(_real_past_end_blk_nr - _past_end_blk_nr);
 
     ++_grow_expand_capacity_call_cnt;
-    auto [blk_nr, real_blk_cnt] = impl_grow_by_blocks(blk_cnt);
-    assert(real_blk_cnt >= blk_cnt);
+    auto [blk_nr, real_blk_cnt] = impl_grow_by_blocks(req_blk_cnt);
+    assert(real_blk_cnt >= req_blk_cnt);
 
     assert(not u32_add_will_overflow(_past_end_blk_nr, real_blk_cnt));
     assert(not u32_add_will_overflow(_real_past_end_blk_nr, real_blk_cnt));
 
     // update the pointers
     _real_past_end_blk_nr += real_blk_cnt;
-    _past_end_blk_nr = _real_past_end_blk_nr;
+    _past_end_blk_nr += blk_cnt;
+    assert(_past_end_blk_nr <= _real_past_end_blk_nr);
 
     return blk_nr;
 }
