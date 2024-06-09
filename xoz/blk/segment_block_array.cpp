@@ -32,7 +32,19 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t a
     // (like when we need to create a new iterator if the container changed)
     sg_io.reset(new IOSegment(sg_blkarr, segm));
 
-    return {past_end_blk_nr(), ar_blk_cnt};
+    // How many we really allocated? We requested grow_sz bytes so we should
+    // have at least ar_blk_cnt blocks but we may had got more
+    // (for example, sg_blkarr.blk_sz is large enough and we cannot split it
+    // into tiny chunks and if we request grow_sz small enough we may get
+    // a single tiny chunk for it but larger than it, hence, this translate
+    // to having allocated more blocks than the initially requested/expected
+    // ar_blk_cnt
+    uint32_t real_grow_sz = additional_segm.calc_data_space_size(sg_blkarr.blk_sz_order());
+    uint16_t real_ar_blk_cnt = bytes2blk_cnt(real_grow_sz);
+    assert(real_grow_sz >= grow_sz);
+    assert(real_ar_blk_cnt >= ar_blk_cnt);
+
+    return {past_end_blk_nr(), real_ar_blk_cnt};
 }
 
 uint32_t SegmentBlockArray::impl_shrink_by_blocks(uint32_t ar_blk_cnt) {
@@ -145,6 +157,8 @@ SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& sg_blkarr, uint3
         throw std::runtime_error(
                 "Segment does not has space multiple of the block size and cannot be used for SegmentBlockArray");
     }
+
+    // TODO sg_blkarr.blk_sz() % blk_sz == 0 and (sg_blkarr.blk_sz()/16) % blk_sz == 0
 
     initialize_block_array(blk_sz, 0, sg_io->remain_rd() / blk_sz);
 
