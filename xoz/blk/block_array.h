@@ -184,28 +184,51 @@ public:
     const SegmentAllocator& allocator() const { return sg_alloc; }
 
     /*
-     * Convenient block-to-bytes and bytes-to-block functions. When bytes-to-blocks conversion
-     * happen, a check is made to ensure that the bytes number is divisible by the blk sz
+     * Convenient block-to-bytes and bytes-to-block functions.
+     * When bytes-to-blocks conversion in 'exact' mode happen, a check is made
+     * to ensure that the bytes number is divisible by the blk sz
      * (so the conversion does not lose any information).
+     * In 'ceil' and 'floor' modes no check is made and the resulting (possibly not integer)
+     * result is rounded to the next integer (ceil) or to the previous integer (floor).
+     *
      * */
+    enum RoundMode { exact, ceil, floor };
+
     inline uint32_t blk2bytes(uint32_t cnt) const { return assert_u32(cnt << _blk_sz_order); }
 
-    inline uint16_t bytes2blk_cnt(uint32_t bytes) const {
-        assert(bytes % _blk_sz == 0);
-        return assert_u16(bytes >> _blk_sz_order);
+    inline uint16_t bytes2blk_cnt(uint32_t bytes, const RoundMode mode = RoundMode::exact) const {
+        switch (mode) {
+            case exact:
+                assert(bytes % _blk_sz == 0);
+            case floor:
+                return assert_u16(bytes >> _blk_sz_order);
+            case ceil:
+                // TODO this may overflow
+                return assert_u16((bytes + blk_sz() - 1) >> _blk_sz_order);
+        }
+        assert(false);
     }
 
-    inline uint16_t bytes2subblk_cnt(uint32_t bytes) const {
+    inline uint16_t bytes2subblk_cnt(uint32_t bytes, const RoundMode mode = RoundMode::exact) const {
         assert(bytes <= _blk_sz);
-        assert(bytes % subblk_sz() == 0);
         assert(_blk_sz_order >= Extent::SUBBLK_SIZE_ORDER);
-        return assert_u16(bytes >> (_blk_sz_order - Extent::SUBBLK_SIZE_ORDER));
+        switch (mode) {
+            case exact:
+                assert(bytes % subblk_sz() == 0);
+            case floor:
+                return assert_u16(bytes >> (_blk_sz_order - Extent::SUBBLK_SIZE_ORDER));
+            case ceil:
+                // TODO this may overflow
+                return assert_u16((bytes + subblk_sz() - 1) >> (_blk_sz_order - Extent::SUBBLK_SIZE_ORDER));
+        }
+        assert(false);
     }
 
     inline uint32_t bytes2blk_nr(uint32_t bytes) const {
         assert(bytes % _blk_sz == 0);
         return assert_u32(bytes >> _blk_sz_order);
     }
+
 
     /*
      * Main primitive to allocate / free blocks
