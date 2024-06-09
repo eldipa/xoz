@@ -78,7 +78,8 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
             if (release_blocks) {
                 Extent sg_ext2 = Extent::EmptyExtent();
                 if (sg_last_ext.is_suballoc()) {
-                    const uint16_t sg_shrink_subblk_cnt = sg_blkarr.bytes2subblk_cnt(shrink_sz);
+                    const uint16_t sg_shrink_subblk_cnt =
+                            sg_blkarr.bytes2subblk_cnt(shrink_sz, BlockArray::RoundMode::floor);
                     if (sg_shrink_subblk_cnt) {
                         assert(sg_shrink_subblk_cnt < sg_last_ext.subblk_cnt());
 
@@ -86,7 +87,7 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t ar_blk_cnt, bool rel
                         sg_ext2 = sg_last_ext.split(sg_non_free_subblk_cnt);
                     }
                 } else {
-                    const uint16_t sg_shrink_blk_cnt = sg_blkarr.bytes2blk_cnt(shrink_sz);
+                    const uint16_t sg_shrink_blk_cnt = sg_blkarr.bytes2blk_cnt(shrink_sz, BlockArray::RoundMode::floor);
 
                     if (sg_shrink_blk_cnt) {
                         assert(sg_shrink_blk_cnt < sg_last_ext.blk_cnt());
