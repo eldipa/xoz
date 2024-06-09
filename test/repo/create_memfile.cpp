@@ -239,14 +239,15 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root holder ---------------
-                "0184 1000 0184 0080 0080 0100 0040 00c0 "
+                "0184 0800 0184 0080 00c0 "
 
                 // holder padding
+                "0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
                 // end of the root holder ----
 
                 // checksum
-                "d558 "
+                "cb98 "
 
                 // header padding
                 "0000 "
@@ -324,14 +325,15 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root holder ---------------
-                "0184 1000 0184 0080 0080 0100 0040 00c0 "
+                "0184 0800 0184 0080 00c0 "
 
                 // holder padding
+                "0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
                 // end of the root holder ----
 
                 // checksum
-                "d558 "
+                "cb98 "
 
                 // header padding
                 "0000 "
@@ -346,8 +348,7 @@ namespace {
                 );
     }
 
-#if 0
-    TEST(RepositoryTest, MemCreateThenExpandThenRevert) {
+    TEST(RepositoryTest, MemCreateThenExpandThenRevertExpectShrinkOnClose) {
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map = {
             {0x01, DescriptorSetHolder::create }
@@ -376,21 +377,21 @@ namespace {
         auto id1 = repo.root()->set()->add(std::move(dscptr));
         repo.root()->set()->write_set();
 
-        // Now, remove it. This will make the file to shrink
+        // Now, remove it.
         repo.root()->set()->erase(id1);
         repo.root()->set()->write_set();
 
-        // Check repository's parameters: the blk array should *not* be larger
+        // Check repository's parameters: the blk array *should* be larger
         // than the initial size
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
 
         auto stats = repo.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(128+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(128+4));
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(128*2+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(128*2+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
@@ -398,7 +399,8 @@ namespace {
         EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
         EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
 
-        // Close and check what we have on disk.
+        // Close and check what we have on disk. Because the descriptor set
+        // has some erased data, we can shrink the file during the close.
         repo.close();
         XOZ_EXPECT_FILE_MEM_SERIALIZATION(repo, 0, 128,
                 // header
@@ -437,7 +439,6 @@ namespace {
                 );
     }
 
-#endif
     TEST(RepositoryTest, MemCreateTooSmallBlockSize) {
         // Too small
         struct Repository::default_parameters_t gp = {
@@ -454,4 +455,3 @@ namespace {
         );
     }
 }
-
