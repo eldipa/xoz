@@ -29,18 +29,18 @@ namespace {
     //
     // The check of the dump is simplistic: it is only to validate
     // that the .xoz file was created and it is non-empty.
-    TEST(RepositoryTest, CreateNewDefaults) {
-        DELETE("CreateNewDefaults.xoz");
+    TEST(RepositoryTest, CreateNewUsingDefaults) {
+        DELETE("CreateNewUsingDefaults.xoz");
 
-        const char* fpath = SCRATCH_HOME "CreateNewDefaults.xoz";
+        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
+            {0x01, DescriptorSetHolder::create }
+        };
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+
+        const char* fpath = SCRATCH_HOME "CreateNewUsingDefaults.xoz";
         Repository repo = Repository::create(fpath, true);
-
-        std::stringstream ss;
-        PrintTo(repo, &ss);
-
-        auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -48,45 +48,74 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)512);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+
+        auto stats = repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(128+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(128+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(128));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        auto root_holder = repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
 
         // Close and check what we have on disk.
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "0002 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "09"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 512, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );
     }
 
-    TEST(RepositoryTest, CreateNewDefaultsThenOpen) {
-        DELETE("CreateNewDefaultsThenOpen.xoz");
+    TEST(RepositoryTest, CreateNewNotUsingDefaults) {
+        DELETE("CreateNewNotUsingDefaults.xoz");
 
-        const char* fpath = SCRATCH_HOME "CreateNewDefaultsThenOpen.xoz";
-        Repository new_repo = Repository::create(fpath, true);
-        new_repo.close();
+        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
+            {0x01, DescriptorSetHolder::create }
+        };
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
 
-        Repository repo(SCRATCH_HOME "CreateNewDefaultsThenOpen.xoz");
+        // Custom non-default parameters
+        struct Repository::default_parameters_t gp = {
+            .blk_sz = 256
+        };
 
-        std::stringstream ss;
-        PrintTo(repo, &ss);
-
-        auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
+        const char* fpath = SCRATCH_HOME "CreateNewNotUsingDefaults.xoz";
+        Repository repo = Repository::create(fpath, true, gp);
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -94,155 +123,360 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)512);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
 
-        // Close and check that the file in disk still exists
-        // Note: in CreateNewDefaults test we create-close-check, here
-        // we do create-close-open-close-check.
+        auto stats = repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(256));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        auto root_holder = repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+
+        // Close and check what we have on disk.
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "0002 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "09"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "08"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c058 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the header ----------
+
+                // 128 bytes of padding to complete the block
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 512, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
                 // trailer
                 "454f 4600"
                 );
     }
 
-    TEST(RepositoryTest, CreateNonDefaultsThenOpen) {
-        DELETE("CreateNonDefaultsThenOpen.xoz");
+    TEST(RepositoryTest, CreateNewUsingDefaultsThenOpen) {
+        DELETE("CreateNewUsingDefaultsThenOpen.xoz");
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
+            {0x01, DescriptorSetHolder::create }
+        };
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        const char* fpath = SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz";
+        Repository new_repo = Repository::create(fpath, true);
+        new_repo.close();
+
+        Repository repo(SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz");
+
+        // Check repository's parameters
+        // Because we didn't specified anything on Repository::create, it
+        // should be using the defaults.
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+
+        auto stats = repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(128+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(128+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(128));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        auto root_holder = repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+
+        // Close and check that the file in disk still exists
+        // Note: in CreateNewUsingDefaults test we create-close-check, here
+        // we do create-close-open-close-check.
+        repo.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+                // trailer
+                "454f 4600"
+                );
+    }
+
+    TEST(RepositoryTest, CreateNotUsingDefaultsThenOpen) {
+        DELETE("CreateNotUsingDefaultsThenOpen.xoz");
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
+            {0x01, DescriptorSetHolder::create }
+        };
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 128
+            .blk_sz = 256
         };
 
-        const char* fpath = SCRATCH_HOME "CreateNonDefaultsThenOpen.xoz";
+        const char* fpath = SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz";
         Repository new_repo = Repository::create(fpath, true, gp);
 
         // Check repository's parameters after create
         EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(new_repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(new_repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(new_repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(new_repo.expose_block_array().blk_sz(), (uint32_t)256);
+
+        auto stats = new_repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(256));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        auto root_holder = new_repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
 
         new_repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "8000 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "08"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c058 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the header ----------
+
+                // 128 bytes of padding to complete the block
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
                 // trailer
                 "454f 4600"
                 );
 
-        Repository repo(SCRATCH_HOME "CreateNonDefaultsThenOpen.xoz");
-
-        std::stringstream ss;
-        PrintTo(repo, &ss);
-
-        auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
+        Repository repo(SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz");
 
         // Check repository's parameters after open
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
+
+        auto stats2 = repo.stats();
+
+        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats2.header_sz, uint64_t(256));
+        EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
+
+        auto root_holder2 = repo.root();
+        EXPECT_EQ(root_holder2->set()->count(), (uint32_t)0);
+        EXPECT_EQ(root_holder2->set()->does_require_write(), (bool)true);
 
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "8000 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "08"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c058 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the header ----------
+
+                // 128 bytes of padding to complete the block
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
                 // trailer
                 "454f 4600"
                 );
     }
 
-    TEST(RepositoryTest, CreateNonDefaultsThenOpenCloseOpen) {
-        DELETE("CreateNonDefaultsThenOpenCloseOpen.xoz");
+    TEST(RepositoryTest, CreateNotUsingDefaultsThenOpenCloseOpen) {
+        DELETE("CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 128
+            .blk_sz = 256
         };
 
-        const char* fpath = SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz";
+        const char* fpath = SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz";
         Repository new_repo = Repository::create(fpath, true, gp);
         new_repo.close();
 
         {
-            Repository repo(SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz");
+            Repository repo(SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
             // Close and reopen again
             repo.close();
         }
 
-        Repository repo(SCRATCH_HOME "CreateNonDefaultsThenOpenCloseOpen.xoz");
-
-        std::stringstream ss;
-        PrintTo(repo, &ss);
-
-        auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
+        Repository repo(SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
         // Check repository's parameters after open
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
+
+        auto stats = repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(256));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        auto root_holder = repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
 
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "8000 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "08"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c058 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the header ----------
+
+                // 128 bytes of padding to complete the block
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -253,7 +487,7 @@ namespace {
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
-            .blk_sz = 128
+            .blk_sz = 256
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateAndOverride.xoz";
@@ -264,13 +498,6 @@ namespace {
         // because the file already exists but instead it will open it
         Repository repo = Repository::create(SCRATCH_HOME "CreateThenRecreateAndOverride.xoz", false);
 
-        std::stringstream ss;
-        PrintTo(repo, &ss);
-
-        auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
-
         // Check repository's parameters after open
         // Because the second Repository::create *did not* create a fresh
         // repository with a default params **but** it opened the previously
@@ -278,24 +505,59 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
+
+        auto stats = repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(256));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        auto root_holder = repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
 
         repo.close();
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "8000 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "08"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c058 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the header ----------
+
+                // 128 bytes of padding to complete the block
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
                 // trailer
                 "454f 4600"
                 );
@@ -306,7 +568,7 @@ namespace {
 
         // Custom non-default parameters
        struct Repository::default_parameters_t  gp = {
-            .blk_sz = 128
+            .blk_sz = 256
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateButFail.xoz";
@@ -329,13 +591,6 @@ namespace {
         // file
         Repository repo = Repository::create(SCRATCH_HOME "CreateThenRecreateButFail.xoz", false);
 
-        std::stringstream ss;
-        PrintTo(repo, &ss);
-
-        auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
-
         // Check repository's parameters after open
         // Because the second Repository::create *did not* create a fresh
         // repository with a default params **but** it opened the previously
@@ -343,21 +598,220 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
 
+        auto stats = repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(256));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        auto root_holder = repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+
+        repo.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "08"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c058 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the header ----------
+
+                // 128 bytes of padding to complete the block
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 256, -1,
+                // trailer
+                "454f 4600"
+                );
+    }
+
+    TEST(RepositoryTest, CreateThenExpandByAlloc) {
+        DELETE("CreateThenExpandByAlloc.xoz");
+
+        const char* fpath = SCRATCH_HOME "CreateThenExpandByAlloc.xoz";
+        Repository repo = Repository::create(fpath, true);
+
+        const auto blk_sz = repo.expose_block_array().blk_sz();
+        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+
+        // The repository by default has 1 block so adding 3 more
+        // will yield 4 blocks in total
+        auto sg1 = repo.expose_block_array().allocator().alloc(blk_sz * 3);
+        EXPECT_EQ(sg1.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 3));
+
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+
+
+        // Add 6 more blocks
+        auto sg2 = repo.expose_block_array().allocator().alloc(blk_sz * 6);
+        EXPECT_EQ(sg2.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 6));
+
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)9);
+
+        // Close. From the repository's allocator perspective, the sg1 and sg2 segments
+        // were and they still are allocated so we should see the space allocated
+        // after the close.
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "8000 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0005 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0a00 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c85c "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 1280, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        // We open the same file. We expect the repo's blk array to have
+        // the same size as the previous one.
+        Repository repo2(SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
+
+        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)9);
+
+        // From this second repository, its allocator has no idea that sg1 and sg2 were
+        // allocated before. From its perspective, the whole space in the block array
+        // has no owner and it is subject to be released on close()
+        // (so we expect to see a shrink here)
+        repo2.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        // We open the same file again. We expect the repo's blk array to have
+        // the same size as the previous one after the shrink (0 blks in total)
+        Repository repo3(SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
+
+        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)0);
+
+        // Nothing weird should happen. All the "unallocated" space of repo1
+        // was released on repo2.close() so repo3.close() has nothing to do.
+        repo3.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
@@ -366,15 +820,11 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateThenExpand) {
-        DELETE("CreateThenExpand.xoz");
+    TEST(RepositoryTest, CreateThenExpandByBlkArrGrow) {
+        DELETE("CreateThenExpandByBlkArrGrow.xoz");
 
-        struct Repository::default_parameters_t gp = {
-            .blk_sz = 128
-        };
-
-        const char* fpath = SCRATCH_HOME "CreateThenExpand.xoz";
-        Repository repo = Repository::create(fpath, true, gp);
+        const char* fpath = SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz";
+        Repository repo = Repository::create(fpath, true);
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
@@ -384,12 +834,6 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
-
-        std::stringstream ss;
-        PrintTo(repo, &ss);
-
-        auto stats_str = ss.str();
-        //std::cout << stats_str; // for easy debug
 
 
         // Add 6 more blocks
@@ -400,27 +844,41 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)10);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)9);
 
-        ss.str("");
-        PrintTo(repo, &ss);
-
-        stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
-
-        // Close and reopen and check again
+        // Close. These 3+6 additional blocks are not allocated (not owned by any segment)
+        // *but*, the repository's allocator does not know that. From its perspective
+        // these blocks are *not* free (the allocator tracks free space only) so
+        // it will believe that they *are* allocated/owned by someone, hence
+        // they will *not* be released on repo.close() and that's what we expect.
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "0005 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0a00 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0005 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0a00 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c85c "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 1280, -1,
@@ -428,50 +886,221 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(SCRATCH_HOME "CreateThenExpand.xoz");
-
-        ss.str("");
-        PrintTo(repo2, &ss);
-
-        stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
+        // Open the file again. We expect to see that the file grew.
+        Repository repo2(SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
 
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
         EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)9);
 
+        // Close. Because the allocator does not know that any of these blocks
+        // are owned (which are not), it will assume that they are free
+        // and repo2.close() will release them, shrinking the file in the process.
         repo2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "0005 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0a00 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 1280, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        // We open the same file again. We expect the repo's blk array to have
+        // the same size as the previous one after the shrink (0 blks in total)
+        Repository repo3(SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
+
+        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)0);
+
+        // Nothing weird should happen. All the "unallocated" space of repo1
+        // was released on repo2.close() so repo3.close() has nothing to do.
+        repo3.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+                // trailer
+                "454f 4600"
+                );
+    }
+
+    TEST(RepositoryTest, CreateThenExpandThenRevertByAlloc) {
+        DELETE("CreateThenExpandThenRevertByAlloc.xoz");
+
+        const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz";
+        Repository repo = Repository::create(fpath, true);
+
+        const auto blk_sz = repo.expose_block_array().blk_sz();
+        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+
+        // The repository by default has 1 block so adding 3 more
+        // will yield 4 blocks in total
+        auto sg1 = repo.expose_block_array().allocator().alloc(blk_sz * 3);
+        EXPECT_EQ(sg1.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 3));
+
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+
+        // Now "revert" freeing those 3 blocks
+        repo.expose_block_array().allocator().dealloc(sg1);
+
+        // We expect the block array to *not* shrink (but the allocator *is* aware
+        // that those blocks are free).
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+
+        // Close. We expect to see those blocks released.
+        // The allocator is aware that sg1 is free and therefore the blocks owned
+        // by it are free. On allocator's release(), it will call to FileBlockArray's release()
+        // which in turn it will shrink the file on repo.close()
+        repo.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        // Reopen.
+        Repository repo2(SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz");
+
+        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)0);
+
+        repo2.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
                 // trailer
                 "454f 4600"
                 );
 
     }
 
-    TEST(RepositoryTest, CreateThenExpandThenRevert) {
-        DELETE("CreateThenExpandThenRevert.xoz");
 
-        struct Repository::default_parameters_t gp = {
-            .blk_sz = 128
-        };
+    TEST(RepositoryTest, CreateThenExpandThenRevertByBlkArrGrow) {
+        DELETE("CreateThenExpandThenRevertByBlkArrGrow.xoz");
 
-        const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevert.xoz";
-        Repository repo = Repository::create(fpath, true, gp);
+        const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz";
+        Repository repo = Repository::create(fpath, true);
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
@@ -482,13 +1111,6 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
 
-        std::stringstream ss;
-        PrintTo(repo, &ss);
-
-        auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
-
         // Now "revert" freeing those 3 blocks
         repo.expose_block_array().shrink_by_blocks(3);
 
@@ -496,27 +1118,39 @@ namespace {
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
 
-        ss.str("");
-        PrintTo(repo, &ss);
-
-        stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
-
-        // Close and reopen and check again
+        // Close. We expect to see those blocks released (because the blk array shrank)
+        // This should be handled by repo's FileBlockArray release() only
+        // (no need of repo's allocator to be involved)
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "8000 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
@@ -524,14 +1158,8 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(SCRATCH_HOME "CreateThenExpandThenRevert.xoz");
-
-        ss.str("");
-        PrintTo(repo2, &ss);
-
-        stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
-
+        // Reopen.
+        Repository repo2(SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz");
 
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -540,16 +1168,33 @@ namespace {
         repo2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "8000 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
@@ -562,93 +1207,200 @@ namespace {
     TEST(RepositoryTest, CreateThenExpandCloseThenShrink) {
         DELETE("CreateThenExpandCloseThenShrink.xoz");
 
-        struct Repository::default_parameters_t gp = {
-            .blk_sz = 128
-        };
-
         const char* fpath = SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz";
-        Repository repo = Repository::create(fpath, true, gp);
+        Repository repo = Repository::create(fpath, true);
 
-        // The repository by default has 1 block so adding 3 more
-        // will yield 4 blocks in total
-        auto old_top_nr = repo.expose_block_array().grow_by_blocks(3);
-        EXPECT_EQ(old_top_nr, (uint32_t)1);
+        const auto blk_sz = repo.expose_block_array().blk_sz();
+        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+
+        // The repository by default has 1 block so adding 9 more
+        // will yield 10 blocks in total
+        auto sg1 = repo.expose_block_array().allocator().alloc(blk_sz * 9);
+        EXPECT_EQ(sg1.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 9));
 
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)9);
 
-        std::stringstream ss;
-        PrintTo(repo, &ss);
+        auto stats1 = repo.expose_block_array().allocator().stats();
 
-        auto stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
+        EXPECT_EQ(stats1.current.in_use_blk_cnt, uint64_t(9));
+        EXPECT_EQ(stats1.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats1.current.in_use_subblk_cnt, uint64_t(0));
 
+        EXPECT_EQ(stats1.current.in_use_ext_cnt, uint64_t(1));
+
+        EXPECT_EQ(stats1.current.alloc_call_cnt, uint64_t(1));
+        EXPECT_EQ(stats1.current.dealloc_call_cnt, uint64_t(0));
 
         // Close and check: the file should be grown
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "0002 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0400 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0005 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0a00 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c85c "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        // Note the position: 256 is at the end of the last block
-        // Also note the length: -1 means read to the end of the file
-        // We should read the trailer only proving that the file grow
-        // to that position *and* nothing else follows.
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128 * 4, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 1280, -1,
                 // trailer
                 "454f 4600"
                 );
 
-        // Now "shrink" freeing those 3 blocks
+        // Reopen the file. The block array will have the same geometry but
+        // the allocator will know that the allocated blocks (sg1) are not owned
+        // by anyone
         Repository repo2(SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
-        repo2.expose_block_array().shrink_by_blocks(3);
 
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)9);
 
-        ss.str("");
-        PrintTo(repo2, &ss);
+        // Allocate 9 additional blocks. From allocator perspective the 9 original blocks
+        // were free to it should use them to fulfil the request of 9 "additional" blocks
+        // Hence, the block array (and file) should *not* grow.
+        auto sg2 = repo2.expose_block_array().allocator().alloc(blk_sz * 9);
+        EXPECT_EQ(sg2.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 9));
 
-        stats_str = ss.str();
-        // std::cout << stats_str; // for easy debug
+        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)9);
 
+        auto stats2 = repo2.expose_block_array().allocator().stats();
 
-        // Close and check again: the file should shrank
+        EXPECT_EQ(stats2.current.in_use_blk_cnt, uint64_t(9));
+        EXPECT_EQ(stats2.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats2.current.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats2.current.in_use_ext_cnt, uint64_t(1));
+
+        EXPECT_EQ(stats2.current.alloc_call_cnt, uint64_t(1));
+        EXPECT_EQ(stats2.current.dealloc_call_cnt, uint64_t(0));
+
+        // Expected no change respect the previous state
         repo2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "8000 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0005 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0a00 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c85c "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        // The position 128 is where the trailer should be present
-        // if the file shrank at the "logical" level.
-        // With a length of -1 (read to the end of the file), we check
-        // that also the file shrank at the "physical" level (in disk)
-        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 1280, -1,
                 // trailer
                 "454f 4600"
                 );
+
+        Repository repo3(SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
+
+        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)9);
+
+        // Alloc a single block. The allocator should try to allocate the lowest
+        // extents leaving the blocks with higher blk number free and subject
+        // to be released on repo3.close()
+        auto sg3 = repo3.expose_block_array().allocator().alloc(blk_sz * 1);
+        EXPECT_EQ(sg3.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 1));
+
+        auto stats3 = repo3.expose_block_array().allocator().stats();
+
+        EXPECT_EQ(stats3.current.in_use_blk_cnt, uint64_t(1));
+        EXPECT_EQ(stats3.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
+        EXPECT_EQ(stats3.current.in_use_subblk_cnt, uint64_t(0));
+
+        EXPECT_EQ(stats3.current.in_use_ext_cnt, uint64_t(1));
+
+        EXPECT_EQ(stats3.current.alloc_call_cnt, uint64_t(1));
+        EXPECT_EQ(stats3.current.dealloc_call_cnt, uint64_t(0));
+
+        // Close and check again: the file should shrank, only 2 blk should survive
+        // (the header and the allocated blk of above)
+        repo3.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0200 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "c058 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128 * 2, -1,
+                // trailer
+                "454f 4600"
+                );
+
     }
 
     TEST(RepositoryTest, CreateTooSmallBlockSize) {
@@ -673,13 +1425,8 @@ namespace {
     TEST(RepositoryTest, OpenTooSmallBlockSize) {
         DELETE("OpenTooSmallBlockSize.xoz");
 
-        // Large enough
-        struct Repository::default_parameters_t gp = {
-            .blk_sz = 128
-        };
-
         const char* fpath = SCRATCH_HOME "OpenTooSmallBlockSize.xoz";
-        Repository new_repo = Repository::create(fpath, true, gp);
+        Repository new_repo = Repository::create(fpath, true);
 
         // Check repository's parameters after create
         EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -690,16 +1437,33 @@ namespace {
         new_repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
-                "584f 5a00 "            // magic XOZ\0
-                "8000 0000 0000 0000 "  // repo_sz
-                "0400 0000 0000 0000 "  // trailer_sz
-                "0100 0000 "            // blk_total_cnt
-                "0000 0000 "            // unused
-                "07"                    // blk_sz_order
-                "00 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 00c0 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
-                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3f58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
@@ -708,13 +1472,49 @@ namespace {
                 );
 
         // Now patch the file to make it look to be of a smaller block size
-        // at 28th byte, the blk_sz_order is changed to 6 (64 bytes)
+        // at 30th byte, the blk_sz_order is changed to 6 (64 bytes)
+        // We also need to patch the checksum at (30 + 46)
         std::fstream f(fpath, std::fstream::in | std::fstream::out | std::fstream::binary);
-        f.seekp(28);
-        char blk_sz_order = 6;
-        f.write(&blk_sz_order, 1);
+        f.seekp(30);
+        char patch = 6;
+        f.write(&patch, 1);
+
+        f.seekp(30+46);
+        patch = 0x3e;
+        f.write(&patch, 1);
         f.close();
 
+        // check that we did the patch correctly
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8000 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0100 0000 "                     // blk_total_cnt
+                "06"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0108 0000 0000 "
+
+                // holder padding
+                "0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "3e58 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
 
         // Open, this should fail
         EXPECT_THAT(
