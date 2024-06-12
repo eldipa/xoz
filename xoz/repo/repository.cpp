@@ -386,7 +386,10 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
         // Check that trampoline's content checksum is correct.
         auto checksum_check = fold_inet_checksum(inet_remove(checksum, root_holder->checksum));
         if (not is_inet_checksum_good(checksum_check)) {
-            throw "";
+            throw InconsistentXOZ((F() << "Root holder trampoline checksum failed:"
+                                       << "computed " << std::hex << checksum << " but expected " << std::hex
+                                       << root_holder->checksum << " (chk " << std::hex << checksum_check << ")")
+                                          .str());
         }
     } else {
         // No trampoline
@@ -481,7 +484,10 @@ void Repository::compute_and_check_header_checksum(struct repo_header_t& hdr) {
     // Check the checksum of the header against the one stored in the header itself.
     auto checksum_check = fold_inet_checksum(inet_remove(checksum, stored_checksum));
     if (not is_inet_checksum_good(checksum_check)) {
-        throw InconsistentXOZ("");
+        throw InconsistentXOZ((F() << "Header checksum failed:"
+                                   << "computed " << std::hex << checksum << " but expected " << std::hex
+                                   << stored_checksum << " (chk " << std::hex << checksum_check << ")")
+                                      .str());
     }
 }
 
