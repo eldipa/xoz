@@ -293,4 +293,7 @@ protected:
     uint32_t chk_write_request_sizes(const std::vector<char>& data, const uint32_t sz) const;
     uint32_t chk_write_request_sizes(std::istream& input, const uint32_t sz) const;
     uint32_t chk_write_request_sizes(const uint64_t avail_sz, const uint32_t sz, const char* input_name) const;
+
+protected:
+    virtual ~IOBase() {}
 };
