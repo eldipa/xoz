@@ -200,6 +200,7 @@ public:
         switch (mode) {
             case exact:
                 assert(bytes % _blk_sz == 0);
+                [[fallthrough]];
             case floor:
                 return assert_u16(bytes >> _blk_sz_order);
             case ceil:
@@ -215,6 +216,7 @@ public:
         switch (mode) {
             case exact:
                 assert(bytes % subblk_sz() == 0);
+                [[fallthrough]];
             case floor:
                 return assert_u16(bytes >> (_blk_sz_order - Extent::SUBBLK_SIZE_ORDER));
             case ceil:
