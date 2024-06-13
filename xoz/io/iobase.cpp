@@ -73,7 +73,7 @@ uint32_t IOBase::chk_write_request_sizes(const std::vector<char>& data, const ui
 uint32_t IOBase::chk_write_request_sizes(std::istream& input, const uint32_t sz) const {
     auto begin = input.tellg();
     input.seekg(0, std::ios_base::end);
-    auto avail_sz = input.tellg() - begin;
+    auto avail_sz = assert_u32(input.tellg() - begin);
 
     input.seekg(begin);  // rewind
 
@@ -89,7 +89,7 @@ uint32_t IOBase::chk_write_request_sizes(const uint64_t avail_sz, const uint32_t
                     (F() << "Requested to write the entire input but input " << input_name << " is too large.").str());
         }
 
-        return (uint32_t)avail_sz;
+        return assert_u32(avail_sz);
     } else {
         if (sz > avail_sz) {
             throw std::overflow_error((F() << "Requested to write " << sz << " bytes but input " << input_name
@@ -126,7 +126,7 @@ std::string IOBase::hexdump(uint32_t at, uint32_t len) {
     uint8_t col = 0;
 
     for (uint32_t i = 0; i < len; ++i, ++col) {
-        out << std::setfill('0') << std::setw(2) << std::hex << (int)(unsigned char)read_char();
+        out << std::setfill('0') << std::setw(2) << std::hex << uint32_t(read_char());
         if (i % 2 == 1 and i + 1 < len) {
             if (col == 16) {
                 out << "\n";
@@ -190,7 +190,7 @@ void IOBase::rw_operation_exact_sz_iostream(std::ostream* const output, std::ist
 
     std::vector<char> buf(bufsz);
     while (total_remaining and bool(*iostr)) {
-        uint32_t buf_exact_sz = std::min((uint32_t)buf.size(), total_remaining);
+        uint32_t buf_exact_sz = std::min(assert_u32(buf.size()), total_remaining);
 
         if (not is_read_op) {
             input->read(buf.data(), buf_exact_sz);

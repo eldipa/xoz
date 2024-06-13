@@ -63,7 +63,7 @@ constexpr inline uint32_t inet_checksum(const uint16_t* const buf, const uint16_
  * */
 inline uint32_t inet_checksum(const uint8_t* const buf, const uint32_t sz) {
     assert(sz % 2 == 0);
-    return inet_checksum((uint16_t*)buf, assert_u16(sz >> 1));
+    return inet_checksum(reinterpret_cast<const uint16_t*>(buf), assert_u16(sz >> 1));
 }
 
 
@@ -104,4 +104,4 @@ constexpr inline uint32_t inet_remove(const uint32_t checksum, const uint16_t re
     return checksum + uint16_t(~remove_checksum);
 }
 
-constexpr inline uint16_t inet_to_u16(const uint32_t checksum) { return (uint16_t)fold_inet_checksum(checksum); }
+constexpr inline uint16_t inet_to_u16(const uint32_t checksum) { return uint16_t(fold_inet_checksum(checksum)); }

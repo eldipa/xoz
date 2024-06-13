@@ -74,7 +74,7 @@ uint32_t IOSegment::rw_operation(const bool is_read_op, char* data, const uint32
         const uint8_t remain_inline_sz = assert_u8(src_sz - rwptr);
         assert(remain_inline_sz <= sg.inline_data_sz());
 
-        const uint8_t batch_sz = assert_u8(std::min((uint32_t)remain_inline_sz, remain_sz));
+        const uint8_t batch_sz = assert_u8(std::min(assert_u32(remain_inline_sz), remain_sz));
         assert(batch_sz <= sg.inline_data_sz());
 
         const uint32_t offset = rwptr - sg_no_inline_sz;

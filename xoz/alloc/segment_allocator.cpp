@@ -299,8 +299,8 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
     TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
 
-    auto blk_cnt = 0;
-    auto subblk_cnt = 0;
+    uint64_t blk_cnt = 0;
+    uint64_t subblk_cnt = 0;
     for (auto const& ext: segm.exts()) {
         if (ext.is_suballoc()) {
             subfr_map.dealloc(ext);
@@ -651,7 +651,7 @@ uint32_t SegmentAllocator::allocate_extents(Segment& segm, uint32_t blk_cnt_rema
     bool frag_level_ok = (current_segm_frag < segm_frag_threshold) or ignore_segm_frag_threshold;
 
     // Block count "probe" or "try" to allocate
-    uint32_t blk_cnt_probe = (uint16_t)(-1);
+    uint32_t blk_cnt_probe = uint16_t(-1);
 
     while (blk_cnt_remain and frag_level_ok) {
         // ensure we are not trying to allocate more blocks than can fit
@@ -902,7 +902,7 @@ void PrintTo(const SegmentAllocator& alloc, std::ostream* out) {
 }
 
 void SegmentAllocator::block_all_alloc_dealloc() {
-    if (ops_blocked_stack_cnt >= (uint32_t)(-1)) {
+    if (ops_blocked_stack_cnt >= uint32_t(-1)) {
         throw std::runtime_error("SegmentAllocator cannot be blocked because it was blocked too many times.");
     }
 

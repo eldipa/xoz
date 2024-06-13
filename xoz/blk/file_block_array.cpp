@@ -40,7 +40,7 @@ std::tuple<uint32_t, uint16_t> FileBlockArray::impl_grow_by_blocks(uint16_t blk_
     // If not overflow happen, shifting by blk_sz_order() assuming 64 bits should not
     // overflow either
     uint64_t sz = uint64_t(past_end_blk_nr() + blk_cnt) << blk_sz_order();
-    may_grow_file_due_seek_phy(fp, sz);
+    may_grow_file_due_seek_phy(fp, integral_cast_checked<std::streamoff>(sz));
 
     return {past_end_blk_nr(), blk_cnt};
 }
@@ -86,8 +86,8 @@ uint32_t FileBlockArray::impl_release_blocks() {
         uintmax_t remain = new_file_sz;
         while (remain) {
             const auto chk_sz = std::min(sizeof(buf), remain);
-            mem_fp.read(buf, chk_sz);
-            alt_mem_fp.write(buf, chk_sz);
+            mem_fp.read(buf, integral_cast_checked<std::streamsize>(chk_sz));
+            alt_mem_fp.write(buf, integral_cast_checked<std::streamsize>(chk_sz));
 
             remain -= chk_sz;
         }
@@ -127,7 +127,7 @@ void FileBlockArray::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff
         // reopen it again. This is an unhappy thing. Also, it does not work for
         // memory-based files.
         if ((ref_pos + offset) > end_pos) {
-            const auto hole = (ref_pos + offset) - end_pos;
+            const auto hole = assert_u64((ref_pos + offset) - end_pos);
             const char zeros[16] = {0};  // TODO chg buffer size to 128
             for (unsigned batch = 0; batch < hole / sizeof(zeros); ++batch) {
                 fp.write(zeros, sizeof(zeros));
@@ -155,7 +155,7 @@ uint32_t FileBlockArray::phy_file_sz() const {
     seek_read_phy(fp, 0);
     auto begin = fp.tellg();
     seek_read_phy(fp, 0, std::ios_base::end);
-    uint64_t sz = fp.tellg() - begin;
+    uint64_t sz = assert_u64(fp.tellg() - begin);
 
     return assert_u32(sz);
 }
@@ -297,7 +297,7 @@ void FileBlockArray::_extend_file_with_zeros(std::iostream& fp, uint64_t sz) {
 
     uint64_t remain = sz % 128;
     if (remain) {
-        fp.write(buf, remain);
+        fp.write(buf, integral_cast_checked<std::streamsize>(remain));
     }
 }
 
@@ -375,7 +375,7 @@ void FileBlockArray::close() {
         // note: the seek relays on that the file fp was truncated to a size exactly
         // of the blocks in the array plus the header so we can write the trailer at the end
         fp.seekp(0, std::ios_base::end);
-        fp.write(trailer.data(), trailer.size());
+        fp.write(trailer.data(), integral_cast_checked<std::streamsize>(trailer.size()));
     }
 
     if (not is_mem_based()) {
@@ -396,7 +396,7 @@ void FileBlockArray::write_header(const char* buf, uint32_t exact_sz) {
     }
 
     fp.seekp(0);
-    fp.write(buf, exact_sz);
+    fp.write(buf, integral_cast_checked<std::streamsize>(exact_sz));
 }
 
 void FileBlockArray::read_header(char* buf, uint32_t exact_sz) {

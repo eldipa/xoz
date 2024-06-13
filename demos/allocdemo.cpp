@@ -23,8 +23,8 @@ private:
     SegmentAllocator& sg_alloc;
     const SegmentAllocator::req_t& req;
 
-    int next_segm_id = 1;
-    std::map<int, Segment> segm_by_id;
+    uint32_t next_segm_id = 1;
+    std::map<uint32_t, Segment> segm_by_id;
 
 public:
     Demo(BlockArray& blkarr, SegmentAllocator& sg_alloc, const SegmentAllocator::req_t& req):
@@ -157,18 +157,18 @@ int main(int argc, char* argv[]) {
     set_trace_mask_from_env();
 
     bool coalescing_enabled = argv[1][0] == '1';
-    uint16_t split_above_threshold = (uint16_t)atoi(argv[2]);
-    uint16_t segm_frag_threshold = (uint16_t)atoi(argv[3]);
+    uint16_t split_above_threshold = assert_u16(atoi(argv[2]));
+    uint16_t segm_frag_threshold = assert_u16(atoi(argv[3]));
     bool allow_suballoc = argv[4][0] == '1';
     bool allow_inline = argv[5][0] == '1';
-    uint8_t inline_sz = (uint8_t)atoi(argv[6]);
+    uint8_t inline_sz = assert_u8(atoi(argv[6]));
 
     if (std::cin.fail() or std::cin.eof()) {
         return -1;
     }
 
     const SegmentAllocator::req_t req = {.segm_frag_threshold = segm_frag_threshold,
-                                         .max_inline_sz = allow_inline ? inline_sz : (uint8_t)0,
+                                         .max_inline_sz = allow_inline ? inline_sz : uint8_t(0),
                                          .allow_suballoc = allow_suballoc,
                                          .single_extent = false};
 

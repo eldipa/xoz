@@ -81,7 +81,7 @@ public:
         return u16_count_bits(_blk_cnt);
     }
 
-    inline bool is_suballoc() const { return (bool)(_blk_nr & 0x80000000); }
+    inline bool is_suballoc() const { return bool(_blk_nr & 0x80000000); }
 
     inline bool is_empty() const { return is_suballoc() ? blk_bitmap() == 0 : blk_cnt() == 0; }
 
@@ -137,7 +137,7 @@ public:
             uint16_t orig_cnt = blk_cnt();
             assert(_blk_cnt >= new_cnt);
 
-            Extent ext2((uint32_t)(_blk_nr + new_cnt), (uint16_t)(_blk_cnt - new_cnt), false);
+            Extent ext2(assert_u32(_blk_nr + new_cnt), assert_u16(_blk_cnt - new_cnt), false);
 
             _blk_cnt = new_cnt;
 

@@ -15,8 +15,8 @@ private:
     map_nr2ext_t fr_by_nr;
 
     // Stats
-    int32_t owned_subblk_cnt;
-    int32_t allocated_subblk_cnt;
+    uint64_t owned_subblk_cnt;
+    uint64_t allocated_subblk_cnt;
 
 public:
     SubBlockFreeMap();
@@ -38,8 +38,8 @@ public:
     void reset();
 
     struct fr_stats_t {
-        int32_t owned_subblk_cnt;
-        int32_t allocated_subblk_cnt;
+        uint64_t owned_subblk_cnt;
+        uint64_t allocated_subblk_cnt;
     };
 
     inline const struct fr_stats_t stats() const {

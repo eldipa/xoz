@@ -53,7 +53,7 @@ void SubBlockFreeMap::_provide_subblk_ext(const Extent& ext) {
 
     owned_subblk_cnt += ext.subblk_cnt();
 
-    TRACE_LINE << "|bin: " << std::setw(2) << (uint16_t)bin << " <-- " << ext << TRACE_ENDL;
+    TRACE_LINE << "|bin: " << std::setw(2) << uint16_t(bin) << " <-- " << ext << TRACE_ENDL;
 }
 
 void SubBlockFreeMap::release(const std::list<Extent>& exts) {
@@ -167,7 +167,7 @@ struct SubBlockFreeMap::alloc_result_t SubBlockFreeMap::alloc(uint8_t subblk_cnt
         //  - add it to allocated_bitmask
         if (free_bitmask & bitsel) {
             allocated_bitmask |= bitsel;
-            free_bitmask &= (uint16_t)(~bitsel);
+            free_bitmask &= uint16_t(~bitsel);
 
             assert(free_subblk_cnt > 0);
 

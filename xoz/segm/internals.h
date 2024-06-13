@@ -11,5 +11,5 @@
 #define MASK_JMP_OFFSET 0x01ff
 #define MASK_BACKWARD_DIR 0x0200
 
-#define EXT_SMALLCNT_MAX (uint16_t)(0x000f)
-#define EXT_INLINE_SZ_MAX_u16 (uint16_t)(63)
+#define EXT_SMALLCNT_MAX uint16_t(0x000f)
+#define EXT_INLINE_SZ_MAX_u16 uint16_t(63)

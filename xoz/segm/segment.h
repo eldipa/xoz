@@ -53,10 +53,7 @@ public:
      * To truly check if the segment has or no inline data (even empty),
      * call has_end_of_segment()
      * */
-    uint8_t inline_data_sz() const {
-        // TODO check cast
-        return inline_present ? uint8_t(raw.size()) : 0;
-    }
+    uint8_t inline_data_sz() const { return inline_present ? assert_u8(raw.size()) : 0; }
 
     bool has_end_of_segment() const { return inline_present; }
 
@@ -107,10 +104,7 @@ public:
         clear_extents();
     }
 
-    uint32_t ext_cnt() const {
-        // TODO check cast
-        return uint32_t(arr.size());
-    }
+    uint32_t ext_cnt() const { return assert_u32(arr.size()); }
 
     uint32_t length() const {
         // TODO overflow
@@ -118,14 +112,14 @@ public:
     }
 
     uint32_t full_blk_cnt() const {
-        return std::accumulate(arr.cbegin(), arr.cend(), 0, [](uint32_t cnt, const Extent& ext) {
-            return cnt + (ext.is_suballoc() ? 0 : ext.blk_cnt());
+        return std::accumulate(arr.cbegin(), arr.cend(), uint32_t(0), [](uint32_t cnt, const Extent& ext) {
+            return cnt + (ext.is_suballoc() ? uint32_t(0) : ext.blk_cnt());
         });
     }
 
     uint32_t subblk_cnt() const {
-        return std::accumulate(arr.cbegin(), arr.cend(), 0, [](uint32_t cnt, const Extent& ext) {
-            return cnt + (ext.is_suballoc() ? ext.subblk_cnt() : 0);
+        return std::accumulate(arr.cbegin(), arr.cend(), uint32_t(0), [](uint32_t cnt, const Extent& ext) {
+            return cnt + (ext.is_suballoc() ? ext.subblk_cnt() : uint32_t(0));
         });
     }
 

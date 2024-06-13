@@ -17,9 +17,9 @@ uint32_t inet_checksum(IOBase& io, const uint32_t begin, const uint32_t end) {
     uint32_t checksum = 0;
     uint8_t buf[64];
     for (unsigned batch = 0; batch < sz / sizeof(buf); ++batch) {
-        io.readall((char*)buf, sizeof(buf));
+        io.readall(reinterpret_cast<char*>(buf), sizeof(buf));
         for (uint32_t i = 0; i < sizeof(buf); i += 2) {
-            checksum += (buf[i + 1] << 8) | buf[i];
+            checksum += uint16_t((buf[i + 1] << 8) | buf[i]);
         }
         // We may be checksuming a lot of data, so it is safe to do
         // a fold so we don't overflow uint32_t
@@ -27,9 +27,9 @@ uint32_t inet_checksum(IOBase& io, const uint32_t begin, const uint32_t end) {
     }
 
     const uint32_t remain = sz % sizeof(buf);
-    io.readall((char*)buf, remain);
+    io.readall(reinterpret_cast<char*>(buf), remain);
     for (uint32_t i = 0; i < remain; i += 2) {
-        checksum += u16_from_le(*((uint16_t*)&buf[i]));
+        checksum += u16_from_le(*reinterpret_cast<uint16_t*>(&buf[i]));
     }
     checksum = fold_inet_checksum(checksum);
 

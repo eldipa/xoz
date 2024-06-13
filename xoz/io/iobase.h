@@ -86,11 +86,13 @@ public:
         return rw_operation(true, data.data(), reserve_sz);
     }
 
-    void writeall(const char* data, const uint32_t exact_sz) { rw_operation_exact_sz(false, (char*)data, exact_sz); }
+    void writeall(const char* data, const uint32_t exact_sz) {
+        rw_operation_exact_sz(false, const_cast<char*>(data), exact_sz);
+    }
 
     void writeall(const std::vector<char>& data, const uint32_t exact_sz = uint32_t(-1)) {
         const uint32_t request_sz = chk_write_request_sizes(data, exact_sz);
-        rw_operation_exact_sz(false, (char*)data.data(), request_sz);
+        rw_operation_exact_sz(false, const_cast<char*>(data.data()), request_sz);
     }
 
     void writeall(std::istream& input, const uint32_t exact_sz = uint32_t(-1), const uint32_t bufsz = 1024) {
@@ -98,11 +100,13 @@ public:
         rw_operation_exact_sz_iostream(nullptr, &input, request_sz, bufsz);
     }
 
-    uint32_t writesome(const char* data, const uint32_t max_sz) { return rw_operation(false, (char*)data, max_sz); }
+    uint32_t writesome(const char* data, const uint32_t max_sz) {
+        return rw_operation(false, const_cast<char*>(data), max_sz);
+    }
 
     uint32_t writesome(const std::vector<char>& data, const uint32_t sz = uint32_t(-1)) {
         const uint32_t request_sz = chk_write_request_sizes(data, sz);
-        return rw_operation(false, (char*)data.data(), request_sz);
+        return rw_operation(false, const_cast<char*>(data.data()), request_sz);
     }
 
     /*
@@ -148,31 +152,31 @@ public:
 
     uint16_t read_u16_from_le() {
         uint16_t num = 0;
-        readall((char*)&num, sizeof(num));
+        readall(reinterpret_cast<char*>(&num), sizeof(num));
 
         return u16_from_le(num);
     }
 
     void write_u16_to_le(uint16_t num) {
         num = u16_to_le(num);
-        writeall((char*)&num, sizeof(num));
+        writeall(reinterpret_cast<char*>(&num), sizeof(num));
     }
 
     uint32_t read_u32_from_le() {
         uint32_t num = 0;
-        readall((char*)&num, sizeof(num));
+        readall(reinterpret_cast<char*>(&num), sizeof(num));
 
         return u32_from_le(num);
     }
 
     void write_u32_to_le(uint32_t num) {
         num = u32_to_le(num);
-        writeall((char*)&num, sizeof(num));
+        writeall(reinterpret_cast<char*>(&num), sizeof(num));
     }
 
     char read_char() {
         char c = 0;
-        readall((char*)&c, sizeof(c));
+        readall(&c, sizeof(c));
 
         return c;
     }

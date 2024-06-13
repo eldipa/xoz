@@ -15,7 +15,7 @@ std::tuple<uint32_t, uint16_t> VectorBlockArray::impl_grow_by_blocks(uint16_t ar
     }
 
     // How many bytes are those?
-    uint32_t grow_sz = ar_blk_cnt << blk_sz_order();
+    uint32_t grow_sz = assert_u32(ar_blk_cnt << blk_sz_order());
     buf.resize(buf.size() + grow_sz);
 
     io.reset(new IOSpan(buf));

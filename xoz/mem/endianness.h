@@ -3,7 +3,7 @@
 #include <bit>
 #include <cstdint>
 
-constexpr uint16_t u16_byteswap(uint16_t x) noexcept { return (uint16_t)((x >> 8) | (x << 8)); }
+constexpr uint16_t u16_byteswap(uint16_t x) noexcept { return uint16_t((x >> 8) | (x << 8)); }
 
 constexpr uint32_t u32_byteswap(uint32_t x) noexcept {
     return ((x >> 24) & 0x000000ff) | ((x << 8) & 0x00ff0000) | ((x >> 8) & 0x0000ff00) | ((x << 24) & 0xff000000);
@@ -55,15 +55,15 @@ constexpr inline uint64_t u64_to_le(uint64_t x) {
 #define u64_from_le(X) u64_to_le(X)
 
 
-constexpr inline uint16_t read_u16_from_le(const char** dataptr) {
-    uint16_t x = *(uint16_t*)(*dataptr);
+/*constexpr*/ inline uint16_t read_u16_from_le(const char** dataptr) {
+    uint16_t x = *reinterpret_cast<const uint16_t*>(*dataptr);
     *dataptr += sizeof(uint16_t);
 
     return u16_from_le(x);
 }
 
-constexpr inline void write_u16_to_le(char** dataptr, uint16_t x) {
+/*constexpr*/ inline void write_u16_to_le(char** dataptr, uint16_t x) {
     x = u16_to_le(x);
-    *(uint16_t*)(*dataptr) = x;
+    *reinterpret_cast<uint16_t*>(*dataptr) = x;
     *dataptr += sizeof(uint16_t);
 }

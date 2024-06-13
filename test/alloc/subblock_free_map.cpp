@@ -28,8 +28,8 @@ namespace {
     TEST(SubBlockFreeMapTest, FreeMapStats) {
         SubBlockFreeMap fr_map;
 
-        EXPECT_EQ(fr_map.stats().owned_subblk_cnt, 0);
-        EXPECT_EQ(fr_map.stats().allocated_subblk_cnt, 0);
+        EXPECT_EQ(fr_map.stats().owned_subblk_cnt, uint64_t(0));
+        EXPECT_EQ(fr_map.stats().allocated_subblk_cnt, uint64_t(0));
     }
 
     TEST(SubBlockFreeMapTest, IterateOverEmptyFreeMap) {

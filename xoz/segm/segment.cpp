@@ -77,7 +77,7 @@ uint32_t Segment::calc_struct_footprint_size() const {
         // safe because if the size of the raw cannot be represented
         // by uint16_t, fail_if_bad_inline_sz() should had failed
         // before
-        uint16_t inline_sz = uint16_t(segm.raw.size());
+        uint16_t inline_sz = assert_u16(segm.raw.size());
 
         // If size is odd, raw's last byte was saved in the ext header
         // so the remaining data is size-1
@@ -96,7 +96,7 @@ uint32_t Segment::calc_data_space_size(uint8_t blk_sz_order, bool include_inline
     const Segment& segm = *this;
 
     uint32_t sz = std::accumulate(
-            segm.arr.cbegin(), segm.arr.cend(), 0,
+            segm.arr.cbegin(), segm.arr.cend(), uint32_t(0),
             [&blk_sz_order](uint32_t sz, const Extent& ext) { return sz + ext.calc_data_space_size(blk_sz_order); });
 
     if (segm.inline_present and include_inline) {
@@ -106,7 +106,7 @@ uint32_t Segment::calc_data_space_size(uint8_t blk_sz_order, bool include_inline
         // safe because if the size of the raw cannot be represented
         // by uint16_t, fail_if_bad_inline_sz() should had failed
         // before
-        uint16_t inline_sz = uint16_t(segm.raw.size());
+        uint16_t inline_sz = assert_u16(segm.raw.size());
 
         // Note: calc_data_space_size means how many bytes are allocated
         // for user data so we register all the inline data as such
@@ -202,7 +202,7 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
             // If the size is odd, reduce it by one as the last
             // byte was already loaded from hdr_ext
             if (inline_sz % 2 == 1) {
-                segm.raw[inline_sz - 1] = last;
+                segm.raw[inline_sz - 1] = static_cast<char>(last);
                 inline_sz -= 1;
             }
 
@@ -210,7 +210,7 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
                 fail_remain_exhausted_during_partial_read(inline_sz, &available_sz, initial_sz,
                                                           "inline data is partially read");
                 io.readall(segm.raw, inline_sz);
-                checksum += inet_checksum((uint8_t*)segm.raw.data(), inline_sz);
+                checksum += inet_checksum(reinterpret_cast<const uint8_t*>(segm.raw.data()), inline_sz);
             }
 
             // inline data *is* the last element of a segment
@@ -463,7 +463,7 @@ void Segment::write_struct_into(IOBase& io, uint32_t* checksum_p) const {
         // If the size is odd, store the last byte in `last`
         // and subtract 1 to the size
         if (inline_sz % 2 == 1) {
-            last = segm.raw[inline_sz - 1];
+            last = static_cast<uint8_t>(segm.raw[inline_sz - 1]);
             inline_sz -= 1;
         }
 
@@ -478,7 +478,7 @@ void Segment::write_struct_into(IOBase& io, uint32_t* checksum_p) const {
         // After the uint8_t raw follows, if any
         if (inline_sz > 0) {
             io.writeall(segm.raw, inline_sz);
-            checksum += inet_checksum((uint8_t*)segm.raw.data(), inline_sz);
+            checksum += inet_checksum(reinterpret_cast<const uint8_t*>(segm.raw.data()), inline_sz);
         }
     }
 

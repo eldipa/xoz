@@ -27,7 +27,7 @@ void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, 
     }
 
     _blk_sz = blk_sz;
-    _blk_sz_order = (uint8_t)u32_log2_floor(_blk_sz);
+    _blk_sz_order = u32_log2_floor(_blk_sz);
     _begin_blk_nr = begin_blk_nr;
     _past_end_blk_nr = past_end_blk_nr;
 
@@ -44,7 +44,7 @@ void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, 
 BlockArray::BlockArray(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr, bool coalescing_enabled,
                        uint16_t split_above_threshold, const struct SegmentAllocator::req_t& default_req):
         _blk_sz(blk_sz),
-        _blk_sz_order((uint8_t)u32_log2_floor(blk_sz)),
+        _blk_sz_order(u32_log2_floor(blk_sz)),
         _begin_blk_nr(begin_blk_nr),
         _past_end_blk_nr(past_end_blk_nr),
         _real_past_end_blk_nr(past_end_blk_nr),
@@ -204,9 +204,9 @@ uint32_t BlockArray::write_extent(const Extent& ext, const char* data, uint32_t 
     }
 
     if (ext.is_suballoc()) {
-        return rw_suballocated_extent(false, ext, (char*)data, to_write_sz, start);
+        return rw_suballocated_extent(false, ext, const_cast<char*>(data), to_write_sz, start);
     } else {
-        return rw_fully_allocated_extent(false, ext, (char*)data, to_write_sz, start);
+        return rw_fully_allocated_extent(false, ext, const_cast<char*>(data), to_write_sz, start);
     }
 }
 

@@ -266,7 +266,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     hdr.id = id;
 
     if (own_edata) {
-        hdr.segm = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, -1, &checksum);
+        hdr.segm = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, uint32_t(-1), &checksum);
     }
 
     /* TODO
@@ -315,7 +315,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     assert(dsc_end_pos == data_begin_pos + hdr.dsize);
     checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
 
-    dsc->checksum = (uint16_t)fold_inet_checksum(checksum);
+    dsc->checksum = inet_to_u16(checksum);
 
     return dsc;
 }
@@ -374,7 +374,7 @@ void Descriptor::write_struct_into(IOBase& io) {
     uint16_t firstfield = 0;
 
     write_bitsfield_into_u16(firstfield, hdr.own_edata, MASK_OWN_EDATA_FLAG);
-    write_bitsfield_into_u16(firstfield, (hdr.dsize >> 1), MASK_LO_DSIZE);
+    write_bitsfield_into_u16(firstfield, assert_u16(hdr.dsize >> 1), MASK_LO_DSIZE);
     write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
     if (hdr.type < EXTENDED_TYPE_VAL_THRESHOLD) {
@@ -399,7 +399,7 @@ void Descriptor::write_struct_into(IOBase& io) {
             // we have to write hi_dsize_msb too.
             // so if we are here, hi_dsize_msb must be 1.
             assert(hi_dsize_msb);
-            write_bitsfield_into_u32(idfield, 0, MASK_ID);
+            write_bitsfield_into_u32(idfield, uint32_t(0), MASK_ID);
         } else {
             write_bitsfield_into_u32(idfield, hdr.id, MASK_ID);
         }
@@ -430,7 +430,7 @@ void Descriptor::write_struct_into(IOBase& io) {
             write_bitsfield_into_u16(sizefield, hdr.esize, MASK_LO_ESIZE);
 
             uint16_t largefield = 0;
-            write_bitsfield_into_u16(largefield, hdr.esize >> 15, MASK_HI_ESIZE);
+            write_bitsfield_into_u16(largefield, assert_u16(hdr.esize >> 15), MASK_HI_ESIZE);
 
             io.write_u16_to_le(sizefield);
             io.write_u16_to_le(largefield);
@@ -467,7 +467,7 @@ void Descriptor::write_struct_into(IOBase& io) {
     assert(dsc_end_pos == data_begin_pos + hdr.dsize);
 
     checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
-    this->checksum = (uint16_t)fold_inet_checksum(checksum);
+    this->checksum = inet_to_u16(checksum);
 }
 
 uint32_t Descriptor::calc_struct_footprint_size() const {
@@ -527,7 +527,7 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
     std::ios_base::fmtflags ioflags = out->flags();
 
     (*out) << "descriptor {"
-           << "id: " << hdr.id << ", type: " << hdr.type << ", dsize: " << (unsigned)hdr.dsize;
+           << "id: " << hdr.id << ", type: " << hdr.type << ", dsize: " << uint32_t(hdr.dsize);
 
     if (hdr.own_edata) {
         (*out) << ", esize: " << hdr.esize << ", owns: " << hdr.segm.calc_data_space_size(9 /*TODO*/) << "}"

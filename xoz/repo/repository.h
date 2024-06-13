@@ -155,7 +155,7 @@ private:
      * the trampoline space to fit the root holder if it does not fit in the header or
      * it deallocates the trampoline space otherwise (in that case the holder is written in the header).
      * */
-    void write_header();
+    void write_header(const bool);
     void write_trailer();
 
     /*
@@ -311,4 +311,8 @@ private:
     static uint16_t compute_header_checksum(struct repo_header_t& hdr);
     static void compute_and_check_header_checksum(struct repo_header_t& hdr);
     static void check_blk_sz_order(const uint8_t blk_sz_order);
+
+public:
+    static constexpr auto HEADER_ROOT_SET_SZ = sizeof(static_cast<struct repo_header_t*>(nullptr)->root);
+    static_assert(HEADER_ROOT_SET_SZ >= 32);
 };

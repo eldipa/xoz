@@ -6,8 +6,9 @@
 
 #include "xoz/err/exceptions.h"
 
-Extent::Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc): _blk_nr(blk_nr & 0x03ffffff), _blk_cnt(blk_cnt) {
-    if (blk_nr & (~0x03ffffff)) {
+Extent::Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc):
+        _blk_nr(blk_nr & uint32_t(0x03ffffff)), _blk_cnt(blk_cnt) {
+    if (blk_nr & uint32_t(~0x03ffffff)) {
         throw std::runtime_error((F() << "Invalid block number " << blk_nr << ", it is more than 26 bits. "
                                       << "Error when creating a new extent of block count " << blk_cnt
                                       << " (is suballoc: " << is_suballoc << ")")
@@ -15,7 +16,7 @@ Extent::Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc): _blk_nr(blk
     }
 
     if (is_suballoc) {
-        this->_blk_nr |= 0x80000000;
+        this->_blk_nr |= uint32_t(0x80000000);
     }
 }
 
@@ -151,9 +152,9 @@ uint32_t Extent::calc_data_space_size(uint8_t blk_sz_order) const {
     }
 
     if (ext.is_suballoc()) {
-        return std::popcount(ext.blk_bitmap()) << (blk_sz_order - 4);
+        return assert_u32(std::popcount(ext.blk_bitmap()) << (blk_sz_order - 4));
     } else {
-        return ext.blk_cnt() << blk_sz_order;
+        return assert_u32(ext.blk_cnt() << blk_sz_order);
     }
 }
 

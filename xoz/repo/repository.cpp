@@ -179,7 +179,7 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
     }
 
     struct repo_header_t hdr;
-    is.read((char*)&hdr, sizeof(hdr));
+    is.read(reinterpret_cast<char*>(&hdr), sizeof(hdr));
 
     check_header_magic(hdr);
     compute_and_check_header_checksum(hdr);
@@ -202,7 +202,7 @@ void Repository::read_and_check_header_and_trailer() {
                                          << " bytes).");
     }
 
-    fblkarr->read_header((char*)&hdr, sizeof(hdr));
+    fblkarr->read_header(reinterpret_cast<char*>(&hdr), sizeof(hdr));
 
     check_header_magic(hdr);
     compute_and_check_header_checksum(hdr);
@@ -285,9 +285,9 @@ void Repository::read_and_check_header_and_trailer() {
     }
 
     struct repo_trailer_t eof;
-    fblkarr->read_trailer((char*)&eof, sizeof(eof));
+    fblkarr->read_trailer(reinterpret_cast<char*>(&eof), sizeof(eof));
 
-    if (strncmp((char*)&eof.magic, "EOF", 4) != 0) {
+    if (strncmp(reinterpret_cast<const char*>(&eof.magic), "EOF", 4) != 0) {
         throw InconsistentXOZ(*this, "magic string 'EOF' not found in the trailer.");
     }
 }
@@ -333,12 +333,12 @@ void Repository::write_header() {
     write_root_holder(hdr);
     hdr.checksum = u16_to_le(compute_header_checksum(hdr));
 
-    fblkarr->write_header((const char*)&hdr, sizeof(hdr));
+    fblkarr->write_header(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
 }
 
 void Repository::write_trailer() {
     struct repo_trailer_t eof = {.magic = {'E', 'O', 'F', 0}};
-    fblkarr->write_trailer((const char*)&eof, sizeof(eof));
+    fblkarr->write_trailer(reinterpret_cast<const char*>(&eof), sizeof(eof));
 }
 
 void Repository::init_new_repository(const struct default_parameters_t& defaults) {
@@ -407,7 +407,7 @@ void Repository::write_root_holder(struct repo_header_t& hdr) {
 
     FileBlockArray& fblkarr_ref = *fblkarr.get();
 
-    bool trampoline_required = root_holder->calc_struct_footprint_size() > sizeof(hdr.root);
+    bool trampoline_required = root_holder->calc_struct_footprint_size() > HEADER_ROOT_SET_SZ;
 
     if (trampoline_required) {
         // Expand/shrink the trampoline space to make room for the
@@ -460,7 +460,7 @@ void Repository::update_trampoline_space() {
 }
 
 void Repository::check_header_magic(struct repo_header_t& hdr) {
-    if (strncmp((char*)&hdr.magic, "XOZ", 4) != 0) {
+    if (strncmp(reinterpret_cast<const char*>(&hdr.magic), "XOZ", 4) != 0) {
         throw std::runtime_error("magic string 'XOZ' not found in the header.");
     }
 }
@@ -471,7 +471,7 @@ uint16_t Repository::compute_header_checksum(struct repo_header_t& hdr) {
     uint16_t stored_checksum = hdr.checksum;
     hdr.checksum = 0;
 
-    uint32_t checksum = inet_checksum((uint8_t*)(&hdr), sizeof(hdr));
+    uint32_t checksum = inet_checksum(reinterpret_cast<uint8_t*>(&hdr), sizeof(hdr));
     hdr.checksum = stored_checksum;
 
     return inet_to_u16(checksum);
@@ -494,7 +494,7 @@ void Repository::compute_and_check_header_checksum(struct repo_header_t& hdr) {
 void Repository::check_blk_sz_order(const uint8_t blk_sz_order) {
     // TODO: is blk_sz_order > 16 a good upper limit? It seems a little artificial.
     if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > 16) {
-        throw std::runtime_error((F() << "block size order " << (int)blk_sz_order
+        throw std::runtime_error((F() << "block size order " << int(blk_sz_order)
                                       << " is out of range [7 to 16] (block sizes of 128 to 64K).")
                                          .str());
     }

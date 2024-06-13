@@ -80,7 +80,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
     } else {
         reserved = u16data;
         checksum = inet_add(checksum, reserved);
-        stored_checksum = (uint16_t)checksum;
+        stored_checksum = inet_to_u16(checksum);
     }
 
     while (io.remain_rd()) {
@@ -318,7 +318,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     io2.seek_wr(0);
 
     io2.write_u16_to_le(this->reserved);
-    io2.write_u16_to_le((uint16_t)this->checksum);
+    io2.write_u16_to_le(assert_u16(this->checksum));
     header_does_require_write = false;
 }
 
