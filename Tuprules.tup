@@ -1,18 +1,28 @@
 CXXFLAGS += -std=c++20
 CXXFLAGS += -pedantic -Wall -Wextra -Werror
-CXXFLAGS += -Wzero-as-null-pointer-constant -Wconversion -Wno-sign-conversion
+CXXFLAGS += -Wzero-as-null-pointer-constant -Wconversion
+CXXFLAGS += -Wnon-virtual-dtor -Wunused -Woverloaded-virtual -Wpedantic -Wmisleading-indentation
+CXXFLAGS += -Wnull-dereference -Wformat=2 -Wimplicit-fallthrough
+
 CXXFLAGS += -ggdb @(OPTIMIZATION_LEVEL) @(CXXEXTRAFLAGS)
 
 CXXLIBS += @(CXXEXTRALIBS)
+
+XOZFLAGS += -Wold-style-cast
+XOZFLAGS += -Wcast-align
+XOZFLAGS += -Wdouble-promotion
+XOZFLAGS += -Wsign-conversion
 
 GTESTPATH = ../googletest/../out-googletest/usr/local
 
 GTESTFLAGS += -I$(GTESTPATH)/include/ -L$(GTESTPATH)/lib/
 GTESTFLAGS += -I../$(GTESTPATH)/include/ -L../$(GTESTPATH)/lib/
 
+GTESTFLAGS += -Wno-sign-conversion
+
 GTESTLIBS = -lgtest -lpthread
 
-!compile = |> ^ compile %f^ @(COMPILER) -c $(CXXFLAGS) %f -o %o |> %B.o  | %O.gcno
+!compile = |> ^ compile %f^ @(COMPILER) -c $(CXXFLAGS) $(XOZFLAGS) %f -o %o |> %B.o  | %O.gcno
 !build-static-lib = |> ar -rc %o %f |>
 
 !compile-test = |> ^ compile-test %f^ @(COMPILER) -c $(CXXFLAGS) $(GTESTFLAGS) %f -o %o |> %B.o  | %O.gcno
