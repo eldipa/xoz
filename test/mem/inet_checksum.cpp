@@ -84,7 +84,7 @@ namespace {
         EXPECT_EQ(inet_checksum(buf+0, 6), (uint32_t)0x00000102);
 
         // The inet_checksum over a buffer it will always does the fold
-        EXPECT_EQ(inet_checksum(buf+7, 2), (uint32_t)0x0000ffff);
+        EXPECT_EQ(inet_checksum(buf+6, 2), (uint32_t)0x0000ffff);
     }
 
     TEST(InetChecksumTest, EquivalenceSingleUint16) {
