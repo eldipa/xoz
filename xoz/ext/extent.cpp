@@ -151,10 +151,15 @@ uint32_t Extent::calc_data_space_size(uint8_t blk_sz_order) const {
         return 0;
     }
 
+    // A blk_sz_order > 16 may make (ext.blk_cnt() << blk_sz_order)
+    // to overflow the uint32_t
+    // See Repository::MAX_BLK_NR
+    assert(blk_sz_order <= 16);
+
     if (ext.is_suballoc()) {
-        return assert_u32(ext.subblk_cnt() << (blk_sz_order - 4));
+        return uint32_t(ext.subblk_cnt() << (blk_sz_order - 4));
     } else {
-        return assert_u32(ext.blk_cnt() << blk_sz_order);
+        return uint32_t(ext.blk_cnt() << blk_sz_order);
     }
 }
 
