@@ -152,7 +152,7 @@ uint32_t Extent::calc_data_space_size(uint8_t blk_sz_order) const {
     }
 
     if (ext.is_suballoc()) {
-        return assert_u32(std::popcount(ext.blk_bitmap()) << (blk_sz_order - 4));
+        return assert_u32(ext.subblk_cnt() << (blk_sz_order - 4));
     } else {
         return assert_u32(ext.blk_cnt() << blk_sz_order);
     }
