@@ -39,9 +39,9 @@ Repository::~Repository() { close(); }
 Repository Repository::create(const char* fpath, bool fail_if_exists, const struct default_parameters_t& defaults) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
-    // the minimum block size (REPOSITORY_MIN_BLK_SZ) is an extra requirement of us
+    // the minimum block size (MIN_BLK_SZ) is an extra requirement of us
     // not of FileBlockArray.
-    FileBlockArray::fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
+    FileBlockArray::fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
     // We pass defaults to the FileBlockArray::create via preload_repo function
     // so the array is created with the correct dimensions.
@@ -58,9 +58,9 @@ Repository Repository::create(const char* fpath, bool fail_if_exists, const stru
 Repository Repository::create_mem_based(const struct default_parameters_t& defaults) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
-    // the minimum block size (REPOSITORY_MIN_BLK_SZ) is an extra requirement of us
+    // the minimum block size (MIN_BLK_SZ) is an extra requirement of us
     // not of FileBlockArray.
-    FileBlockArray::fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
+    FileBlockArray::fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
     auto fblkarr_ptr = FileBlockArray::create_mem_based(defaults.blk_sz, 1 /* begin_blk_nr */);
 
@@ -342,7 +342,7 @@ void Repository::write_trailer() {
 }
 
 void Repository::init_new_repository(const struct default_parameters_t& defaults) {
-    fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, REPOSITORY_MIN_BLK_SZ);
+    fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
     trampoline_segm = Segment::EmptySegment();
     root_holder = DescriptorSetHolder::create(*fblkarr.get(), idmgr);
@@ -492,11 +492,11 @@ void Repository::compute_and_check_header_checksum(struct repo_header_t& hdr) {
 }
 
 void Repository::check_blk_sz_order(const uint8_t blk_sz_order) {
-    if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > REPOSITORY_MAX_BLK_SZ_ORDER) {
+    if (blk_sz_order < MIN_BLK_SZ_ORDER or blk_sz_order > MAX_BLK_SZ_ORDER) {
         throw std::runtime_error((F() << "block size order " << int(blk_sz_order) << " is out of range ["
-                                      << int(REPOSITORY_MIN_BLK_SZ_ORDER) << " to " << int(REPOSITORY_MAX_BLK_SZ_ORDER)
-                                      << "] (block sizes of " << (1 << REPOSITORY_MIN_BLK_SZ_ORDER) << " to "
-                                      << (1 << (REPOSITORY_MAX_BLK_SZ_ORDER - 10)) << "K)")
+                                      << int(MIN_BLK_SZ_ORDER) << " to " << int(MAX_BLK_SZ_ORDER)
+                                      << "] (block sizes of " << (1 << MIN_BLK_SZ_ORDER) << " to "
+                                      << (1 << (MAX_BLK_SZ_ORDER - 10)) << "K)")
                                          .str());
     }
 }
