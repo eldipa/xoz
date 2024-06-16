@@ -13,7 +13,8 @@
 #include "xoz/segm/segment.h"
 
 namespace {
-std::vector<uint32_t> create_ext_index(const Segment& sg, const uint32_t sg_no_inline_sz, const uint8_t blk_sz_order) {
+std::vector<uint32_t> create_ext_index(const Segment& sg, [[maybe_unused]] const uint32_t sg_no_inline_sz,
+                                       const uint8_t blk_sz_order) {
     uint32_t cnt = sg.ext_cnt();
 
     std::vector<uint32_t> begin_positions;

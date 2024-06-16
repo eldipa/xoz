@@ -195,7 +195,7 @@ bool DescriptorSet::does_require_write() const {
 
 void DescriptorSet::write_modified_descriptors(IOBase& io) {
     if (segm.length() == 0) {
-        auto ext = st_blkarr.allocator().alloc_single_extent(4);
+        [[maybe_unused]] auto ext = st_blkarr.allocator().alloc_single_extent(4);
 
         // Sanity check of the allocation for the header:
         //  - 4 bytes allocated as 2 full blocks in a single extent,

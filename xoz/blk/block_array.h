@@ -208,6 +208,7 @@ public:
                 return assert_u16((bytes + blk_sz() - 1) >> _blk_sz_order);
         }
         assert(false);
+        std::terminate();
     }
 
     inline uint16_t bytes2subblk_cnt(uint32_t bytes, const RoundMode mode = RoundMode::exact) const {
@@ -224,6 +225,7 @@ public:
                 return assert_u16((bytes + subblk_sz() - 1) >> (_blk_sz_order - Extent::SUBBLK_SIZE_ORDER));
         }
         assert(false);
+        std::terminate();
     }
 
     inline uint32_t bytes2blk_nr(uint32_t bytes) const {

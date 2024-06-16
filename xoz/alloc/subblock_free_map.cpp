@@ -264,7 +264,7 @@ void SubBlockFreeMap::dealloc(const Extent& ext) {
     } else {
         // If ext is not in fr_by_nr it must not be in any bins either
         for (uint8_t bin = 0; bin < Extent::SUBBLK_CNT_PER_BLK; ++bin) {
-            auto& ext_bin = exts_bin[bin];
+            [[maybe_unused]] auto& ext_bin = exts_bin[bin];
             assert(ext_bin.find(ext.blk_nr()) == ext_bin.end());
         }
         TRACE << "nofound    " << TRACE_FLUSH;

@@ -108,7 +108,7 @@ public:
      * */
     Extent split(uint16_t new_cnt) {
         if (is_suballoc()) {
-            uint16_t orig_cnt = subblk_cnt();
+            [[maybe_unused]] uint16_t orig_cnt = subblk_cnt();
             assert(subblk_cnt() >= new_cnt);
 
             uint16_t subblks_to_transfer = subblk_cnt() - new_cnt;
@@ -134,7 +134,7 @@ public:
             return ext2;
 
         } else {
-            uint16_t orig_cnt = blk_cnt();
+            [[maybe_unused]] uint16_t orig_cnt = blk_cnt();
             assert(_blk_cnt >= new_cnt);
 
             Extent ext2(assert_u32(_blk_nr + new_cnt), assert_u16(_blk_cnt - new_cnt), false);
