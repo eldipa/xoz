@@ -492,10 +492,11 @@ void Repository::compute_and_check_header_checksum(struct repo_header_t& hdr) {
 }
 
 void Repository::check_blk_sz_order(const uint8_t blk_sz_order) {
-    // TODO: is blk_sz_order > 16 a good upper limit? It seems a little artificial.
-    if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > 16) {
-        throw std::runtime_error((F() << "block size order " << int(blk_sz_order)
-                                      << " is out of range [7 to 16] (block sizes of 128 to 64K).")
+    if (blk_sz_order < REPOSITORY_MIN_BLK_SZ_ORDER or blk_sz_order > REPOSITORY_MAX_BLK_SZ_ORDER) {
+        throw std::runtime_error((F() << "block size order " << int(blk_sz_order) << " is out of range ["
+                                      << int(REPOSITORY_MIN_BLK_SZ_ORDER) << " to " << int(REPOSITORY_MAX_BLK_SZ_ORDER)
+                                      << "] (block sizes of " << (1 << REPOSITORY_MIN_BLK_SZ_ORDER) << " to "
+                                      << (1 << (REPOSITORY_MAX_BLK_SZ_ORDER - 10)) << "K)")
                                          .str());
     }
 }

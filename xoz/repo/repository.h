@@ -31,9 +31,14 @@ public:
     /*
      * This is the minimum size of the blocks that the repository can use.
      * Larger blocks are allowed as long as they are power of 2.
+     *
+     * Max block size order is 16. This is the largest order such than an Extent
+     * with its maximum number of blocks has a total size less or equal to uint32_t.
      * */
-    constexpr static uint32_t REPOSITORY_MIN_BLK_SZ = 128;
     constexpr static uint32_t REPOSITORY_MIN_BLK_SZ_ORDER = 7;
+    constexpr static uint32_t REPOSITORY_MAX_BLK_SZ_ORDER = 16;
+    constexpr static uint32_t REPOSITORY_MIN_BLK_SZ = (1 << REPOSITORY_MIN_BLK_SZ_ORDER);
+    constexpr static uint32_t REPOSITORY_MAX_BLK_SZ = (1 << REPOSITORY_MAX_BLK_SZ_ORDER);
     constexpr static uint32_t REPOSITORY_HEADER_BLK_CNT = 1;
 
 private:
