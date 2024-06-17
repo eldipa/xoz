@@ -5,6 +5,7 @@ CXXFLAGS += -Wnon-virtual-dtor -Wunused -Woverloaded-virtual -Wpedantic -Wmislea
 CXXFLAGS += -Wnull-dereference -Wformat=2 -Wimplicit-fallthrough
 
 CXXFLAGS += -ggdb @(OPTIMIZATION_LEVEL) @(CXXEXTRAFLAGS)
+CXXFLAGS += --coverage
 
 CXXLIBS += @(CXXEXTRALIBS)
 
@@ -22,10 +23,10 @@ GTESTFLAGS += -Wno-sign-conversion
 
 GTESTLIBS = -lgtest -lpthread
 
-!compile = |> ^ compile %f^ @(COMPILER) -c $(CXXFLAGS) $(XOZFLAGS) %f -o %o |> %B.o  | %O.gcno
+!compile = |> ^j compile %f^ @(COMPILER) -c $(CXXFLAGS) $(XOZFLAGS) %f -o %o |> %B.o ^.*.gcno
 !build-static-lib = |> ar -rc %o %f |>
 
-!compile-test = |> ^ compile-test %f^ @(COMPILER) -c $(CXXFLAGS) $(GTESTFLAGS) %f -o %o |> %B.o  | %O.gcno
+!compile-test = |> ^ compile-test %f^ @(COMPILER) -c $(CXXFLAGS) $(GTESTFLAGS) %f -o %o |> %B.o ^.*.gcno
 !build-runtests = |>^ build-runtests %f^ @(COMPILER) $(CXXFLAGS) $(GTESTFLAGS) %f -o %o $(GTESTLIBS) $(CXXLIBS) |>
 
 !build-prog = |> ^ build-prog %f^ @(COMPILER) $(CXXFLAGS) %f -o %o $(CXXLIBS) |>
