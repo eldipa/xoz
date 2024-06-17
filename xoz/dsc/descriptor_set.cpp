@@ -7,6 +7,7 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/io/iosegment.h"
+#include "xoz/log/format_string.h"
 #include "xoz/mem/inet_checksum.h"
 #include "xoz/repo/id_manager.h"
 
@@ -507,23 +508,25 @@ void DescriptorSet::fail_if_set_not_loaded() const {
 
 std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
     if (not owned.contains(id)) {
-        throw std::invalid_argument((F() << "Descriptor " << id << " does not belong to the set.").str());
+        throw std::invalid_argument(
+                (F() << "Descriptor " << xoz::log::hex(id) << " does not belong to the set.").str());
     }
 
     auto dscptr = owned[id];
 
     if (!dscptr) {
-        throw std::runtime_error((F() << "Descriptor " << id << " was found null inside the set.").str());
+        throw std::runtime_error(
+                (F() << "Descriptor " << xoz::log::hex(id) << " was found null inside the set.").str());
     }
 
     if (dscptr->id() != id) {
-        throw std::runtime_error((F() << "Descriptor " << id << " claims to have a different id of " << dscptr->id()
-                                      << " inside the set.")
+        throw std::runtime_error((F() << "Descriptor " << xoz::log::hex(id) << " claims to have a different id of "
+                                      << xoz::log::hex(dscptr->id()) << " inside the set.")
                                          .str());
     }
 
     if (dscptr->get_owner() != this) {
-        throw std::runtime_error((F() << "Descriptor " << id << " was found pointing to "
+        throw std::runtime_error((F() << "Descriptor " << xoz::log::hex(id) << " was found pointing to "
                                       << (dscptr->get_owner() == nullptr ? "a null" : "a different") << " owner set (0x"
                                       << std::hex << dscptr->get_owner() << ") instead of us (0x" << std::hex << this
                                       << ")")

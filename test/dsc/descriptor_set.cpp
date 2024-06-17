@@ -1141,7 +1141,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 99 does not belong to the set."
+                        "Descriptor 0x00000063 does not belong to the set."
                         )
                     )
                 )
@@ -1154,7 +1154,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 99 does not belong to the set."
+                        "Descriptor 0x00000063 does not belong to the set."
                         )
                     )
                 )
@@ -1727,7 +1727,7 @@ namespace {
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(
-                        "descriptor {id: 2147483650, type: 250, dsize: 0} "
+                        "descriptor {id: 0x80000002, type: 250, dsize: 0} "
                         "claims to use a block array for external data at 0x"
                         ),
                     HasSubstr(
@@ -1786,9 +1786,9 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "descriptor {id: 2147483649, type: 250, dsize: 0} "
+                        "descriptor {id: 0x80000001, type: 250, dsize: 0} "
                         "has an id that collides with descriptor "
-                        "{id: 2147483649, type: 250, dsize: 0} "
+                        "{id: 0x80000001, type: 250, dsize: 0} "
                         "that it is already owned by the set"
                         )
                     )
@@ -1815,9 +1815,9 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "descriptor {id: 2147483649, type: 250, dsize: 0} "
+                        "descriptor {id: 0x80000001, type: 250, dsize: 0} "
                         "has an id that collides with descriptor "
-                        "{id: 2147483649, type: 250, dsize: 0} "
+                        "{id: 0x80000001, type: 250, dsize: 0} "
                         "that it is already owned by the set"
                         )
                     )
@@ -1886,7 +1886,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 2147483649 does not belong to the set."
+                        "Descriptor 0x80000001 does not belong to the set."
                         )
                     )
                 )
@@ -1898,7 +1898,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 2147483650 does not belong to the set."
+                        "Descriptor 0x80000002 does not belong to the set."
                         )
                     )
                 )
@@ -1910,7 +1910,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 2147483651 does not belong to the set."
+                        "Descriptor 0x80000003 does not belong to the set."
                         )
                     )
                 )
@@ -1924,7 +1924,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 2147483649 does not belong to the set."
+                        "Descriptor 0x80000001 does not belong to the set."
                         )
                     )
                 )
@@ -1936,7 +1936,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 2147483650 does not belong to the set."
+                        "Descriptor 0x80000002 does not belong to the set."
                         )
                     )
                 )
@@ -1948,7 +1948,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 2147483651 does not belong to the set."
+                        "Descriptor 0x80000003 does not belong to the set."
                         )
                     )
                 )
@@ -1966,7 +1966,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 2147483649 does not belong to the set."
+                        "Descriptor 0x80000001 does not belong to the set."
                         )
                     )
                 )
@@ -1978,7 +1978,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 2147483650 does not belong to the set."
+                        "Descriptor 0x80000002 does not belong to the set."
                         )
                     )
                 )
@@ -1990,7 +1990,7 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "Descriptor 2147483651 does not belong to the set."
+                        "Descriptor 0x80000003 does not belong to the set."
                         )
                     )
                 )

@@ -1127,7 +1127,7 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for writing descriptor's data of "
-                        "descriptor {id: 2147483649, type: 255, dsize: 2}"
+                        "descriptor {id: 0x80000001, type: 255, dsize: 2}"
                         )
                     )
                 )
@@ -1149,7 +1149,7 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for reading descriptor's data of "
-                        "descriptor {id: 2147483649, type: 255, dsize: 2}"
+                        "descriptor {id: 0x80000001, type: 255, dsize: 2}"
                         )
                     )
                 )
@@ -1200,7 +1200,7 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for writing descriptor's data of "
-                        "descriptor {id: 15, type: 255, dsize: 2, esize: 42, owns: 0}"
+                        "descriptor {id: 0x0000000f, type: 255, dsize: 2, esize: 42, owns: 0}"
                         )
                     )
                 )
@@ -1221,7 +1221,7 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for reading descriptor's data of "
-                        "descriptor {id: 15, type: 255, dsize: 2, esize: 42, owns: 0}"
+                        "descriptor {id: 0x0000000f, type: 255, dsize: 2, esize: 42, owns: 0}"
                         )
                     )
                 )
@@ -1353,7 +1353,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Descriptor id is zero in descriptor "
-                        "{id: 0, type: 255, dsize: 0, esize: 0, owns: 0}"
+                        "{id: 0x00000000, type: 255, dsize: 0, esize: 0, owns: 0}"
                         )
                     )
                 )
@@ -1383,7 +1383,7 @@ namespace {
                     HasSubstr(
                         "Repository seems inconsistent/corrupt. "
                         "Descriptor id is zero, detected with partially loaded descriptor "
-                        "{id: 0, type: 255, dsize: 0, esize: 0, owns: 0}"
+                        "{id: 0x00000000, type: 255, dsize: 0, esize: 0, owns: 0}"
                         )
                     )
                 )

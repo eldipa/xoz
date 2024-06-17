@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <iomanip>
 #include <utility>
 
 #include "xoz/blk/block_array.h"
@@ -9,6 +10,7 @@
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/dsc/internals.h"
 #include "xoz/err/exceptions.h"
+#include "xoz/log/format_string.h"
 #include "xoz/mem/bits.h"
 #include "xoz/mem/inet_checksum.h"
 #include "xoz/repo/id_manager.h"
@@ -527,7 +529,7 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
     std::ios_base::fmtflags ioflags = out->flags();
 
     (*out) << "descriptor {"
-           << "id: " << hdr.id << ", type: " << hdr.type << ", dsize: " << uint32_t(hdr.dsize);
+           << "id: " << xoz::log::hex(hdr.id) << ", type: " << hdr.type << ", dsize: " << uint32_t(hdr.dsize);
 
     if (hdr.own_edata) {
         (*out) << ", esize: " << hdr.esize << ", owns: " << hdr.segm.calc_data_space_size(9 /*TODO*/) << "}"
