@@ -27,8 +27,11 @@ void PrintTo(const Segment& segm, std::ostream* out) {
     }
 
     if (segm.inline_present) {
-        (*out) << "(+" << segm.raw.size() << " bytes) ";
+        (*out) << "(+" << segm.raw.size() << ") ";
     }
+
+    (*out) << "(struct: " << segm.calc_struct_footprint_size() << " B, data: " << segm.calc_data_space_size(false)
+           << " B) ";
 }
 
 std::ostream& operator<<(std::ostream& out, const Segment& segm) {
