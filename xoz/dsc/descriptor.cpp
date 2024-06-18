@@ -227,7 +227,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
 
     uint32_t esize = (hi_esize << 15) | lo_esize;  // in bytes
 
-    Segment segm;
+    Segment segm(ed_blkarr.blk_sz_order());
     struct Descriptor::header_t hdr = {
             .own_edata = own_edata, .type = type, .id = 0, .dsize = dsize, .esize = esize, .segm = segm};
 
@@ -268,7 +268,8 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     hdr.id = id;
 
     if (own_edata) {
-        hdr.segm = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, uint32_t(-1), &checksum);
+        hdr.segm = Segment::load_struct_from(io, ed_blkarr.blk_sz_order(), Segment::EndMode::AnyEnd, uint32_t(-1),
+                                             &checksum);
     }
 
     /* TODO
@@ -361,7 +362,7 @@ void Descriptor::write_struct_into(IOBase& io) {
     uint32_t checksum = 0;
 
     /* TODO
-    const auto segm_sz = hdr.segm.calc_data_space_size(????);
+    const auto segm_sz = hdr.segm.calc_data_space_size();
     if (segm_sz < hdr.esize) {
         assert(hdr.own_edata);
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.esize << " bytes of external data
@@ -532,7 +533,7 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
            << "id: " << xoz::log::hex(hdr.id) << ", type: " << hdr.type << ", dsize: " << uint32_t(hdr.dsize);
 
     if (hdr.own_edata) {
-        (*out) << ", esize: " << hdr.esize << ", owns: " << hdr.segm.calc_data_space_size(9 /*TODO*/) << "}"
+        (*out) << ", esize: " << hdr.esize << ", owns: " << hdr.segm.calc_data_space_size() << "}"
                << " " << hdr.segm;
     } else {
         (*out) << "}";
@@ -563,7 +564,7 @@ void Descriptor::chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::hea
 }
 
 uint32_t Descriptor::calc_external_data_space_size() const {
-    return hdr.own_edata ? hdr.segm.calc_data_space_size(ed_blkarr.blk_sz_order()) : 0;
+    return hdr.own_edata ? hdr.segm.calc_data_space_size() : 0;
 }
 
 void Descriptor::destroy() {

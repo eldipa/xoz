@@ -114,7 +114,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
         throw std::runtime_error("Subblock size 0 cannot be used for suballocation");
     }
 
-    Segment segm;
+    Segment segm(_blkarr->blk_sz_order());
     uint32_t sz_remain = sz;
     uint32_t avail_sz = 0;
 
@@ -240,7 +240,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     assert(inline_sz == 0);
     assert(sz_remain == 0);
 
-    avail_sz = segm.calc_data_space_size(blk_sz_order);
+    avail_sz = segm.calc_data_space_size();
 
     // sanity check: we may allocate more if the user requeste to have no-inline
     // and the sz requested is not multiple of subblk_sz *or* to have no-inline
@@ -257,7 +257,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
 
     calc_ext_per_segm_stats(segm, true);
 
-    internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(blk_sz_order);
+    internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz();
 
     ++alloc_call_cnt;
     return segm;
@@ -294,7 +294,7 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     fail_if_block_array_not_initialized();
     fail_if_allocator_not_initialized();
     fail_if_allocator_is_blocked();
-    auto sz = segm.calc_data_space_size(blk_sz_order);
+    auto sz = segm.calc_data_space_size();
 
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
     TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
@@ -320,7 +320,7 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     calc_ext_per_segm_stats(segm, false);
     ++dealloc_call_cnt;
 
-    internal_frag_avg_sz -= segm.estimate_on_avg_internal_frag_sz(blk_sz_order);
+    internal_frag_avg_sz -= segm.estimate_on_avg_internal_frag_sz();
 
     reclaim_free_space_from_subfr_map();
 }
@@ -346,7 +346,7 @@ void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
         throw std::runtime_error("The extent to be deallocated cannot be empty.");
     }
 
-    Segment segm;
+    Segment segm(_blkarr->blk_sz_order());
     segm.add_extent(ext);
     this->dealloc(segm);
 }
@@ -374,14 +374,14 @@ void SegmentAllocator::initialize_from_allocated(const std::list<Segment>& alloc
     for (const auto& segm: allocated_segms) {
         allocated.insert(allocated.end(), segm.exts().begin(), segm.exts().end());
 
-        in_use_by_user_sz += segm.calc_data_space_size(blk_sz_order);
+        in_use_by_user_sz += segm.calc_data_space_size();
         in_use_ext_cnt += segm.ext_cnt();
         in_use_inlined_sz += segm.inline_data_sz();
         in_use_blk_cnt += segm.full_blk_cnt();
         in_use_subblk_cnt += segm.subblk_cnt();
 
         calc_ext_per_segm_stats(segm, true);
-        internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz(blk_sz_order);
+        internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz();
     }
 
     _initialize_from_allocated(allocated);

@@ -39,7 +39,7 @@ namespace {
         std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
         std::vector<char> rdbuf;
 
-        Segment sg;
+        Segment sg(blkarr.blk_sz_order());
         sg.add_extent(Extent(0, 1, false)); // one block
 
         IOSegment iosg1(blkarr, sg);
@@ -79,7 +79,7 @@ namespace {
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
 
-        Segment sg;
+        Segment sg(blkarr.blk_sz_order());
         sg.add_extent(Extent(0, 1, false)); // one block
 
         std::vector<char> wrbuf(64);
@@ -151,7 +151,7 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        Segment sg;
+        Segment sg(blkarr.blk_sz_order());
         sg.add_extent(Extent(1, 1, false)); // one block
         sg.add_extent(Extent(0, 1, false)); // one block
         sg.add_extent(Extent(2, 2, false)); // two blocks
@@ -252,7 +252,7 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        Segment sg;
+        Segment sg(blkarr.blk_sz_order());
         sg.add_extent(Extent(1, 1, false)); // one block
         sg.add_extent(Extent(0, 1, false)); // one block
         sg.add_extent(Extent(2, 2, false)); // two blocks
@@ -372,7 +372,7 @@ namespace {
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
 
-        Segment sg;
+        Segment sg(blkarr.blk_sz_order());
         sg.add_extent(Extent(0, 1, false)); // one block
 
         std::vector<char> wrbuf(65); // block size plus 1
@@ -437,7 +437,7 @@ namespace {
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
 
-        Segment sg;
+        Segment sg(blkarr.blk_sz_order());
         sg.add_extent(Extent(0, 1, false)); // one block
 
         IOSegment iosg1(blkarr, sg);
@@ -581,7 +581,7 @@ namespace {
         auto old_top_nr = blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
 
-        Segment sg;
+        Segment sg(blkarr.blk_sz_order());
         sg.add_extent(Extent(0, 1, false)); // one block
 
         std::vector<char> wrbuf(65); // block size plus 1
@@ -656,7 +656,7 @@ namespace {
         std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
         std::vector<char> rdbuf;
 
-        Segment sg;
+        Segment sg(blkarr.blk_sz_order());
         sg.add_extent(Extent(0, 1, false)); // one block
 
         IOSegment iosg1(blkarr, sg);

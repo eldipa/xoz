@@ -39,7 +39,7 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t f
     // a single tiny chunk for it but larger than it, hence, this translate
     // to having allocated more blocks than the initially requested/expected
     // fg_blk_cnt
-    uint32_t real_grow_sz = additional_segm.calc_data_space_size(bg_blkarr.blk_sz_order());
+    uint32_t real_grow_sz = additional_segm.calc_data_space_size();
     uint16_t real_front_blk_cnt = bytes2blk_cnt(real_grow_sz);
     assert(real_grow_sz >= grow_sz);
     assert(real_front_blk_cnt >= fg_blk_cnt);
@@ -62,7 +62,7 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t fg_blk_cnt, bool rel
     // Note: the following must remove/free an entire number of blocks; subblocks
     // or smaller is not supported. This makes the code easier and simple and also
     // allows us to calculate fg_pending_blk_cnt as the diff of real and past-end.
-    Segment to_free;
+    Segment to_free(bg_blkarr.blk_sz_order());
     while (shrink_sz > 0) {
         assert(segm.ext_cnt() >= 1);
 

@@ -60,8 +60,9 @@ namespace {
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         // Mandatory: we load the descriptors from the segment above (of course, none)
@@ -105,8 +106,9 @@ namespace {
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         // Mandatory: we load the descriptors from the segment above (of course, none)
@@ -147,8 +149,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -162,7 +165,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -249,8 +252,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -264,7 +268,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -338,8 +342,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -353,7 +358,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -369,7 +374,7 @@ namespace {
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
-        Segment sg2;
+        Segment sg2(blk_sz_order);
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
 
         dset2.create_set();
@@ -409,8 +414,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -424,7 +430,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -438,7 +444,7 @@ namespace {
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
-        Segment sg2;
+        Segment sg2(blk_sz_order);
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
 
         dset2.create_set();
@@ -483,8 +489,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -498,7 +505,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -512,7 +519,7 @@ namespace {
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
-        Segment sg2;
+        Segment sg2(blk_sz_order);
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
 
         dset2.create_set();
@@ -558,13 +565,14 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -644,13 +652,14 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -697,7 +706,7 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 5));
 
         // Create another set
-        Segment sg2;
+        Segment sg2(blk_sz_order);
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
         dset2.create_set();
         dset2.write_set();
@@ -771,16 +780,17 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
-        Segment sg2;
+        Segment sg2(blk_sz_order);
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -794,7 +804,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         {
@@ -893,13 +903,14 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -912,7 +923,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         {
@@ -977,13 +988,14 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -996,7 +1008,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         // Let the set assign a temporal id
@@ -1082,8 +1094,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -1097,7 +1110,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -1173,8 +1186,9 @@ namespace {
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         // Mandatory: we load the descriptors from the segment above (of course, none)
@@ -1220,8 +1234,9 @@ namespace {
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         // Mandatory: we load the descriptors from the segment above (of course, none)
@@ -1263,8 +1278,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -1278,7 +1294,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -1339,8 +1355,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -1424,8 +1441,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -1496,8 +1514,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -1511,7 +1530,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -1585,8 +1604,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -1600,7 +1620,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -1687,9 +1707,11 @@ namespace {
         d_blkarr_1.allocator().initialize_from_allocated(std::list<Segment>());
         d_blkarr_2.allocator().initialize_from_allocated(std::list<Segment>());
 
+        const auto blk_sz_order = d_blkarr_1.blk_sz_order();
+
         // Create set with two different block arrays, one for the descriptor set
         // the other for the external data.
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr_1, d_blkarr_2, idmgr);
 
         dset.create_set();
@@ -1703,7 +1725,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr_1.blk_sz_order())
         };
 
         // Descriptor uses the same block array for the external data than
@@ -1751,8 +1773,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
 
         dset.create_set();
@@ -1766,7 +1789,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -1802,7 +1825,7 @@ namespace {
         // No problem because the new set does not know about the former.
         auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
 
-        Segment sg2;
+        Segment sg2(blk_sz_order);
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
         dset2.create_set();
 
@@ -1838,8 +1861,9 @@ namespace {
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
 
-        Segment sg;
+        Segment sg(blk_sz_order);
         DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
         dset.create_set();
 
@@ -1852,7 +1876,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         // Store 1 descriptor and write it
@@ -1955,7 +1979,7 @@ namespace {
         );
 
         // Try to move out an id that does not exist
-        Segment sg2;
+        Segment sg2(blk_sz_order);
         DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
         dset2.create_set();
 

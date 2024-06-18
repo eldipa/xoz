@@ -14,15 +14,19 @@ struct Repository::preload_repo_ctx_t Repository::dummy = {false, {0}};
 Repository::Repository(const char* fpath):
         fpath(fpath),
         fblkarr(std::make_unique<FileBlockArray>(fpath, std::bind_front(Repository::preload_repo, dummy))),
-        closed(true) {
+        closed(true),
+        trampoline_segm(fblkarr->blk_sz_order()) {
     bootstrap_repository();
     assert(not closed);
     assert(this->fblkarr->begin_blk_nr() >= 1);
 }
 
-Repository::Repository(std::unique_ptr<FileBlockArray>&& fblkarr, const struct default_parameters_t& defaults,
+Repository::Repository(std::unique_ptr<FileBlockArray>&& fblkarr_, const struct default_parameters_t& defaults,
                        bool is_a_new_repository):
-        fpath(fblkarr->get_file_path()), fblkarr(std::move(fblkarr)), closed(true) {
+        fpath(fblkarr_->get_file_path()),
+        fblkarr(std::move(fblkarr_)),
+        closed(true),
+        trampoline_segm(fblkarr->blk_sz_order()) {
     if (is_a_new_repository) {
         // The given file block array has a valid and open file but it is not initialized as
         // a repository yet. We do that here.
@@ -344,7 +348,7 @@ void Repository::write_trailer() {
 void Repository::init_new_repository(const struct default_parameters_t& defaults) {
     fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
-    trampoline_segm = Segment::EmptySegment();
+    trampoline_segm = Segment::EmptySegment(fblkarr->blk_sz_order());
     root_holder = DescriptorSetHolder::create(*fblkarr.get(), idmgr);
 
     // Ensure that the holder has a valid id.
@@ -374,7 +378,7 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
         // The root field in the xoz header contains 2 bytes for the trampoline's content
         // checksum and the segment to the trampoline.
         uint32_t checksum = uint32_t(root_io.read_u16_from_le());
-        trampoline_segm = Segment::load_struct_from(root_io);
+        trampoline_segm = Segment::load_struct_from(root_io, fblkarr_ref.blk_sz_order());
 
         // Read trampoline's content. We expect to find a set descriptor holder there.
         auto trampoline_io = IOSegment(fblkarr_ref, trampoline_segm);
@@ -393,7 +397,7 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
         }
     } else {
         // No trampoline
-        trampoline_segm = Segment::EmptySegment();
+        trampoline_segm = Segment::EmptySegment(fblkarr_ref.blk_sz_order());
 
         // The root field has the descriptor set holder
         auto dsc = DescriptorSetHolder::load_struct_from(root_io, idmgr, fblkarr_ref);

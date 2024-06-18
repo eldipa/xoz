@@ -14,12 +14,12 @@ public:
     static const uint32_t MaxInlineSize = (1 << 6) - 1;
     static const uint32_t EndOfSegmentSize = 2;  // 2 bytes
 
-    Segment(): inline_present(false) {}
+    explicit Segment(uint8_t blk_sz_order): blk_sz_order(blk_sz_order), inline_present(false) {}
 
-    static Segment EmptySegment() { return Segment(); }
+    static Segment EmptySegment(uint8_t blk_sz_order) { return Segment(blk_sz_order); }
 
-    static Segment create_empty_zero_inline() {
-        Segment segm;
+    static Segment create_empty_zero_inline(uint8_t blk_sz_order) {
+        Segment segm(blk_sz_order);
         segm.inline_present = true;
         return segm;
     }
@@ -158,9 +158,9 @@ public:
         ExplicitLen = 4,
     };
 
-    static Segment load_struct_from(IOBase& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1),
-                                    uint32_t* checksum_p = nullptr) {
-        Segment segm;
+    static Segment load_struct_from(IOBase& io, uint8_t blk_sz_order, enum EndMode mode = EndMode::AnyEnd,
+                                    uint32_t segm_len = uint32_t(-1), uint32_t* checksum_p = nullptr) {
+        Segment segm(blk_sz_order);
         segm.read_struct_from(io, mode, segm_len, checksum_p);
         return segm;
     }
@@ -171,9 +171,9 @@ public:
     void write_struct_into(IOBase& io, uint32_t* checksum_p = nullptr) const;
 
 
-    static Segment load_struct_from(IOBase&& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1),
-                                    uint32_t* checksum_p = nullptr) {
-        return load_struct_from(io, mode, segm_len, checksum_p);
+    static Segment load_struct_from(IOBase&& io, uint8_t blk_sz_order, enum EndMode mode = EndMode::AnyEnd,
+                                    uint32_t segm_len = uint32_t(-1), uint32_t* checksum_p = nullptr) {
+        return load_struct_from(io, blk_sz_order, mode, segm_len, checksum_p);
     }
 
     void read_struct_from(IOBase&& io, enum EndMode mode = EndMode::AnyEnd, uint32_t segm_len = uint32_t(-1),
@@ -191,9 +191,9 @@ public:
     // Return the size in bytes of all the space usable (aka data).
     // This is the sum of the space referenced by the extents' blocks and,
     // if include_inline is True, the inline data.
-    uint32_t calc_data_space_size(uint8_t blk_sz_order, bool include_inline = true) const;
+    uint32_t calc_data_space_size(bool include_inline = true) const;
 
-    uint32_t estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const;
+    uint32_t estimate_on_avg_internal_frag_sz() const;
 
     friend void PrintTo(const Segment& segm, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const Segment& segm);
@@ -206,6 +206,7 @@ private:
 
 private:
     std::vector<Extent> arr;
+    uint8_t blk_sz_order;
 
     bool inline_present;
     std::vector<char> raw;

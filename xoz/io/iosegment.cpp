@@ -34,7 +34,7 @@ std::vector<uint32_t> create_ext_index(const Segment& sg, [[maybe_unused]] const
 
 
 IOSegment::IOSegment(BlockArray& blkarr, const Segment& sg):
-        IOBase(sg.calc_data_space_size(blkarr.blk_sz_order())),
+        IOBase(sg.calc_data_space_size()),
         blkarr(blkarr),
         sg(sg),
         sg_no_inline_sz(src_sz - sg.inline_data_sz()),

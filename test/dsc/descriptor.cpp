@@ -93,7 +93,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -137,7 +137,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -183,7 +183,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -229,7 +229,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -275,7 +275,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -321,7 +321,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -394,7 +394,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         std::vector<char> data(64-2);
@@ -445,7 +445,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         std::vector<char> data(64);
@@ -496,7 +496,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         std::vector<char> data(128-2);
@@ -549,7 +549,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         std::vector<char> data(64-2);
@@ -601,7 +601,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         std::vector<char> data(64-2);
@@ -652,7 +652,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -696,7 +696,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -740,7 +740,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -784,7 +784,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -828,7 +828,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         std::vector<char> data(64);
@@ -880,7 +880,7 @@ namespace {
 
             .dsize = 0,
             .esize = 1,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -924,7 +924,7 @@ namespace {
 
             .dsize = 0,
             .esize = (1 << 15) - 1,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -968,7 +968,7 @@ namespace {
 
             .dsize = 0,
             .esize = (1 << 15),
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -1012,7 +1012,7 @@ namespace {
 
             .dsize = 0,
             .esize = uint32_t(1 << 31) - 1,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -1056,7 +1056,7 @@ namespace {
 
             .dsize = 0,
             .esize = 1,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         hdr.segm.set_inline_data({0x1, 0x2, 0x3});
@@ -1102,7 +1102,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -1175,7 +1175,7 @@ namespace {
 
             .dsize = 0,
             .esize = 42,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -1263,7 +1263,7 @@ namespace {
 
             .dsize = 0,
             .esize = 42,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DescriptorSubRW dsc = DescriptorSubRW(hdr, ed_blkarr);
@@ -1331,7 +1331,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
@@ -1436,7 +1436,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         // The concrete Descriptor subclass

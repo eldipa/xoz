@@ -35,7 +35,7 @@ std::unique_ptr<DescriptorSetHolder> DescriptorSetHolder::create(BlockArray& ed_
 
                            // No external data for an empty set
                            .esize = 0,
-                           .segm = Segment::create_empty_zero_inline()};
+                           .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())};
 
     auto dsc = std::make_unique<DescriptorSetHolder>(hdr, ed_blkarr, idmgr);
 
@@ -62,7 +62,7 @@ std::unique_ptr<DescriptorSetHolder> DescriptorSetHolder::create(BlockArray& ed_
 void DescriptorSetHolder::read_struct_specifics_from(IOBase& io) {
     reserved = io.read_u16_from_le();
 
-    Segment dset_segm;
+    Segment dset_segm(ed_blkarr.blk_sz_order());
     uint16_t dset_reserved = 0;
     if (hdr.own_edata) {
         // Easiest case: the holder's segment points to the set's blocks
@@ -71,7 +71,7 @@ void DescriptorSetHolder::read_struct_specifics_from(IOBase& io) {
         // Second easiest case: the holder does not point to anything, the set
         // is empty. So build it from those bits.
         dset_reserved = io.read_u16_from_le();
-        dset_segm = Segment::create_empty_zero_inline();
+        dset_segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order());
     }
 
     if (dset_segm.inline_data_sz() != 0) {
@@ -130,7 +130,7 @@ void DescriptorSetHolder::update_header() {
         // an empty set later.
         hdr.own_edata = false;
         hdr.esize = 0;
-        hdr.segm = Segment::create_empty_zero_inline();
+        hdr.segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order());
 
         hdr.dsize = 4;  // 2 uint16 fields: the holder's and set's reserved fields
     } else {
@@ -139,7 +139,7 @@ void DescriptorSetHolder::update_header() {
         hdr.segm = dset->segment();
         hdr.segm.add_end_of_segment();
         hdr.own_edata = true;
-        hdr.esize = hdr.segm.calc_data_space_size(ed_blkarr.blk_sz_order());
+        hdr.esize = hdr.segm.calc_data_space_size();
 
         hdr.dsize = 2;  // 1 uint16 field: the holder's reserved field
     }

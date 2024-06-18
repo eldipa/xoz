@@ -92,12 +92,13 @@ uint32_t Segment::calc_struct_footprint_size() const {
 }
 
 
-uint32_t Segment::calc_data_space_size(uint8_t blk_sz_order, bool include_inline) const {
+uint32_t Segment::calc_data_space_size(bool include_inline) const {
     const Segment& segm = *this;
 
+    const uint8_t blk_sz_order = segm.blk_sz_order;
     uint32_t sz = std::accumulate(
             segm.arr.cbegin(), segm.arr.cend(), uint32_t(0),
-            [&blk_sz_order](uint32_t sz, const Extent& ext) { return sz + ext.calc_data_space_size(blk_sz_order); });
+            [blk_sz_order](uint32_t sz, const Extent& ext) { return sz + ext.calc_data_space_size(blk_sz_order); });
 
     if (segm.inline_present and include_inline) {
         segm.fail_if_bad_inline_sz();
@@ -117,7 +118,7 @@ uint32_t Segment::calc_data_space_size(uint8_t blk_sz_order, bool include_inline
     return sz;
 }
 
-uint32_t Segment::estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const {
+uint32_t Segment::estimate_on_avg_internal_frag_sz() const {
     if (subblk_cnt() > 0) {
         return 1 << (blk_sz_order - Extent::SUBBLK_SIZE_ORDER - 1);
     } else if (full_blk_cnt() > 0) {
@@ -176,7 +177,7 @@ void Segment::read_struct_from(IOBase& io, enum Segment::EndMode mode, uint32_t 
     uint64_t available_sz = initial_sz;
 
     Extent prev(0, 0, false);
-    Segment segm;
+    Segment segm(this->blk_sz_order);
 
     while (available_sz >= 2 and segm_len > 0) {
 
@@ -497,6 +498,7 @@ void Segment::write_struct_into(IOBase& io, uint32_t* checksum_p) const {
 }
 
 bool Segment::operator==(const Segment& segm) const {
+    assert(blk_sz_order == segm.blk_sz_order);
     if (ext_cnt() != segm.ext_cnt() or has_end_of_segment() != segm.has_end_of_segment() or
         inline_data_sz() != segm.inline_data_sz()) {
         return false;

@@ -473,7 +473,7 @@ void DescriptorSet::remove_set() {
     header_does_require_write = false;
     reserved = 0;
     checksum = 0;
-    segm = Segment::EmptySegment();
+    segm = Segment::EmptySegment(sg_blkarr.blk_sz_order());
 }
 
 uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {

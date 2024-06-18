@@ -183,6 +183,7 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         Repository repo = Repository::create_mem_based();
+        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -193,7 +194,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
@@ -271,6 +272,7 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         Repository repo = Repository::create_mem_based();
+        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -281,7 +283,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
@@ -357,6 +359,7 @@ namespace {
         initialize_descriptor_mapping(descriptors_map);
 
         Repository repo = Repository::create_mem_based();
+        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -367,7 +370,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());

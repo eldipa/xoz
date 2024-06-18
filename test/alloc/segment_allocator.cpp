@@ -79,7 +79,7 @@ namespace {
         // inline'd in the segment.
         Segment segm = sg_alloc.alloc(1);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)1);
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)1);
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)1);
@@ -127,7 +127,7 @@ namespace {
         // with 1 sub block inside and 0 bytes inline'd.
         Segment segm = sg_alloc.alloc(blkarr.subblk_sz());
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.subblk_sz()));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(blkarr.subblk_sz()));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)2);
@@ -183,7 +183,7 @@ namespace {
         // with 2 sub block inside and 0 bytes inline'd.
         Segment segm = sg_alloc.alloc(blkarr.subblk_sz() << 1);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.subblk_sz() << 1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(blkarr.subblk_sz() << 1));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)2);
@@ -239,7 +239,7 @@ namespace {
         // with 2 sub block inside and 0 bytes inline'd.
         Segment segm = sg_alloc.alloc(blkarr.subblk_sz() << 1);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.subblk_sz() << 1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(blkarr.subblk_sz() << 1));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)2);
@@ -346,7 +346,7 @@ namespace {
         // 1 block and 0 inline'd data.
         Segment segm = sg_alloc.alloc(blkarr.blk_sz());
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz()));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(blkarr.blk_sz()));
         EXPECT_EQ((blkarr.subblk_sz() * Extent::SUBBLK_CNT_PER_BLK), blkarr.blk_sz());
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
@@ -404,7 +404,7 @@ namespace {
         // 1 block and 1 inline'd data.
         Segment segm = sg_alloc.alloc(blkarr.blk_sz() + 1);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() + 1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() + 1));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)2);
@@ -458,7 +458,7 @@ namespace {
         // of 1 subblock and 0 inline'd data.
         Segment segm = sg_alloc.alloc(blkarr.blk_sz() + blkarr.subblk_sz());
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() + blkarr.subblk_sz()));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() + blkarr.subblk_sz()));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)3);
@@ -518,7 +518,7 @@ namespace {
         // plus 1 byte inline'd
         Segment segm = sg_alloc.alloc(2 * blkarr.blk_sz() + 3 * blkarr.subblk_sz() + 1);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(2 * blkarr.blk_sz() + 3 * blkarr.subblk_sz() + 1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(2 * blkarr.blk_sz() + 3 * blkarr.subblk_sz() + 1));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)4);
@@ -578,7 +578,7 @@ namespace {
         // extent can hold.
         Segment segm = sg_alloc.alloc(Extent::MAX_BLK_CNT * blkarr.blk_sz());
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz()));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz()));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)(Extent::MAX_BLK_CNT + 1));
@@ -629,7 +629,7 @@ namespace {
         // extent can hold plus 1 byte inline'd
         Segment segm = sg_alloc.alloc(Extent::MAX_BLK_CNT * blkarr.blk_sz() + 1);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz() + 1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz() + 1));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)(Extent::MAX_BLK_CNT + 1));
@@ -681,7 +681,7 @@ namespace {
         // for 1 subblock.
         Segment segm = sg_alloc.alloc(Extent::MAX_BLK_CNT * blkarr.blk_sz() + blkarr.subblk_sz());
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz() + blkarr.subblk_sz()));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz() + blkarr.subblk_sz()));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)(Extent::MAX_BLK_CNT + 2));
@@ -740,7 +740,7 @@ namespace {
         // extent can hold plus 1 additional extent for another block
         Segment segm = sg_alloc.alloc(Extent::MAX_BLK_CNT * blkarr.blk_sz() + blkarr.blk_sz());
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz() + blkarr.blk_sz()));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz() + blkarr.blk_sz()));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)(Extent::MAX_BLK_CNT + 2));
@@ -797,7 +797,7 @@ namespace {
         // plus 1 byte inline'd
         Segment segm = sg_alloc.alloc(Extent::MAX_BLK_CNT * blkarr.blk_sz() + blkarr.blk_sz() + blkarr.subblk_sz() + 1);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz() + blkarr.blk_sz() + blkarr.subblk_sz() + 1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(Extent::MAX_BLK_CNT * blkarr.blk_sz() + blkarr.blk_sz() + blkarr.subblk_sz() + 1));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)(Extent::MAX_BLK_CNT + 3));
@@ -865,7 +865,7 @@ namespace {
         // This will not require a full block because it fits in the inline space
         Segment segm1 = sg_alloc.alloc(req.max_inline_sz, req);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(req.max_inline_sz));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(req.max_inline_sz));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)(1));
@@ -879,7 +879,7 @@ namespace {
         // and suballoc is disabled
         Segment segm2 = sg_alloc.alloc(req.max_inline_sz + 1, req);
 
-        EXPECT_EQ(segm2.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz()));
+        EXPECT_EQ(segm2.calc_data_space_size(), (uint32_t)(blkarr.blk_sz()));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)(2));
@@ -930,7 +930,7 @@ namespace {
         // inline'd in the segment.
         Segment segm = sg_alloc.alloc(1);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)1);
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)1);
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)1);
@@ -1004,9 +1004,9 @@ namespace {
 
         EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(32 * 3));
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 1));
-        EXPECT_EQ(segm2.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
-        EXPECT_EQ(segm3.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 3));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 1));
+        EXPECT_EQ(segm2.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm3.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 3));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)7);
@@ -1186,9 +1186,9 @@ namespace {
         Segment segm2 = sg_alloc.alloc(blkarr.blk_sz() * 2);
         Segment segm3 = sg_alloc.alloc(blkarr.blk_sz() * 3);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 1));
-        EXPECT_EQ(segm2.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
-        EXPECT_EQ(segm3.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 3));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 1));
+        EXPECT_EQ(segm2.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm3.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 3));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)7);
@@ -1367,7 +1367,7 @@ namespace {
         // Alloc 3 subblocks which requires allocate 1 block
         Segment segm1 = sg_alloc.alloc(blkarr.subblk_sz() * 3);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.subblk_sz() * 3));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.subblk_sz() * 3));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)2);
@@ -1413,7 +1413,7 @@ namespace {
         // Alloc 2 subblocks more reusing the previously allocated 1 block
         Segment segm2 = sg_alloc.alloc(blkarr.subblk_sz() * 2);
 
-        EXPECT_EQ(segm2.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.subblk_sz() * 2));
+        EXPECT_EQ(segm2.calc_data_space_size(), (uint32_t)(blkarr.subblk_sz() * 2));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)2);
@@ -1544,7 +1544,7 @@ namespace {
         // in total
         Segment segm1 = sg_alloc.alloc(blkarr.blk_sz() * 2 + blkarr.subblk_sz() * 3);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2 + blkarr.subblk_sz() * 3));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2 + blkarr.subblk_sz() * 3));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)4);
@@ -1595,7 +1595,7 @@ namespace {
         // reusing the previously allocated 1 block
         Segment segm2 = sg_alloc.alloc(blkarr.blk_sz() + blkarr.subblk_sz() * 2);
 
-        EXPECT_EQ(segm2.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() + blkarr.subblk_sz() * 2));
+        EXPECT_EQ(segm2.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() + blkarr.subblk_sz() * 2));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)5);
@@ -1744,7 +1744,7 @@ namespace {
         // Alloc Max bytes, expected to be all inline'd.
         Segment segm1 = sg_alloc.alloc(MaxInlineSize, req);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(MaxInlineSize));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(MaxInlineSize));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)1);
@@ -1784,7 +1784,7 @@ namespace {
         // which it is >= than the requested size as the request couldn't
         // be fit into the inline space because it was larger than
         // the maximum.
-        EXPECT_EQ(segm2.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.subblk_sz()));
+        EXPECT_EQ(segm2.calc_data_space_size(), (uint32_t)(blkarr.subblk_sz()));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)2);
@@ -1836,7 +1836,7 @@ namespace {
 
         Segment segm = sg_alloc.alloc(0);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(0));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(0));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)1);
@@ -1991,7 +1991,7 @@ namespace {
 
         Segment segm = sg_alloc.alloc(blkarr.blk_sz() * 2, req);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)17);
@@ -2077,7 +2077,7 @@ namespace {
         // if the combination results in a single contiguos extent).
         Segment segm = sg_alloc.alloc(blkarr.blk_sz() * 2, req);
 
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)18);
@@ -2148,7 +2148,7 @@ namespace {
         // request can be fulfilled allocation 2 separated 1-block extents
         Segment segm1 = sg_alloc.alloc(blkarr.blk_sz() * 2, req);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)16);
@@ -2178,7 +2178,7 @@ namespace {
         // will grow (by 1 block)
         Segment segm2 = sg_alloc.alloc(blkarr.blk_sz() * 3, req);
 
-        EXPECT_EQ(segm2.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 3));
+        EXPECT_EQ(segm2.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 3));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)17);
@@ -2205,7 +2205,7 @@ namespace {
 
         Segment segm3 = sg_alloc.alloc(blkarr.blk_sz() * 4, req);
 
-        EXPECT_EQ(segm3.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 4));
+        EXPECT_EQ(segm3.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 4));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)20);
@@ -2277,7 +2277,7 @@ namespace {
         // request can be fulfilled allocation 2 separated 1-block extents
         Segment segm1 = sg_alloc.alloc(blkarr.blk_sz() * 2, req);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)16);
@@ -2304,7 +2304,7 @@ namespace {
         // block extents.
         Segment segm2 = sg_alloc.alloc(blkarr.blk_sz() * 3, req);
 
-        EXPECT_EQ(segm2.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 3));
+        EXPECT_EQ(segm2.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 3));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)16);
@@ -2329,7 +2329,7 @@ namespace {
 
         Segment segm3 = sg_alloc.alloc(blkarr.blk_sz() * 4, req);
 
-        EXPECT_EQ(segm3.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 4));
+        EXPECT_EQ(segm3.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 4));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)17);
@@ -2473,7 +2473,7 @@ namespace {
         // The new allocator is fully functional
         auto segm1 = sg_alloc1.alloc(blkarr.blk_sz() * 2);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)16);
@@ -2521,6 +2521,8 @@ namespace {
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
+        const auto blk_sz_order = blkarr.blk_sz_order();
+
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(blkarr.blk_sz() * 15);
         auto main_ext = main_segm.exts().back();
@@ -2528,11 +2530,11 @@ namespace {
         // Hand-craft segments using those 15 blocks
         // Note that there are unused blocks at the begin and at the end
         std::list<Segment> allocated;
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 9, 2, false));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 3, false));
 
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 1, false));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 7, 2, false));
 
@@ -2583,7 +2585,7 @@ namespace {
         // The new allocator is fully functional
         auto segm1 = sg_alloc1.alloc(blkarr.blk_sz() * 3);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 3));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 3));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)16);
@@ -2622,6 +2624,8 @@ namespace {
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
+        const auto blk_sz_order = blkarr.blk_sz_order();
+
         auto main_segm = sg_alloc.alloc(blkarr.blk_sz() * (0xffff + 2));
 
         EXPECT_EQ(main_segm.ext_cnt(), (size_t)2);
@@ -2639,7 +2643,7 @@ namespace {
 
         // Hand-craft segment: simulate a single block allocated at the end
         std::list<Segment> allocated;
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(blkarr.past_end_blk_nr()-1, 1, false));
 
 
@@ -2678,7 +2682,7 @@ namespace {
         // The new allocator is fully functional
         auto segm1 = sg_alloc1.alloc(blkarr.blk_sz() * 2);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)(0xffff + 2 + 1));
@@ -2724,6 +2728,8 @@ namespace {
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
+        const auto blk_sz_order = blkarr.blk_sz_order();
+
         auto main_segm = sg_alloc.alloc(blkarr.blk_sz() * (0xffff + 2));
 
         EXPECT_EQ(main_segm.ext_cnt(), (size_t)2);
@@ -2741,7 +2747,7 @@ namespace {
 
         // Hand-craft segment: simulate a single block allocated at the begin
         std::list<Segment> allocated;
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(blkarr.begin_blk_nr(), 1, false));
 
 
@@ -2781,8 +2787,8 @@ namespace {
         auto segm1 = sg_alloc1.alloc(blkarr.blk_sz()*2);
         auto segm2 = sg_alloc1.alloc(blkarr.blk_sz()*2);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
-        EXPECT_EQ(segm2.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
+        EXPECT_EQ(segm2.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 2));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)(0xffff + 2 + 1));
@@ -2846,6 +2852,8 @@ namespace {
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
+        const auto blk_sz_order = blkarr.blk_sz_order();
+
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(blkarr.blk_sz() * 15);
         auto main_ext = main_segm.exts().back();
@@ -2883,14 +2891,14 @@ namespace {
         //               \-> bitmap 0xff0f
         //
         std::list<Segment> allocated;
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 9, 2, false));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0x000f, true));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0x0f00, true));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 0x0fff, true));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 3, 1, false));
 
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0xf000, true));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 1, false));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 7, 2, false));
@@ -2944,7 +2952,7 @@ namespace {
         // The new allocator is fully functional
         auto segm1 = sg_alloc1.alloc(blkarr.blk_sz() * 3);
 
-        EXPECT_EQ(segm1.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz() * 3));
+        EXPECT_EQ(segm1.calc_data_space_size(), (uint32_t)(blkarr.blk_sz() * 3));
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(blkarr.past_end_blk_nr(), (uint32_t)16);
@@ -2986,19 +2994,21 @@ namespace {
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
+        const auto blk_sz_order = blkarr.blk_sz_order();
+
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(blkarr.blk_sz() * 15);
         auto main_ext = main_segm.exts().back();
 
         // Hand-craft segments using those 15 blocks
         std::list<Segment> allocated;
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0x000f, true));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0x0f00, true));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 2, 0x0fff, true));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 3, 1, false));
 
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 0xf000, true));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 1, false));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 7, 2, false));
@@ -3191,16 +3201,18 @@ namespace {
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
+        const auto blk_sz_order = blkarr.blk_sz_order();
+
         // Alloc a single extent of some size. No suballoc is allowed so full blks are allocated
         Extent ext = sg_alloc.alloc_single_extent(23);
 
         // Just for reusing the testing engine of this test suite,
         // I will create a segment.
-        Segment segm;
+        Segment segm(blk_sz_order);
         segm.add_extent(ext);
 
         // Full block was required to fulfill the requested size
-        EXPECT_EQ(segm.calc_data_space_size(blkarr.blk_sz_order()), (uint32_t)(blkarr.blk_sz()));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint32_t)(blkarr.blk_sz()));
         EXPECT_EQ((blkarr.subblk_sz() * Extent::SUBBLK_CNT_PER_BLK), blkarr.blk_sz());
 
         EXPECT_EQ(blkarr.begin_blk_nr(), (uint32_t)1);
@@ -3278,6 +3290,8 @@ namespace {
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
+        const auto blk_sz_order = blkarr.blk_sz_order();
+
         // Block: any call to alloc/dealloc/release should fail
         sg_alloc.block_all_alloc_dealloc();
 
@@ -3292,7 +3306,7 @@ namespace {
                 )
         );
 
-        Segment segm;
+        Segment segm(blk_sz_order);
         EXPECT_THAT(
             ensure_called_once([&]() { sg_alloc.dealloc(segm); }),
             ThrowsMessage<std::runtime_error>(
@@ -3377,6 +3391,8 @@ namespace {
         sg_alloc.manage_block_array(blkarr);
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
+        const auto blk_sz_order = blkarr.blk_sz_order();
+
         // Alloc 15 blocks
         auto main_segm = sg_alloc.alloc(blkarr.blk_sz() * 15);
         auto main_ext = main_segm.exts().back();
@@ -3384,11 +3400,11 @@ namespace {
         // Hand-craft segments using those 15 blocks
         // Note that there are unused blocks at the begin and at the end
         std::list<Segment> allocated;
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 9, 2, false));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 1, 3, false));
 
-        allocated.push_back(Segment());
+        allocated.push_back(Segment(blk_sz_order));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 6, 1, false));
         allocated.back().add_extent(Extent(main_ext.blk_nr() + 7, 2, false));
 

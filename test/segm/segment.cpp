@@ -29,10 +29,10 @@ const size_t FP_SZ = 64;
 
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
-#define XOZ_EXPECT_SIZES(segm, blk_sz_order, disk_sz, allocated_sz, allocated_sz_without_inline) do {                  \
+#define XOZ_EXPECT_SIZES(segm, disk_sz, allocated_sz, allocated_sz_without_inline) do {                  \
     EXPECT_EQ((segm).calc_struct_footprint_size(), (unsigned)(disk_sz));                    \
-    EXPECT_EQ((segm).calc_data_space_size((blk_sz_order)), (unsigned)(allocated_sz));   \
-    EXPECT_EQ((segm).calc_data_space_size((blk_sz_order), false), (unsigned)(allocated_sz_without_inline));   \
+    EXPECT_EQ((segm).calc_data_space_size(), (unsigned)(allocated_sz));   \
+    EXPECT_EQ((segm).calc_data_space_size(false), (unsigned)(allocated_sz_without_inline));   \
 } while (0)
 
 // Check that the serialization of the extents in fp match
@@ -51,27 +51,27 @@ const size_t FP_SZ = 64;
 // Load from fp the extents and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
 // and both (load and write) compute the same checksum
-#define XOZ_EXPECT_DESERIALIZATION(fp, segm) do {                        \
+#define XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm) do {                        \
     std::vector<char> buf2;                                              \
     XOZ_RESET_FP(buf2, FP_SZ);                                           \
     auto segm_len = (segm).length();                                     \
     uint32_t checksum2 = 0;                                              \
     uint32_t checksum3 = 0;                                              \
                                                                          \
-    Segment segm2 = Segment::load_struct_from(IOSpan(fp), Segment::EndMode::ExplicitLen, segm_len, &checksum2); \
+    Segment segm2 = Segment::load_struct_from(IOSpan(fp), (blk_sz_order), Segment::EndMode::ExplicitLen, segm_len, &checksum2); \
     segm2.write_struct_into(IOSpan(buf2), &checksum3);                   \
     EXPECT_EQ((fp), buf2);                                               \
     EXPECT_EQ((segm) == segm2, bool(true));                              \
     EXPECT_EQ(checksum2, checksum3);                                     \
 } while (0)
 
-#define XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm) do {           \
+#define XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm) do {           \
     std::vector<char> buf2;                                              \
     XOZ_RESET_FP(buf2, FP_SZ);                                           \
     uint32_t checksum2 = 0;                                              \
     uint32_t checksum3 = 0;                                              \
                                                                          \
-    Segment segm2 = Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum2); \
+    Segment segm2 = Segment::load_struct_from(IOSpan(fp), (blk_sz_order), Segment::EndMode::AnyEnd, -1, &checksum2); \
     segm2.write_struct_into(IOSpan(buf2), &checksum3);                   \
     EXPECT_EQ((fp), buf2);                                               \
     EXPECT_EQ(checksum2, checksum3);                                     \
@@ -83,10 +83,10 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         // Check sizes
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 0, /* disc size */
                 0, /* allocated size */
                 0
@@ -102,7 +102,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
     }
 
     TEST(SegmentTest, ValidEmptyZeroInline) {
@@ -110,10 +110,10 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm = Segment::create_empty_zero_inline();
+        Segment segm = Segment::create_empty_zero_inline(blk_sz_order);
 
         // Check sizes
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 2, /* disc size */
                 0, /* allocated size */
                 0
@@ -127,7 +127,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
     }
 
     TEST(SegmentTest, InlineDataOnly) {
@@ -135,10 +135,10 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         segm.set_inline_data({0x41, 0x42});
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 2, /* allocated size */
                 0
@@ -148,12 +148,12 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c2 4142");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         XOZ_RESET_FP(fp, FP_SZ);
 
         segm.set_inline_data({0x41, 0x42, 0x43, 0x44});
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 4, /* allocated size */
                 0
@@ -163,12 +163,12 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c4 4142 4344");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         XOZ_RESET_FP(fp, FP_SZ);
 
         segm.set_inline_data({0x41, 0x42, 0x43});
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 3, /* allocated size */
                 0
@@ -178,12 +178,12 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "43c3 4142");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         XOZ_RESET_FP(fp, FP_SZ);
 
         segm.set_inline_data({0x41});
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 2, /* disc size */
                 1, /* allocated size */
                 0
@@ -193,7 +193,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
     }
 
     TEST(SegmentTest, InlineDataAsEndOfSegment) {
@@ -203,11 +203,11 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Empty segment, add "end of segment"
-        Segment segm;
+        Segment segm(blk_sz_order);
         segm.add_end_of_segment();
 
         // Expect the same as an empty segment with 0-bytes inline data
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 2, /* disc size */
                 0, /* allocated size */
                 0
@@ -219,7 +219,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "00c0");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Remove the inline data, add an extent
@@ -231,7 +231,7 @@ namespace {
         segm.add_end_of_segment();
 
         // Expect the same as a segment with one extent + 0-bytes inline data
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 1 << blk_sz_order, /* allocated size */
                 1 << blk_sz_order
@@ -243,7 +243,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ff02 00c0");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Remove the extent and inline data, add a non-zero length inline data
@@ -261,7 +261,7 @@ namespace {
         segm.add_end_of_segment();
 
         // Expect the same as a segment with 1-byte inline data
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 2, /* disc size */
                 1, /* allocated size */
                 0
@@ -273,7 +273,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
     }
 
@@ -283,12 +283,12 @@ namespace {
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        Segment segm;
+        Segment segm(blk_sz_order);
         segm.add_extent(Extent(0x2ff, 1, false)); // 1-block extent
         segm.add_end_of_segment();
 
         // Expect the same as a segment with one extent + 0-bytes inline data
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 1 << blk_sz_order, /* allocated size */
                 1 << blk_sz_order
@@ -302,7 +302,7 @@ namespace {
         // Now we expect a segment of length 3 which obviously will not happen
         // (the segment has a length of 2)
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::ExplicitLen, 3); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::ExplicitLen, 3); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -319,7 +319,7 @@ namespace {
         // We want to load until the end of the io but the end-of-segment will be found earlier
         // and bytes will kept unread and that is an error.
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::IOEnd); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::IOEnd); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -337,7 +337,7 @@ namespace {
         // (but the first 1-block extent is intact so no half/partial read happens)
         fp.resize(4);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::InlineEnd); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::InlineEnd); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -356,7 +356,7 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         segm.set_inline_data(std::vector<char>(Segment::MaxInlineSize + 1));
 
@@ -370,7 +370,7 @@ namespace {
                 )
         );
         EXPECT_THAT(
-            [&]() { segm.calc_data_space_size(blk_sz_order); },
+            [&]() { segm.calc_data_space_size(); },
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr("Inline data too large: it has 64 bytes but only up to 63 bytes are allowed.")
@@ -393,7 +393,7 @@ namespace {
         segm.inline_data()[0] = 0x41;
         segm.inline_data()[segm.inline_data().size()-1] = 0x78;
 
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 64, /* disc size */
                 63, /* allocated size */
                 0
@@ -403,7 +403,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         EXPECT_EQ(hexdump(fp, 0, 6), "78ff 4100 0000");
         EXPECT_EQ(are_all_zeros(fp, 6), true); // all zeros to the end
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         XOZ_RESET_FP(fp, FP_SZ);
 
@@ -412,7 +412,7 @@ namespace {
         segm.inline_data()[0] = 0x41;
         segm.inline_data()[segm.inline_data().size()-1] = 0x78;
 
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 64, /* disc size */
                 62, /* allocated size */
                 0
@@ -423,7 +423,7 @@ namespace {
         EXPECT_EQ(hexdump(fp, 0, 6), "00fe 4100 0000");
         EXPECT_EQ(are_all_zeros(fp, 6, 57), true); // all zeros to the end except the last byte
         EXPECT_EQ(hexdump(fp, 6+57), "78"); // chk last byte
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
     }
 
     TEST(SegmentTest, OneExtentFullBlockOnly) {
@@ -431,14 +431,14 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
 
         // Extent that it is neither near (far from prev extent) nor
         // it cannot use smallcnt (blk_cnt == 0)
         // so it will require 6 bytes in total
         segm.add_extent(Extent(0x2ab, 0, false));
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 0 << blk_sz_order, /* allocated size */
                 0
@@ -448,7 +448,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab02 0000");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
@@ -456,7 +456,7 @@ namespace {
         // Extent that it is near enough to the previous extent (at blk_nr = 0)
         // but still without using smallcnt so it requires 4 bytes
         segm.add_extent(Extent(0x01, 0, false));
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 0 << blk_sz_order, /* allocated size */
                 0
@@ -466,7 +466,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0104 0000");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
@@ -474,7 +474,7 @@ namespace {
         // Go back to a "not near enough" extent but this time with
         // a block count that fits in smallcnt hence requiring 4 bytes
         segm.add_extent(Extent(0xfab, 1, false));
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 1 << blk_sz_order, /* allocated size */
                 1 << blk_sz_order
@@ -484,14 +484,14 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0008 ab0f");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Extent near to previous extent and using a smallcnt of 3: 2 bytes only
         segm.add_extent(Extent(1, 3, false));
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 2, /* disc size */
                 3 << blk_sz_order, /* allocated size */
                 3 << blk_sz_order
@@ -501,14 +501,14 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "011c");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Extent (not near) with "just" enough blocks to fit a smallcnt
         segm.add_extent(Extent(0xfab, 15, false));
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 15 << blk_sz_order, /* allocated size */
                 15 << blk_sz_order
@@ -518,7 +518,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0078 ab0f");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
@@ -526,7 +526,7 @@ namespace {
         // Extent (not near) with "just" enough blocks to *not* fit a smallcnt
         // (block count is above the maximum for smallcnt)
         segm.add_extent(Extent(0xfab, 16, false));
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 16 << blk_sz_order, /* allocated size */
                 16 << blk_sz_order
@@ -536,14 +536,14 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab0f 1000");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Extent (not near) with the maximum block count possible
         segm.add_extent(Extent(0xfab, (1 << 15), false)); // 32k full blocks (large extent)
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 (1 << 15) << blk_sz_order, /* allocated size */
                 (1 << 15) << blk_sz_order
@@ -553,7 +553,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0000 ab0f 0080");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
     }
 
     TEST(SegmentTest, OneExtentSubAllocOnly) {
@@ -561,7 +561,7 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         // An extent near to the prev extent (blk_nr = 0) so it does not
         // require 2 bytes for storing the full blk nr *but* because
@@ -569,7 +569,7 @@ namespace {
         // raising a total of 4 bytes
         // (the bitmask is empty so the suballoc is not allocating anything)
         segm.add_extent(Extent(0xab, 0, true));
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 0, /* allocated size */
                 0
@@ -579,7 +579,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "ab84 0000");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
@@ -589,7 +589,7 @@ namespace {
         //
         // In this case the bitmask has 2 bits set: 2 subblocks alloc'd
         segm.add_extent(Extent(0xdab, 0b00001001, true));
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 2 << (blk_sz_order - 4),  /* allocated size */
                 2 << (blk_sz_order - 4)
@@ -599,14 +599,14 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab0d 0900");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
         // The same but with its bitmask half full: 8 subblocks alloc'd
         segm.add_extent(Extent(0xdab, 0b11111111, true));
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 8 << (blk_sz_order - 4),  /* allocated size */
                 8 << (blk_sz_order - 4)
@@ -616,14 +616,14 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab0d ff00");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
 
         // The same but with its bitmask totally full: 16 subblocks alloc'd
         segm.add_extent(Extent(0xdab, 0b1111111111111111, true));    // 16 sub-alloc'd blocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 16 << (blk_sz_order - 4),  /* allocated size */
                 16 << (blk_sz_order - 4)
@@ -633,7 +633,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0080 ab0d ffff");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
 
         segm.clear_extents();
         XOZ_RESET_FP(fp, FP_SZ);
@@ -641,7 +641,7 @@ namespace {
         // The same full set Extent but near enough to not require a blk nr
         // (so 4 bytes only)
         segm.add_extent(Extent(0x6, 0b1111111111111111, true));    // 16 sub-alloc'd blocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 16 << (blk_sz_order - 4),  /* allocated size */
                 16 << (blk_sz_order - 4)
@@ -651,7 +651,7 @@ namespace {
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "0684 ffff");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
     }
 
     TEST(SegmentTest, SeveralExtentsAndInline) {
@@ -659,7 +659,7 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         // Extent not-near the prev extent (+2 bytes) with a blk count
         // that does not fit in smallcnt (+2 bytes) so raising a total
@@ -668,7 +668,7 @@ namespace {
         // [                e00      e10        ] addr
         // [                 XX...XX            ] blks
         segm.add_extent(Extent(0xe00, 16, false)); // 16 blocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 16 << blk_sz_order,   /* allocated size */
                 16 << blk_sz_order
@@ -680,7 +680,7 @@ namespace {
                 "0000 000e 1000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Append a extent near to the prev extent (blk_nr 0xe00).
@@ -691,7 +691,7 @@ namespace {
         // [                e00     e10        ] addr
         // [                 XX...XX|Y         ] blks
         segm.add_extent(Extent(0xe10, 0, true));    // 0 subblocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6+4, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -708,7 +708,7 @@ namespace {
                 "0084 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Append an extent near the prev extent (blk_nr 0xe10) which was
@@ -720,7 +720,7 @@ namespace {
         // [                e00    e10 e11        ] addr
         // [                 XX...XX|Y|Z|         ] blks
         segm.add_extent(Extent(0xe11, 1, false)); // 1 block count, fits in smallcnt
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6+4+2, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -740,7 +740,7 @@ namespace {
                 "000c"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Append an extent far from prev extent. This extent
@@ -750,7 +750,7 @@ namespace {
         // [     4           e00    e10 e11        ] addr
         // [     X           XX...XX|Y|Z|         ] blks
         segm.add_extent(Extent(4, 0b00001001, true));    // 2 subblocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6+4+2+6, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -773,7 +773,7 @@ namespace {
                 "0080 0400 0900"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Append another extent, this has 0 block length
@@ -787,7 +787,7 @@ namespace {
         // [    34          e00    e10 e11        ] addr
         // [    0X           XX...XX|Y|Z|         ] blks
         segm.add_extent(Extent(3, 0, false)); // 0 full block (large extent)
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6+4+2+6+4, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -813,12 +813,12 @@ namespace {
                 "0106 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Add inline: 2 for the header and +4 of the data (6 in total)
         segm.set_inline_data({char(0xaa), char(0xbb), char(0xcc), char(0xdd)}); // 4 bytes of inline data
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6+4+2+6+4+6, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -846,8 +846,8 @@ namespace {
                 "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
-        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Adding another extent once we added inline data is not
@@ -877,7 +877,7 @@ namespace {
         // Total: 2 bytes
         segm.add_extent(Extent(6, 8, false)); // 8 full blocks
         segm.set_inline_data(inline_data_saved); // restore
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6+4+2+6+4+6+2, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -908,8 +908,8 @@ namespace {
                 "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
-        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
     }
 
     TEST(SegmentTest, ExtentAtZeroThenNear) {
@@ -917,7 +917,7 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         // The reference "prev" extent is Extent(0, 0, false) and the
         // first extent of the segment is exactly at blk nr 0.
@@ -930,7 +930,7 @@ namespace {
         // [ 00       10        ] addr
         // [ XX...XX            ] blks
         segm.add_extent(Extent(0x00, 16, false)); // 16 blocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 16 << blk_sz_order,   /* allocated size */
                 16 << blk_sz_order
@@ -942,7 +942,7 @@ namespace {
                 "0004 1000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Append a extent near to the prev extent (blk_nr 0x00).
@@ -953,7 +953,7 @@ namespace {
         // [ 00      10        ] addr
         // [ XX...XX|Y         ] blks
         segm.add_extent(Extent(0x10, 0, true));    // 0 subblocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4+4, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -970,7 +970,7 @@ namespace {
                 "0084 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
     }
 
@@ -979,7 +979,7 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         // The reference "prev" extent is Extent(0, 0, false) and the
         // first extent of the segment is exactly at blk nr 0.
@@ -992,7 +992,7 @@ namespace {
         // [ 00       10        ] addr
         // [ XX...XX            ] blks
         segm.add_extent(Extent(0x00, 16, false)); // 16 blocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 16 << blk_sz_order,   /* allocated size */
                 16 << blk_sz_order
@@ -1004,7 +1004,7 @@ namespace {
                 "0004 1000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Append a extent non-near to the prev extent (blk_nr 0x00).
@@ -1014,7 +1014,7 @@ namespace {
         // [ 00                 e10        ] addr
         // [ XX...XX             Y         ] blks
         segm.add_extent(Extent(0xe10, 0, true));    // 0 subblocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4+6, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -1031,7 +1031,7 @@ namespace {
                 "0080 100e 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
     }
 
@@ -1040,14 +1040,14 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         // The extent at 0x01 is near of the reference at 0x00 (jump of 1 blk)
         // Then it requires +2 bytes to encode the non-small blk cnt
         // [ 00  01       11        ] addr
         // [     XX...XX            ] blks
         segm.add_extent(Extent(0x01, 16, false)); // 16 blocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4, /* disc size */
                 16 << blk_sz_order,   /* allocated size */
                 16 << blk_sz_order
@@ -1059,7 +1059,7 @@ namespace {
                 "0104 1000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Append a extent near to the prev extent (blk_nr 0x01).
@@ -1071,7 +1071,7 @@ namespace {
         // [ 00  01       11        ] addr
         // [ Y   XX...XX            ] blks
         segm.add_extent(Extent(0x00, 0, true));    // 0 subblocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 4+4, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -1088,7 +1088,7 @@ namespace {
                 "0086 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
     }
 
@@ -1097,14 +1097,14 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         // The extent at 0xe00 is non-near of the reference at 0x00 (+2 bytes)
         // Then it requires +2 bytes to encode the non-small blk cnt
         // [                e00      e10        ] addr
         // [                 XX...XX            ] blks
         segm.add_extent(Extent(0xe00, 16, false)); // 16 blocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 16 << blk_sz_order,   /* allocated size */
                 16 << blk_sz_order
@@ -1116,7 +1116,7 @@ namespace {
                 "0000 000e 1000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Append a extent non-near to the prev extent (blk_nr 0xe00) so +2 bytes
@@ -1126,7 +1126,7 @@ namespace {
         // [ 00             e00      e10        ] addr
         // [ Y               XX...XX            ] blks
         segm.add_extent(Extent(0x00, 0, true));    // 0 subblocks
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6+6, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -1143,7 +1143,7 @@ namespace {
                 "0080 0000 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
     }
 
@@ -1152,8 +1152,8 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm;
-        Segment src;
+        Segment segm(blk_sz_order);
+        Segment src(blk_sz_order);
 
         // Extent not-near the prev extent (+2 bytes) with a blk count
         // that does not fit in smallcnt (+2 bytes) so raising a total
@@ -1202,7 +1202,7 @@ namespace {
 
         // Add all the extents and inline from the source segment
         segm.extend(src);
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6+4+2+6+4+6, /* disc size */
                 /* allocated size */
                 (16 << blk_sz_order) +
@@ -1230,8 +1230,8 @@ namespace {
                 "00c4 aabb ccdd"
                 );
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-        XOZ_EXPECT_DESERIALIZATION(fp, segm);
-        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, segm);
+        XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Adding another extent once we added inline data is not
@@ -1265,13 +1265,13 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ / 2); // half file size, easier to test TODO test FP_SZ only
-        Segment segm;
+        Segment segm(blk_sz_order);
 
         // Large but perfectly valid inline data
         segm.set_inline_data(std::vector<char>(FP_SZ / 2));
         std::iota (std::begin(segm.inline_data()), std::end(segm.inline_data()), 0); // fill with numbers
 
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 34, /* disc size */
                 32, /* allocated size */
                 0
@@ -1303,7 +1303,7 @@ namespace {
             // each extent should have a footprint of 6 bytes
             segm.add_extent(Extent(0x2ff + (0x2ff * i), 0xffff, true));
         }
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 36, /* 6 extents times 6 bytes each -- disc size */
                 6 << blk_sz_order, /* allocated size */
                 6 << blk_sz_order
@@ -1334,10 +1334,10 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Write a 6-bytes single-extent segment
-        Segment segm;
+        Segment segm(blk_sz_order);
         segm.add_extent(Extent(0x2ff, 0x1f, false)); // size: 6 bytes
 
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6, /* disc size */
                 0x1f << blk_sz_order, /* allocated size */
                 0x1f << blk_sz_order
@@ -1351,7 +1351,7 @@ namespace {
         // more bytes are needed to complete the extent
         fp.resize(2);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1375,7 +1375,7 @@ namespace {
         // The same but with 4 bytes
         fp.resize(4);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1395,7 +1395,7 @@ namespace {
         // Let's add an another 4-bytes extent
         segm.add_extent(Extent(0x5ff, 1, false)); // size: 10 bytes
 
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6 + 4, /* disc size */
 
                 /* allocated size */
@@ -1412,7 +1412,7 @@ namespace {
 
         fp.resize(8);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1432,7 +1432,7 @@ namespace {
         // Let's add inline of 4 bytes (+2 header)
         segm.set_inline_data({char(0xaa), char(0xbb), char(0xcc), char(0xdd)}); // size: 16 bytes
 
-        XOZ_EXPECT_SIZES(segm, blk_sz_order,
+        XOZ_EXPECT_SIZES(segm,
                 6 + 4 + 6, /* disc size */
 
                 /* allocated size */
@@ -1452,7 +1452,7 @@ namespace {
         // try to read 4 bytes *but* no available bytes exists
         fp.resize(12);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1478,7 +1478,7 @@ namespace {
         // completing the 4 bytes inline payload
         fp.resize(14);
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1497,6 +1497,7 @@ namespace {
     }
 
     TEST(SegmentTest, CorruptedData) {
+        const uint8_t blk_sz_order = 10;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
         uint32_t checksum = 0;
@@ -1506,7 +1507,7 @@ namespace {
         fp = {'\x00', '\x90', '\x01', '\x00'};
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1523,7 +1524,7 @@ namespace {
         fp = {'\x01', '\x24', '\x01', '\x26'};
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), Segment::EndMode::AnyEnd, -1, &checksum); }),
+            ensure_called_once([&]() { Segment::load_struct_from(IOSpan(fp), blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1540,7 +1541,8 @@ namespace {
     }
 
     TEST(SegmentTest, InlineEnd) {
-        Segment segm;
+        const uint8_t blk_sz_order = 10;
+        Segment segm(blk_sz_order);
 
 
         // Segment empty with a single extent as inline marking the end of the segment.
@@ -1568,7 +1570,7 @@ namespace {
             checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::InlineEnd, -1, &checksum2);
             segm2.write_struct_into(IOSpan(buf2), &checksum);
             XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
@@ -1597,7 +1599,7 @@ namespace {
 
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::InlineEnd, -1, &checksum2);
             segm2.write_struct_into(IOSpan(buf2), &checksum);
             XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
@@ -1634,7 +1636,7 @@ namespace {
             checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::InlineEnd, -1, &checksum2);
             segm2.write_struct_into(IOSpan(buf2), &checksum);
             XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
 
@@ -1656,7 +1658,7 @@ namespace {
             checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::InlineEnd, -1, &checksum2);
             segm2.write_struct_into(IOSpan(buf2), &checksum);
             XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum);
             EXPECT_EQ(checksum, checksum2);
@@ -1696,7 +1698,7 @@ namespace {
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::InlineEnd, -1, &checksum2); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::InlineEnd, -1, &checksum2); }),
                 ThrowsMessage<InconsistentXOZ>(
                     AllOf(
                         HasSubstr(
@@ -1719,7 +1721,7 @@ namespace {
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::InlineEnd, 1, &checksum2); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::InlineEnd, 1, &checksum2); }),
                 ThrowsMessage<std::runtime_error>(
                     AllOf(
                         HasSubstr(
@@ -1734,7 +1736,8 @@ namespace {
     }
 
     TEST(SegmentTest, IOEnd) {
-        Segment segm;
+        const uint8_t blk_sz_order = 10;
+        Segment segm(blk_sz_order);
 
         // Segment empty with a single extent as inline marking the end of the segment.
         segm.add_end_of_segment();
@@ -1765,7 +1768,7 @@ namespace {
             checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::IOEnd, -1, &checksum);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::IOEnd, -1, &checksum);
             segm2.write_struct_into(IOSpan(buf2), &checksum2);
             XOZ_EXPECT_CHECKSUM(buf2, segm2, checksum2);
 
@@ -1792,7 +1795,7 @@ namespace {
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::IOEnd, -1, &checksum2); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::IOEnd, -1, &checksum2); }),
                 ThrowsMessage<InconsistentXOZ>(
                     AllOf(
                         HasSubstr(
@@ -1819,7 +1822,7 @@ namespace {
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::IOEnd, 1, &checksum2); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::IOEnd, 1, &checksum2); }),
                 ThrowsMessage<std::runtime_error>(
                     AllOf(
                         HasSubstr(
@@ -1834,7 +1837,8 @@ namespace {
     }
 
     TEST(SegmentTest, AnyEnd) {
-        Segment segm;
+        const uint8_t blk_sz_order = 10;
+        Segment segm(blk_sz_order);
 
         // Segment empty with a single extent as inline marking the end of the segment.
         segm.add_end_of_segment();
@@ -1865,7 +1869,7 @@ namespace {
             checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, -1, &checksum);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum);
             segm2.write_struct_into(IOSpan(buf2), &checksum2);
 
             // Same serialization
@@ -1892,7 +1896,7 @@ namespace {
             checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, -1, &checksum);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum);
             segm2.write_struct_into(IOSpan(buf2), &checksum2);
 
             // Same serialization
@@ -1931,7 +1935,7 @@ namespace {
             checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::AnyEnd, -1, &checksum);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::AnyEnd, -1, &checksum);
             segm2.write_struct_into(IOSpan(buf2), &checksum2);
 
             // Same serialization
@@ -1952,7 +1956,7 @@ namespace {
             checksum = 0;
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::AnyEnd, 1, &checksum); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::AnyEnd, 1, &checksum); }),
                 ThrowsMessage<std::runtime_error>(
                     AllOf(
                         HasSubstr(
@@ -1968,7 +1972,8 @@ namespace {
 
 
     TEST(SegmentTest, ExplicitLen) {
-        Segment segm;
+        const uint8_t blk_sz_order = 10;
+        Segment segm(blk_sz_order);
 
         // Segment empty with a single extent as inline marking the end of the segment.
         segm.add_end_of_segment();
@@ -1999,7 +2004,7 @@ namespace {
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 2, &checksum); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::ExplicitLen, 2, &checksum); }),
                 ThrowsMessage<InconsistentXOZ>(
                     AllOf(
                         HasSubstr(
@@ -2023,7 +2028,7 @@ namespace {
             checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 1);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::ExplicitLen, 1);
             segm2.write_struct_into(IOSpan(buf2), &checksum);
 
             // Same serialization
@@ -2062,7 +2067,7 @@ namespace {
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 2, &checksum); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::ExplicitLen, 2, &checksum); }),
                 ThrowsMessage<InconsistentXOZ>(
                     AllOf(
                         HasSubstr(
@@ -2086,7 +2091,7 @@ namespace {
             checksum = 0;
 
             IOSpan io(fp);
-            Segment segm2 = Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, 1);
+            Segment segm2 = Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::ExplicitLen, 1);
             segm2.write_struct_into(IOSpan(buf2), &checksum);
 
             // Same serialization
@@ -2109,7 +2114,7 @@ namespace {
 
             IOSpan io(fp);
             EXPECT_THAT(
-                ensure_called_once([&]() { Segment::load_struct_from(io, Segment::EndMode::ExplicitLen, (uint32_t)(-1), &checksum); }),
+                ensure_called_once([&]() { Segment::load_struct_from(io, blk_sz_order, Segment::EndMode::ExplicitLen, (uint32_t)(-1), &checksum); }),
                 ThrowsMessage<std::runtime_error>(
                     AllOf(
                         HasSubstr(
@@ -2132,13 +2137,13 @@ namespace {
         //  - i-th extent has 0 blks and the i+1 has more than 0
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(1, 0, false));
             segm.add_extent(Extent(1, 1, false));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     6, /* disc size */
                     1024, /* allocated size */
                     1024
@@ -2151,14 +2156,14 @@ namespace {
                     "0104 0000 000c"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
 
         // Case (again):
         //  - i-th extent has 0 blks and the i+1 has more than 0
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(2, 3, false));
             segm.add_extent(Extent(1, 0, false));
@@ -2166,7 +2171,7 @@ namespace {
             segm.add_extent(Extent(3, 1, false));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     10, /* disc size */
                     5120, /* allocated size */
                     5120
@@ -2179,20 +2184,20 @@ namespace {
                     "021c 0106 0000 000c 010c"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
 
         // Case:
         //  - i-th extent has 0 blks and the i+1 has 0
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(1, 0, false));
             segm.add_extent(Extent(1, 0, false));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     8, /* disc size */
                     0, /* allocated size */
                     0
@@ -2205,7 +2210,7 @@ namespace {
                     "0104 0000 0004 0000"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
 
         // Case:
@@ -2213,13 +2218,13 @@ namespace {
         //  - both at block 0
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(0, 0, false));
             segm.add_extent(Extent(0, 0, false));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     8, /* disc size */
                     0, /* allocated size */
                     0
@@ -2232,7 +2237,7 @@ namespace {
                     "0004 0000 0004 0000"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
     }
 
@@ -2246,13 +2251,13 @@ namespace {
         //  - non-overlapping masks
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(1, 0, true));
             segm.add_extent(Extent(1, 1, true));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     10, /* disc size */
                     64, /* allocated size */
                     64
@@ -2265,14 +2270,14 @@ namespace {
                     "0184 0000 0080 0100 0100"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
 
         // Case (again):
         //  - non-overlapping masks
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(2, 3, true));
             segm.add_extent(Extent(1, 0, true));
@@ -2280,7 +2285,7 @@ namespace {
             segm.add_extent(Extent(3, 1, true));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     18, /* disc size */
                     256, /* allocated size */
                     256
@@ -2293,7 +2298,7 @@ namespace {
                     "0284 0300 0086 0000 0080 0100 0100 0184 0100"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
 
         // Case:
@@ -2301,13 +2306,13 @@ namespace {
         //  - both mask 0
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(1, 0, true));
             segm.add_extent(Extent(1, 0, true));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     10, /* disc size */
                     0, /* allocated size */
                     0
@@ -2320,7 +2325,7 @@ namespace {
                     "0184 0000 0080 0100 0000"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
 
         // Case:
@@ -2328,13 +2333,13 @@ namespace {
         //  - both mask non 0
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(1, 0xf000, true));
             segm.add_extent(Extent(1, 0x000f, true));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     10, /* disc size */
                     512, /* allocated size */
                     512
@@ -2347,7 +2352,7 @@ namespace {
                     "0184 00f0 0080 0100 0f00"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
 
         // Case:
@@ -2355,13 +2360,13 @@ namespace {
         //  - both at block 0
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(0, 0, true));
             segm.add_extent(Extent(0, 0, true));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     10, /* disc size */
                     0, /* allocated size */
                     0
@@ -2374,7 +2379,7 @@ namespace {
                     "0084 0000 0080 0000 0000"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
 
         // Case:
@@ -2382,13 +2387,13 @@ namespace {
         //  - both at block 0
         {
             XOZ_RESET_FP(fp, FP_SZ);
-            Segment segm;
+            Segment segm(blk_sz_order);
 
             segm.add_extent(Extent(0, 0xf000, true));
             segm.add_extent(Extent(0, 0x000f, true));
 
             // Check sizes
-            XOZ_EXPECT_SIZES(segm, blk_sz_order,
+            XOZ_EXPECT_SIZES(segm,
                     10, /* disc size */
                     512, /* allocated size */
                     512
@@ -2401,7 +2406,7 @@ namespace {
                     "0084 00f0 0080 0000 0f00"
                     );
             XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
-            XOZ_EXPECT_DESERIALIZATION(fp, segm);
+            XOZ_EXPECT_DESERIALIZATION(fp, blk_sz_order, segm);
         }
     }
 }

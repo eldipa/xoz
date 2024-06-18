@@ -24,9 +24,9 @@ using ::testing_xoz::helpers::subvec;
     EXPECT_EQ(hexdump((blkarr).expose_mem_fp(), (at), (len)), (data));              \
 } while (0)
 
-#define XOZ_EXPECT_SIZES(segm, blk_sz_order, disk_sz, allocated_sz) do {                  \
+#define XOZ_EXPECT_SIZES(segm, disk_sz, allocated_sz) do {                  \
     EXPECT_EQ((segm).calc_struct_footprint_size(), (unsigned)(disk_sz));                    \
-    EXPECT_EQ((segm).calc_data_space_size((blk_sz_order)), (unsigned)(allocated_sz));   \
+    EXPECT_EQ((segm).calc_data_space_size(), (unsigned)(allocated_sz));   \
 } while (0)
 
 namespace {
@@ -42,7 +42,7 @@ namespace {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        Segment sg; // empty segment it will be interpreted as an empty block array below
+        Segment sg(base_blkarr_blk_sz_order); // empty segment it will be interpreted as an empty block array below
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
 
@@ -93,7 +93,7 @@ namespace {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        Segment sg;
+        Segment sg(base_blkarr_blk_sz_order);
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -142,7 +142,7 @@ namespace {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        Segment sg;
+        Segment sg(base_blkarr_blk_sz_order);
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -194,7 +194,7 @@ namespace {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        Segment sg;
+        Segment sg(base_blkarr_blk_sz_order);
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -276,7 +276,7 @@ namespace {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        Segment sg;
+        Segment sg(base_blkarr_blk_sz_order);
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -338,7 +338,7 @@ namespace {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        Segment sg;
+        Segment sg(base_blkarr_blk_sz_order);
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -506,7 +506,7 @@ namespace {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        Segment sg;
+        Segment sg(base_blkarr_blk_sz_order);
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -545,7 +545,7 @@ namespace {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        Segment sg;
+        Segment sg(base_blkarr_blk_sz_order);
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -594,7 +594,7 @@ namespace {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        Segment sg;
+        Segment sg(base_blkarr_blk_sz_order);
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -695,7 +695,7 @@ namespace {
         auto tmp = base_blkarr.allocator().alloc(16 * base_blkarr_blk_sz); // large enough
         base_blkarr.allocator().dealloc(tmp); // TODO should grow_by_blocks add them to the fr alloc?
 
-        Segment sg;
+        Segment sg(base_blkarr_blk_sz_order);
 
         SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -703,7 +703,7 @@ namespace {
         // Grow once
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)0);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 4, // 1 extent (suballoc)
                 base_blkarr_subblk_sz * 4 // allocated space (measured in base array blk size)
                 );
@@ -722,7 +722,7 @@ namespace {
         // Grow again, this will add more extents to the segment
         old_top_nr = sg_blkarr.grow_by_blocks(2);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
@@ -741,7 +741,7 @@ namespace {
         // Now shrink by 1 blk that implies dealloc of 4 subblks. Because the last extent has 8 subblks,
         // no real shrink will happen.
         sg_blkarr.shrink_by_blocks(1);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
@@ -759,7 +759,7 @@ namespace {
         // because it will use the pending-to-remove blk from the step above
         old_top_nr = sg_blkarr.grow_by_blocks(1);
         EXPECT_EQ(old_top_nr, (uint32_t)2);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
@@ -774,7 +774,7 @@ namespace {
         EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)8);
 
         sg_blkarr.shrink_by_blocks(1);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
@@ -791,7 +791,7 @@ namespace {
         // Now shrink by 1 blk again. This plus the 1 blk shrunk before are enough
         // to release the last extent.
         sg_blkarr.shrink_by_blocks(1);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 4, // 1 extent
                 base_blkarr_subblk_sz * 4
                 );
@@ -808,7 +808,7 @@ namespace {
         // Grow again, this will add more extents to the segment
         old_top_nr = sg_blkarr.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 10, // 2 extent (both for suballoc)
                 base_blkarr_subblk_sz * (4 + 12)
                 );
@@ -825,7 +825,7 @@ namespace {
         // Now shrink by 2 blk. Because the last extent has 3 blks, no real shrink
         // will happen.
         sg_blkarr.shrink_by_blocks(2);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 12)
                 );
@@ -842,7 +842,7 @@ namespace {
         // Now we release_blocks: even if the last extent is for suballoc, we can do a split
         // and release the blocks.
         sg_blkarr.release_blocks();
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 4)
                 );
@@ -859,7 +859,7 @@ namespace {
         // Grow know by 3 blocks.
         old_top_nr = sg_blkarr.grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)2);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 14, // 3 extent
                 base_blkarr_subblk_sz * (4 + 4 + 12)
                 );
@@ -877,7 +877,7 @@ namespace {
         // Now shrink by 4 blks. Because the last extent has 3 blk and the next last extent
         // has more than 1 blk, this shrink will remove both
         sg_blkarr.shrink_by_blocks(4);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 4, // 1 extent
                 base_blkarr_subblk_sz * (4)
                 );
@@ -893,7 +893,7 @@ namespace {
 
         // There is nothing else to release so no change is expected
         sg_blkarr.release_blocks();
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 4, // 1 extent
                 base_blkarr_subblk_sz * (4)
                 );
@@ -914,7 +914,7 @@ namespace {
         EXPECT_EQ(old_top_nr, (uint32_t)1);
         old_top_nr = sg_blkarr.grow_by_blocks(2);
         EXPECT_EQ(old_top_nr, (uint32_t)3);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 14, // 3 extent
                 base_blkarr_subblk_sz * (4 + 8 + 8)
                 );
@@ -930,7 +930,7 @@ namespace {
 
         // Shrink (expected some pending)
         sg_blkarr.shrink_by_blocks(3);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 10, // 2 extent
                 base_blkarr_subblk_sz * (4 + 8)
                 );
@@ -949,7 +949,7 @@ namespace {
 
         // There is nothing else to release so no change is expected
         sg_blkarr.release_blocks();
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 4, // 1 extent
                 base_blkarr_subblk_sz * (4)
                 );
@@ -966,7 +966,7 @@ namespace {
 
         // Shrink further, leave the array/segment empty
         sg_blkarr.shrink_by_blocks(1);
-        XOZ_EXPECT_SIZES(sg, base_blkarr_blk_sz_order,
+        XOZ_EXPECT_SIZES(sg,
                 0, // 0 extent
                 0
                 );

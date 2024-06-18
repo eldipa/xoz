@@ -1,5 +1,6 @@
 #include "xoz/repo/repository.h"
 #include "xoz/err/exceptions.h"
+#include "xoz/dsc/default.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -663,12 +664,11 @@ namespace {
         Repository repo = Repository::create(fpath, true);
 
         const auto blk_sz = repo.expose_block_array().blk_sz();
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
         auto sg1 = repo.expose_block_array().allocator().alloc(blk_sz * 3);
-        EXPECT_EQ(sg1.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 3));
+        EXPECT_EQ(sg1.calc_data_space_size(), (uint32_t)(blk_sz * 3));
 
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
@@ -677,7 +677,7 @@ namespace {
 
         // Add 6 more blocks
         auto sg2 = repo.expose_block_array().allocator().alloc(blk_sz * 6);
-        EXPECT_EQ(sg2.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 6));
+        EXPECT_EQ(sg2.calc_data_space_size(), (uint32_t)(blk_sz * 6));
 
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -988,12 +988,11 @@ namespace {
         Repository repo = Repository::create(fpath, true);
 
         const auto blk_sz = repo.expose_block_array().blk_sz();
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
         auto sg1 = repo.expose_block_array().allocator().alloc(blk_sz * 3);
-        EXPECT_EQ(sg1.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 3));
+        EXPECT_EQ(sg1.calc_data_space_size(), (uint32_t)(blk_sz * 3));
 
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
@@ -1211,12 +1210,11 @@ namespace {
         Repository repo = Repository::create(fpath, true);
 
         const auto blk_sz = repo.expose_block_array().blk_sz();
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // The repository by default has 1 block so adding 9 more
         // will yield 10 blocks in total
         auto sg1 = repo.expose_block_array().allocator().alloc(blk_sz * 9);
-        EXPECT_EQ(sg1.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 9));
+        EXPECT_EQ(sg1.calc_data_space_size(), (uint32_t)(blk_sz * 9));
 
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -1284,7 +1282,7 @@ namespace {
         // were free to it should use them to fulfil the request of 9 "additional" blocks
         // Hence, the block array (and file) should *not* grow.
         auto sg2 = repo2.expose_block_array().allocator().alloc(blk_sz * 9);
-        EXPECT_EQ(sg2.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 9));
+        EXPECT_EQ(sg2.calc_data_space_size(), (uint32_t)(blk_sz * 9));
 
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -1349,7 +1347,7 @@ namespace {
         // extents leaving the blocks with higher blk number free and subject
         // to be released on repo3.close()
         auto sg3 = repo3.expose_block_array().allocator().alloc(blk_sz * 1);
-        EXPECT_EQ(sg3.calc_data_space_size(blk_sz_order), (uint32_t)(blk_sz * 1));
+        EXPECT_EQ(sg3.calc_data_space_size(), (uint32_t)(blk_sz * 1));
 
         auto stats3 = repo3.expose_block_array().allocator().stats();
 
@@ -1527,4 +1525,163 @@ namespace {
         );
 
     }
+
+    TEST(RepositoryTest, TrampolineRequired) {
+        DELETE("TrampolineRequired.xoz");
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
+            {0x01, DescriptorSetHolder::create }
+        };
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        const char* fpath = SCRATCH_HOME "TrampolineRequired.xoz";
+        Repository repo = Repository::create(fpath, true);
+        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x0, // let DescriptorSet::add assign an id for us
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline(blk_sz_order)
+        };
+
+        for (char c = 'A'; c <= 'C'; ++c) {
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            dscptr->set_data({c, c});
+
+            repo.root()->set()->add(std::move(dscptr));
+            repo.root()->set()->write_set();
+        }
+
+        // We expect the file has grown
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+
+        auto stats = repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(128));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        // The set was explicitly written above, we don't expect
+        // the set to require another write.
+        auto root_holder = repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)1);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+
+        std::cout << repo.root()->set()->segment() << '\n';
+
+        // Close and reopen and check again
+        repo.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0200 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0184 0800 0184 0080 00c0 "
+
+                // holder padding
+                "0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "cb98 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+                // trailer
+                "454f 4600"
+                );
+
+#if 0
+        Repository repo2(SCRATCH_HOME "TrampolineRequired.xoz");
+
+        // We expect the file has grown
+        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(repo2.expose_block_array().blk_sz(), (uint32_t)128);
+
+        auto stats2 = repo2.stats();
+
+        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats2.header_sz, uint64_t(128));
+        EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
+
+        // The set was explicitly written above, we don't expect
+        // the set to require another write.
+        auto root_holder2 = repo2.root();
+        EXPECT_EQ(root_holder2->set()->count(), (uint32_t)1);
+        EXPECT_EQ(root_holder2->set()->does_require_write(), (bool)false);
+
+        // Close and reopen and check again
+        repo2.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0200 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // root holder ---------------
+                "0184 0800 0184 0080 00c0 "
+
+                // holder padding
+                "0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "cb98 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, -1,
+                // trailer
+                "454f 4600"
+                );
+#endif
+    }
+
+    // no trampoline -> with trampoline + descriptors (tramp allocated)
+    // no trampoline -> with trampoline + descriptors -> no trampoline + descriptors (tramp dealloc, no leak)
+    // no trampoline -> with trampoline + descriptors -> with other, more larger trampoline + descriptors (tramp realloc, no leak)
+    // no trampoline -> with trampoline but too large to fit in header, so it is reallocated as a single extent
 }

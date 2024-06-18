@@ -24,7 +24,15 @@ private:
     const SegmentAllocator::req_t& req;
 
     uint32_t next_segm_id = 1;
-    std::map<uint32_t, Segment> segm_by_id;
+
+    struct TSegment {
+        Segment sg;
+
+        TSegment(): sg(0) {}
+        explicit TSegment(Segment sg): sg(sg) {}
+    };
+
+    std::map<uint32_t, TSegment> segm_by_id;
 
 public:
     Demo(BlockArray& blkarr, SegmentAllocator& sg_alloc, const SegmentAllocator::req_t& req):
@@ -38,7 +46,7 @@ public:
         TRACE_END;
 
         Segment segm = sg_alloc.alloc(sz, req);
-        segm_by_id[next_segm_id] = segm;
+        segm_by_id[next_segm_id] = TSegment(segm);
 
         TRACE_BEGIN {
             std::cerr << "Ret: blocks in blkarr " << blkarr.blk_cnt() << "; ";
@@ -88,7 +96,7 @@ public:
             throw std::runtime_error("impossible condition");
         }
 
-        const Segment& segm = it->second;
+        const Segment& segm = it->second.sg;
 
         TRACE_BEGIN {
             for (auto const& ext: segm.exts()) {

@@ -201,7 +201,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -309,7 +309,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
@@ -491,7 +491,7 @@ namespace {
 
             .dsize = 0,
             .esize = 0,
-            .segm = Segment::create_empty_zero_inline()
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
