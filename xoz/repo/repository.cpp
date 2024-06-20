@@ -491,10 +491,24 @@ void Repository::update_trampoline_space() {
         }
     }
 
-    // TODO what happen if trampoline_segm->calc_struct_footprint_size() > sizeof(hdr.root)?
-    // (aka, it still does not fit?) We need to ensure that the call to alloc()/realloc()
-    // above does not fragment too much the allocation so the trampoline_segm fits in the header
+    // ensure the trampoline segment has an end so we can load it correctly
+    // in load_root_holder()
     trampoline_segm.add_end_of_segment();
+
+    // It may be possible that the allocator gave us a segment too fragmented
+    // with too many extents ant that the final size of the segment is too
+    // large to fit in the header.
+    // In this case we alloc a single extent that we know it has a size smaller
+    // than the available space
+    if (trampoline_segm.calc_struct_footprint_size() > HEADER_ROOT_SET_SZ) {
+        fblkarr->allocator().dealloc(trampoline_segm);
+        const auto ext = fblkarr->allocator().alloc_single_extent(req_sz);
+        trampoline_segm = Segment::EmptySegment(fblkarr->blk_sz_order());
+        trampoline_segm.add_extent(ext);
+        trampoline_segm.add_end_of_segment();
+
+        assert(trampoline_segm.calc_struct_footprint_size() <= HEADER_ROOT_SET_SZ);
+    }
 }
 
 void Repository::check_header_magic(struct repo_header_t& hdr) {
