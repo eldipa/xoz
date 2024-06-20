@@ -27,6 +27,8 @@ protected:
 public:
     void destroy() override;
     void update_header() override;
+    void flush_writes() override;
+    void release_free_space() override;
 
 private:
     std::unique_ptr<DescriptorSet> dset;

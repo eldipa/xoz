@@ -105,24 +105,7 @@ void DescriptorSetHolder::write_struct_specifics_into(IOBase& io) {
 
 void DescriptorSetHolder::update_header() {
     // Make the set to be 100% sync so we can know how much space its segment will require
-    if (dset->count() == 0) {
-        // Release any unused space so we get an empty segment from the set.
-        //
-        // This is a "little expensive" operation only if the set was not empty and become
-        // empty before calling update_header(). If the set was empty after calling update_header(),
-        // a second update_header() call will be "cheap"
-        uint16_t u16data = dset->u16data();
-        dset->remove_set();
-        dset->create_set(u16data);
-        assert(dset->segment().length() == 0);
-        // TODO note: empty sets that fall here will have does_require_write in true which may
-        // trigger unnecessary writes. However, because the set is truly empty, it should not
-        // trigger a chain reaction of writes.
-        // To meditate.
-    } else {
-        // TODO this will trigger a recursive chain reaction of writes if the set has other holders
-        dset->write_set();
-    }
+    flush_writes();
 
     if (dset->count() == 0) {
         // Second easiest case: the set is empty so we don't need to own any external data
@@ -146,3 +129,26 @@ void DescriptorSetHolder::update_header() {
 }
 
 void DescriptorSetHolder::destroy() { dset->remove_set(); }
+
+void DescriptorSetHolder::flush_writes() {
+    if (dset->count() == 0) {
+        // Release any unused space so we get an empty segment from the set.
+        //
+        // This is a "little expensive" operation only if the set was not empty and become
+        // empty before calling update_header(). If the set was empty after calling update_header(),
+        // a second update_header() call will be "cheap"
+        uint16_t u16data = dset->u16data();
+        dset->remove_set();
+        dset->create_set(u16data);
+        assert(dset->segment().length() == 0);
+        // TODO note: empty sets that fall here will have does_require_write in true which may
+        // trigger unnecessary writes. However, because the set is truly empty, it should not
+        // trigger a chain reaction of writes.
+        // To meditate.
+    } else {
+        // TODO this will trigger a recursive chain reaction of writes if the set has other holders
+        dset->flush_writes();
+    }
+}
+
+void DescriptorSetHolder::release_free_space() { dset->release_free_space(); }
