@@ -15,6 +15,7 @@ Repository::Repository(const char* fpath):
         fpath(fpath),
         fblkarr(std::make_unique<FileBlockArray>(fpath, std::bind_front(Repository::preload_repo, dummy))),
         closed(true),
+        closing(false),
         trampoline_segm(fblkarr->blk_sz_order()) {
     bootstrap_repository();
     assert(not closed);
@@ -26,6 +27,7 @@ Repository::Repository(std::unique_ptr<FileBlockArray>&& fblkarr_, const struct 
         fpath(fblkarr_->get_file_path()),
         fblkarr(std::move(fblkarr_)),
         closed(true),
+        closing(false),
         trampoline_segm(fblkarr->blk_sz_order()) {
     if (is_a_new_repository) {
         // The given file block array has a valid and open file but it is not initialized as
@@ -364,9 +366,11 @@ void Repository::close() {
 
     write_header();
     write_trailer();
+    closing = true;
 
     fblkarr->close();
     closed = true;
+    closing = false;
 }
 
 void Repository::load_root_holder(struct repo_header_t& hdr) {

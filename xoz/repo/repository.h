@@ -47,6 +47,7 @@ private:
     std::unique_ptr<FileBlockArray> fblkarr;
 
     bool closed;
+    bool closing;
 
     IDManager idmgr;
 
