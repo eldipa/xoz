@@ -104,8 +104,8 @@ void DescriptorSetHolder::write_struct_specifics_into(IOBase& io) {
 }
 
 void DescriptorSetHolder::update_header() {
-    // Make the set to be 100% sync so we can know how much space its segment will require
-    flush_writes();
+    // Make sure set to be 100% sync so we can know how much space its segment is owning
+    assert(dset->count() == 0 or not dset->does_require_write());
 
     if (dset->count() == 0) {
         // Second easiest case: the set is empty so we don't need to own any external data
