@@ -477,7 +477,7 @@ void Repository::write_root_holder(uint8_t* rootbuf, const uint32_t rootbuf_sz, 
 }
 
 void Repository::update_trampoline_space() {
-    uint32_t cur_sz = trampoline_segm.calc_struct_footprint_size();
+    uint32_t cur_sz = trampoline_segm.calc_data_space_size();
     uint32_t req_sz = root_holder->calc_struct_footprint_size();
     assert(req_sz > 0);
 
