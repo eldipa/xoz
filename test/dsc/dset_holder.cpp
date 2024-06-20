@@ -121,7 +121,7 @@ namespace {
         // Write the holder to disk. This will trigger the write of the set *but*
         // because the set is empty, nothing is written and the set is still pending
         // for writing.
-        holder->update_header();
+        holder->full_sync(false);
         holder->write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SET(holder, 0, true);
 
@@ -152,7 +152,7 @@ namespace {
         XOZ_EXPECT_SET(holder2, 0, true);
 
         // Write it back, we expect the same serialization
-        holder2->update_header();
+        holder2->full_sync(false);
         holder2->write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SET(holder2, 0, true);
 
@@ -212,7 +212,7 @@ namespace {
         XOZ_EXPECT_SET(holder, 1, true);
 
         // Write the holder to disk. This will trigger the write of the set.
-        holder->update_header();
+        holder->full_sync(false);
         holder->write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SET(holder, 1, false);
 
@@ -249,7 +249,7 @@ namespace {
         XOZ_EXPECT_SET(holder2, 1, false);
 
         // Write it back, we expect the same serialization
-        holder2->update_header();
+        holder2->full_sync(false);
         holder2->write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SET(holder2, 1, false);
 
@@ -317,7 +317,7 @@ namespace {
         auto id1 = holder->set()->add(std::move(dscptr));
 
         // Write the holder to disk. This will trigger the write of the set.
-        holder->update_header();
+        holder->full_sync(false);
         holder->write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SET(holder, 1, false);
 
@@ -355,7 +355,7 @@ namespace {
 
         // Write the holder to disk. This will trigger the write of the set leaving it empty
         XOZ_RESET_FP(fp, FP_SZ);
-        holder->update_header();
+        holder->full_sync(false);
         holder->write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SET(holder, 0, true);
 
@@ -410,7 +410,7 @@ namespace {
         // Write the holder to disk. This will trigger the write of the set *but*
         // because the set is empty, nothing is written and the set is still pending
         // for writing.
-        holder->update_header();
+        holder->full_sync(false);
         holder->write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SET(holder, 0, true);
 
@@ -441,7 +441,7 @@ namespace {
         XOZ_EXPECT_SET(holder2, 0, true);
 
         // Write it back, we expect the same serialization
-        holder2->update_header();
+        holder2->full_sync(false);
         holder2->write_struct_into(IOSpan(fp));
         XOZ_EXPECT_SET(holder2, 0, true);
 
@@ -499,7 +499,7 @@ namespace {
         holder->set()->add(std::move(dscptr));
 
         // Write the holder to disk. This will trigger the write of the set.
-        holder->update_header();
+        holder->full_sync(false);
         holder->write_struct_into(IOSpan(fp));
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
