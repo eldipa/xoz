@@ -98,8 +98,17 @@ public:
      * and memory based repositories.
      *
      * To reopen a repository, you need create a new instance.
+     *
+     * The close() will write any pending change in the root descriptor set and may
+     * require allocate additional space (the trampoline space) to save the root holder
+     * if it does not fit in the header.
      * */
     void close();
+
+    /*
+     * Flush any pending write.
+     * */
+    void flush_writes(const bool release);
 
     // Call to close()
     ~Repository();

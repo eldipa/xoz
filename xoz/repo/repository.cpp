@@ -386,6 +386,39 @@ void Repository::init_new_repository(const struct default_parameters_t& defaults
     // Ensure that the holder has a valid id.
     root_holder->id(idmgr.request_temporal_id());
 
+
+    // Write any pending write (it should be a few if any due the initialization
+    // of the holder's and set's structures. Update the root holder but do not
+    // try to release any free space, it should be none (and because fblkarr's allocator
+    // is not fully initialized yet).
+    //
+    // This must be called before write_header() so we can by 100% sure of how
+    // many blocks are being used and how large the root holder is and if it
+    // fits in the header or not.
+    //
+    // Note: it is important that the root holder does not do any allocation
+    // because fblkarr is not fully initialized yet.
+    // In theory we should be fine because root holder does not require
+    // alloc any space for an empty set (the initial state of any new repository)
+    // and neither write_header nor write_trailer requires alloc space
+    // (write_trailer will not try to alloc space for a trampoline because the
+    // root holder of an empty set should fit in the header).
+    // Once we call bootstrap_repository() we should be fine.
+    root_holder->full_sync(false);
+
+    write_header();
+    write_trailer();
+}
+
+void Repository::flush_writes(const bool release) {
+    // Update the root holder. If there is any pending write, this will
+    // do it. This may trigger some allocations in fblkarr and if release
+    // is true, it may trigger some deallocations (shrinks) too.
+    root_holder->full_sync(release);
+    if (release) {
+        fblkarr->allocator().release();
+    }
+
     write_header();
     write_trailer();
 }
@@ -394,9 +427,8 @@ void Repository::close() {
     if (closed)
         return;
 
-    write_header();
-    write_trailer();
     closing = true;
+    flush_writes(true);
 
     fblkarr->close();
     closed = true;
