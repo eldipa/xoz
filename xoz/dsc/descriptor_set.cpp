@@ -184,7 +184,7 @@ void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
     io.fill(0, st_blkarr.blk2bytes(ext.blk_cnt()));
 }
 
-void DescriptorSet::write_set() {
+void DescriptorSet::flush_writes() {
     auto io = IOSegment(sg_blkarr, segm);
     write_modified_descriptors(io);
 }

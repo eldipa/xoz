@@ -203,7 +203,7 @@ namespace {
         repo.root()->set()->add(std::move(dscptr));
 
         // Explicit write
-        repo.root()->set()->write_set();
+        repo.root()->set()->flush_writes();
 
         // We expect the file has grown
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -378,11 +378,11 @@ namespace {
 
         // Add a descriptor to the set and write it.
         auto id1 = repo.root()->set()->add(std::move(dscptr));
-        repo.root()->set()->write_set();
+        repo.root()->set()->flush_writes();
 
         // Now, remove it.
         repo.root()->set()->erase(id1);
-        repo.root()->set()->write_set();
+        repo.root()->set()->flush_writes();
 
         // Check repository's parameters: the blk array *should* be larger
         // than the initial size

@@ -1556,7 +1556,7 @@ namespace {
             dscptr->set_data({c, c});
 
             repo.root()->set()->add(std::move(dscptr));
-            repo.root()->set()->write_set();
+            repo.root()->set()->flush_writes();
         }
 
         // We expect the file has grown

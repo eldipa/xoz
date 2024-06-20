@@ -128,13 +128,13 @@ public:
     void remove_set();
 
     /*
-     * Write the set to disk. This can be called multiple times: the implementation
+     * Flush any pending write to disk. This can be called multiple times: the implementation
      * will try to avoid any write if there are no changes to write.
      *
      * This method must be called at least once if the set or its descriptors
      * were modified. See does_require_write() method.
      * */
-    void write_set();
+    void flush_writes();
 
     /*
      * Check if there is any change pending to be written (addition of new descriptors,
@@ -145,7 +145,7 @@ public:
     /*
      * Count how many descriptors are owned by this set. This does not count
      * how many descriptors are already present in the XOZ file but it should
-     * count that after a write_set() call.
+     * count that after a flush_writes() call.
      * */
     uint32_t count() const {
         fail_if_set_not_loaded();
