@@ -85,6 +85,11 @@ void Repository::bootstrap_repository() {
     // Scan which extents/segments are allocated so we can initialize the allocator.
     auto allocated = scan_descriptor_sets();
 
+    // Add the trampoline segment, if any
+    if (trampoline_segm.length()) {
+        allocated.push_back(trampoline_segm);
+    }
+
     // With this, we can do alloc/dealloc and the Repository is fully operational.
     fblkarr->allocator().initialize_from_allocated(allocated);
 
