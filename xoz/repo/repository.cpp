@@ -277,7 +277,6 @@ void Repository::read_and_check_header_and_trailer() {
     */
 
 
-    static_assert(sizeof(hdr.root) >= 32);
     load_root_holder(hdr);
 
     // TODO this *may* still be useful: assert(phy_repo_end_pos > 0);

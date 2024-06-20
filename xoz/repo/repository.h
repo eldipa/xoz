@@ -321,4 +321,6 @@ private:
 public:
     static constexpr auto HEADER_ROOT_SET_SZ = sizeof(static_cast<struct repo_header_t*>(nullptr)->root);
     static_assert(HEADER_ROOT_SET_SZ >= 32);
+
+    Segment /* testing */ trampoline_segment() const { return trampoline_segm; }
 };
