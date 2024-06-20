@@ -27,7 +27,7 @@ protected:
 public:
     void destroy() override;
 
-public:  // protected: for subclasses only; prefer call full_sync()
+protected:
     void update_header() override;
     void flush_writes() override;
     void release_free_space() override;
