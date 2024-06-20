@@ -28,43 +28,6 @@ public:
     void write_struct_into(IOBase&& io) { return write_struct_into(io); }
 
     /*
-     * Subclass must update the content of this->hdr such
-     * calc_struct_footprint_size() and calc_data_space_size() reflect the updated
-     * sizes of the descriptor struct and a next write_struct_into() will work
-     * as expected (writing that amount of bytes).
-     *
-     * This method does not call neither flush_writes() nor release_free_space().
-     * So this method should reflect the actual state of what it is currently
-     * written in disk/allocated, even if there are pending writes that may change
-     * that.
-     * If the caller wants it, it should call release_free_space() and flush_writes()
-     * explicitly before calling update_header().
-     * */
-    virtual void update_header() {}
-
-    /*
-     * Subclass must release any free/unused space allocated by the descriptor
-     * that it is not longer needed.
-     *
-     * A call to release_free_space() does not imply a call to flush_writes()
-     * so even if the descriptor releases some space, a call to flush_writes()
-     * may allocate it back.
-     * This also does not imply a call to update_header() so the header of
-     * the descriptor may leave out of sync.
-     * */
-    virtual void release_free_space() {}
-
-    /*
-     * Subclass must flush any pending write.
-     * This does not call neither update_header() nor release_free_space().
-     *
-     * Caller should call update_header() after this method to ensure
-     * that the header is up-to-date.
-     * See full_sync() method.
-     * */
-    virtual void flush_writes() {}
-
-    /*
      * Call the virtual method flush_writes() and update_header()
      * and optionally release_free_space().
      * */
@@ -307,6 +270,46 @@ public:
      * */
     uint16_t /* internal */ checksum;
 
+
+public:  // protected: for subclasses only; prefer call full_sync()
+    /*
+     * Subclass must update the content of this->hdr such
+     * calc_struct_footprint_size() and calc_data_space_size() reflect the updated
+     * sizes of the descriptor struct and a next write_struct_into() will work
+     * as expected (writing that amount of bytes).
+     *
+     * This method does not call neither flush_writes() nor release_free_space().
+     * So this method should reflect the actual state of what it is currently
+     * written in disk/allocated, even if there are pending writes that may change
+     * that.
+     * If the caller wants it, it should call release_free_space() and flush_writes()
+     * explicitly before calling update_header().
+     * */
+    virtual /* protected */ void update_header() {}
+
+    /*
+     * Subclass must release any free/unused space allocated by the descriptor
+     * that it is not longer needed.
+     *
+     * A call to release_free_space() does not imply a call to flush_writes()
+     * so even if the descriptor releases some space, a call to flush_writes()
+     * may allocate it back.
+     * This also does not imply a call to update_header() so the header of
+     * the descriptor may leave out of sync.
+     * */
+    virtual /* protected */ void release_free_space() {}
+
+    /*
+     * Subclass must flush any pending write.
+     * This does not call neither update_header() nor release_free_space().
+     *
+     * Caller should call update_header() after this method to ensure
+     * that the header is up-to-date.
+     * See full_sync() method.
+     * */
+    virtual /* protected */ void flush_writes() {}
+
+public:
 private:
     static void chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end,
                                          uint32_t data_sz);
