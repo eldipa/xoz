@@ -303,6 +303,25 @@ void Repository::read_and_check_header_and_trailer() {
 }
 
 void Repository::write_header() {
+
+    // Write the root holder in the buffer. This *may* trigger an (de)allocation
+    // in the fblkarr if the use of a trampoline is required or not.
+    //
+    // Caller *MUST* call root_holder->update_header() before calling write_header()
+    // so we can be sure that all the descriptor sets (including the root) are up to date
+    // and the holder has the latest updated sizes.
+    uint8_t rootbuf[HEADER_ROOT_SET_SZ] = {0};
+    uint8_t flags = 0;
+    write_root_holder(rootbuf, HEADER_ROOT_SET_SZ, flags);
+
+    // Despite that close() should be doing a release() of any free block,
+    // the write_root_holder() may had deallocated stuff making free
+    // new blocks.
+    // So this is the last chance to release them (only on closing)
+    if (closing) {
+        fblkarr->allocator().release();
+    }
+
     // Note: currently the trailer size is fixed but we may decide
     // to make it variable later.
     //
@@ -332,15 +351,22 @@ void Repository::write_header() {
                                 .trailer_sz = u16_to_le(trailer_sz),
                                 .blk_total_cnt = u32_to_le(blk_total_cnt),
                                 .blk_sz_order = u8_to_le(fblkarr->blk_sz_order()),
-                                .flags = u8_to_le(0),
+                                .flags = 0,  // to override
                                 .feature_flags_compat = u32_to_le(0),
                                 .feature_flags_incompat = u32_to_le(0),
                                 .feature_flags_ro_compat = u32_to_le(0),
-                                .root = {0},
+                                .root = {0},  // to override
                                 .checksum = u16_to_le(0),
                                 .padding = {0}};
 
-    write_root_holder(hdr);
+
+    // Update root and flags
+    assert(sizeof(hdr.root) == sizeof(rootbuf));
+    memcpy(hdr.root, rootbuf, sizeof(hdr.root));
+
+    hdr.flags = u8_to_le(flags);
+
+    // Compute checksum and write the header
     hdr.checksum = u16_to_le(compute_header_checksum(hdr));
 
     fblkarr->write_header(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
@@ -413,9 +439,9 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
     }
 }
 
-void Repository::write_root_holder(struct repo_header_t& hdr) {
-    IOSpan root_io(hdr.root, sizeof(hdr.root));
-    root_holder->update_header();
+void Repository::write_root_holder(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flags) {
+    assert(rootbuf_sz <= HEADER_ROOT_SET_SZ);
+    IOSpan root_io(rootbuf, rootbuf_sz);
 
     FileBlockArray& fblkarr_ref = *fblkarr.get();
 
@@ -424,7 +450,7 @@ void Repository::write_root_holder(struct repo_header_t& hdr) {
     if (trampoline_required) {
         // Expand/shrink the trampoline space to make room for the
         // root descriptor set holder (with its space was updated/recalculated
-        // in the above call to update_header())
+        // in the call to root_holder.update_header() made by the caller)
         update_trampoline_space();
 
         // Write the holder in the trampoline
@@ -436,7 +462,7 @@ void Repository::write_root_holder(struct repo_header_t& hdr) {
         root_io.write_u16_to_le(inet_to_u16(root_holder->checksum));
         trampoline_segm.write_struct_into(root_io);
 
-        hdr.flags |= uint8_t((trampoline_required) << 7);
+        flags |= uint8_t((trampoline_required) << 7);
     } else {
         // No trampoline required, release/dealloc it if we have one
         if (trampoline_segm.length() != 0) {
@@ -446,7 +472,7 @@ void Repository::write_root_holder(struct repo_header_t& hdr) {
 
         root_holder->write_struct_into(root_io);
 
-        hdr.flags &= uint8_t(0x7f);
+        flags &= uint8_t(0x7f);
     }
 }
 

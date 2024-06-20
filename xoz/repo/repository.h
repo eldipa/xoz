@@ -156,12 +156,8 @@ private:
      * Write the header/trailer.
      * Note that the write may be not flushed to disk depending of the implementation
      * of the file block array.
-     *
-     * The write_header() will write any pending change in the root descriptor set and (re)allocates
-     * the trampoline space to fit the root holder if it does not fit in the header or
-     * it deallocates the trampoline space otherwise (in that case the holder is written in the header).
      * */
-    void write_header(const bool);
+    void write_header();
     void write_trailer();
 
     /*
@@ -309,7 +305,7 @@ private:
      * blocks. In the case of has_trampoline equals false, this segment will be empty.
      * */
     void load_root_holder(struct repo_header_t& hdr);
-    void write_root_holder(struct repo_header_t& hdr);
+    void write_root_holder(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flag);
     void update_trampoline_space();
 
 private:
