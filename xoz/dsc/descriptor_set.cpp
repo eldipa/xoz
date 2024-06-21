@@ -261,6 +261,56 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // This however would require update the descriptors' extents to their new positions
     // NOTE: compaction is not implemented yet
 
+    // The problem:
+    //
+    // If the caller adds several descriptors and between each add calls flush_writes,
+    // we will be allocating tiny pieces of space (one per descriptor) instead
+    // of allocating a big chunk
+    // This makes the resulting segment of the set very fragmented and large
+    //
+    // Possible optimizations:
+    //
+    // 1. Coalescing: the resulting segment may be fragmented (too many extents)
+    //    but the space pointed by the segment may not.
+    //    If the extents of the segments, in order, points to continuous
+    //    blocks without gaps, we can be "coalesced/merged" them into few extents
+    //    and therefore resulting a smaller segment.
+    //    This is cheap because we don't need to write anything to disk except
+    //    the new set descriptor (holder)
+    //    The problem is that this works only if the fragmentation happens
+    //    at the segment level: in other words, the blocks are contiguous.
+    //    If the fragmentation happen at the blk level no coalescing will be possible.
+    //
+    //    Moreover, the extents of the segment cannot be reordered so even if together
+    //    points to contiguous blocks, a coalescing will destroy the implicit order
+    //    (and scramble what the reader would read).
+    //
+    // 2. Overallocation: instead of allocating exactly what we need for a single desc
+    //    we allocate much more, like std::vector does. This minimize the impact of
+    //    (potentially) expanding the block array and also improves locality hence
+    //    reducing the fragmentation of both data and segment.
+    //    The cost of this is we are wasting space.
+    //    On a release_free_space() call we may cut the segment so we keep the space
+    //    that we really need and the rest can be safely freed.
+    //    Of course, if this happens to frequently (like calling release_free_space() after each flush_writes()),
+    //    we are getting back again a too fragmented segment. Back to square one.
+    //
+    // 3. Preallocation: if we are adding a bunch of descriptors (because they are new
+    //    or they were present but changed the size) we can preallocate the required
+    //    space. This does not fixes the original problem (too many flush_writes())
+    //    but avoids creating a new one (us calling too many times the allocator).
+    //
+    // 4. Compactation/defragmentation: similarly to preallocation, we can allocate
+    //    a single chunk of space to hold all the descriptors of the set (added or not),
+    //    copy the content of the descriptors to the new chunk and free the former.
+    //    This makes the resulting chunk and segment very "compact" (defragmented).
+    //    The downside is that we need to write everything back and temporally
+    //    we have a temporal space allocated.
+    //    The "Preallocation" strategy is a sort of defragmentation strategy that
+    //    applies to only the added+modified descritpors, so the penalty of writing
+    //    them it is already paid.
+    //
+
 
     // Zero'd the to-be-removed extents and then dealloc them.
     // We split this into two phases because once we dealloc/alloc
