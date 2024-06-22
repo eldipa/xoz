@@ -694,4 +694,275 @@ namespace {
                 "4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444 4444"
                 );
     }
+
+    TEST(IOSegmentTest, EmptySegmentNoInline) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+
+        auto old_top_nr = blkarr.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        Segment sg(blkarr.blk_sz_order());
+
+        IOSegment iosg1(blkarr, sg);
+
+        // Initial positions
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(0));
+
+        EXPECT_EQ(iosg1.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_rd(), uint32_t(0));
+    }
+
+
+    TEST(IOSegmentTest, EmptySegmentWithEmptyInline) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+
+        auto old_top_nr = blkarr.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        Segment sg = Segment::create_empty_zero_inline(blkarr.blk_sz_order());
+
+        IOSegment iosg1(blkarr, sg);
+
+        // Initial positions
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(0));
+
+        EXPECT_EQ(iosg1.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_rd(), uint32_t(0));
+    }
+
+    TEST(IOSegmentTest, InlineOnly) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+
+        auto old_top_nr = blkarr.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf;
+
+        Segment sg(blkarr.blk_sz_order());
+        sg.reserve_inline_data(6);
+
+        IOSegment iosg1(blkarr, sg);
+        iosg1.writeall(wrbuf, 4);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(6 - 4));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(4));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        std::vector<char> zeros = {0,0};
+        EXPECT_EQ(wrbuf, subvec(sg.inline_data(), 0, 4));
+        EXPECT_EQ(zeros, subvec(sg.inline_data(), 4, 6));
+        EXPECT_EQ(sg.inline_data().size(), (size_t)6);
+
+        IOSegment iosg2(blkarr, sg);
+        iosg2.readall(rdbuf, 4);
+
+        EXPECT_EQ(iosg2.remain_rd(), uint32_t(6 - 4));
+        EXPECT_EQ(iosg2.tell_rd(), uint32_t(4));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+    }
+
+    TEST(IOSegmentTest, FullInlineOnly) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+
+        auto old_top_nr = blkarr.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D', 'E', 'F'};
+        std::vector<char> rdbuf;
+
+        Segment sg(blkarr.blk_sz_order());
+        sg.reserve_inline_data(6);
+
+        IOSegment iosg1(blkarr, sg);
+        iosg1.writeall(wrbuf, 6);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(6 - 6));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(6));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        EXPECT_EQ(wrbuf, sg.inline_data());
+        EXPECT_EQ(sg.inline_data().size(), (size_t)6);
+
+        IOSegment iosg2(blkarr, sg);
+        iosg2.readall(rdbuf, 6);
+
+        EXPECT_EQ(iosg2.remain_rd(), uint32_t(6 - 6));
+        EXPECT_EQ(iosg2.tell_rd(), uint32_t(6));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+    }
+
+    TEST(IOSegmentTest, InlineDoesNotGrow) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+
+        auto old_top_nr = blkarr.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D', 'E', 'F'};
+        std::vector<char> rdbuf;
+
+        Segment sg(blkarr.blk_sz_order());
+        sg.reserve_inline_data(4); // smaller
+
+        IOSegment iosg1(blkarr, sg);
+        EXPECT_THAT(
+            [&]() { iosg1.writeall(wrbuf); },  // try to write 6 bytes, but 4 is max and fail
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 6 bytes but only 4 bytes are available. "
+                              "Write exact-byte-count operation at position 0 failed; "
+                              "detected before the write."
+                        )
+                    )
+                )
+        );
+
+        // Nothing was written
+        std::vector<char> zeros = {0, 0, 0, 0};
+        EXPECT_EQ(sg.inline_data(), zeros);
+        EXPECT_EQ(sg.inline_data().size(), (size_t)4);
+
+        EXPECT_THAT(
+            [&]() { iosg1.readall(rdbuf, 6); },  // try to read 6 bytes, but 4 is max and fail
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 6 bytes but only 4 bytes are available. "
+                              "Read exact-byte-count operation at position 0 failed; "
+                              "detected before the read."
+                        )
+                    )
+                )
+        );
+
+        // Nothing was read
+        std::vector<char> zeros2 = {0, 0, 0, 0, 0, 0};
+        EXPECT_EQ(rdbuf, zeros2);
+        EXPECT_EQ(sg.inline_data().size(), (size_t)4);
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+    }
+
+    TEST(IOSegmentTest, OneBlockAndInline) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(4);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+
+        auto old_top_nr = blkarr.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000"
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D', 'E', 'F'};
+        std::vector<char> rdbuf;
+
+        Segment sg(blkarr.blk_sz_order());
+        sg.add_extent(Extent(0, 1, false)); // one block
+        sg.reserve_inline_data(4);
+
+        IOSegment iosg1(blkarr, sg);
+        iosg1.writeall(wrbuf);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(8 - 6));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(6));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344"
+                );
+
+        std::vector<char> zeros = {0,0};
+        EXPECT_EQ(subvec(wrbuf, 4, 6), subvec(sg.inline_data(), 0, 2));
+        EXPECT_EQ(zeros, subvec(sg.inline_data(), 2, 4));
+        EXPECT_EQ(sg.inline_data().size(), (size_t)4);
+
+        IOSegment iosg2(blkarr, sg);
+        iosg2.readall(rdbuf, 6);
+
+        EXPECT_EQ(iosg2.remain_rd(), uint32_t(8 - 6));
+        EXPECT_EQ(iosg2.tell_rd(), uint32_t(6));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+
+        EXPECT_EQ(subvec(wrbuf, 4, 6), subvec(sg.inline_data(), 0, 2));
+        EXPECT_EQ(zeros, subvec(sg.inline_data(), 2, 4));
+        EXPECT_EQ(sg.inline_data().size(), (size_t)4);
+
+        blkarr.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "4142 4344"
+                );
+    }
+
 }

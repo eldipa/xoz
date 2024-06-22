@@ -21,14 +21,31 @@ class BlockArray;
 class IOSegment final: public IOBase {
 private:
     BlockArray& blkarr;
-    Segment sg;
+    Segment& sg;
 
     const uint32_t sg_no_inline_sz;
 
     const std::vector<uint32_t> begin_positions;
 
 public:
-    IOSegment(BlockArray& blkarr, const Segment& sg);
+    /*
+     * Note: the IOSegment takes a *mutable* non-const reference to the segment.
+     * Such non-cost is needed because IOSegment will use the inline data space
+     * of the segment (if any) for reading and writing.
+     * Therefore the segment instance must *not* be moved nor destroyed while
+     * this IOSegment is still alive.
+     * */
+    IOSegment(BlockArray& blkarr, Segment& sg);
+
+    /*
+     * Get a clone of the IOSegment.
+     * The segment is shared by both io objects so:
+     *  - the segment must outlive both io objects
+     *  - writing from one io will be reflected on the other
+     * The cloned IOSegment will have its own independent
+     * rd/rw pointers and with the same values as the values
+     * that the original io has.
+     * */
     IOSegment dup() const;
 
 private:

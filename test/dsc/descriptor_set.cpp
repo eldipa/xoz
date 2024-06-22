@@ -39,7 +39,8 @@ using ::testing_xoz::helpers::ensure_called_once;
 } while (0)
 
 #define XOZ_EXPECT_SET_SERIALIZATION(blkarr, dset, data) do {       \
-    EXPECT_EQ(hexdump(IOSegment((blkarr), (dset).segment())), (data));          \
+    auto sg = (dset).segment();                                     \
+    EXPECT_EQ(hexdump(IOSegment((blkarr), sg)), (data));            \
 } while (0)
 
 

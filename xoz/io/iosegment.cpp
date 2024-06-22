@@ -33,7 +33,7 @@ std::vector<uint32_t> create_ext_index(const Segment& sg, [[maybe_unused]] const
 }  // namespace
 
 
-IOSegment::IOSegment(BlockArray& blkarr, const Segment& sg):
+IOSegment::IOSegment(BlockArray& blkarr, Segment& sg):
         IOBase(sg.calc_data_space_size()),
         blkarr(blkarr),
         sg(sg),
