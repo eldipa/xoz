@@ -532,6 +532,8 @@ void Repository::update_trampoline_space() {
     // large to fit in the header.
     // In this case we alloc a single extent that we know it has a size smaller
     // than the available space
+    //
+    // TODO test this part
     if (trampoline_segm.calc_struct_footprint_size() > HEADER_ROOT_SET_SZ) {
         fblkarr->allocator().dealloc(trampoline_segm);
         const auto ext = fblkarr->allocator().alloc_single_extent(req_sz);

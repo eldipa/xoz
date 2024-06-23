@@ -2167,7 +2167,7 @@ namespace {
             repo.root()->set()->flush_writes();
         }
 
-        // We expect the file has grown 1 block: TODO no! 1 block is not enough!
+        // We expect the file has grown 1 block:
         // The reasoning is that the 26 descriptors will fit in a single
         // block thanks to the suballocation
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -2631,4 +2631,867 @@ namespace {
                 );
     }
 
+    TEST(RepositoryTest, TrampolineRequiredThenCloseThenNotLongerRequired) {
+        DELETE("TrampolineRequiredThenCloseThenNotLongerRequired.xoz");
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
+            {0x01, DescriptorSetHolder::create }
+        };
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        const char* fpath = SCRATCH_HOME "TrampolineRequiredThenCloseThenNotLongerRequired.xoz";
+        Repository repo = Repository::create(fpath, true);
+        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x0, // let DescriptorSet::add assign an id for us
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline(blk_sz_order)
+        };
+
+        std::vector<uint32_t> ids;
+        for (char c = 'A'; c <= 'Z'; ++c) {
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            dscptr->set_data({c, c});
+
+            auto id = repo.root()->set()->add(std::move(dscptr), true);
+            ids.push_back(id);
+            repo.root()->set()->flush_writes();
+        }
+
+        repo.flush_writes(true);
+
+        // We expect the file has grown 3 blocks.
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+
+        auto stats = repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(128));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        // The set was explicitly written above, we don't expect
+        // the set to require another write.
+        auto root_holder = repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)26);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+
+        // Close and reopen and check again
+        repo.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0002 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0400 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "80 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // trampoline  --------------
+                "eccc " // trampoline checksum
+                                   //|-------------| trampoline segment inline data (6 bytes)
+                "030c 0086 1e00 00c6 2000 00c0 0000 " // trampoline segment --v
+                // 00003 00004 [   1] 00002 [0000000000011110] (+6) (struct: 14 B, data: 160 B)
+
+                // trampoline padding
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "f1b6 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, 128*3,
+                // root descriptor set -----------
+                // first data block
+                "0000 aa9d " // set's header
+                "fa06 0100 0000 4141 " // desc 1 AA
+                "fa06 0200 0000 4242 " // desc 2 BB
+                "fa06 0300 0000 4343 " // desc 3 CC
+                "fa06 0400 0000 4444 " // desc 4 DD
+                "fa06 0500 0000 4545 "
+                "fa06 0600 0000 4646 "
+                "fa06 0700 0000 4747 "
+                "fa06 0800 0000 4848 "
+                "fa06 0900 0000 4949 "
+                "fa06 0a00 0000 4a4a "
+                "fa06 0b00 0000 4b4b "
+                "fa06 0c00 0000 4c4c "
+                "fa06 0d00 0000 4d4d "
+                "fa06 0e00 0000 4e4e "
+                "fa06 0f00 0000 4f4f "
+                "fa06 1000 " // desc 16 PP
+                // second data block
+                "0000 5050 " // desc 16 PP (cont)
+                "fa06 1100 0000 5151 "
+                "fa06 1200 0000 5252 "
+                "fa06 1300 0000 5353 "
+                "fa06 1400 0000 5454 "
+                "fa06 1500 0000 5555 "
+                "fa06 1600 0000 5656 "
+                "fa06 1700 0000 5757 "
+                "fa06 1800 0000 5858 "
+                "fa06 1900 0000 5959 "
+                "fa06 1a00 0000 5a5a "
+                // end of the root descriptor set -----------
+
+                "0000 0000 " // padding
+
+                // trampoline (second part) ---------------------
+                "0200 0004 0080 0200 "
+                "0002 0080 0200 0001 "
+                "0080 0200 8000 0080 "
+                "0200 4000 0080 0200 "
+                "0000 0000 0000 0000 " // padding (not allocated)
+                // end of trampoline (second part) ---------------------
+
+                // trampoline (first part) ---------------------
+                // third data block
+                "0184 d800 0184 0080 0080 0100 0040 0080 0100 0020 0080 "
+                "0100 0010 0080 0100 0008 0080 0100 0004 0080 0100 0002 "
+                "0080 0100 0001 0080 0100 8000 0080 0100 4000 0080 0100 "
+                "2000 0080 0100 1000 0080 0100 0800 0080 0100 0400 0080 "
+                "0100 0200 0080 0100 0100 0084 0080 0080 0200 0040 0080 "
+                "0200 0020 0080 0200 0010 0080 0200 0008 0080"
+                // end of trampoline (first part) ---------------------
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*4, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        Repository repo2(fpath);
+
+        // The repo.close() forced to allocate a trampoline so the blk array
+        // should have one additional block
+        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo2.expose_block_array().blk_sz(), (uint32_t)128);
+
+        auto stats2 = repo2.stats();
+
+        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats2.header_sz, uint64_t(128));
+        EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
+
+        // The set was explicitly written above, we don't expect
+        // the set to require another write.
+        auto root_holder2 = repo2.root();
+        EXPECT_EQ(root_holder2->set()->count(), (uint32_t)26);
+        EXPECT_EQ(root_holder2->set()->does_require_write(), (bool)false);
+
+        // Remove from the set all except the first 2 descriptors added
+        for (size_t i = 2; i < ids.size(); ++i) {
+            repo2.root()->set()->erase(ids[i]);
+        }
+
+        repo2.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0200 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // trampoline  ---------------
+                "0184 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
+
+                // trampoline padding
+                "0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "def8 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, 128*1,
+                // root descriptor set -----------
+                // first data block
+                "0000 7a91 " // set's header
+                "fa06 0100 0000 4141 " // desc 1 AA
+                "fa06 0200 0000 4242 " // desc 2 BB
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*2, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        Repository repo3(fpath);
+
+        // The repo.close() forced to allocate a trampoline so the blk array
+        // should have one additional block
+        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(repo3.expose_block_array().blk_sz(), (uint32_t)128);
+
+        auto stats3 = repo3.stats();
+
+        EXPECT_EQ(stats3.capacity_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.header_sz, uint64_t(128));
+        EXPECT_EQ(stats3.trailer_sz, uint64_t(4));
+
+        // The set was explicitly written above, we don't expect
+        // the set to require another write.
+        auto root_holder3 = repo3.root();
+        EXPECT_EQ(root_holder3->set()->count(), (uint32_t)2);
+        EXPECT_EQ(root_holder3->set()->does_require_write(), (bool)false);
+
+        repo3.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0200 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "00 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // trampoline  ---------------
+                "0184 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
+
+                // trampoline padding
+                "0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "def8 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, 128*1,
+                // root descriptor set -----------
+                // first data block
+                "0000 7a91 " // set's header
+                "fa06 0100 0000 4141 " // desc 1 AA
+                "fa06 0200 0000 4242 " // desc 2 BB
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*2, -1,
+                // trailer
+                "454f 4600"
+                );
+    }
+
+    TEST(RepositoryTest, TrampolineRequiredOfDifferentSizes) {
+        DELETE("TrampolineRequiredOfDifferentSizes.xoz");
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
+            {0x01, DescriptorSetHolder::create }
+        };
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        const char* fpath = SCRATCH_HOME "TrampolineRequiredOfDifferentSizes.xoz";
+        Repository repo = Repository::create(fpath, true);
+        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x0, // let DescriptorSet::add assign an id for us
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline(blk_sz_order)
+        };
+
+        std::vector<uint32_t> ids;
+        for (char c = 'A'; c <= 'Z'; ++c) {
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            dscptr->set_data({c, c});
+
+            auto id = repo.root()->set()->add(std::move(dscptr), true);
+            ids.push_back(id);
+            repo.root()->set()->flush_writes();
+        }
+
+        repo.flush_writes(true);
+
+        // We expect the file has grown 3 blocks.
+        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+
+        auto stats = repo.stats();
+
+        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats.header_sz, uint64_t(128));
+        EXPECT_EQ(stats.trailer_sz, uint64_t(4));
+
+        // The set was explicitly written above, we don't expect
+        // the set to require another write.
+        auto root_holder = repo.root();
+        EXPECT_EQ(root_holder->set()->count(), (uint32_t)26);
+        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+
+        // Now let's shrink the trampoline removing some descriptors
+        // (and reducing the set)
+        for (size_t i = 10; i < ids.size(); ++i) {
+            repo.root()->set()->erase(ids[i]);
+            repo.root()->set()->flush_writes();
+        }
+
+        repo.close();
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0300 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "80 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // trampoline  --------------
+                "4bc8 " // trampoline checksum
+                                   //|-------------| trampoline segment inline data (6 bytes)
+                "0284 80ff 00c0 " // trampoline segment --v
+                // 00002 [1111111110000000] (+0) (struct: 6 B, data: 72 B)
+
+                // trampoline padding
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "10dd "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, 128*2,
+                // root descriptor set -----------
+                // first data block
+                "0000 b4ff " // set's header
+                "fa06 0100 0000 4141 " // desc 1 AA
+                "fa06 0200 0000 4242 " // desc 2 BB
+                "fa06 0300 0000 4343 " // desc 3 CC
+                "fa06 0400 0000 4444 " // desc 4 DD
+                "fa06 0500 0000 4545 "
+                "fa06 0600 0000 4646 "
+                "fa06 0700 0000 4747 "
+                "fa06 0800 0000 4848 "
+                "fa06 0900 0000 4949 "
+                "fa06 0a00 0000 4a4a "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 "
+                // second data block
+                "0184 5800 0184 0080 "
+                "0080 0100 0040 0080 "
+                "0100 0020 0080 0100 "
+                "0010 0080 0100 0008 "
+                "0080 0100 0004 0080 "
+                "0100 0002 0080 0100 "
+                "0001 0080 0100 8000 "
+                "0080 0100 4000 0080 "
+                "0100 2000 00c0 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                // garbage ? ---------
+                "0200 0004 0080 0200 "
+                "0002 0080 0200 0001 "
+                "0080 0200 8000 0080 "
+                "0200 4000 0080 0200 "
+                // end of garbage ----
+                "0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*3, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        Repository repo2(fpath);
+
+        // Check that the set was loaded correctly
+        for (int i = 0; i < 10; ++i) {
+            char c = char('A' + i);
+            auto dscptr = repo2.root()->set()->get<DefaultDescriptor>(ids[i]);
+            auto data = dscptr->get_data();
+            EXPECT_EQ(data.size(), (size_t)2);
+            EXPECT_EQ(data[0], (char)c);
+            EXPECT_EQ(data[1], (char)c);
+        }
+
+        // Let's shrink the trampoline even further
+        for (size_t i = 4; i < 10; ++i) {
+            repo2.root()->set()->erase(ids[i]);
+            repo2.root()->set()->flush_writes();
+        }
+
+        repo2.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0200 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "80 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // trampoline  --------------
+                "32c0 " // trampoline checksum
+                "0184 8007 00c4 00c0 " // trampoline segment --v
+                // 00001 [0000011110000000] (+4) (struct: 10 B, data: 32 B)
+
+                // trampoline padding
+                "0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "75a0 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, 128*1,
+                // root descriptor set -----------
+                // first data block
+                "0000 fd26 " // set's header
+                "fa06 0100 0000 4141 " // desc 1 AA
+                "fa06 0200 0000 4242 " // desc 2 BB
+                "fa06 0300 0000 4343 " // desc 3 CC
+                "fa06 0400 0000 4444 " // desc 4 DD
+                "0000 0000 "
+                // trampoline  ---------------------
+                "0184 2800 "
+                "0184 0080 0080 0100 "
+                "0040 0080 0100 0020 "
+                "0080 0100 0010 0080 "
+                "0100 0008 "
+                //  root holder segment (trampoline content):
+                //      00001 [1000000000000000] 00001 [0100000000000000]
+                //      00001 [0010000000000000] 00001 [0001000000000000]
+                //      00001 [0000100000000000] (struct: 28 B, data: 40 B)
+                // end of trampoline  ---------------------
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*2, -1,
+                // trailer
+                "454f 4600"
+                );
+
+
+        Repository repo3(fpath);
+
+        // Check that the set was loaded correctly
+        for (int i = 0; i < 4; ++i) {
+            char c = char('A' + i);
+            auto dscptr = repo3.root()->set()->get<DefaultDescriptor>(ids[i]);
+            auto data = dscptr->get_data();
+            EXPECT_EQ(data.size(), (size_t)2);
+            EXPECT_EQ(data[0], (char)c);
+            EXPECT_EQ(data[1], (char)c);
+        }
+
+        // Now expand the trampoline adding the erased descriptors back again
+        for (size_t i = 4; i < 10; ++i) {
+            char c = char('A' + i);
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo3.expose_block_array());
+            dscptr->set_data({c, c});
+
+            auto id = repo3.root()->set()->add(std::move(dscptr), true);
+            ids[i] = id;
+            repo3.root()->set()->flush_writes();
+        }
+
+        repo3.close();
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "8001 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0300 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "80 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // trampoline  --------------
+                "e9c0 " // trampoline checksum
+                "0284 80ff 00c0 " // trampoline segment --v
+                // 00002 [1111111110000000] (+0) (struct: 6 B, data: 72 B)
+
+                // trampoline padding
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "aed5 "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, 128*2,
+                // root descriptor set -----------
+                // first data block
+                "0000 b4ff " // set's header
+                "fa06 0100 0000 4141 " // desc 1 AA
+                "fa06 0200 0000 4242 " // desc 2 BB
+                "fa06 0300 0000 4343 " // desc 3 CC
+                "fa06 0400 0000 4444 " // desc 4 DD
+                // garbage ------------
+                "fa06 0500 0184 2800 "
+                "0184 0080 0080 0100 "
+                "0040 0080 0100 0020 "
+                "0080 0100 0010 0080 "
+                // end of garbage ------
+                // continuation of the set --
+                "0100 0008 0000 4545 "
+                "fa06 0600 0000 4646 "
+                "fa06 0700 0000 4747 "
+                "fa06 0800 0000 4848 "
+                "fa06 0900 0000 4949 "
+                "fa06 0a00 0000 4a4a "
+                // end of the set -----------
+                "0000 0000 0000 0000 "
+                "0000 0000 "
+                // trampoline ----------------
+                // second data block
+                "0184 5800 0184 0080 "
+                "0080 0100 0040 0080 "
+                "0100 0020 0080 0100 "
+                "0010 0080 0100 0008 "
+                "0080 0100 4000 0080 "
+                "0100 2000 0080 0100 "
+                "1000 0080 0100 0800 "
+                "0080 0100 0400 0080 "
+                "0100 0200 00c0 0000 "
+                //  root holder segment (trampoline content):
+                //      00001 [1000000000000000] 00001 [0100000000000000]
+                //      00001 [0010000000000000] 00001 [0001000000000000]
+                //      00001 [0000100000000000]
+                //      00001 [0000000001000000]
+                //      00001 [0000000000100000] 00001 [0000000000010000]
+                //      00001 [0000000000001000] 00001 [0000000000000100]
+                //      00001 [0000000000000010] (struct: 64 B, data: 88 B)
+                // end of trampoline  ---------------------
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*3, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        Repository repo4(fpath);
+
+        // Check that the set was loaded correctly
+        for (int i = 0; i < 10; ++i) {
+            char c = char('A' + i);
+            auto dscptr = repo4.root()->set()->get<DefaultDescriptor>(ids[i]);
+            auto data = dscptr->get_data();
+            EXPECT_EQ(data.size(), (size_t)2);
+            EXPECT_EQ(data[0], (char)c);
+            EXPECT_EQ(data[1], (char)c);
+        }
+
+        // Now expand even further
+        for (size_t i = 10; i < ids.size(); ++i) {
+            char c = char('A' + i);
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo4.expose_block_array());
+            dscptr->set_data({c, c});
+
+            auto id = repo4.root()->set()->add(std::move(dscptr), true);
+            ids[i] = id;
+            repo4.flush_writes(true);
+        }
+
+
+        // Close and reopen and check again
+        // Note how the descriptor set and the trampoline are getting mixed because the
+        // frequently allocations/deallocation and how there is a lot of unallocated space
+        // that it is in the middle of the file and it cannot be recovered/reclaimed.
+        repo4.close();
+        std::cout << "//////////////\n";
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
+                // header
+                "584f 5a00 "                     // magic XOZ\0
+                "0000 0000 0000 0000 0000 0000 " // app_name
+                "0003 0000 0000 0000 "           // repo_sz
+                "0400 "                          // trailer_sz
+                "0600 0000 "                     // blk_total_cnt
+                "07"                             // blk_sz_order
+                "80 "                            // flags
+                "0000 0000 "                     // feature_flags_compat
+                "0000 0000 "                     // feature_flags_incompat
+                "0000 0000 "                     // feature_flags_ro_compat
+
+                // trampoline  --------------
+                "9475 " // trampoline checksum
+                "050c 0286 4025 00c0 " // trampoline segment --v
+                // 00005 00006 [   1] 00002 [0010010101000000] (+0) (struct: 8 B, data: 160 B)
+
+                // trampoline padding
+                "0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                // end of the root holder ----
+
+                // checksum
+                "a0bf "
+
+                // header padding
+                "0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, 128*5,
+                // root descriptor set (part 1) -----------
+                // first data block
+                "0000 aa9d " // set's header
+                "fa06 0100 0000 4141 " // desc 1 AA
+                "fa06 0200 0000 4242 " // desc 2 BB
+                "fa06 0300 0000 4343 " // desc 3 CC
+                "fa06 0400 0000 4444 " // desc 4 DD
+                // set (part 3)  ------------
+                "fa06 0500 0000 4b4b "
+                "fa06 0c00 0000 4c4c "
+                "fa06 0d00 0000 4d4d "
+                "fa06 0e00 0000 4e4e "
+                // set (part 2) -------------
+                "fa06 0f00 0000 4545 "
+                "fa06 0600 0000 4646 "
+                "fa06 0700 0000 4747 "
+                "fa06 0800 0000 4848 "
+                "fa06 0900 0000 4949 "
+                "fa06 0a00 0000 4a4a "
+                // set (part 5) -----------
+                "fa06 0b00 0000 4f4f "
+                "fa06 1000 "  // desc 20
+                // second data block
+                "0000 5555 " // desc 20 PP (cont)
+                "fa06 1600 0000 5656 "
+                "fa06 1700 " // desc 22 (begin)
+                "0200 0040 0080 0200 " // not a desc, part of the trampoline
+                "0000 5757 " // desc 22 (cont)
+                "fa06 1800 0000 5858 "
+                "fa06 1900 " // desc 24 (begin)
+                "0010 0080 0200 0008 " // not a desc, part of the trampoline
+                "0000 5959 " // desc 24 (cont)
+                "fa06 1a00 " // desc 25 (begin)
+                "0080 0200 0002 0080 " // not a desc, part of the trampoline
+                "0000 5a5a " // desc 25 (cont)
+                "0080 0100 0200 8000 " // not a desc, part of the trampoline
+                "00c0 0000 "
+                "0080 0100 0001 0080 "
+                "0100 8000 0080 0100 "
+                "0000 5050 fa06 1100 " // desc
+                "0100 0084 0800 0080 "
+                "0000 5151 fa06 1200 " // desc
+                "0200 0200 0084 0080 "
+
+                // third data block
+                "0000 5252 fa06 1300 " // part of 2 descs, 17 and 18
+                "0000 5353 fa06 1400 " // part of 2 descs, 18 and ....
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+
+                // fourth data block
+                "0184 a800 0184 0080 "
+                "0080 0100 0040 0080 "
+                "0100 0020 0080 0100 "
+                "0010 0080 0100 0008 "
+                "0080 0100 4000 0080 "
+                "0100 2000 0080 0100 "
+                "1000 0080 0100 0800 "
+                "0080 0100 0400 0080 "
+                "0100 0200 0080 0100 "
+                "0004 0080 0100 0002 "
+                "0080 0100 0001 0080 "
+                "0100 8000 0080 0100 "
+                "0100 0084 0800 0080 "
+                "0200 0200 0084 0080 "
+                "0080 0300 0040 0084 "
+                "0000 5454 fa06 1500 "
+
+                // fifth data block
+                // trampoline (first part)
+                "0184 d800 0184 0080 "
+                "0080 0100 0040 0080 "
+                "0100 0020 0080 0100 "
+                "0010 0080 0100 0008 "
+                "0080 0100 4000 0080 "
+                "0100 2000 0080 0100 "
+                "1000 0080 0100 0800 "
+                "0080 0100 0400 0080 "
+                "0100 0200 0080 0100 "
+                "0004 0080 0100 0002 "
+                "0080 0100 0001 0080 "
+                "0100 8000 0080 0100 "
+                "0100 0084 0800 0080 "
+                "0200 0200 0084 0080 "
+                "0080 0300 0040 0084 "
+                "0100 0186 0080 0080"
+                // end of trampoline (first part) ---------------------
+                //
+                // Trampoline content
+                //      00001 [1000000000000000] 00001 [0100000000000000]
+                //      00001 [0010000000000000] 00001 [0001000000000000]
+                //      00001 [0000100000000000] 00001 [0000000001000000]
+                //      00001 [0000000000100000] 00001 [0000000000010000]
+                //      00001 [0000000000001000] 00001 [0000000000000100]
+                //      00001 [0000000000000010] 00001 [0000010000000000]
+                //      00001 [0000001000000000] 00001 [0000000100000000]
+                //      00001 [0000000010000000] 00001 [0000000000000001]
+                //      00002 [0000000000001000] 00002 [0000000000000010]
+                //      00003 [1000000000000000] 00003 [0100000000000000]
+                //      00004 [0000000000000001]
+                //      00002 [1000000000000000] 00002 [0100000000000000]
+                //      00002 [0001000000000000] 00002 [0000100000000000]
+                //      00002 [0000001000000000] 00002 [0000000010000000] (struct: 152 B, data: 216 B)
+                );
+
+        XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*6, -1,
+                // trailer
+                "454f 4600"
+                );
+
+        Repository repo5(fpath);
+
+        // Check that the set was loaded correctly
+        for (int i = 0; i < (int)ids.size(); ++i) {
+            char c = char('A' + i);
+            auto dscptr = repo5.root()->set()->get<DefaultDescriptor>(ids[i]);
+            auto data = dscptr->get_data();
+            EXPECT_EQ(data.size(), (size_t)2);
+            EXPECT_EQ(data[0], (char)c);
+            EXPECT_EQ(data[1], (char)c);
+        }
+    }
 }
+
