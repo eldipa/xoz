@@ -2021,4 +2021,112 @@ namespace {
                 )
         );
     }
+
+    TEST(DescriptorSetTest, Mixed) {
+        IDManager idmgr;
+
+        std::map<uint16_t, descriptor_create_fn> descriptors_map;
+        deinitialize_descriptor_mapping();
+        initialize_descriptor_mapping(descriptors_map);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        Segment sg(blk_sz_order);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+
+        dset.create_set();
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x0, // let DescriptorSet::add assign an id for us
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+        };
+
+        // Add a bunch of descriptors
+        std::vector<uint32_t> ids;
+        for (char c = 'A'; c <= 'Z'; ++c) {
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+            dscptr->set_data({c, c});
+
+            auto id = dset.add(std::move(dscptr), true);
+            ids.push_back(id);
+            dset.flush_writes();
+        }
+
+        // Reduce the set
+        for (size_t i = 10; i < ids.size(); ++i) {
+            dset.erase(ids[i]);
+            dset.flush_writes();
+        }
+
+        // Reduce the set even more
+        for (size_t i = 4; i < 10; ++i) {
+            dset.erase(ids[i]);
+            dset.flush_writes();
+        }
+
+        // Adding the erased descriptors back again
+        for (size_t i = 4; i < 10; ++i) {
+            char c = char('A' + i);
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+            dscptr->set_data({c, c});
+
+            auto id = dset.add(std::move(dscptr), true);
+            ids[i] = id;
+            dset.flush_writes();
+        }
+
+        // Now expand the set even further
+        for (size_t i = 10; i < ids.size(); ++i) {
+            char c = char('A' + i);
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+            dscptr->set_data({c, c});
+
+            auto id = dset.add(std::move(dscptr), true);
+            ids[i] = id;
+            dset.flush_writes();
+        }
+
+        dset.release_free_space();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                "0000 8e9f "
+                "fa06 0100 0000 4141 fa06 0200 0000 4242 "
+                "fa06 0300 0000 4343 fa06 0400 0000 4444 "
+                "fa06 1b00 0000 4545 fa06 1c00 0000 4646 "
+                "fa06 1d00 0000 4747 fa06 1e00 0000 4848 "
+                "fa06 1f00 0000 4949 fa06 2000 0000 4a4a "
+                "fa06 2100 0000 4b4b fa06 2200 0000 4c4c "
+                "fa06 2300 0000 4d4d fa06 2400 0000 4e4e "
+                "fa06 2500 0000 4f4f fa06 2600 0000 5050 "
+                "fa06 2700 0000 5151 fa06 2800 0000 5252 "
+                "fa06 2900 0000 5353 fa06 2a00 0000 5454 "
+                "fa06 2b00 0000 5555 fa06 2c00 0000 5656 "
+                "fa06 2d00 0000 5757 fa06 2e00 0000 5858 "
+                "fa06 2f00 0000 5959 fa06 3000 0000 5a5a"
+                );
+
+        // Load another set from the previous set's segment to see that
+        // both are consistent each other
+        idmgr.reset();
+        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, idmgr);
+        dset2.load_set();
+
+        // Check that the set was loaded correctly
+        for (int i = 0; i < (int)ids.size(); ++i) {
+            char c = char('A' + i);
+            auto dscptr = dset2.get<DefaultDescriptor>(ids[i]);
+            auto data = dscptr->get_data();
+            EXPECT_EQ(data.size(), (size_t)2);
+            EXPECT_EQ(data[0], (char)c);
+            EXPECT_EQ(data[1], (char)c);
+        }
+    }
 }

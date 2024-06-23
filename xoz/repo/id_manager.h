@@ -23,6 +23,7 @@ public:
     void reset(uint32_t init = 0x80000000) {
         assert(init >= 0x80000000);
         next_temporal_id = init;
+        persistent_ids.clear();
     }
 
     bool register_persistent_id(uint32_t id) {
