@@ -218,6 +218,8 @@ public:
      * Return a reference to the descriptor. If changes are made to it,
      * either the Descriptor subclass or the user must call mark_as_modified
      * to let the DescriptorSet know about the changes.
+     *
+     * If no descriptor has the given id, this method throws.
      * */
     std::shared_ptr<Descriptor> get(uint32_t id);
 
