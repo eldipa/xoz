@@ -57,7 +57,10 @@ public:
 
     bool has_end_of_segment() const { return inline_present; }
 
-    void add_end_of_segment() { inline_present = true; }
+    Segment& add_end_of_segment() {
+        inline_present = true;
+        return *this;
+    }
 
     std::vector<Extent> const& exts() const { return arr; }
 

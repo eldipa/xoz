@@ -350,6 +350,12 @@ void Descriptor::write_struct_into(IOBase& io) {
     }
 
     // TODO test
+    if (hdr.own_edata and not hdr.segm.has_end_of_segment()) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims to be owner of external data but its segment "
+                                            << hdr.segm << "  has no explicit end; " << hdr);
+    }
+
+    // TODO test
     if (hdr.esize and not hdr.own_edata) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.esize
                                             << " bytes of external data but it is not an owner; " << hdr);
