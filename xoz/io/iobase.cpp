@@ -124,18 +124,31 @@ std::string IOBase::hexdump(uint32_t at, uint32_t len) {
 
     std::ostringstream out;
     uint8_t col = 0;
+    uint32_t i = 0;
 
-    for (uint32_t i = 0; i < len; ++i, ++col) {
-        out << std::setfill('0') << std::setw(2) << std::hex << uint32_t(read_char());
-        if (i % 2 == 1 and i + 1 < len) {
-            if (col == 16) {
-                out << "\n";
-                col = 0;
-            } else {
-                out << " ";
-            }
+    for (; i < len; ++i) {
+        if (col == 0) {
+            out << std::setfill('0') << std::setw(5) << std::hex << i << ": ";
+        }
+
+        const int c = int(static_cast<unsigned char>(read_char()));
+        out << std::setfill('0') << std::setw(2) << std::hex << c << " ";
+
+        if (col == 7) {
+            out << " ";
+        }
+
+        if (col == 15) {
+            out << "\n";
+            col = 0;
+        } else {
+            ++col;
         }
     }
+    if (col != 15) {
+        out << "\n";
+    }
+    out << std::setfill('0') << std::setw(5) << std::hex << i << ": ";
 
     seek_rd(pos);
     return out.str();
