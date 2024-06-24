@@ -63,6 +63,7 @@ constexpr inline uint32_t inet_checksum(const uint16_t* const buf, const uint16_
  * */
 inline uint32_t inet_checksum(const uint8_t* const buf, const uint32_t sz) {
     assert(sz % 2 == 0);
+    assert(std::uintptr_t(buf) % 2 == 0);  // aligned to 2
     return inet_checksum(reinterpret_cast<const uint16_t*>(buf), assert_u16(sz >> 1));
 }
 
