@@ -15,6 +15,7 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/ext/extent.h"
+#include "xoz/io/iosegment.h"
 #include "xoz/segm/segment.h"
 #include "xoz/trace.h"
 
@@ -259,6 +260,15 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
 
     internal_frag_avg_sz += segm.estimate_on_avg_internal_frag_sz();
 
+#if XOZ_TAINT_SEGM_ALLOCATIONS
+    {
+        const char c = 0x6f;
+
+        auto sg = segm;
+        IOSegment::fill_c(*_blkarr, sg, c, false);
+    }
+#endif
+
     ++alloc_call_cnt;
     return segm;
 no_free_space:
@@ -298,6 +308,15 @@ void SegmentAllocator::dealloc(const Segment& segm) {
 
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
     TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
+
+#if XOZ_TAINT_SEGM_DEALLOCATIONS
+    {
+        const char c = 0x5f;
+
+        auto sg = segm;
+        IOSegment::fill_c(*_blkarr, sg, c, false);
+    }
+#endif
 
     uint64_t blk_cnt = 0;
     uint64_t subblk_cnt = 0;
