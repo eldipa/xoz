@@ -84,6 +84,8 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         stored_checksum = inet_to_u16(checksum);
     }
 
+    [[maybe_unused]] auto io_rd_begin = io.tell_rd();
+
     while (io.remain_rd()) {
         // Try to read padding and if it so, skip the descriptor load
         if (io.remain_rd() >= align) {
@@ -169,6 +171,19 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
     }
 
     assert((is_new and allocated_exts.size() == 0) or not is_new);
+
+#ifndef NDEBUG
+    {
+        uint32_t chk = inet_checksum(reserved);
+        io.seek_rd(io_rd_begin);
+        chk += inet_checksum(io, io_rd_begin, io_rd_begin + io.remain_rd());
+        if (chk == 0xffff) {
+            chk = 0;
+        }
+
+        assert(chk == checksum);
+    }
+#endif
 
     // let the allocator know which extents are allocated (contain the descriptors) and
     // which are free for further allocation (padding or space between the boundaries of the io)
@@ -371,6 +386,20 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     io2.write_u16_to_le(this->reserved);
     io2.write_u16_to_le(assert_u16(this->checksum));
     header_does_require_write = false;
+
+#ifndef NDEBUG
+    {
+        io2.seek_rd(0);
+        uint32_t chk = inet_checksum(io2, 0, 2);
+        io2.seek_rd(4);
+        chk += inet_checksum(io2, 4, 4 + io2.remain_rd());
+        if (chk == 0xffff) {
+            chk = 0;
+        }
+
+        assert(chk == checksum);
+    }
+#endif
 }
 
 void DescriptorSet::release_free_space() { st_blkarr.allocator().release(); }
