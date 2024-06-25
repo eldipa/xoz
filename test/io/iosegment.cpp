@@ -965,4 +965,46 @@ namespace {
                 );
     }
 
+    TEST(IOSegmentTest, FillC) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+
+        auto old_top_nr = blkarr.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf;
+
+        Segment sg(blkarr.blk_sz_order());
+        sg.add_extent(Extent(0, 1, false)); // one block
+        sg.set_inline_data({0, 0});
+
+        // Fill the entire space (inline data space not included)
+        IOSegment::fill_c(blkarr, sg, 0x41, false);
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 "
+                "4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141 4141"
+                );
+        EXPECT_EQ(sg.inline_data_sz(), (uint32_t)2);
+        EXPECT_EQ(sg.inline_data()[0], (char)0);
+        EXPECT_EQ(sg.inline_data()[1], (char)0);
+
+        // Fill the entire space (inline data space included)
+        IOSegment::fill_c(blkarr, sg, 0x42, true);
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 "
+                "4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242 4242"
+                );
+        EXPECT_EQ(sg.inline_data_sz(), (uint32_t)2);
+        EXPECT_EQ(sg.inline_data()[0], (char)0x42);
+        EXPECT_EQ(sg.inline_data()[1], (char)0x42);
+
+    }
+
 }

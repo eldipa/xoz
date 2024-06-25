@@ -135,3 +135,13 @@ const struct IOSegment::ext_ptr_t IOSegment::abs_pos_to_ext(const uint32_t pos) 
 IOSegment IOSegment::dup() const {
     return *this;  // call copy constructor
 }
+
+void IOSegment::fill_c(BlockArray& blkarr, Segment& sg, const char c, const bool include_inline) {
+    auto io = IOSegment(blkarr, sg);
+    uint32_t sz = io.remain_wr();
+    if (not include_inline) {
+        sz -= sg.inline_data_sz();
+        assert(sz <= io.remain_wr());
+    }
+    io.fill(c, sz);
+}

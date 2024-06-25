@@ -48,6 +48,15 @@ public:
      * */
     IOSegment dup() const;
 
+    /*
+     * Similar to IOBase::fill, this class method fill_c fills the data space pointed
+     * by the segment in the given block array with a single byte c.
+     *
+     * This method fills the data space completely (that may include or not the inline
+     * data space).
+     * */
+    static void fill_c(BlockArray& blkarr, Segment& sg, const char c, const bool include_inline);
+
 private:
     struct ext_ptr_t {
         Extent ext;
