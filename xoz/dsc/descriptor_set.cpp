@@ -322,7 +322,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     //    The downside is that we need to write everything back and temporally
     //    we have a temporal space allocated.
     //    The "Preallocation" strategy is a sort of defragmentation strategy that
-    //    applies to only the added+modified descritpors, so the penalty of writing
+    //    applies to only the added+modified descriptors, so the penalty of writing
     //    them it is already paid.
     //
 
@@ -331,9 +331,16 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // We split this into two phases because once we dealloc/alloc
     // something in st_blkarr, the segment's io becomes invalid
     // (the underlying segment changed)
+    //
+    // It may feel unnecessary to do the zero'ing because we are going
+    // to dealloc them anyways. However, in case that something goes wrong
+    // we can to aim to have a consistent descriptor set and padding of zeros
+    // will do the trick
     for (const auto& ext: pending) {
         zeros(io, ext);
     }
+
+    auto prev_segm_data_sz = segm.calc_data_space_size();
 
     for (const auto& ext: pending) {
         st_blkarr.allocator().dealloc_single_extent(ext);
@@ -354,8 +361,15 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         dsc->ext = st_blkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
     }
 
+    auto new_segm_data_sz = segm.calc_data_space_size();
+
     // Now that all the alloc/dealloc happen, let's rebuild the io object
     auto io2 = IOSegment(sg_blkarr, segm);
+
+    if (new_segm_data_sz > prev_segm_data_sz) {
+        io2.seek_wr(prev_segm_data_sz);
+        io2.fill(char(0x00), io2.remain_wr());
+    }
 
     // Add all the "new" descriptors to the "to update" list now that they
     // have space allocated in the stream

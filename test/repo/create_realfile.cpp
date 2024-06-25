@@ -3394,7 +3394,7 @@ namespace {
                 "fa06 1a00 " // desc 25 (begin)
                 "0080 0200 0002 0080 " // not a desc, part of the trampoline
                 "0000 5a5a " // desc 25 (cont)
-                "0080 0100 0200 8000 " // not a desc, part of the trampoline
+                "0000 0000 0200 8000 " // not a desc, part of the trampoline
                 "00c0 0000 "
                 "0080 0100 0001 0080 "
                 "0100 8000 0080 0100 "
