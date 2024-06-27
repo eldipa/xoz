@@ -33,6 +33,9 @@ public:
     descriptor_create_fn descriptor_create_lookup(uint16_t type) const;
     void throw_if_descriptor_mapping_not_initialized() const;
 
+public:
+    const static uint16_t TYPE_RESERVED_THRESHOLD = 4;
+
 private:
     std::map<uint16_t, descriptor_create_fn> mapping;
     bool initialized;
