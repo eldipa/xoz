@@ -17,7 +17,7 @@
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/dsc/dset_holder.h"
 #include "xoz/ext/extent.h"
-#include "xoz/repo/id_manager.h"
+#include "xoz/repo/runtime_context.h"
 #include "xoz/segm/segment.h"
 
 class Repository {
@@ -49,7 +49,7 @@ private:
     bool closed;
     bool closing;
 
-    IDManager idmgr;
+    RuntimeContext rctx;
 
     Segment trampoline_segm;
     std::shared_ptr<DescriptorSetHolder> root_holder;

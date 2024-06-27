@@ -7,7 +7,7 @@
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/default.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/repo/id_manager.h"
+#include "xoz/repo/runtime_context.h"
 #include "xoz/blk/segment_block_array.h"
 #include "xoz/blk/vector_block_array.h"
 
@@ -56,13 +56,13 @@ const size_t FP_SZ = 224;
 
 // Load from fp the obj and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
-#define XOZ_EXPECT_DESERIALIZATION(fp, dsc, idmgr, ed_blkarr) do {                         \
+#define XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr) do {                         \
     std::vector<char> buf2;                                              \
     XOZ_RESET_FP(buf2, FP_SZ);                                           \
     uint32_t checksum2 = 0;                                              \
     uint32_t checksum3 = 0;                                              \
                                                                          \
-    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (idmgr), (ed_blkarr));   \
+    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (ed_blkarr));   \
     checksum2 = dsc2_ptr->checksum;                                      \
     dsc2_ptr->checksum = 0;                                              \
     dsc2_ptr->write_struct_into(IOSpan(buf2));                           \
@@ -99,7 +99,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map {
             {0x01, DescriptorSetHolder::create }
@@ -111,8 +111,8 @@ namespace {
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Create the holder descriptor that will create the descriptor set
-        auto holder = DescriptorSetHolder::create(d_blkarr, idmgr);
-        holder->id(idmgr.request_temporal_id());
+        auto holder = DescriptorSetHolder::create(d_blkarr, rctx);
+        holder->id(rctx.request_temporal_id());
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
@@ -142,12 +142,12 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, idmgr, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
 
         // Load the set again, and check it
         // Note: does_require_write() is true because the set loaded was empty
         // so technically its header still needs to be written
-        auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), idmgr, d_blkarr);
+        auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
         auto holder2 = dsc2->cast<DescriptorSetHolder>();
         XOZ_EXPECT_SET(holder2, 0, true);
 
@@ -170,14 +170,14 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, idmgr, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, rctx, d_blkarr);
     }
 
     TEST(DescriptorSetHolderTest, AddDescWithoutWrite) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map {
             {0x01, DescriptorSetHolder::create }
@@ -189,8 +189,8 @@ namespace {
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Create the holder descriptor that will create the descriptor set
-        auto holder = DescriptorSetHolder::create(d_blkarr, idmgr);
-        holder->id(idmgr.request_temporal_id());
+        auto holder = DescriptorSetHolder::create(d_blkarr, rctx);
+        holder->id(rctx.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
@@ -241,10 +241,10 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, idmgr, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
 
         // Load the set again, and check it: expected 1 descriptor and no need to write the set
-        auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), idmgr, d_blkarr);
+        auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
         auto holder2 = dsc2->cast<DescriptorSetHolder>();
         XOZ_EXPECT_SET(holder2, 1, false);
 
@@ -277,7 +277,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, idmgr, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, rctx, d_blkarr);
     }
 
 
@@ -285,7 +285,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map {
             {0x01, DescriptorSetHolder::create }
@@ -297,8 +297,8 @@ namespace {
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Create the holder descriptor that will create the descriptor set
-        auto holder = DescriptorSetHolder::create(d_blkarr, idmgr);
-        holder->id(idmgr.request_temporal_id());
+        auto holder = DescriptorSetHolder::create(d_blkarr, rctx);
+        holder->id(rctx.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
@@ -346,7 +346,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, idmgr, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
 
         holder->set()->erase(id1);
 
@@ -381,14 +381,14 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, idmgr, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
     }
 
     TEST(DescriptorSetHolderTest, EmptySetNonDefault) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map {
             {0x01, DescriptorSetHolder::create }
@@ -400,8 +400,8 @@ namespace {
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Create the holder descriptor that will create the descriptor set. Use a non-zero u16data
-        auto holder = DescriptorSetHolder::create(d_blkarr, idmgr, 0x41);
-        holder->id(idmgr.request_temporal_id());
+        auto holder = DescriptorSetHolder::create(d_blkarr, rctx, 0x41);
+        holder->id(rctx.request_temporal_id());
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
@@ -431,12 +431,12 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, idmgr, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
 
         // Load the set again, and check it
         // Note: does_require_write() is true because the set loaded was empty
         // so technically its header still needs to be written
-        auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), idmgr, d_blkarr);
+        auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
         auto holder2 = dsc2->cast<DescriptorSetHolder>();
         XOZ_EXPECT_SET(holder2, 0, true);
 
@@ -459,7 +459,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, idmgr, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, rctx, d_blkarr);
     }
 
 
@@ -467,7 +467,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map {
             {0x01, DescriptorSetHolder::create }
@@ -479,8 +479,8 @@ namespace {
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Create the holder descriptor that will create the descriptor set
-        auto holder = DescriptorSetHolder::create(d_blkarr, idmgr);
-        holder->id(idmgr.request_temporal_id());
+        auto holder = DescriptorSetHolder::create(d_blkarr, rctx);
+        holder->id(rctx.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {

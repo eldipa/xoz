@@ -6,20 +6,20 @@
 #include "xoz/mem/inet_checksum.h"
 
 DescriptorSetHolder::DescriptorSetHolder(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
-                                         IDManager& idmgr):
-        Descriptor(hdr, ed_blkarr), reserved(0), ed_blkarr(ed_blkarr), idmgr(idmgr) {}
+                                         RuntimeContext& rctx):
+        Descriptor(hdr, ed_blkarr), reserved(0), ed_blkarr(ed_blkarr), rctx(rctx) {}
 
 std::unique_ptr<Descriptor> DescriptorSetHolder::create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
-                                                        [[maybe_unused]] IDManager& idmgr) {
+                                                        [[maybe_unused]] RuntimeContext& rctx) {
     assert(hdr.type == 0x01);
 
     // The magic will happen in read_struct_specifics_from() where we do the real
     // read/load of the holder and of its descriptor set.
-    auto dsc = std::make_unique<DescriptorSetHolder>(hdr, ed_blkarr, idmgr);
+    auto dsc = std::make_unique<DescriptorSetHolder>(hdr, ed_blkarr, rctx);
     return dsc;
 }
 
-std::unique_ptr<DescriptorSetHolder> DescriptorSetHolder::create(BlockArray& ed_blkarr, IDManager& idmgr,
+std::unique_ptr<DescriptorSetHolder> DescriptorSetHolder::create(BlockArray& ed_blkarr, RuntimeContext& rctx,
                                                                  uint16_t u16data) {
 
     struct header_t hdr = {.own_edata = false,  // empty set can be encoded without external data blocks
@@ -37,11 +37,11 @@ std::unique_ptr<DescriptorSetHolder> DescriptorSetHolder::create(BlockArray& ed_
                            .esize = 0,
                            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())};
 
-    auto dsc = std::make_unique<DescriptorSetHolder>(hdr, ed_blkarr, idmgr);
+    auto dsc = std::make_unique<DescriptorSetHolder>(hdr, ed_blkarr, rctx);
 
     // Create the set later so we can pass the header.segment now that it is
     // in the heap. This is required because we want to ensure pointer stability.
-    auto dset = std::make_unique<DescriptorSet>(dsc->hdr.segm, ed_blkarr, ed_blkarr, idmgr);
+    auto dset = std::make_unique<DescriptorSet>(dsc->hdr.segm, ed_blkarr, ed_blkarr, rctx);
     dset->create_set(u16data);
 
     // The segment owned by the set (that points to the blocks that will hold
@@ -81,7 +81,7 @@ void DescriptorSetHolder::read_struct_specifics_from(IOBase& io) {
     // DescriptorSet does not work with segments with inline data, even if it is empty.
     // Remove it before creating the set.
     dset_segm.remove_inline_data();
-    auto dset = std::make_unique<DescriptorSet>(dset_segm, ed_blkarr, ed_blkarr, idmgr);
+    auto dset = std::make_unique<DescriptorSet>(dset_segm, ed_blkarr, ed_blkarr, rctx);
 
     if (not hdr.own_edata) {
         dset->create_set(dset_reserved);

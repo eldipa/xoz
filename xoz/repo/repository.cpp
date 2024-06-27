@@ -381,10 +381,10 @@ void Repository::init_new_repository(const struct default_parameters_t& defaults
     fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
     trampoline_segm = Segment::EmptySegment(fblkarr->blk_sz_order());
-    root_holder = DescriptorSetHolder::create(*fblkarr.get(), idmgr);
+    root_holder = DescriptorSetHolder::create(*fblkarr.get(), rctx);
 
     // Ensure that the holder has a valid id.
-    root_holder->id(idmgr.request_temporal_id());
+    root_holder->id(rctx.request_temporal_id());
 
 
     // Write any pending write (it should be a few if any due the initialization
@@ -450,7 +450,7 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
         auto trampoline_io = IOSegment(fblkarr_ref, trampoline_segm);
 
         // See if the holder is in the trampoline. Build a shared ptr to DescriptorSetHolder.
-        auto dsc = DescriptorSetHolder::load_struct_from(trampoline_io, idmgr, fblkarr_ref);
+        auto dsc = DescriptorSetHolder::load_struct_from(trampoline_io, rctx, fblkarr_ref);
         root_holder = Descriptor::cast<DescriptorSetHolder>(dsc);
 
         // Check that trampoline's content checksum is correct.
@@ -466,7 +466,7 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
         trampoline_segm = Segment::EmptySegment(fblkarr_ref.blk_sz_order());
 
         // The root field has the descriptor set holder
-        auto dsc = DescriptorSetHolder::load_struct_from(root_io, idmgr, fblkarr_ref);
+        auto dsc = DescriptorSetHolder::load_struct_from(root_io, rctx, fblkarr_ref);
         root_holder = Descriptor::cast<DescriptorSetHolder>(dsc);
     }
 }

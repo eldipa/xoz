@@ -6,7 +6,7 @@
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/default.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/repo/id_manager.h"
+#include "xoz/repo/runtime_context.h"
 #include "xoz/blk/segment_block_array.h"
 #include "xoz/blk/vector_block_array.h"
 
@@ -50,7 +50,7 @@ using ::testing_xoz::helpers::ensure_called_once;
 
 namespace {
     TEST(DescriptorSetTest, EmptySet) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -64,7 +64,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         // Mandatory: we load the descriptors from the segment above (of course, none)
         dset.create_set();
@@ -82,7 +82,7 @@ namespace {
 
         // Load another set from the previous set's segment to see that
         // both are consistent each other
-        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, rctx);
         dset2.load_set();
 
         // Header already written before, so no need to write it back (because it didn't change)
@@ -96,7 +96,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, EmptySetNoDefaultConstruction) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -110,7 +110,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         // Mandatory: we load the descriptors from the segment above (of course, none)
         dset.create_set(0x41);
@@ -128,7 +128,7 @@ namespace {
 
         // Load another set from the previous set's segment to see that
         // both are consistent each other
-        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, rctx);
         dset2.load_set();
 
         // Header already written before, so no need to write it back (because it didn't change)
@@ -142,7 +142,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, AddUpdateEraseDescriptor) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -153,7 +153,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -185,7 +185,7 @@ namespace {
         EXPECT_EQ(dset.count(), (uint32_t)1);
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
-        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, rctx);
 
         dset2.load_set();
 
@@ -245,7 +245,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, GrowShrinkDescriptor) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -256,7 +256,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -335,7 +335,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, MoveDescriptor) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -346,7 +346,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -376,7 +376,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
 
         dset2.create_set();
 
@@ -407,7 +407,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, MoveModifiedDescriptor) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -418,7 +418,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -446,7 +446,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
 
         dset2.create_set();
 
@@ -482,7 +482,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, MoveThenModifyDescriptor) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -493,7 +493,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -521,7 +521,7 @@ namespace {
         EXPECT_EQ(dset.does_require_write(), (bool)false);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
 
         dset2.create_set();
 
@@ -558,7 +558,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, OwnExternalDataDescriptor) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -574,7 +574,7 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
         dset.flush_writes();
@@ -645,7 +645,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, OwnExternalDataMovedDescriptor) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -661,7 +661,7 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
         dset.flush_writes();
@@ -708,7 +708,7 @@ namespace {
 
         // Create another set
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
         dset2.create_set();
         dset2.flush_writes();
 
@@ -773,7 +773,7 @@ namespace {
 
 
     TEST(DescriptorSetTest, MultipleDescriptors) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -789,10 +789,10 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
         dset2.create_set();
@@ -896,7 +896,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, Iterate) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -912,7 +912,7 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -981,7 +981,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, AssignPersistentId) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -997,7 +997,7 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -1064,12 +1064,12 @@ namespace {
                 );
 
         // check that all the persistent ids were registered
-        EXPECT_EQ(idmgr.is_registered(1), (bool)true);
-        EXPECT_EQ(idmgr.is_registered(2), (bool)true);
-        EXPECT_EQ(idmgr.is_registered(0xff1), (bool)true);
-        EXPECT_EQ(idmgr.is_registered(0xff2), (bool)true);
-        EXPECT_EQ(idmgr.is_registered(0xff3), (bool)true);
-        EXPECT_EQ(idmgr.is_registered(0xaff1), (bool)true);
+        EXPECT_EQ(rctx.is_registered(1), (bool)true);
+        EXPECT_EQ(rctx.is_registered(2), (bool)true);
+        EXPECT_EQ(rctx.is_registered(0xff1), (bool)true);
+        EXPECT_EQ(rctx.is_registered(0xff2), (bool)true);
+        EXPECT_EQ(rctx.is_registered(0xff3), (bool)true);
+        EXPECT_EQ(rctx.is_registered(0xaff1), (bool)true);
     }
 
     class DescriptorSubRW : public DefaultDescriptor {
@@ -1087,7 +1087,7 @@ namespace {
     };
 
     TEST(DescriptorSetTest, DownCast) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1098,7 +1098,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -1176,7 +1176,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, ClearRemoveEmptySet) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1190,7 +1190,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         // Mandatory: we load the descriptors from the segment above (of course, none)
         dset.create_set();
@@ -1224,7 +1224,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, ClearRemoveEmptySetNeverWritten) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1238,7 +1238,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         // Mandatory: we load the descriptors from the segment above (of course, none)
         dset.create_set();
@@ -1271,7 +1271,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, AddThenRemove) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1282,7 +1282,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -1348,7 +1348,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, AddThenClearWithOwnExternalData) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1359,7 +1359,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
         EXPECT_EQ(dset.segment().length(), (uint32_t)0); // nothing yet
@@ -1434,7 +1434,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, AddThenRemoveWithOwnExternalData) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1445,7 +1445,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
         EXPECT_EQ(dset.segment().length(), (uint32_t)0); // nothing yet
@@ -1507,7 +1507,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, AddUpdateThenRemoveDescriptor) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1518,7 +1518,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -1597,7 +1597,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, AddEraseThenRemoveDescriptor) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1608,7 +1608,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -1697,7 +1697,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, IncompatibleExternalBlockArray) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1713,7 +1713,7 @@ namespace {
         // Create set with two different block arrays, one for the descriptor set
         // the other for the external data.
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr_1, d_blkarr_2, idmgr);
+        DescriptorSet dset(sg, d_blkarr_1, d_blkarr_2, rctx);
 
         dset.create_set();
 
@@ -1766,7 +1766,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, AddMoveFailDueDuplicatedId) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1777,7 +1777,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -1827,7 +1827,7 @@ namespace {
         auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
         dset2.create_set();
 
         dset2.add(std::move(dscptr3));
@@ -1854,7 +1854,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, IdDoesNotExist) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -1865,7 +1865,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
         dset.create_set();
 
         // Add one descriptor
@@ -1981,7 +1981,7 @@ namespace {
 
         // Try to move out an id that does not exist
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
         dset2.create_set();
 
         EXPECT_THAT(
@@ -2023,7 +2023,7 @@ namespace {
     }
 
     TEST(DescriptorSetTest, Mixed) {
-        IDManager idmgr;
+        RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
         deinitialize_descriptor_mapping();
@@ -2034,7 +2034,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, idmgr);
+        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
 
         dset.create_set();
 
@@ -2115,8 +2115,8 @@ namespace {
 
         // Load another set from the previous set's segment to see that
         // both are consistent each other
-        idmgr.reset();
-        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, idmgr);
+        rctx.reset();
+        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, rctx);
         dset2.load_set();
 
         // Check that the set was loaded correctly

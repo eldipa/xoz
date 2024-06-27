@@ -13,7 +13,7 @@
 #include "xoz/log/format_string.h"
 #include "xoz/mem/bits.h"
 #include "xoz/mem/inet_checksum.h"
-#include "xoz/repo/id_manager.h"
+#include "xoz/repo/runtime_context.h"
 
 namespace {
 std::map<uint16_t, descriptor_create_fn> _priv_descriptors_map;
@@ -179,7 +179,7 @@ fail:
     }
 }
 
-std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& idmgr, BlockArray& ed_blkarr) {
+std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr) {
     throw_if_descriptor_mapping_not_initialized();
     uint32_t checksum = 0;
 
@@ -241,7 +241,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
             //
             // In this context, the id should be a temporal one and not an error
             assert(hi_dsize != 0);
-            id = idmgr.request_temporal_id();
+            id = rctx.request_temporal_id();
         } else {
             // No ok. The has_id was set but it was not because the hi_dsize was required
             // so it should because the descriptor has a persistent id but such cannot
@@ -252,7 +252,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
             throw InconsistentXOZ(F() << "Descriptor id is zero, detected with partially loaded " << hdr);
         }
     } else if (has_id and id != 0) {
-        auto ok = idmgr.register_persistent_id(id);  // TODO test
+        auto ok = rctx.register_persistent_id(id);  // TODO test
         if (not ok) {
             throw InconsistentXOZ(
                     F() << "Descriptor persistent id already registered, a duplicated descriptor found somewhere else; "
@@ -261,7 +261,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
 
     } else if (not has_id) {
         assert(id == 0);
-        id = idmgr.request_temporal_id();
+        id = rctx.request_temporal_id();
     }
 
     assert(id != 0);
@@ -296,7 +296,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, IDManager& 
     }
 
     descriptor_create_fn fn = descriptor_create_lookup(type);
-    std::unique_ptr<Descriptor> dsc = fn(hdr, ed_blkarr, idmgr);
+    std::unique_ptr<Descriptor> dsc = fn(hdr, ed_blkarr, rctx);
 
     if (!dsc) {
         throw std::runtime_error((F() << "Subclass create for " << hdr << " returned a null pointer").str());

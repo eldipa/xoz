@@ -9,12 +9,13 @@
 
 class DescriptorSetHolder: public Descriptor {
 public:
-    DescriptorSetHolder(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, IDManager& idmgr);
+    DescriptorSetHolder(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, RuntimeContext& rctx);
 
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
-                                              IDManager& idmgr);
+                                              RuntimeContext& rctx);
 
-    static std::unique_ptr<DescriptorSetHolder> create(BlockArray& ed_blkarr, IDManager& idmgr, uint16_t u16data = 0);
+    static std::unique_ptr<DescriptorSetHolder> create(BlockArray& ed_blkarr, RuntimeContext& rctx,
+                                                       uint16_t u16data = 0);
 
     // TODO warn the caller to *not* remove the set. Instead, delete the DescriptorSetHolder descriptor.
     // NOTE: very likely we need a hook on_destroy() or on_remove() in the Descriptor API
@@ -38,5 +39,5 @@ private:
 
     // TODO does make sense to keep a private reference? could have it Descriptor parent class?
     BlockArray& ed_blkarr;
-    IDManager& idmgr;
+    RuntimeContext& rctx;
 };

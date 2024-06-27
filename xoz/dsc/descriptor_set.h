@@ -11,7 +11,7 @@
 #include "xoz/dsc/internals.h"
 #include "xoz/io/iobase.h"
 
-class IDManager;
+class RuntimeContext;
 
 class DescriptorSet {
 private:
@@ -64,7 +64,7 @@ private:
     BlockArray& ed_blkarr;
     SegmentBlockArray st_blkarr;
 
-    IDManager& idmgr;
+    RuntimeContext& rctx;
 
     bool set_loaded;
 
@@ -100,7 +100,7 @@ public:
      * Once the instance is created, the caller must call load_set() or create_set()
      * to use it.
      **/
-    DescriptorSet(const Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr);
+    DescriptorSet(const Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, RuntimeContext& rctx);
 
     /*
      * Load the set into memory. This must be called once to initialize the internal allocator

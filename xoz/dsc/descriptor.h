@@ -7,23 +7,22 @@
 #include "xoz/io/iobase.h"
 #include "xoz/segm/segment.h"
 
-class IDManager;
+class RuntimeContext;
 class DescriptorSet;
 class BlockArray;
 
 class Descriptor {
-
 public:
     /*
      * Callers should call update_header() before calling write_struct_into()
      * to ensure that the content of the descriptor is updated so any calculation
      * of its size will be correct.
      * */
-    static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, IDManager& idmgr, BlockArray& ed_blkarr);
+    static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr);
     void write_struct_into(IOBase& io);
 
-    static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io, IDManager& idmgr, BlockArray& ed_blkarr) {
-        return load_struct_from(io, idmgr, ed_blkarr);
+    static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io, RuntimeContext& rctx, BlockArray& ed_blkarr) {
+        return load_struct_from(io, rctx, ed_blkarr);
     }
     void write_struct_into(IOBase&& io) { return write_struct_into(io); }
 
@@ -323,7 +322,7 @@ private:
 // Once created the read_struct_specifics_from is invoked to complete the initialization
 // of the subclass descriptor
 typedef std::unique_ptr<Descriptor> (*descriptor_create_fn)(const struct Descriptor::header_t& hdr,
-                                                            BlockArray& ed_blkarr, IDManager& idmgr);
+                                                            BlockArray& ed_blkarr, RuntimeContext& rctx);
 
 void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& descriptors);
 

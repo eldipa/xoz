@@ -9,14 +9,14 @@
 #include "xoz/io/iosegment.h"
 #include "xoz/log/format_string.h"
 #include "xoz/mem/inet_checksum.h"
-#include "xoz/repo/id_manager.h"
+#include "xoz/repo/runtime_context.h"
 
-DescriptorSet::DescriptorSet(const Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, IDManager& idmgr):
+DescriptorSet::DescriptorSet(const Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, RuntimeContext& rctx):
         segm(segm),
         sg_blkarr(sg_blkarr),
         ed_blkarr(ed_blkarr),
         st_blkarr(this->segm, sg_blkarr, 2),
-        idmgr(idmgr),
+        rctx(rctx),
         set_loaded(false),
         reserved(0),
         checksum(0),
@@ -101,7 +101,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         // Read the descriptor
         assert(io.tell_rd() % align == 0);
         uint32_t dsc_begin_pos = io.tell_rd();
-        auto dsc = Descriptor::load_struct_from(io, idmgr, ed_blkarr);
+        auto dsc = Descriptor::load_struct_from(io, rctx, ed_blkarr);
         uint32_t dsc_end_pos = io.tell_rd();
 
         // Descriptor::load_struct_from should had check for any anomaly of how much
@@ -130,8 +130,8 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         uint32_t id = dsc->id();
 
 
-        // Descriptors or either have a new unique temporal id from IDManager or
-        // the id is loaded from the io. In this latter case, the id is registered in the IDManager
+        // Descriptors or either have a new unique temporal id from RuntimeContext or
+        // the id is loaded from the io. In this latter case, the id is registered in the RuntimeContext
         // to ensure uniqueness. All of this happen during the load of the descriptor,
         // not here in the set.
         //
@@ -140,7 +140,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         //
         // Note that if no duplicated ids are found here, it does not mean that the id is
         // not duplicated against other descriptor in other stream. That's why the real and
-        // truly useful check is performed in IDManager (that has a global view) during the
+        // truly useful check is performed in RuntimeContext (that has a global view) during the
         // descriptor load..
         if (id == 0) {
             throw InternalError(F() << "Descriptor id " << id << " is not allowed. "
@@ -431,18 +431,18 @@ uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_pers
 void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id) {
     fail_if_not_allowed_to_add(dscptr.get());
 
-    if (idmgr.is_persistent(dscptr->id())) {
-        idmgr.register_persistent_id(dscptr->id());
+    if (rctx.is_persistent(dscptr->id())) {
+        rctx.register_persistent_id(dscptr->id());
     }
 
     if (assign_persistent_id) {
-        if (dscptr->id() == 0 or idmgr.is_temporal(dscptr->id())) {
-            dscptr->hdr.id = idmgr.request_persistent_id();
+        if (dscptr->id() == 0 or rctx.is_temporal(dscptr->id())) {
+            dscptr->hdr.id = rctx.request_persistent_id();
         }
     }
 
     if (dscptr->id() == 0) {
-        dscptr->hdr.id = idmgr.request_temporal_id();
+        dscptr->hdr.id = rctx.request_temporal_id();
     }
 
     // own it
@@ -573,7 +573,7 @@ uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
     fail_if_set_not_loaded();
     auto dscptr = get_owned_dsc_or_fail(id);
 
-    if (idmgr.is_temporal(id)) {
+    if (rctx.is_temporal(id)) {
         owned.erase(id);
 
         auto ext_copy = dscptr->ext;
@@ -582,7 +582,7 @@ uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
         add_s(dscptr, true);
         dscptr->ext = ext_copy;
     } else {
-        idmgr.register_persistent_id(id);
+        rctx.register_persistent_id(id);
     }
 
     return dscptr->hdr.id;
