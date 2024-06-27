@@ -30,8 +30,7 @@ namespace {
     // The check of the dump is simplistic: it is only to validate
     // that the .xoz file was created and it is non-empty.
     TEST(RepositoryTest, MemCreateNewUsingDefaults) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         Repository repo = Repository::create_mem_based(rctx);
 
@@ -95,8 +94,7 @@ namespace {
 
 
     TEST(RepositoryTest, MemCreateNotUsingDefaults) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
@@ -167,8 +165,7 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateAddDescThenExpandExplicitWrite) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         Repository repo = Repository::create_mem_based(rctx);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
@@ -252,8 +249,7 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateAddDescThenExpandImplicitWrite) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         Repository repo = Repository::create_mem_based(rctx);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
@@ -335,8 +331,7 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateThenExpandThenRevertExpectShrinkOnClose) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         Repository repo = Repository::create_mem_based(rctx);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
@@ -423,8 +418,8 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateTooSmallBlockSize) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
+
         // Too small
         struct Repository::default_parameters_t gp = {
             .blk_sz = 64

@@ -99,8 +99,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -172,8 +171,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -275,8 +273,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -373,8 +370,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -447,8 +443,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());

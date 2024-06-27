@@ -37,8 +37,7 @@ namespace {
     // The check of the dump is simplistic: it is only to validate
     // that the .xoz file was created and it is non-empty.
     TEST(RepositoryTest, CreateNewUsingDefaults) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateNewUsingDefaults.xoz");
 
@@ -104,8 +103,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateNewNotUsingDefaults) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateNewNotUsingDefaults.xoz");
 
@@ -183,8 +181,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateNewUsingDefaultsThenOpen) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateNewUsingDefaultsThenOpen.xoz");
 
@@ -255,8 +252,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateNotUsingDefaultsThenOpen) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateNotUsingDefaultsThenOpen.xoz");
 
@@ -394,8 +390,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateNotUsingDefaultsThenOpenCloseOpen) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
@@ -480,8 +475,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenRecreateAndOverride) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateThenRecreateAndOverride.xoz");
 
@@ -564,8 +558,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenRecreateButFail) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateThenRecreateButFail.xoz");
 
@@ -660,8 +653,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenExpandByAlloc) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateThenExpandByAlloc.xoz");
 
@@ -826,8 +818,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenExpandByBlkArrGrow) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateThenExpandByBlkArrGrow.xoz");
 
@@ -990,8 +981,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenExpandThenRevertByAlloc) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateThenExpandThenRevertByAlloc.xoz");
 
@@ -1107,8 +1097,7 @@ namespace {
 
 
     TEST(RepositoryTest, CreateThenExpandThenRevertByBlkArrGrow) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateThenExpandThenRevertByBlkArrGrow.xoz");
 
@@ -1218,8 +1207,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenExpandCloseThenShrink) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateThenExpandCloseThenShrink.xoz");
 
@@ -1419,8 +1407,7 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateTooSmallBlockSize) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("CreateTooSmallBlockSize.xoz");
 
@@ -1441,8 +1428,7 @@ namespace {
     }
 
     TEST(RepositoryTest, OpenTooSmallBlockSize) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("OpenTooSmallBlockSize.xoz");
 
@@ -1550,8 +1536,7 @@ namespace {
     }
 
     TEST(RepositoryTest, TrampolineNotRequired) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("TrampolineNotRequired.xoz");
 
@@ -1819,8 +1804,7 @@ namespace {
     // allocations anyways.
 #if 0
     TEST(RepositoryTest, TrampolineNotRequiredDueFewWrites) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("TrampolineNotRequiredDueFewWrites.xoz");
 
@@ -2146,8 +2130,7 @@ namespace {
 
 
     TEST(RepositoryTest, TrampolineRequired) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("TrampolineRequired.xoz");
 
@@ -2518,8 +2501,7 @@ namespace {
     }
 
     TEST(RepositoryTest, TrampolineRequiredButBeforeCloseItWasNotLongerRequired) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("TrampolineRequiredButBeforeCloseItWasNotLongerRequired.xoz");
 
@@ -2637,8 +2619,7 @@ namespace {
     }
 
     TEST(RepositoryTest, TrampolineRequiredThenCloseThenNotLongerRequired) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("TrampolineRequiredThenCloseThenNotLongerRequired.xoz");
 
@@ -2951,8 +2932,7 @@ namespace {
     }
 
     TEST(RepositoryTest, TrampolineRequiredOfDifferentSizes) {
-        RuntimeContext rctx;
-        rctx.initialize_descriptor_mapping({});
+        RuntimeContext rctx({});
 
         DELETE("TrampolineRequiredOfDifferentSizes.xoz");
 

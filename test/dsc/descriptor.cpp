@@ -75,15 +75,12 @@ const size_t FP_SZ = 224;
 
 namespace {
     TEST(DescriptorTest, NoOwnsTempIdZeroData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -119,15 +116,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -165,15 +159,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithoutExtendedType) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -211,15 +202,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeWithExtendedType) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -257,15 +245,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithExtendedType) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -303,15 +288,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeButWithExtendedType) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -376,15 +358,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdMaxLoData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -427,15 +406,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdOneMoreLoData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -478,15 +454,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdMaxHiData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -531,15 +504,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsPersistentIdMaxLoData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -583,15 +553,12 @@ namespace {
 
 
     TEST(DescriptorTest, NoOwnsPersistentMaximumIdMaxLoData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -634,15 +601,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegm) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -678,15 +642,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithoutExtendedType) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -722,15 +683,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinTypeWithExtendedType) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -766,15 +724,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithExtendedType) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -810,15 +765,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdOneMoreLoDataEmptySegm) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -862,15 +814,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmSomeObjData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -906,15 +855,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxNonLargeObjData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -950,15 +896,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmOneMoreNonLargeObjData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -994,15 +937,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxLargeObjData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1038,15 +978,12 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataSegmInlineSomeObjData) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1084,15 +1021,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NotEnoughRoomForRWNonOwnerTemporalId) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -1157,15 +1091,12 @@ namespace {
     }
 
     TEST(DescriptorTest, NotEnoughRoomForRWOwnsWithPersistentId) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1243,17 +1174,15 @@ namespace {
     };
 
     TEST(DescriptorTest, DescriptorReadOrWriteLess) {
-        RuntimeContext rctx;
-        std::vector<char> fp;
-        XOZ_RESET_FP(fp, FP_SZ);
-
-        rctx.deinitialize_descriptor_mapping();
-        VectorBlockArray ed_blkarr(1024);
-
         std::map<uint16_t, descriptor_create_fn> descriptors_map {
             {0xff, DescriptorSubRW::create }
         };
-        rctx.initialize_descriptor_mapping(descriptors_map);
+        RuntimeContext rctx(descriptors_map);
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1313,15 +1242,12 @@ namespace {
     }
 
     TEST(DescriptorTest, DescriptorWithExplicitZeroId) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1418,15 +1344,12 @@ namespace {
     }
 
     TEST(DescriptorTest, DownCast) {
-        RuntimeContext rctx;
+        RuntimeContext rctx({});
+
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
