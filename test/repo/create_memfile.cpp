@@ -30,14 +30,10 @@ namespace {
     // The check of the dump is simplistic: it is only to validate
     // that the .xoz file was created and it is non-empty.
     TEST(RepositoryTest, MemCreateNewUsingDefaults) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
-        Repository repo = Repository::create_mem_based();
+        Repository repo = Repository::create_mem_based(rctx);
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -99,18 +95,14 @@ namespace {
 
 
     TEST(RepositoryTest, MemCreateNotUsingDefaults) {
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
             .blk_sz = 256
         };
-        Repository repo = Repository::create_mem_based(gp);
+        Repository repo = Repository::create_mem_based(rctx, gp);
 
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -175,14 +167,10 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateAddDescThenExpandExplicitWrite) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
-        Repository repo = Repository::create_mem_based();
+        Repository repo = Repository::create_mem_based(rctx);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -264,14 +252,10 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateAddDescThenExpandImplicitWrite) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
-        Repository repo = Repository::create_mem_based();
+        Repository repo = Repository::create_mem_based(rctx);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -351,14 +335,10 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateThenExpandThenRevertExpectShrinkOnClose) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
-        Repository repo = Repository::create_mem_based();
+        Repository repo = Repository::create_mem_based(rctx);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -443,13 +423,15 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateTooSmallBlockSize) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
         // Too small
         struct Repository::default_parameters_t gp = {
             .blk_sz = 64
         };
 
         EXPECT_THAT(
-            [&]() { Repository::create_mem_based(gp); },
+            [&]() { Repository::create_mem_based(rctx, gp); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("The minimum block size is 128 but given 64.")

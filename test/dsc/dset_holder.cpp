@@ -65,7 +65,7 @@ const size_t FP_SZ = 224;
     auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (ed_blkarr));   \
     checksum2 = dsc2_ptr->checksum;                                      \
     dsc2_ptr->checksum = 0;                                              \
-    dsc2_ptr->write_struct_into(IOSpan(buf2));                           \
+    dsc2_ptr->write_struct_into(IOSpan(buf2), (rctx));                   \
     checksum3 = dsc2_ptr->checksum;                                      \
     EXPECT_EQ((fp), buf2);                                               \
     EXPECT_EQ(checksum2, checksum3);                                     \
@@ -100,12 +100,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         RuntimeContext rctx;
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -122,7 +117,7 @@ namespace {
         // because the set is empty, nothing is written and the set is still pending
         // for writing.
         holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp));
+        holder->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SET(holder, 0, true);
 
         // Check sizes
@@ -153,7 +148,7 @@ namespace {
 
         // Write it back, we expect the same serialization
         holder2->full_sync(false);
-        holder2->write_struct_into(IOSpan(fp));
+        holder2->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SET(holder2, 0, true);
 
         XOZ_EXPECT_SIZES(*holder2,
@@ -178,12 +173,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         RuntimeContext rctx;
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -213,7 +203,7 @@ namespace {
 
         // Write the holder to disk. This will trigger the write of the set.
         holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp));
+        holder->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SET(holder, 1, false);
 
         // Check sizes
@@ -250,7 +240,7 @@ namespace {
 
         // Write it back, we expect the same serialization
         holder2->full_sync(false);
-        holder2->write_struct_into(IOSpan(fp));
+        holder2->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SET(holder2, 1, false);
 
         XOZ_EXPECT_SIZES(*holder2,
@@ -286,12 +276,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         RuntimeContext rctx;
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -318,7 +303,7 @@ namespace {
 
         // Write the holder to disk. This will trigger the write of the set.
         holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp));
+        holder->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SET(holder, 1, false);
 
         // Check sizes
@@ -356,7 +341,7 @@ namespace {
         // Write the holder to disk. This will trigger the write of the set leaving it empty
         XOZ_RESET_FP(fp, FP_SZ);
         holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp));
+        holder->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SET(holder, 0, true);
 
         // Check sizes
@@ -389,12 +374,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         RuntimeContext rctx;
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -411,7 +391,7 @@ namespace {
         // because the set is empty, nothing is written and the set is still pending
         // for writing.
         holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp));
+        holder->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SET(holder, 0, true);
 
         // Check sizes
@@ -442,7 +422,7 @@ namespace {
 
         // Write it back, we expect the same serialization
         holder2->full_sync(false);
-        holder2->write_struct_into(IOSpan(fp));
+        holder2->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SET(holder2, 0, true);
 
         XOZ_EXPECT_SIZES(*holder2,
@@ -468,12 +448,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         RuntimeContext rctx;
-
-        std::map<uint16_t, descriptor_create_fn> descriptors_map {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping({});
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -500,7 +475,7 @@ namespace {
 
         // Write the holder to disk. This will trigger the write of the set.
         holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp));
+        holder->write_struct_into(IOSpan(fp), rctx);
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
                 "0000 fb40 fa80 0000 00c0 0000 0000 0000"

@@ -53,8 +53,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         // Data block array: this will be the block array that the set will
         // use to access "external data blocks" *and* to access its own
@@ -99,8 +99,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         // Data block array: this will be the block array that the set will
         // use to access "external data blocks" *and* to access its own
@@ -145,8 +145,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -248,8 +248,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -338,8 +338,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -410,8 +410,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -485,8 +485,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -561,8 +561,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -648,8 +648,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -776,8 +776,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -899,8 +899,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -984,8 +984,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1090,8 +1090,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1179,8 +1179,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         // Data block array: this will be the block array that the set will
         // use to access "external data blocks" *and* to access its own
@@ -1227,8 +1227,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         // Data block array: this will be the block array that the set will
         // use to access "external data blocks" *and* to access its own
@@ -1274,8 +1274,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1351,8 +1351,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1437,8 +1437,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1510,8 +1510,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1600,8 +1600,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1700,8 +1700,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr_1(32);
         VectorBlockArray d_blkarr_2(32);
@@ -1769,8 +1769,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1857,8 +1857,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -2026,8 +2026,8 @@ namespace {
         RuntimeContext rctx;
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.deinitialize_descriptor_mapping();
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());

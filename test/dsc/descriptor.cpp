@@ -66,7 +66,7 @@ const size_t FP_SZ = 224;
     auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (ed_blkarr));   \
     checksum2 = dsc2_ptr->checksum;                                      \
     dsc2_ptr->checksum = 0;                                              \
-    dsc2_ptr->write_struct_into(IOSpan(buf2));                           \
+    dsc2_ptr->write_struct_into(IOSpan(buf2), (rctx));                           \
     checksum3 = dsc2_ptr->checksum;                                      \
     EXPECT_EQ((fp), buf2);                                               \
     EXPECT_EQ(checksum2, checksum3);                                     \
@@ -75,15 +75,15 @@ const size_t FP_SZ = 224;
 
 namespace {
     TEST(DescriptorTest, NoOwnsTempIdZeroData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -107,7 +107,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff00"
                 );
@@ -119,15 +119,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -153,7 +153,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff08 0102 0304"
                 );
@@ -165,15 +165,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithoutExtendedType) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -199,7 +199,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "fe09 0102 0304"
                 );
@@ -211,15 +211,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeWithExtendedType) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -245,7 +245,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff09 ff01 0102 0304"
                 );
@@ -257,15 +257,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithExtendedType) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -291,7 +291,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff09 ffff 0102 0304"
                 );
@@ -303,15 +303,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeButWithExtendedType) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -337,7 +337,7 @@ namespace {
                 );
 
         // Write
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_CHECKSUM(fp, dsc); // check here before the patch
 
         // Now patch the string to make the ex_type smaller than the EXTENDED_TYPE_VAL_THRESHOLD
@@ -359,7 +359,7 @@ namespace {
         auto checksum2 = dsc2_ptr->checksum;
         dsc2_ptr->checksum = 0;
 
-        dsc2_ptr->write_struct_into(IOSpan(buf2));
+        dsc2_ptr->write_struct_into(IOSpan(buf2), rctx);
         XOZ_EXPECT_SERIALIZATION(buf2, *dsc2_ptr,
                 "0a08 0102 0304"
                 );
@@ -376,15 +376,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdMaxLoData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -413,7 +413,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff7c 0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 "
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 "
@@ -427,15 +427,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdOneMoreLoData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -464,7 +464,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff02 0000 0080 0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 "
                 "1415 1617 1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d "
@@ -478,15 +478,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsTempIdMaxHiData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -515,7 +515,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff7e 0000 0080 0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 "
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 "
@@ -531,15 +531,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NoOwnsPersistentIdMaxLoData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -568,7 +568,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff7e 0100 0000 0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 "
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 "
@@ -583,15 +583,15 @@ namespace {
 
 
     TEST(DescriptorTest, NoOwnsPersistentMaximumIdMaxLoData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -620,7 +620,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff7e ffff ff7f 0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 "
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 "
@@ -634,15 +634,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegm) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -666,7 +666,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 0000 00c0"
                 );
@@ -678,15 +678,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithoutExtendedType) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -710,7 +710,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "fe83 0100 0000 0000 00c0"
                 );
@@ -722,15 +722,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinTypeWithExtendedType) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -754,7 +754,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff83 0100 0000 0000 00c0 ff01"
                 );
@@ -766,15 +766,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithExtendedType) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -798,7 +798,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff83 0100 0000 0000 00c0 ffff"
                 );
@@ -810,15 +810,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdOneMoreLoDataEmptySegm) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -847,7 +847,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0080 0000 00c0 "
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 "
@@ -862,15 +862,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmSomeObjData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -894,7 +894,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 0100 00c0"
                 );
@@ -906,15 +906,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxNonLargeObjData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -938,7 +938,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 ff7f 00c0"
                 );
@@ -950,15 +950,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmOneMoreNonLargeObjData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -982,7 +982,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 0080 0100 00c0"
                 );
@@ -994,15 +994,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxLargeObjData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1026,7 +1026,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 ffff ffff 00c0"
                 );
@@ -1038,15 +1038,15 @@ namespace {
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataSegmInlineSomeObjData) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1072,7 +1072,7 @@ namespace {
                 );
 
         // Write and check the dump
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
                 "ff82 0100 0000 0100 03c3 0102"
                 );
@@ -1084,15 +1084,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NotEnoughRoomForRWNonOwnerTemporalId) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -1121,7 +1121,7 @@ namespace {
         io.seek_wr(2+2 - 1, IOSpan::Seekdir::end); // point 1 byte off (available = 3 bytes)
 
         EXPECT_THAT(
-            ensure_called_once([&]() { dsc.write_struct_into(io); }),
+            ensure_called_once([&]() { dsc.write_struct_into(io, rctx); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1137,7 +1137,7 @@ namespace {
         rctx.reset(0x80000001); // ensure that the descriptor loaded will have the same id than 'dsc'
 
         // Write a valid descriptor of data size 2
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
 
         // Now, truncate the file so the span will be shorter than the expected size
         fp.resize(2+2 - 1); // shorter by 1 byte
@@ -1157,15 +1157,15 @@ namespace {
     }
 
     TEST(DescriptorTest, NotEnoughRoomForRWOwnsWithPersistentId) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1194,7 +1194,7 @@ namespace {
         io.seek_wr(2+4+2+2+2 - 1, IOSpan::Seekdir::end); // point 1 byte off (available = 11 bytes)
 
         EXPECT_THAT(
-            ensure_called_once([&]() { dsc.write_struct_into(io); }),
+            ensure_called_once([&]() { dsc.write_struct_into(io, rctx); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1209,7 +1209,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Write a valid descriptor of data size 2
-        dsc.write_struct_into(IOSpan(fp));
+        dsc.write_struct_into(IOSpan(fp), rctx);
 
         // Now, truncate the file so the span will be shorter than the expected size
         fp.resize(2+4+2+2+2 - 1); // shorter by 1 byte
@@ -1243,17 +1243,17 @@ namespace {
     };
 
     TEST(DescriptorTest, DescriptorReadOrWriteLess) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map {
             {0xff, DescriptorSubRW::create }
         };
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1279,7 +1279,7 @@ namespace {
                 );
 
         EXPECT_THAT(
-            ensure_called_once([&]() { dsc.write_struct_into(IOSpan(fp)); }),
+            ensure_called_once([&]() { dsc.write_struct_into(IOSpan(fp), rctx); }),
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1296,7 +1296,7 @@ namespace {
         // Write a valid descriptor of data size 2
         DefaultDescriptor dsc2 = DefaultDescriptor(hdr, ed_blkarr);
         dsc2.set_data({1, 2});
-        dsc2.write_struct_into(IOSpan(fp));
+        dsc2.write_struct_into(IOSpan(fp), rctx);
 
         EXPECT_THAT(
             ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, ed_blkarr); }),
@@ -1313,15 +1313,15 @@ namespace {
     }
 
     TEST(DescriptorTest, DescriptorWithExplicitZeroId) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = true,
@@ -1348,7 +1348,7 @@ namespace {
         // have id of 0 unless it has a temporal id *and* it requires the hi_dsize field
         // (not this case so an exception is expected)
         EXPECT_THAT(
-            ensure_called_once([&]() { dsc.write_struct_into(IOSpan(fp)); }),
+            ensure_called_once([&]() { dsc.write_struct_into(IOSpan(fp), rctx); }),
             ThrowsMessage<WouldEndUpInconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1364,7 +1364,7 @@ namespace {
         // this will make the write_struct_into to set the has_id to true...
         hdr.id = 0xffff;
         DefaultDescriptor dsc2 = DefaultDescriptor(hdr, ed_blkarr);
-        dsc2.write_struct_into(IOSpan(fp));
+        dsc2.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_CHECKSUM(fp, dsc2); // check before the patch
 
         // ...and now we nullify the id field so it would look like a descriptor
@@ -1401,7 +1401,7 @@ namespace {
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
         dsc3.set_data(data);
 
-        dsc3.write_struct_into(IOSpan(fp));
+        dsc3.write_struct_into(IOSpan(fp), rctx);
 
         // the id should be 0, see also how the hi_dsize bit is set (0080)
         XOZ_EXPECT_SERIALIZATION(fp, dsc3,
@@ -1418,15 +1418,15 @@ namespace {
     }
 
     TEST(DescriptorTest, DownCast) {
+        RuntimeContext rctx;
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        deinitialize_descriptor_mapping();
-        RuntimeContext rctx;
+        rctx.deinitialize_descriptor_mapping();
         VectorBlockArray ed_blkarr(1024);
 
         std::map<uint16_t, descriptor_create_fn> descriptors_map;
-        initialize_descriptor_mapping(descriptors_map);
+        rctx.initialize_descriptor_mapping(descriptors_map);
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,

@@ -37,17 +37,13 @@ namespace {
     // The check of the dump is simplistic: it is only to validate
     // that the .xoz file was created and it is non-empty.
     TEST(RepositoryTest, CreateNewUsingDefaults) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateNewUsingDefaults.xoz");
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
-
         const char* fpath = SCRATCH_HOME "CreateNewUsingDefaults.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -108,13 +104,10 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateNewNotUsingDefaults) {
-        DELETE("CreateNewNotUsingDefaults.xoz");
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        DELETE("CreateNewNotUsingDefaults.xoz");
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
@@ -122,7 +115,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateNewNotUsingDefaults.xoz";
-        Repository repo = Repository::create(fpath, true, gp);
+        Repository repo = Repository::create(rctx, fpath, true, gp);
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -190,19 +183,16 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateNewUsingDefaultsThenOpen) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateNewUsingDefaultsThenOpen.xoz");
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
         const char* fpath = SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz";
-        Repository new_repo = Repository::create(fpath, true);
+        Repository new_repo = Repository::create(rctx, fpath, true);
         new_repo.close();
 
-        Repository repo(SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz");
+        Repository repo(rctx, SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz");
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -265,13 +255,10 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateNotUsingDefaultsThenOpen) {
-        DELETE("CreateNotUsingDefaultsThenOpen.xoz");
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
+        DELETE("CreateNotUsingDefaultsThenOpen.xoz");
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
@@ -279,7 +266,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz";
-        Repository new_repo = Repository::create(fpath, true, gp);
+        Repository new_repo = Repository::create(rctx, fpath, true, gp);
 
         // Check repository's parameters after create
         EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -342,7 +329,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo(SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz");
+        Repository repo(rctx, SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz");
 
         // Check repository's parameters after open
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -407,6 +394,9 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateNotUsingDefaultsThenOpenCloseOpen) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
         // Custom non-default parameters
@@ -415,17 +405,17 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz";
-        Repository new_repo = Repository::create(fpath, true, gp);
+        Repository new_repo = Repository::create(rctx, fpath, true, gp);
         new_repo.close();
 
         {
-            Repository repo(SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
+            Repository repo(rctx, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
             // Close and reopen again
             repo.close();
         }
 
-        Repository repo(SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
+        Repository repo(rctx, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
         // Check repository's parameters after open
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -490,6 +480,9 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenRecreateAndOverride) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateThenRecreateAndOverride.xoz");
 
         // Custom non-default parameters
@@ -498,12 +491,12 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateAndOverride.xoz";
-        Repository new_repo = Repository::create(fpath, true, gp);
+        Repository new_repo = Repository::create(rctx, fpath, true, gp);
         new_repo.close();
 
         // Create again with fail_if_exists == False so it will not fail
         // because the file already exists but instead it will open it
-        Repository repo = Repository::create(SCRATCH_HOME "CreateThenRecreateAndOverride.xoz", false);
+        Repository repo = Repository::create(rctx, SCRATCH_HOME "CreateThenRecreateAndOverride.xoz", false);
 
         // Check repository's parameters after open
         // Because the second Repository::create *did not* create a fresh
@@ -571,6 +564,9 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenRecreateButFail) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateThenRecreateButFail.xoz");
 
         // Custom non-default parameters
@@ -579,13 +575,13 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateButFail.xoz";
-        Repository new_repo = Repository::create(fpath, true, gp);
+        Repository new_repo = Repository::create(rctx, fpath, true, gp);
         new_repo.close();
 
         // Create again with fail_if_exists == True so it **will** fail
         // because the file already exists but instead it will open it
         EXPECT_THAT(
-            [&]() { Repository::create(SCRATCH_HOME "CreateThenRecreateButFail.xoz", true); },
+            [&]() { Repository::create(rctx, SCRATCH_HOME "CreateThenRecreateButFail.xoz", true); },
             ThrowsMessage<OpenXOZError>(
                 AllOf(
                     HasSubstr("the file already exist and FileBlockArray::create is configured to not override it")
@@ -596,7 +592,7 @@ namespace {
         // Try to open it again, this time with fail_if_exists == False.
         // Check that the previous failed creation **did not** corrupted the original
         // file
-        Repository repo = Repository::create(SCRATCH_HOME "CreateThenRecreateButFail.xoz", false);
+        Repository repo = Repository::create(rctx, SCRATCH_HOME "CreateThenRecreateButFail.xoz", false);
 
         // Check repository's parameters after open
         // Because the second Repository::create *did not* create a fresh
@@ -664,10 +660,13 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenExpandByAlloc) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateThenExpandByAlloc.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandByAlloc.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
 
         const auto blk_sz = repo.expose_block_array().blk_sz();
 
@@ -731,7 +730,7 @@ namespace {
 
         // We open the same file. We expect the repo's blk array to have
         // the same size as the previous one.
-        Repository repo2(SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
+        Repository repo2(rctx, SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
 
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -780,7 +779,7 @@ namespace {
 
         // We open the same file again. We expect the repo's blk array to have
         // the same size as the previous one after the shrink (0 blks in total)
-        Repository repo3(SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
+        Repository repo3(rctx, SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
 
         EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -827,10 +826,13 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenExpandByBlkArrGrow) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateThenExpandByBlkArrGrow.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
@@ -893,7 +895,7 @@ namespace {
                 );
 
         // Open the file again. We expect to see that the file grew.
-        Repository repo2(SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
+        Repository repo2(rctx, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
 
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -941,7 +943,7 @@ namespace {
 
         // We open the same file again. We expect the repo's blk array to have
         // the same size as the previous one after the shrink (0 blks in total)
-        Repository repo3(SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
+        Repository repo3(rctx, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
 
         EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -988,10 +990,13 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenExpandThenRevertByAlloc) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateThenExpandThenRevertByAlloc.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
 
         const auto blk_sz = repo.expose_block_array().blk_sz();
 
@@ -1055,7 +1060,7 @@ namespace {
                 );
 
         // Reopen.
-        Repository repo2(SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz");
+        Repository repo2(rctx, SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz");
 
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -1102,10 +1107,13 @@ namespace {
 
 
     TEST(RepositoryTest, CreateThenExpandThenRevertByBlkArrGrow) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateThenExpandThenRevertByBlkArrGrow.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
 
         // The repository by default has 1 block so adding 3 more
         // will yield 4 blocks in total
@@ -1164,7 +1172,7 @@ namespace {
                 );
 
         // Reopen.
-        Repository repo2(SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz");
+        Repository repo2(rctx, SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz");
 
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -1210,10 +1218,13 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateThenExpandCloseThenShrink) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateThenExpandCloseThenShrink.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
 
         const auto blk_sz = repo.expose_block_array().blk_sz();
 
@@ -1278,7 +1289,7 @@ namespace {
         // Reopen the file. The block array will have the same geometry but
         // the allocator will know that the allocated blocks (sg1) are not owned
         // by anyone
-        Repository repo2(SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
+        Repository repo2(rctx, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
 
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -1343,7 +1354,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
+        Repository repo3(rctx, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
 
         EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -1408,6 +1419,9 @@ namespace {
     }
 
     TEST(RepositoryTest, CreateTooSmallBlockSize) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("CreateTooSmallBlockSize.xoz");
 
         // Too small
@@ -1417,7 +1431,7 @@ namespace {
 
         const char* fpath = SCRATCH_HOME "CreateTooSmallBlockSize.xoz";
         EXPECT_THAT(
-            [&]() { Repository::create(fpath, true, gp); },
+            [&]() { Repository::create(rctx, fpath, true, gp); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("The minimum block size is 128 but given 64.")
@@ -1427,10 +1441,13 @@ namespace {
     }
 
     TEST(RepositoryTest, OpenTooSmallBlockSize) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("OpenTooSmallBlockSize.xoz");
 
         const char* fpath = SCRATCH_HOME "OpenTooSmallBlockSize.xoz";
-        Repository new_repo = Repository::create(fpath, true);
+        Repository new_repo = Repository::create(rctx, fpath, true);
 
         // Check repository's parameters after create
         EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -1522,7 +1539,7 @@ namespace {
 
         // Open, this should fail
         EXPECT_THAT(
-            [&]() { Repository repo(SCRATCH_HOME "OpenTooSmallBlockSize.xoz"); },
+            [&]() { Repository repo(rctx, SCRATCH_HOME "OpenTooSmallBlockSize.xoz"); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("block size order 6 is out of range [7 to 16] (block sizes of 128 to 64K)")
@@ -1533,16 +1550,13 @@ namespace {
     }
 
     TEST(RepositoryTest, TrampolineNotRequired) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("TrampolineNotRequired.xoz");
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
         const char* fpath = SCRATCH_HOME "TrampolineNotRequired.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -1646,7 +1660,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(SCRATCH_HOME "TrampolineNotRequired.xoz");
+        Repository repo2(rctx, SCRATCH_HOME "TrampolineNotRequired.xoz");
 
         // We expect the file has grown
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -1722,7 +1736,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(SCRATCH_HOME "TrampolineNotRequired.xoz");
+        Repository repo3(rctx, SCRATCH_HOME "TrampolineNotRequired.xoz");
 
         // We expect the file has grown
         EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -1805,16 +1819,13 @@ namespace {
     // allocations anyways.
 #if 0
     TEST(RepositoryTest, TrampolineNotRequiredDueFewWrites) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("TrampolineNotRequiredDueFewWrites.xoz");
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
         const char* fpath = SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -1941,7 +1952,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
+        Repository repo2(rctx, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
 
         // We expect the file has grown
         EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -2036,7 +2047,7 @@ namespace {
                 );
 
 
-        Repository repo3(SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
+        Repository repo3(rctx, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
 
         // We expect the file has grown
         EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -2135,16 +2146,13 @@ namespace {
 
 
     TEST(RepositoryTest, TrampolineRequired) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("TrampolineRequired.xoz");
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
         const char* fpath = SCRATCH_HOME "TrampolineRequired.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -2280,7 +2288,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(SCRATCH_HOME "TrampolineRequired.xoz");
+        Repository repo2(rctx, SCRATCH_HOME "TrampolineRequired.xoz");
 
         // The repo.close() forced to allocate a trampoline so the blk array
         // should have one additional block
@@ -2394,7 +2402,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(SCRATCH_HOME "TrampolineRequired.xoz");
+        Repository repo3(rctx, SCRATCH_HOME "TrampolineRequired.xoz");
 
         // The repo.close() forced to allocate a trampoline so the blk array
         // should have one additional block
@@ -2510,16 +2518,13 @@ namespace {
     }
 
     TEST(RepositoryTest, TrampolineRequiredButBeforeCloseItWasNotLongerRequired) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("TrampolineRequiredButBeforeCloseItWasNotLongerRequired.xoz");
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
         const char* fpath = SCRATCH_HOME "TrampolineRequiredButBeforeCloseItWasNotLongerRequired.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -2632,16 +2637,13 @@ namespace {
     }
 
     TEST(RepositoryTest, TrampolineRequiredThenCloseThenNotLongerRequired) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("TrampolineRequiredThenCloseThenNotLongerRequired.xoz");
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
         const char* fpath = SCRATCH_HOME "TrampolineRequiredThenCloseThenNotLongerRequired.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -2782,7 +2784,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(fpath);
+        Repository repo2(rctx, fpath);
 
         // The repo.close() forced to allocate a trampoline so the blk array
         // should have one additional block
@@ -2867,7 +2869,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(fpath);
+        Repository repo3(rctx, fpath);
 
         // The repo.close() forced to allocate a trampoline so the blk array
         // should have one additional block
@@ -2949,16 +2951,13 @@ namespace {
     }
 
     TEST(RepositoryTest, TrampolineRequiredOfDifferentSizes) {
+        RuntimeContext rctx;
+        rctx.initialize_descriptor_mapping({});
+
         DELETE("TrampolineRequiredOfDifferentSizes.xoz");
 
-        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
-            {0x01, DescriptorSetHolder::create }
-        };
-        deinitialize_descriptor_mapping();
-        initialize_descriptor_mapping(descriptors_map);
-
         const char* fpath = SCRATCH_HOME "TrampolineRequiredOfDifferentSizes.xoz";
-        Repository repo = Repository::create(fpath, true);
+        Repository repo = Repository::create(rctx, fpath, true);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -3093,7 +3092,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(fpath);
+        Repository repo2(rctx, fpath);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
@@ -3180,7 +3179,7 @@ namespace {
                 );
 
 
-        Repository repo3(fpath);
+        Repository repo3(rctx, fpath);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < 4; ++i) {
@@ -3295,7 +3294,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo4(fpath);
+        Repository repo4(rctx, fpath);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
@@ -3481,7 +3480,7 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo5(fpath);
+        Repository repo5(rctx, fpath);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < (int)ids.size(); ++i) {
