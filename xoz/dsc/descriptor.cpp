@@ -15,57 +15,6 @@
 #include "xoz/mem/inet_checksum.h"
 #include "xoz/repo/runtime_context.h"
 
-namespace {
-std::map<uint16_t, descriptor_create_fn> _priv_descriptors_map;
-
-bool _priv_descriptor_mapping_initialized = false;
-
-// Given its type returns a function to create such descriptor.
-// If not suitable function is found, return a function to create
-// a default descriptor that has the minimum logic to work
-// (this enables XOZ to be forward compatible)
-descriptor_create_fn descriptor_create_lookup(uint16_t type) {
-    auto it = _priv_descriptors_map.find(type);
-    if (it == _priv_descriptors_map.end()) {
-        return DefaultDescriptor::create;
-    }
-
-    return it->second;
-}
-
-void throw_if_descriptor_mapping_not_initialized() {
-    if (not _priv_descriptor_mapping_initialized) {
-        throw std::runtime_error("Descriptor mapping is not initialized.");
-    }
-}
-}  // namespace
-
-void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& descriptors_map) {
-
-    if (_priv_descriptor_mapping_initialized) {
-        throw std::runtime_error("Descriptor mapping is already initialized.");
-    }
-
-    for (auto [type, fn]: descriptors_map) {
-        if (!fn) {
-            throw std::runtime_error((F() << "Descriptor mapping for type " << type << " is null.").str());
-        }
-    }
-
-    _priv_descriptors_map = descriptors_map;
-
-    _priv_descriptor_mapping_initialized = true;
-}
-
-void deinitialize_descriptor_mapping() {
-
-    // Note: we don't check if the mapping was initialized or not,
-    // we just do the clearing and leave the mapping in a known state
-    _priv_descriptors_map.clear();
-
-    _priv_descriptor_mapping_initialized = false;
-}
-
 
 /*
  * Check the positions in the io that the data field begins (before calling descriptor subclass)
@@ -180,7 +129,7 @@ fail:
 }
 
 std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr) {
-    throw_if_descriptor_mapping_not_initialized();
+    rctx.throw_if_descriptor_mapping_not_initialized();
     uint32_t checksum = 0;
 
     uint32_t dsc_begin_pos = io.tell_rd();
@@ -295,7 +244,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
         throw NotEnoughRoom(dsize, io.remain_rd(), F() << "No enough room for reading descriptor's data of " << hdr);
     }
 
-    descriptor_create_fn fn = descriptor_create_lookup(type);
+    descriptor_create_fn fn = rctx.descriptor_create_lookup(type);
     std::unique_ptr<Descriptor> dsc = fn(hdr, ed_blkarr, rctx);
 
     if (!dsc) {
@@ -324,8 +273,8 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
 }
 
 
-void Descriptor::write_struct_into(IOBase& io) {
-    throw_if_descriptor_mapping_not_initialized();
+void Descriptor::write_struct_into(IOBase& io, RuntimeContext& rctx) {
+    rctx.throw_if_descriptor_mapping_not_initialized();  // TODO
 
     uint32_t dsc_begin_pos = io.tell_wr();
 

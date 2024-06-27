@@ -11,24 +11,28 @@
 
 struct Repository::preload_repo_ctx_t Repository::dummy = {false, {0}};
 
-Repository::Repository(const char* fpath):
+Repository::Repository(const RuntimeContext& rctx, const char* fpath):
         fpath(fpath),
         fblkarr(std::make_unique<FileBlockArray>(fpath, std::bind_front(Repository::preload_repo, dummy))),
         closed(true),
         closing(false),
+        rctx(rctx),
         trampoline_segm(fblkarr->blk_sz_order()) {
+    rctx.throw_if_descriptor_mapping_not_initialized();
     bootstrap_repository();
     assert(not closed);
     assert(this->fblkarr->begin_blk_nr() >= 1);
 }
 
-Repository::Repository(std::unique_ptr<FileBlockArray>&& fblkarr_, const struct default_parameters_t& defaults,
-                       bool is_a_new_repository):
+Repository::Repository(const RuntimeContext& rctx, std::unique_ptr<FileBlockArray>&& fblkarr_,
+                       const struct default_parameters_t& defaults, bool is_a_new_repository):
         fpath(fblkarr_->get_file_path()),
         fblkarr(std::move(fblkarr_)),
         closed(true),
         closing(false),
+        rctx(rctx),
         trampoline_segm(fblkarr->blk_sz_order()) {
+    rctx.throw_if_descriptor_mapping_not_initialized();
     if (is_a_new_repository) {
         // The given file block array has a valid and open file but it is not initialized as
         // a repository yet. We do that here.
@@ -42,7 +46,8 @@ Repository::Repository(std::unique_ptr<FileBlockArray>&& fblkarr_, const struct 
 
 Repository::~Repository() { close(); }
 
-Repository Repository::create(const char* fpath, bool fail_if_exists, const struct default_parameters_t& defaults) {
+Repository Repository::create(const RuntimeContext& rctx, const char* fpath, bool fail_if_exists,
+                              const struct default_parameters_t& defaults) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
     // the minimum block size (MIN_BLK_SZ) is an extra requirement of us
@@ -58,10 +63,10 @@ Repository Repository::create(const char* fpath, bool fail_if_exists, const stru
 
     // We delegate the initialization of the new repository to the Repository constructor
     // that it should call init_new_repository iff ctx.was_file_created
-    return Repository(std::move(fblkarr_ptr), defaults, ctx.was_file_created);
+    return Repository(rctx, std::move(fblkarr_ptr), defaults, ctx.was_file_created);
 }
 
-Repository Repository::create_mem_based(const struct default_parameters_t& defaults) {
+Repository Repository::create_mem_based(const RuntimeContext& rctx, const struct default_parameters_t& defaults) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
     // the minimum block size (MIN_BLK_SZ) is an extra requirement of us
@@ -72,7 +77,7 @@ Repository Repository::create_mem_based(const struct default_parameters_t& defau
 
     // Memory based file block arrays (and therefore Repository too) are always created
     // empty and require an initialization (so is_a_new_repository is always true)
-    return Repository(std::move(fblkarr_ptr), defaults, true);
+    return Repository(rctx, std::move(fblkarr_ptr), defaults, true);
 }
 
 void Repository::bootstrap_repository() {
@@ -487,7 +492,7 @@ void Repository::write_root_holder(uint8_t* rootbuf, const uint32_t rootbuf_sz, 
 
         // Write the holder in the trampoline
         auto trampoline_io = IOSegment(fblkarr_ref, trampoline_segm);
-        root_holder->write_struct_into(trampoline_io);
+        root_holder->write_struct_into(trampoline_io, rctx);
 
         // Write in the xoz file header the checksum of the trampoline
         // and the segment that points to.
@@ -502,7 +507,7 @@ void Repository::write_root_holder(uint8_t* rootbuf, const uint32_t rootbuf_sz, 
             trampoline_segm.clear();
         }
 
-        root_holder->write_struct_into(root_io);
+        root_holder->write_struct_into(root_io, rctx);
 
         flags &= uint8_t(0x7f);
     }

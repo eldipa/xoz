@@ -65,7 +65,7 @@ public:
     // or it contains an invalid repository, fail.
     //
     // To create a new repository, use Repository::create.
-    explicit Repository(const char* fpath);
+    explicit Repository(const RuntimeContext& rctx, const char* fpath);
 
     // Create a new repository in the given physical file.
     //
@@ -84,11 +84,12 @@ public:
     // create a new file and a repository there.
     //
     // Only in this case the default parameters (def) will be used.
-    static Repository create(const char* fpath, bool fail_if_exists = false,
+    static Repository create(const RuntimeContext& rctx, const char* fpath, bool fail_if_exists = false,
                              const struct default_parameters_t& defaults = DefaultsParameters);
 
     // Like Repository::create but make the repository be memory based
-    static Repository create_mem_based(const struct default_parameters_t& defaults = DefaultsParameters);
+    static Repository create_mem_based(const RuntimeContext& rctx,
+                                       const struct default_parameters_t& defaults = DefaultsParameters);
 
     /*
      * Close the repository and flush any pending write.
@@ -136,8 +137,8 @@ private:
      * into to initialize it as a Repository with the given defaults if is_a_new_repository
      * is true.
      * */
-    Repository(std::unique_ptr<FileBlockArray>&& fblkarr_ptr, const struct default_parameters_t& defaults,
-               bool is_a_new_repository);
+    Repository(const RuntimeContext& rctx, std::unique_ptr<FileBlockArray>&& fblkarr_ptr,
+               const struct default_parameters_t& defaults, bool is_a_new_repository);
 
     /*
      * Initialize a repository: its block array, its allocator, any index and check for errors or inconsistencies.

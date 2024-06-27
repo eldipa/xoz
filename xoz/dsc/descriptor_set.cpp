@@ -382,7 +382,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         checksum = inet_remove(checksum, dsc->checksum);
 
         io2.seek_wr(pos);
-        dsc->write_struct_into(io2);
+        dsc->write_struct_into(io2, rctx);
         checksum = inet_add(checksum, dsc->checksum);
     }
     to_update.clear();

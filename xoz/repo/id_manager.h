@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+#include <cstdint>
 #include <set>
 
 #include "xoz/err/exceptions.h"

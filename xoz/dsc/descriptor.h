@@ -19,12 +19,12 @@ public:
      * of its size will be correct.
      * */
     static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr);
-    void write_struct_into(IOBase& io);
+    void write_struct_into(IOBase& io, RuntimeContext& rctx);
 
     static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io, RuntimeContext& rctx, BlockArray& ed_blkarr) {
         return load_struct_from(io, rctx, ed_blkarr);
     }
-    void write_struct_into(IOBase&& io) { return write_struct_into(io); }
+    void write_struct_into(IOBase&& io, RuntimeContext& rctx) { return write_struct_into(io, rctx); }
 
     /*
      * Call the virtual method flush_writes() and update_header()
@@ -314,16 +314,3 @@ private:
     static void chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end,
                                      const Descriptor* const dsc, bool ex_type_used);
 };
-
-// Signature that a function must honor to be used as a descriptor-create function
-// It takes a descriptor (common) header and it must return a dynamic allocated
-// subclass of Descriptor as a pointer to the base class Descriptor.
-//
-// Once created the read_struct_specifics_from is invoked to complete the initialization
-// of the subclass descriptor
-typedef std::unique_ptr<Descriptor> (*descriptor_create_fn)(const struct Descriptor::header_t& hdr,
-                                                            BlockArray& ed_blkarr, RuntimeContext& rctx);
-
-void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& descriptors);
-
-void deinitialize_descriptor_mapping();
