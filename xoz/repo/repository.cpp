@@ -18,7 +18,6 @@ Repository::Repository(const RuntimeContext& rctx, const char* fpath):
         closing(false),
         rctx(rctx),
         trampoline_segm(fblkarr->blk_sz_order()) {
-    rctx.throw_if_descriptor_mapping_not_initialized();
     bootstrap_repository();
     assert(not closed);
     assert(this->fblkarr->begin_blk_nr() >= 1);
@@ -32,7 +31,6 @@ Repository::Repository(const RuntimeContext& rctx, std::unique_ptr<FileBlockArra
         closing(false),
         rctx(rctx),
         trampoline_segm(fblkarr->blk_sz_order()) {
-    rctx.throw_if_descriptor_mapping_not_initialized();
     if (is_a_new_repository) {
         // The given file block array has a valid and open file but it is not initialized as
         // a repository yet. We do that here.

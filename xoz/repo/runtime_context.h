@@ -20,10 +20,7 @@ typedef std::unique_ptr<Descriptor> (*descriptor_create_fn)(const struct Descrip
 
 class RuntimeContext: public IDManager {
 public:
-    RuntimeContext();
-
-    void initialize_descriptor_mapping(const std::map<uint16_t, descriptor_create_fn>& descriptors_map);
-    void deinitialize_descriptor_mapping();
+    explicit RuntimeContext(const std::map<uint16_t, descriptor_create_fn>& descriptors_map);
 
 public:
     // Given its type returns a function to create such descriptor.
@@ -31,12 +28,10 @@ public:
     // a default descriptor that has the minimum logic to work
     // (this enables XOZ to be forward compatible)
     descriptor_create_fn descriptor_create_lookup(uint16_t type) const;
-    void throw_if_descriptor_mapping_not_initialized() const;
 
 public:
     const static uint16_t TYPE_RESERVED_THRESHOLD = 4;
 
 private:
     std::map<uint16_t, descriptor_create_fn> mapping;
-    bool initialized;
 };

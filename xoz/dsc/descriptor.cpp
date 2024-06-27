@@ -129,7 +129,6 @@ fail:
 }
 
 std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr) {
-    rctx.throw_if_descriptor_mapping_not_initialized();
     uint32_t checksum = 0;
 
     uint32_t dsc_begin_pos = io.tell_rd();
@@ -273,9 +272,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
 }
 
 
-void Descriptor::write_struct_into(IOBase& io, RuntimeContext& rctx) {
-    rctx.throw_if_descriptor_mapping_not_initialized();  // TODO
-
+void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& rctx) {
     uint32_t dsc_begin_pos = io.tell_wr();
 
     if (hdr.dsize % 2 != 0) {
