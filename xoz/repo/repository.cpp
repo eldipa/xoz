@@ -11,25 +11,25 @@
 
 struct Repository::preload_repo_ctx_t Repository::dummy = {false, {0}};
 
-Repository::Repository(const RuntimeContext& rctx, const char* fpath):
+Repository::Repository(const DescriptorMapping& dmap, const char* fpath):
         fpath(fpath),
         fblkarr(std::make_unique<FileBlockArray>(fpath, std::bind_front(Repository::preload_repo, dummy))),
         closed(true),
         closing(false),
-        rctx(rctx),
+        rctx(dmap),
         trampoline_segm(fblkarr->blk_sz_order()) {
     bootstrap_repository();
     assert(not closed);
     assert(this->fblkarr->begin_blk_nr() >= 1);
 }
 
-Repository::Repository(const RuntimeContext& rctx, std::unique_ptr<FileBlockArray>&& fblkarr_,
+Repository::Repository(const DescriptorMapping& dmap, std::unique_ptr<FileBlockArray>&& fblkarr_,
                        const struct default_parameters_t& defaults, bool is_a_new_repository):
         fpath(fblkarr_->get_file_path()),
         fblkarr(std::move(fblkarr_)),
         closed(true),
         closing(false),
-        rctx(rctx),
+        rctx(dmap),
         trampoline_segm(fblkarr->blk_sz_order()) {
     if (is_a_new_repository) {
         // The given file block array has a valid and open file but it is not initialized as
@@ -44,7 +44,7 @@ Repository::Repository(const RuntimeContext& rctx, std::unique_ptr<FileBlockArra
 
 Repository::~Repository() { close(); }
 
-Repository Repository::create(const RuntimeContext& rctx, const char* fpath, bool fail_if_exists,
+Repository Repository::create(const DescriptorMapping& dmap, const char* fpath, bool fail_if_exists,
                               const struct default_parameters_t& defaults) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
@@ -61,10 +61,10 @@ Repository Repository::create(const RuntimeContext& rctx, const char* fpath, boo
 
     // We delegate the initialization of the new repository to the Repository constructor
     // that it should call init_new_repository iff ctx.was_file_created
-    return Repository(rctx, std::move(fblkarr_ptr), defaults, ctx.was_file_created);
+    return Repository(dmap, std::move(fblkarr_ptr), defaults, ctx.was_file_created);
 }
 
-Repository Repository::create_mem_based(const RuntimeContext& rctx, const struct default_parameters_t& defaults) {
+Repository Repository::create_mem_based(const DescriptorMapping& dmap, const struct default_parameters_t& defaults) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
     // the minimum block size (MIN_BLK_SZ) is an extra requirement of us
@@ -75,7 +75,7 @@ Repository Repository::create_mem_based(const RuntimeContext& rctx, const struct
 
     // Memory based file block arrays (and therefore Repository too) are always created
     // empty and require an initialization (so is_a_new_repository is always true)
-    return Repository(rctx, std::move(fblkarr_ptr), defaults, true);
+    return Repository(dmap, std::move(fblkarr_ptr), defaults, true);
 }
 
 void Repository::bootstrap_repository() {

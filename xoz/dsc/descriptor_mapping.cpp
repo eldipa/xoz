@@ -1,12 +1,11 @@
-#include "xoz/repo/runtime_context.h"
+#include "xoz/dsc/descriptor_mapping.h"
 
-#include "xoz/blk/block_array.h"
 #include "xoz/dsc/default.h"
 #include "xoz/dsc/dset_holder.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/log/format_string.h"
 
-RuntimeContext::RuntimeContext(const std::map<uint16_t, descriptor_create_fn>& descriptors_map) {
+DescriptorMapping::DescriptorMapping(const std::map<uint16_t, descriptor_create_fn>& descriptors_map) {
     for (auto [type, fn]: descriptors_map) {
         if (!fn) {
             throw std::runtime_error((F() << "Descriptor mapping for type " << type << " is null.").str());
@@ -22,7 +21,7 @@ RuntimeContext::RuntimeContext(const std::map<uint16_t, descriptor_create_fn>& d
     mapping = descriptors_map;
 }
 
-descriptor_create_fn RuntimeContext::descriptor_create_lookup(uint16_t type) const {
+descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) const {
     // Is the descriptor one of the defined by xoz?
     switch (type) {
         case 0:

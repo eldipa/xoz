@@ -30,9 +30,9 @@ namespace {
     // The check of the dump is simplistic: it is only to validate
     // that the .xoz file was created and it is non-empty.
     TEST(RepositoryTest, MemCreateNewUsingDefaults) {
-        RuntimeContext rctx({});
+        DescriptorMapping dmap({});
 
-        Repository repo = Repository::create_mem_based(rctx);
+        Repository repo = Repository::create_mem_based(dmap);
 
         // Check repository's parameters
         // Because we didn't specified anything on Repository::create, it
@@ -94,13 +94,13 @@ namespace {
 
 
     TEST(RepositoryTest, MemCreateNotUsingDefaults) {
-        RuntimeContext rctx({});
+        DescriptorMapping dmap({});
 
         // Custom non-default parameters
         struct Repository::default_parameters_t gp = {
             .blk_sz = 256
         };
-        Repository repo = Repository::create_mem_based(rctx, gp);
+        Repository repo = Repository::create_mem_based(dmap, gp);
 
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -165,9 +165,9 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateAddDescThenExpandExplicitWrite) {
-        RuntimeContext rctx({});
+        DescriptorMapping dmap({});
 
-        Repository repo = Repository::create_mem_based(rctx);
+        Repository repo = Repository::create_mem_based(dmap);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -249,9 +249,9 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateAddDescThenExpandImplicitWrite) {
-        RuntimeContext rctx({});
+        DescriptorMapping dmap({});
 
-        Repository repo = Repository::create_mem_based(rctx);
+        Repository repo = Repository::create_mem_based(dmap);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -331,9 +331,9 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateThenExpandThenRevertExpectShrinkOnClose) {
-        RuntimeContext rctx({});
+        DescriptorMapping dmap({});
 
-        Repository repo = Repository::create_mem_based(rctx);
+        Repository repo = Repository::create_mem_based(dmap);
         const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -418,7 +418,7 @@ namespace {
     }
 
     TEST(RepositoryTest, MemCreateTooSmallBlockSize) {
-        RuntimeContext rctx({});
+        DescriptorMapping dmap({});
 
         // Too small
         struct Repository::default_parameters_t gp = {
@@ -426,7 +426,7 @@ namespace {
         };
 
         EXPECT_THAT(
-            [&]() { Repository::create_mem_based(rctx, gp); },
+            [&]() { Repository::create_mem_based(dmap, gp); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("The minimum block size is 128 but given 64.")
