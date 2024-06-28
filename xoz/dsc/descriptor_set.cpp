@@ -223,6 +223,10 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         header_does_require_write = true;
     }
 
+    if (not does_require_write()) {
+        return;
+    }
+
     // Find any descriptor that shrank and it will require less space so we
     // can "split" the space and free a part.
     // Also, find any descriptor that grew so we remove it
