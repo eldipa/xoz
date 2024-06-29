@@ -19,7 +19,8 @@ typedef std::unique_ptr<Descriptor> (*descriptor_create_fn)(const struct Descrip
 
 class DescriptorMapping {
 public:
-    explicit DescriptorMapping(const std::map<uint16_t, descriptor_create_fn>& descriptors_map);
+    explicit DescriptorMapping(const std::map<uint16_t, descriptor_create_fn>& descriptors_map,
+                               bool override_reserved = false);
     DescriptorMapping(const DescriptorMapping&) = default;
 
 public:
