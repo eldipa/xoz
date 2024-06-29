@@ -197,13 +197,13 @@ protected:
      * */
     virtual void destroy();
 
-    constexpr inline bool is_dsize_greater_than_allowed(uint8_t dsize) { return dsize > 127; }
+    constexpr static inline bool is_dsize_greater_than_allowed(uint8_t dsize) { return dsize > 127; }
 
-    constexpr inline bool is_esize_greater_than_allowed(uint32_t esize) { return esize > 0x7fffffff; }
+    constexpr static inline bool is_esize_greater_than_allowed(uint32_t esize) { return esize > 0x7fffffff; }
 
-    constexpr inline bool is_id_temporal(const uint32_t id) const { return bool(id & 0x80000000); }
+    constexpr static inline bool is_id_temporal(const uint32_t id) { return bool(id & 0x80000000); }
 
-    constexpr inline bool is_id_persistent(const uint32_t id) const { return not is_id_temporal(id); }
+    constexpr static inline bool is_id_persistent(const uint32_t id) { return not Descriptor::is_id_temporal(id); }
 
     /*
      * Subclasses *must* call this method to notify that the instance had been modified
@@ -233,7 +233,7 @@ protected:
      * If the caller wants it, it should call release_free_space() and flush_writes()
      * explicitly before calling update_header().
      * */
-    virtual void update_header() {}
+    virtual void update_header() = 0;
 
     /*
      * Subclass must release any free/unused space allocated by the descriptor
