@@ -279,6 +279,9 @@ private:
     // Block array that holds the external data of the descriptor (if any).
     BlockArray& ed_blkarr;
 
+protected:
+    BlockArray& external_blkarr() { return ed_blkarr; }
+
 private:
     /*
      * Raw pointer to the set that owns this descriptor. There is at most one owner.
