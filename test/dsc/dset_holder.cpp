@@ -1,5 +1,4 @@
 #include "xoz/dsc/descriptor_set.h"
-#include "xoz/dsc/dset_holder.h"
 
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
@@ -95,7 +94,7 @@ const size_t FP_SZ = 224;
 } while (0)
 
 namespace {
-    TEST(DescriptorSetHolderTest, EmptySet) {
+    TEST(DescriptorSetDescriptorTest, EmptySet) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
@@ -167,7 +166,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, *dset2, rctx, d_blkarr);
     }
 
-    TEST(DescriptorSetHolderTest, AddDescWithoutWrite) {
+    TEST(DescriptorSetDescriptorTest, AddDescWithoutWrite) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
@@ -269,7 +268,7 @@ namespace {
     }
 
 
-    TEST(DescriptorSetHolderTest, AddWriteClearWrite) {
+    TEST(DescriptorSetDescriptorTest, AddWriteClearWrite) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
@@ -368,7 +367,7 @@ namespace {
 
 #if 0
     // TODO
-    TEST(DescriptorSetHolderTest, EmptySetNonDefault) {
+    TEST(DescriptorSetDescriptorTest, EmptySetNonDefault) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
@@ -441,7 +440,7 @@ namespace {
     }
 #endif
 
-    TEST(DescriptorSetHolderTest, DestroyHolderImpliesRemoveSet) {
+    TEST(DescriptorSetDescriptorTest, DestroyHolderImpliesRemoveSet) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 

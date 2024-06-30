@@ -1,7 +1,7 @@
 #include "xoz/dsc/descriptor_mapping.h"
 
 #include "xoz/dsc/default.h"
-#include "xoz/dsc/dset_holder.h"
+#include "xoz/dsc/descriptor_set.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/log/format_string.h"
 
@@ -32,7 +32,7 @@ descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) 
             case 0:
                 throw std::runtime_error("Descriptor type 0 is reserved.");
             case 1:
-                return DescriptorSetHolder::create;
+                return DescriptorSet::create;
             case 2:
                 throw std::runtime_error("Descriptor type 2 is reserved.");
             case 3:
