@@ -13,7 +13,7 @@
 
 class RuntimeContext;
 
-class DescriptorSet {
+class DescriptorSet: public Descriptor {
 private:
     // Descriptors owned by this DescriptorSet. Owned means that the descriptors
     // belongs to this set and to no other one. They may or no be present in the XOZ
@@ -58,6 +58,8 @@ private:
      *       extents  --------------------->    descriptors  ---------------->     data
      *         |  |                              |       |                      |        |
      *         +--+                              +-------+                      +--------+
+     *
+     * Note: currently both sg_blkarr and ed_blkarr point to the *same* block array.
      * */
     Segment segm;
     BlockArray& sg_blkarr;
@@ -83,12 +85,18 @@ private:
 
 public:
     /*
+     * Create a descriptor set.
      * The segment is where the descriptor set lives. It must be a segment
-     * from the sg_blkarr. C
+     * from the sg_blkarr.
+     *
      * The descriptor set will keep a private copy that it will mutate:
      * changes to the segment are possible due the addition
      * and remotion of descriptors to/from the set.
      * The caller may get an updated segment calling segment() method.
+     *
+     * If the segment is empty or it was not provided, the set is considered
+     * empty and create_set() will be immediately invoked.
+     * Otherwise, load_set() will be immediately invoked.
      *
      * For descriptors that own external data, the descriptor set will remove
      * data blocks from ed_blkarr when the descriptor is removed from the set
@@ -96,25 +104,13 @@ public:
      *
      * Writes/additions/deletions of the content of these external data blocks are made by
      * the descriptors and not handled by the set.
-     *
-     * Once the instance is created, the caller must call load_set() or create_set()
-     * to use it.
      **/
-    DescriptorSet(const Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, RuntimeContext& rctx);
+    static std::unique_ptr<DescriptorSet> create(const Segment& segm, BlockArray& ed_blkarr, RuntimeContext& rctx);
+    static std::unique_ptr<DescriptorSet> create(BlockArray& ed_blkarr, RuntimeContext& rctx);
 
-    /*
-     * Load the set into memory. This must be called once to initialize the internal allocator
-     * properly.
-     * */
-    void load_set();
-
-    /*
-     * Create a new set (nothing is written to disk but there would be pending writes).
-     * This must be called once.
-     *
-     * Note: u16data is an opaque argument to configure the set creation.
-     * */
-    void create_set(uint16_t u16data = 0);
+    DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, RuntimeContext& rctx);
+    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
+                                              RuntimeContext& rctx);
 
     /*
      * Remove all the descriptors of the set but do not remove the set itself.
@@ -123,9 +119,9 @@ public:
 
     /*
      * Remove all the descriptors *and* the set. Once called, the DescriptorSet instance
-     * becomes invalid and it should be throw away or create_set()/load_set() must be called.
+     * becomes invalid and it should be throw away.
      * */
-    void remove_set();
+    void destroy() override;
 
     /*
      * Flush any pending write to disk. This can be called multiple times: the implementation
@@ -134,7 +130,11 @@ public:
      * This method must be called at least once if the set or its descriptors
      * were modified. See does_require_write() method.
      * */
-    void flush_writes();
+    void flush_writes() override;
+
+    void release_free_space() override;
+
+    void update_header() override;
 
     /*
      * Check if there is any change pending to be written (addition of new descriptors,
@@ -190,6 +190,7 @@ public:
      * of handling that).
      * */
     void move_out(uint32_t id, DescriptorSet& new_home);
+    void move_out(uint32_t id, std::unique_ptr<DescriptorSet>& new_home);
 
     /*
      * Erase the descriptor, including the deletion of its external data blocks (if any).
@@ -247,8 +248,6 @@ public:
 
     Segment segment() const { return segm; }
 
-    void /* internal */ release_free_space();
-
 public:
     void fail_if_not_allowed_to_add(const Descriptor* dsc) const;
 
@@ -280,6 +279,21 @@ private:
 
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
 
+private:
+    /*
+     * Load the set into memory. This must be called once to initialize the internal allocator
+     * properly.
+     * */
+    void load_set();
+
+    /*
+     * Create a new set (nothing is written to disk but there would be pending writes).
+     * This must be called once.
+     *
+     * Note: u16data is an opaque argument to configure the set creation.
+     * */
+    void create_set(uint16_t u16data = 0);
+
 public:
     uint16_t /* private */ u16data() const { return this->reserved; }
 
@@ -288,4 +302,8 @@ private:
     void fail_if_using_incorrect_blkarray(const Descriptor* dsc) const;
     void fail_if_null(const Descriptor* dsc) const;
     void fail_if_duplicated_id(const Descriptor* dsc) const;
+
+private:
+    void read_struct_specifics_from(IOBase& io) override;
+    void write_struct_specifics_into(IOBase& io) override;
 };

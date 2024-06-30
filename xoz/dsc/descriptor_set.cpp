@@ -11,16 +11,54 @@
 #include "xoz/mem/inet_checksum.h"
 #include "xoz/repo/runtime_context.h"
 
-DescriptorSet::DescriptorSet(const Segment& segm, BlockArray& sg_blkarr, BlockArray& ed_blkarr, RuntimeContext& rctx):
-        segm(segm),
-        sg_blkarr(sg_blkarr),
-        ed_blkarr(ed_blkarr),
+DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& blkarr, RuntimeContext& rctx):
+        Descriptor(hdr, blkarr),
+        segm(hdr.segm),
+        sg_blkarr(blkarr),
+        ed_blkarr(blkarr),
         st_blkarr(this->segm, sg_blkarr, 2),
         rctx(rctx),
         set_loaded(false),
         reserved(0),
         current_checksum(0),
         header_does_require_write(false) {}
+
+std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockArray& blkarr, RuntimeContext& rctx) {
+    assert(segm.inline_data_sz() == 0);
+
+    struct Descriptor::header_t hdr = {.own_edata = false,
+                                       .type = 0x01,
+                                       .id = 0x00,
+                                       .dsize = 2,
+                                       .esize = segm.calc_data_space_size(),
+                                       .segm = segm};
+
+    hdr.segm.remove_inline_data();
+    hdr.own_edata = hdr.segm.length() > 0;
+
+    auto dset = std::make_unique<DescriptorSet>(hdr, blkarr, rctx);
+    if (hdr.own_edata) {
+        dset->load_set();
+    } else {
+        dset->create_set(0 /* TODO no other option */);
+    }
+    return dset;
+}
+
+std::unique_ptr<DescriptorSet> DescriptorSet::create(BlockArray& blkarr, RuntimeContext& rctx) {
+    const Segment segm = Segment::EmptySegment(blkarr.blk_sz_order());
+    return DescriptorSet::create(segm, blkarr, rctx);
+}
+
+std::unique_ptr<Descriptor> DescriptorSet::create(const struct Descriptor::header_t& hdr, BlockArray& blkarr,
+                                                  RuntimeContext& rctx) {
+    assert(hdr.type == 0x01);
+
+    // The magic will happen in read_struct_specifics_from() where we do the real
+    // read/load of the descriptor set.
+    auto dsc = std::make_unique<DescriptorSet>(hdr, blkarr, rctx);
+    return dsc;
+}
 
 void DescriptorSet::load_set() { load_descriptors(false, 0); }
 
@@ -200,6 +238,7 @@ void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
 }
 
 void DescriptorSet::flush_writes() {
+    // TODO this will trigger a recursive chain reaction of writes if the set has other sets
     auto io = IOSegment(sg_blkarr, segm);
     write_modified_descriptors(io);
 }
@@ -477,6 +516,14 @@ void DescriptorSet::move_out(uint32_t id, DescriptorSet& new_home) {
     new_home.add_s(dscptr, false);
 }
 
+void DescriptorSet::move_out(uint32_t id, std::unique_ptr<DescriptorSet>& new_home) {
+    if (!new_home) {
+        throw "";  // TODO
+    }
+
+    return move_out(id, *new_home);
+}
+
 void DescriptorSet::erase(uint32_t id) {
     fail_if_set_not_loaded();
     auto dscptr = get_owned_dsc_or_fail(id);
@@ -541,7 +588,7 @@ void DescriptorSet::clear_set() {
     to_update.clear();
 }
 
-void DescriptorSet::remove_set() {
+void DescriptorSet::destroy() {
     fail_if_set_not_loaded();
     clear_set();
 
@@ -667,4 +714,67 @@ void DescriptorSet::fail_if_not_allowed_to_add(const Descriptor* dsc) const {
     fail_if_null(dsc);
     fail_if_using_incorrect_blkarray(dsc);
     fail_if_duplicated_id(dsc);
+}
+
+void DescriptorSet::read_struct_specifics_from(IOBase& io) {
+    reserved = io.read_u16_from_le();
+
+    if (hdr.own_edata) {
+        // Easiest case: the holder's segment points to the set's blocks
+        segm = hdr.segm;
+
+        if (segm.inline_data_sz() != 0) {
+            throw InconsistentXOZ(F() << "Unexpected non-zero inline data in segment for descriptor set.");
+        }
+
+    } else {
+        // Second easiest case: the holder does not point to anything, the set
+        // is empty. So build it from those bits.
+        [[maybe_unused]] auto _ = io.read_u16_from_le();
+        segm = Segment::EmptySegment(ed_blkarr.blk_sz_order());
+    }
+
+
+    // DescriptorSet does not work with segments with inline data, even if it is empty.
+    // Remove it before creating the set.
+    segm.remove_inline_data();
+
+    if (not hdr.own_edata) {
+        create_set(0 /* TODO remove this 0 */);
+    } else {
+        // TODO this will trigger a recursive chain reaction of reads if the set has other holders
+        load_set();
+    }
+}
+
+void DescriptorSet::write_struct_specifics_into(IOBase& io) {
+    io.write_u16_to_le(reserved);
+    if (count() == 0) {
+        io.write_u16_to_le(0);
+    }
+}
+
+void DescriptorSet::update_header() {
+    // Make sure set to be 100% sync so we can know how much space its segment is owning
+    assert(count() == 0 or not does_require_write());
+
+    if (count() == 0) {
+        // Second easiest case: the set is empty so we don't need to own any external data
+        // and instead we save the minimum bits in holder's private space to reconstruct
+        // an empty set later.
+        hdr.own_edata = false;
+        hdr.esize = 0;
+        hdr.segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order());
+
+        hdr.dsize = 4;  // 2 uint16 fields: the holder's and set's reserved fields
+    } else {
+        // Easiest case: the holder's segment is the set's segment. Nothing else is needed
+        // except ensuring it has an end-of-segment because it is required by Descriptor
+        hdr.segm = segm;
+        hdr.segm.add_end_of_segment();
+        hdr.own_edata = true;
+        hdr.esize = hdr.segm.calc_data_space_size();
+
+        hdr.dsize = 2;  // 1 uint16 field: the holder's reserved field
+    }
 }
