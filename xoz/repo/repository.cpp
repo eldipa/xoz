@@ -168,7 +168,7 @@ void PrintTo(const Repository& repo, std::ostream* out) {
            << "\n";
 
     (*out) << "-- Block Array ----------------\n"
-           << repo.fblkarr << "\n"
+           << (*repo.fblkarr) << "\n"
            << "\n"
            << "-- Allocator ------------------\n"
            << repo.fblkarr->allocator() << "\n";
