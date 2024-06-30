@@ -21,7 +21,8 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
         set_loaded(false),
         reserved(0),
         current_checksum(0),
-        header_does_require_write(false) {}
+        header_does_require_write(false),
+        header_ext(Extent::EmptyExtent()) {}
 
 std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockArray& blkarr, RuntimeContext& rctx) {
     assert(segm.inline_data_sz() == 0);
@@ -78,13 +79,6 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
     }
 
     const uint32_t header_size = 4;
-
-    if (is_new) {
-        // If the set is new we don't have the header of the set.
-        // Remember to make room for it later (we can initialize the st_blkarr's allocator()
-        // with an empty list of allocated segments now and alloc space for the header later)
-        header_does_require_write = true;
-    }
 
     auto io = IOSegment(sg_blkarr, segm);
 
@@ -249,14 +243,15 @@ bool DescriptorSet::does_require_write() const {
 }
 
 void DescriptorSet::write_modified_descriptors(IOBase& io) {
-    if (segm.length() == 0) {
-        [[maybe_unused]] auto ext = st_blkarr.allocator().alloc_single_extent(4);
+    if (segm.length() == 0 and count() > 0) {
+        assert(header_ext == Extent::EmptyExtent());
+        header_ext = st_blkarr.allocator().alloc_single_extent(4);
 
         // Sanity check of the allocation for the header:
         //  - 4 bytes allocated as 2 full blocks in a single extent,
         //  - extent that it must be at the begin of the set (blk nr 0)
-        assert(ext.blk_cnt() == 2);
-        assert(ext.blk_nr() == 0);
+        assert(header_ext.blk_cnt() == 2);
+        assert(header_ext.blk_nr() == 0);
         assert(segm.length() != 0);
 
         header_does_require_write = true;
@@ -459,7 +454,13 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 #endif
 }
 
-void DescriptorSet::release_free_space() { st_blkarr.allocator().release(); }
+void DescriptorSet::release_free_space() {
+    if (count() == 0 and header_ext != Extent::EmptyExtent()) {
+        st_blkarr.allocator().dealloc_single_extent(header_ext);
+        header_ext = Extent::EmptyExtent();
+    }
+    st_blkarr.allocator().release();
+}
 
 uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_persistent_id) {
     fail_if_not_allowed_to_add(dscptr.get());

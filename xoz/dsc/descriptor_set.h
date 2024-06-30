@@ -82,6 +82,7 @@ private:
      * of the current_checksum).
      * */
     bool header_does_require_write;
+    Extent header_ext;
 
 public:
     /*

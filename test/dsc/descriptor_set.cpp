@@ -119,15 +119,14 @@ namespace {
         Segment sg(blk_sz_order);
         auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        // 0 descriptors by default, however the set requires a write because
-        // its header is pending of being written.
+        // 0 descriptors by default
         EXPECT_EQ(dset->count(), (uint32_t)0);
-        EXPECT_EQ(dset->does_require_write(), (bool)true);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
-        // Write down the set: expected only its header with a 0x0000 checksum
+        // Write down the set: expected nothing because the set is empty.
         dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000"
+                ""
                 );
 
         // Load another set from the previous set's segment to see that
@@ -140,7 +139,7 @@ namespace {
 
         dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 0000"
+                ""
                 );
     }
 
@@ -279,7 +278,7 @@ namespace {
         // Release free space
         dset->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000"
+                ""
                 );
     }
 
@@ -410,7 +409,7 @@ namespace {
 
         dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 0000"
+                ""
                 );
 
         // Move the descriptor from dset to dset2
@@ -423,9 +422,16 @@ namespace {
         EXPECT_EQ(dset2->does_require_write(), (bool)true);
         EXPECT_EQ(dset2->get(id1)->get_owner(), std::addressof(*dset2));
 
+        // The dset set is empty but it still has the same space allocated,
+        // overridden with zeros.
         dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
+                );
+
+        dset->release_free_space();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                ""
                 );
 
         dset2->flush_writes();
@@ -474,7 +480,7 @@ namespace {
 
         dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 0000"
+                ""
                 );
 
         // Modify the descriptor living in dset
@@ -500,6 +506,11 @@ namespace {
         dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 3b47 fa04 4142"
+                );
+
+        dset->release_free_space();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                ""
                 );
     }
 
@@ -543,7 +554,7 @@ namespace {
 
         dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 0000"
+                ""
                 );
 
         // Move the descriptor from dset to dset2
@@ -571,6 +582,11 @@ namespace {
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 3b47 fa04 4142"
                 );
+
+        dset->release_free_space();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                ""
+                );
     }
 
     TEST(DescriptorSetTest, OwnExternalDataDescriptor) {
@@ -590,11 +606,12 @@ namespace {
 
         dset->flush_writes();
 
-        // Any descriptor set has a header of 4 bytes
+        // Any descriptor set has a header of 4 bytes but the set is empty so no header
+        // is written
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
-        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1); // this block is for suballocation
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2));
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0); // this block is for suballocation
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -609,25 +626,23 @@ namespace {
         };
 
         // Check that the block array grew due the descriptor's external data (alloc 130 bytes)
-        // plus the header of the set (4 bytes).
-        // This requires 5 blocks, one for suballocation, with 3 subblocks allocated
-        // (one for the external data and 2 for the header)
+        // This requires 5 blocks, one for suballocation, with 1 subblocks allocated
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1));
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 7f0b fa80 8200 0124 0086 0020 00c0"
+                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
                 );
         EXPECT_EQ(dset->count(), (uint32_t)1);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
 
-        // Check that the array grew further (in subblocks) due the write of the set
+        // Check that the array grew further (in subblocks) due the write of the set (including set's header)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
@@ -644,15 +659,14 @@ namespace {
 
         dset->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000"
+                ""
                 );
 
-        // Check that the array shrank to 4 bytes (no external blocks + no data in the set
-        // but 4 bytes of header)
+        // Check that the array shrank to 0 bytes (no desc, and no header due the empty set)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
-        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2));
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
     }
 
     TEST(DescriptorSetTest, OwnExternalDataMovedDescriptor) {
@@ -672,11 +686,11 @@ namespace {
 
         dset->flush_writes();
 
-        // Any descriptor set has a header of 4 bytes
+        // nothing, no header yet
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
-        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1); // this block is for suballocation
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2));
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0); // this block is for suballocation
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -694,14 +708,14 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1));
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 7f0b fa80 8200 0124 0086 0020 00c0"
+                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
                 );
         EXPECT_EQ(dset->count(), (uint32_t)1);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
@@ -717,11 +731,11 @@ namespace {
         auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
         dset2->flush_writes();
 
-        // Check for the new descriptor set's header
+        // Check for the new descriptor set that no header is written (set is empty)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6));
 
         // Move the descriptor from dset to dset2: while the descriptor is deleted from dset,
         // its external blocks should not be deallocated because the descriptor "moved" to
@@ -735,25 +749,25 @@ namespace {
 
         dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 7f0b fa80 8200 0124 0086 0020 00c0"
+                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
                 );
 
         dset->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000"
+                ""
                 );
 
         dset2->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 7f0b fa80 8200 0124 0086 0020 00c0"
+                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
                 );
 
         // Expected no change: what the dset2 grew, the dset shrank and the external blocks
-        // should not had changed at all.
+        // should not had changed at all
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1 /* TODO */ + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 6 + 2));
 
 
         // Delete the descriptor: its external data blocks should be released too
@@ -765,15 +779,15 @@ namespace {
 
         dset2->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 0000"
+                ""
                 );
 
-        // Check that the array shrank to 8 bytes (no external blocks + no data in the set,
-        // but 2 headers for 4 bytes each
+        // Check that the array shrank to 0 bytes (no external blocks + no data in the set,
+        // and no headers)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
-        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2 + 2));
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
     }
 
 
@@ -1176,12 +1190,12 @@ namespace {
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
         EXPECT_EQ(dset->count(), (uint32_t)0);
-        EXPECT_EQ(dset->does_require_write(), (bool)true);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
-        // Write down the set: expected only its header with a 0x0000 checksum
+        // Write down the set: nothing should be written, the set is empty
         dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000"
+                ""
                 );
 
         // Clear an empty set: no effect
@@ -1191,7 +1205,7 @@ namespace {
 
         dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000"
+                ""
                 );
 
         // Remove the set removes also the header
@@ -1215,10 +1229,9 @@ namespace {
         auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
 
-        // 0 descriptors by default, however the set requires a write because
-        // its header is pending of being written.
+        // 0 descriptors by default
         EXPECT_EQ(dset->count(), (uint32_t)0);
-        EXPECT_EQ(dset->does_require_write(), (bool)true);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
@@ -1229,7 +1242,7 @@ namespace {
         // to be written
         dset->clear_set();
         EXPECT_EQ(dset->count(), (uint32_t)0);
-        EXPECT_EQ(dset->does_require_write(), (bool)true);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
@@ -1327,7 +1340,7 @@ namespace {
         EXPECT_EQ(dset->segment().length(), (uint32_t)0); // nothing yet
 
         dset->flush_writes();
-        EXPECT_EQ(dset->segment().length(), (uint32_t)1); // room for the header
+        EXPECT_EQ(dset->segment().length(), (uint32_t)0);
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1350,7 +1363,7 @@ namespace {
         // Write down the set: we expect to see that single descriptor there
         dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 fd0a fa80 0000 0124 0086 0020 00c0"
+                "0000 fc68 fa80 0000 0024 0084 0080 00c0"
                 );
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1381,18 +1394,16 @@ namespace {
         // shrink (aka release) the segment by default
         EXPECT_EQ(dset->segment().length(), (uint32_t)2);
 
-        // The caller must explicitly call release_free_space(). Note the even it
-        // the set is empty, its segment will not because there is some room
-        // for its header
+        // The caller must explicitly call release_free_space().
+        // We expect to see an empty segment as the header should had be removed too
         dset->release_free_space();
-        EXPECT_EQ(dset->segment().length(), (uint32_t)1);
+        EXPECT_EQ(dset->segment().length(), (uint32_t)0);
 
-        // We check that the external blocks were deallocated. Only 1 block
-        // should remain that holds the descriptor set (header only).
+        // We check that the external blocks were deallocated.
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
-        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(2));
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
     }
 
     TEST(DescriptorSetTest, AddThenRemoveWithOwnExternalData) {
@@ -1408,7 +1419,7 @@ namespace {
         EXPECT_EQ(dset->segment().length(), (uint32_t)0); // nothing yet
 
         dset->flush_writes();
-        EXPECT_EQ(dset->segment().length(), (uint32_t)1); // room for the header
+        EXPECT_EQ(dset->segment().length(), (uint32_t)0); // nothing again
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1431,7 +1442,7 @@ namespace {
         // Write down the set: we expect to see that single descriptor there
         dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 fd0a fa80 0000 0124 0086 0020 00c0"
+                "0000 fc68 fa80 0000 0024 0084 0080 00c0"
                 );
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
