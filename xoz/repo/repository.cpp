@@ -106,8 +106,8 @@ std::list<Segment> Repository::scan_descriptor_sets() {
 
     std::list<Segment> allocated;
 
-    allocated.push_back(root_holder->set()->segment());
-    for (auto it = root_holder->set()->begin(); it != root_holder->set()->end(); ++it) {
+    allocated.push_back(root_set->segment());
+    for (auto it = root_set->begin(); it != root_set->end(); ++it) {
         auto& dsc(*it);
         if (dsc->does_own_edata()) {
             allocated.push_back(dsc->edata_segment_ref());
@@ -280,7 +280,7 @@ void Repository::read_and_check_header_and_trailer() {
     */
 
 
-    load_root_holder(hdr);
+    load_root_set(hdr);
 
     // TODO this *may* still be useful: assert(phy_repo_end_pos > 0);
 
@@ -307,18 +307,18 @@ void Repository::read_and_check_header_and_trailer() {
 
 void Repository::write_header() {
 
-    // Write the root holder in the buffer. This *may* trigger an (de)allocation
+    // Write the root set in the buffer. This *may* trigger an (de)allocation
     // in the fblkarr if the use of a trampoline is required or not.
     //
-    // Caller *MUST* call root_holder->update_header() before calling write_header()
+    // Caller *MUST* call root_set->update_header() or full_sync() before calling write_header()
     // so we can be sure that all the descriptor sets (including the root) are up to date
-    // and the holder has the latest updated sizes.
+    // and the set descriptor has the latest updated sizes.
     uint8_t rootbuf[HEADER_ROOT_SET_SZ] = {0};
     uint8_t flags = 0;
-    write_root_holder(rootbuf, HEADER_ROOT_SET_SZ, flags);
+    write_root_set(rootbuf, HEADER_ROOT_SET_SZ, flags);
 
     // Despite that close() should be doing a release() of any free block,
-    // the write_root_holder() may had deallocated stuff making free
+    // the write_root_set() may had deallocated stuff making free
     // new blocks.
     // So this is the last chance to release them (only on closing)
     if (closing) {
@@ -384,40 +384,41 @@ void Repository::init_new_repository(const struct default_parameters_t& defaults
     fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
     trampoline_segm = Segment::EmptySegment(fblkarr->blk_sz_order());
-    root_holder = DescriptorSetHolder::create(*fblkarr.get(), rctx);
+    root_set = DescriptorSet::create(*fblkarr.get(), rctx);
 
-    // Ensure that the holder has a valid id.
-    root_holder->id(rctx.request_temporal_id());
+    // Ensure that the descriptor set has a valid id.
+    root_set->id(rctx.request_temporal_id());
 
 
     // Write any pending write (it should be a few if any due the initialization
-    // of the holder's and set's structures. Update the root holder but do not
+    // of the set's structures. Update the root but do not
     // try to release any free space, it should be none (and because fblkarr's allocator
     // is not fully initialized yet).
     //
     // This must be called before write_header() so we can by 100% sure of how
-    // many blocks are being used and how large the root holder is and if it
+    // many blocks are being used and how large the root set is and if it
     // fits in the header or not.
     //
-    // Note: it is important that the root holder does not do any allocation
+    // Note: it is important that the root set does not do any allocation
     // because fblkarr is not fully initialized yet.
-    // In theory we should be fine because root holder does not require
+    // In theory we should be fine because root set does not require
     // alloc any space for an empty set (the initial state of any new repository)
     // and neither write_header nor write_trailer requires alloc space
     // (write_trailer will not try to alloc space for a trampoline because the
-    // root holder of an empty set should fit in the header).
+    // root set of an empty set should fit in the header).
     // Once we call bootstrap_repository() we should be fine.
-    root_holder->full_sync(false);
+    // TODO delete this line (and the warning above): root_set->full_sync(false);
+    root_set->update_header();
 
     write_header();
     write_trailer();
 }
 
 void Repository::flush_writes(const bool release) {
-    // Update the root holder. If there is any pending write, this will
+    // Update the root set. If there is any pending write, this will
     // do it. This may trigger some allocations in fblkarr and if release
     // is true, it may trigger some deallocations (shrinks) too.
-    root_holder->full_sync(release);
+    root_set->full_sync(release);
     if (release) {
         fblkarr->allocator().release();
     }
@@ -438,7 +439,7 @@ void Repository::close() {
     closing = false;
 }
 
-void Repository::load_root_holder(struct repo_header_t& hdr) {
+void Repository::load_root_set(struct repo_header_t& hdr) {
     IOSpan root_io(hdr.root, sizeof(hdr.root));
 
     FileBlockArray& fblkarr_ref = *fblkarr.get();
@@ -449,52 +450,52 @@ void Repository::load_root_holder(struct repo_header_t& hdr) {
         uint32_t checksum = uint32_t(root_io.read_u16_from_le());
         trampoline_segm = Segment::load_struct_from(root_io, fblkarr_ref.blk_sz_order());
 
-        // Read trampoline's content. We expect to find a set descriptor holder there.
+        // Read trampoline's content. We expect to find a set descriptor there.
         auto trampoline_io = IOSegment(fblkarr_ref, trampoline_segm);
 
-        // See if the holder is in the trampoline. Build a shared ptr to DescriptorSetHolder.
-        auto dsc = DescriptorSetHolder::load_struct_from(trampoline_io, rctx, fblkarr_ref);
-        root_holder = Descriptor::cast<DescriptorSetHolder>(dsc);
+        // See if the set descriptor is in the trampoline. Build a shared ptr to DescriptorSet.
+        auto dsc = DescriptorSet::load_struct_from(trampoline_io, rctx, fblkarr_ref);
+        root_set = Descriptor::cast<DescriptorSet>(dsc);
 
         // Check that trampoline's content checksum is correct.
-        auto checksum_check = fold_inet_checksum(inet_remove(checksum, root_holder->checksum));
+        auto checksum_check = fold_inet_checksum(inet_remove(checksum, root_set->checksum));
         if (not is_inet_checksum_good(checksum_check)) {
-            throw InconsistentXOZ((F() << "Root holder trampoline checksum failed:"
+            throw InconsistentXOZ((F() << "Root descriptor set trampoline checksum failed:"
                                        << "computed " << std::hex << checksum << " but expected " << std::hex
-                                       << root_holder->checksum << " (chk " << std::hex << checksum_check << ")")
+                                       << root_set->checksum << " (chk " << std::hex << checksum_check << ")")
                                           .str());
         }
     } else {
         // No trampoline
         trampoline_segm = Segment::EmptySegment(fblkarr_ref.blk_sz_order());
 
-        // The root field has the descriptor set holder
-        auto dsc = DescriptorSetHolder::load_struct_from(root_io, rctx, fblkarr_ref);
-        root_holder = Descriptor::cast<DescriptorSetHolder>(dsc);
+        // The root field has the descriptor set
+        auto dsc = DescriptorSet::load_struct_from(root_io, rctx, fblkarr_ref);
+        root_set = Descriptor::cast<DescriptorSet>(dsc);
     }
 }
 
-void Repository::write_root_holder(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flags) {
+void Repository::write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flags) {
     assert(rootbuf_sz <= HEADER_ROOT_SET_SZ);
     IOSpan root_io(rootbuf, rootbuf_sz);
 
     FileBlockArray& fblkarr_ref = *fblkarr.get();
 
-    bool trampoline_required = root_holder->calc_struct_footprint_size() > HEADER_ROOT_SET_SZ;
+    bool trampoline_required = root_set->calc_struct_footprint_size() > HEADER_ROOT_SET_SZ;
 
     if (trampoline_required) {
         // Expand/shrink the trampoline space to make room for the
-        // root descriptor set holder (with its space was updated/recalculated
-        // in the call to root_holder.update_header() made by the caller)
+        // root descriptor set (with its space was updated/recalculated
+        // in the call to root_set->update_header() or full_sync() made by the caller)
         update_trampoline_space();
 
-        // Write the holder in the trampoline
+        // Write the set descriptor in the trampoline
         auto trampoline_io = IOSegment(fblkarr_ref, trampoline_segm);
-        root_holder->write_struct_into(trampoline_io, rctx);
+        root_set->write_struct_into(trampoline_io, rctx);
 
         // Write in the xoz file header the checksum of the trampoline
         // and the segment that points to.
-        root_io.write_u16_to_le(inet_to_u16(root_holder->checksum));
+        root_io.write_u16_to_le(inet_to_u16(root_set->checksum));
         trampoline_segm.write_struct_into(root_io);
 
         flags |= uint8_t((trampoline_required) << 7);
@@ -505,7 +506,7 @@ void Repository::write_root_holder(uint8_t* rootbuf, const uint32_t rootbuf_sz, 
             trampoline_segm.clear();
         }
 
-        root_holder->write_struct_into(root_io, rctx);
+        root_set->write_struct_into(root_io, rctx);
 
         flags &= uint8_t(0x7f);
     }
@@ -513,7 +514,7 @@ void Repository::write_root_holder(uint8_t* rootbuf, const uint32_t rootbuf_sz, 
 
 void Repository::update_trampoline_space() {
     uint32_t cur_sz = trampoline_segm.calc_data_space_size();
-    uint32_t req_sz = root_holder->calc_struct_footprint_size();
+    uint32_t req_sz = root_set->calc_struct_footprint_size();
     assert(req_sz > 0);
 
     const bool should_expand = (cur_sz < req_sz);
@@ -527,7 +528,7 @@ void Repository::update_trampoline_space() {
     }
 
     // ensure the trampoline segment has an end so we can load it correctly
-    // in load_root_holder()
+    // in load_root_set()
     trampoline_segm.add_end_of_segment();
 
     // It may be possible that the allocator gave us a segment too fragmented

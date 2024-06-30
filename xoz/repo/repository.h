@@ -15,7 +15,6 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/blk/file_block_array.h"
 #include "xoz/dsc/descriptor_set.h"
-#include "xoz/dsc/dset_holder.h"
 #include "xoz/ext/extent.h"
 #include "xoz/repo/runtime_context.h"
 #include "xoz/segm/segment.h"
@@ -52,7 +51,7 @@ private:
     RuntimeContext rctx;
 
     Segment trampoline_segm;
-    std::shared_ptr<DescriptorSetHolder> root_holder;
+    std::shared_ptr<DescriptorSet> root_set;
 
     uint32_t feature_flags_compat;
     uint32_t feature_flags_incompat;
@@ -101,7 +100,7 @@ public:
      * To reopen a repository, you need create a new instance.
      *
      * The close() will write any pending change in the root descriptor set and may
-     * require allocate additional space (the trampoline space) to save the root holder
+     * require allocate additional space (the trampoline space) to save the root set
      * if it does not fit in the header.
      * */
     void close();
@@ -114,9 +113,7 @@ public:
     // Call to close()
     ~Repository();
 
-    inline std::shared_ptr<DescriptorSetHolder> root() { return root_holder; }
-    inline const std::unique_ptr<DescriptorSet>& root_set() { return root_holder->set(); }
-
+    inline std::shared_ptr<DescriptorSet> root() { return root_set; }
 
     const std::stringstream& expose_mem_fp() const;
 
@@ -278,10 +275,10 @@ private:
         uint32_t feature_flags_incompat;
         uint32_t feature_flags_ro_compat;
 
-        // This is where we store the "root" of the file. This can be a DescriptorSetHolder
+        // This is where we store the "root" of the file. This can be a DescriptorSet
         // serialized here *or* a segment that points to somewhere else outside the xoz header
-        // where the DescriptorSetHolder lives.
-        // See load_root_holder() and write_root_holder() methods.
+        // where the DescriptorSet lives.
+        // See load_root_set() and write_root_set() methods.
         //
         // TODO ensure that the read and write preserves this "padding" for backward/forward compat
         // in the case of the root field not being fully used
@@ -304,18 +301,18 @@ private:
 
 private:
     /*
-     * Read and load the root descriptor set holder, root of the rest of the xoz content.
+     * Read and load the root descriptor set, root of the rest of the xoz content.
      *
      * If the has_trampoline is true, the root field of the xoz file header points
-     * to another part of the file where the holder is stored.
-     * Otherwise, the holder is read directly from the root field.
+     * to another part of the file where the set descriptor is stored.
+     * Otherwise, the set descriptor is read directly from the root field.
      *
-     * In any case, the attribute root_holder is initialized with a DescriptorSetHolder object
+     * In any case, the attribute root_set is initialized with a DescriptorSet object
      * and the attribute trampoline_segm with the segment that points to the allocated trampoline
      * blocks. In the case of has_trampoline equals false, this segment will be empty.
      * */
-    void load_root_holder(struct repo_header_t& hdr);
-    void write_root_holder(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flag);
+    void load_root_set(struct repo_header_t& hdr);
+    void write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flag);
     void update_trampoline_space();
 
 private:
