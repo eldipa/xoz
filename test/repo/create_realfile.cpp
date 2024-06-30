@@ -59,9 +59,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and check what we have on disk.
         repo.close();
@@ -78,13 +78,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -130,9 +130,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and check what we have on disk.
         repo.close();
@@ -149,13 +149,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c058 "
@@ -206,9 +206,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and check that the file in disk still exists
         // Note: in CreateNewUsingDefaults test we create-close-check, here
@@ -227,13 +227,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -277,9 +277,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = new_repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = new_repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         new_repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
@@ -295,13 +295,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c058 "
@@ -340,9 +340,9 @@ namespace {
         EXPECT_EQ(stats2.header_sz, uint64_t(256));
         EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
 
-        auto root_holder2 = repo.root();
-        EXPECT_EQ(root_holder2->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder2->set()->does_require_write(), (bool)true);
+        auto root_set2 = repo.root();
+        EXPECT_EQ(root_set2->count(), (uint32_t)0);
+        EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
@@ -358,13 +358,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c058 "
@@ -425,9 +425,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
@@ -443,13 +443,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c058 "
@@ -508,9 +508,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
@@ -526,13 +526,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c058 "
@@ -603,9 +603,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
@@ -621,13 +621,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c058 "
@@ -697,13 +697,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c85c "
@@ -746,13 +746,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -793,13 +793,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -862,13 +862,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c85c "
@@ -909,13 +909,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -956,13 +956,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -1026,13 +1026,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -1070,13 +1070,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -1137,13 +1137,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -1181,13 +1181,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -1251,13 +1251,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c85c "
@@ -1319,13 +1319,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c85c "
@@ -1381,13 +1381,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c058 "
@@ -1455,13 +1455,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -1505,13 +1505,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3e58 "
@@ -1560,8 +1560,8 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
             dscptr->set_data({c, c});
 
-            repo.root()->set()->add(std::move(dscptr));
-            repo.root()->set()->flush_writes();
+            repo.root()->add(std::move(dscptr));
+            repo.root()->flush_writes();
         }
 
         // We expect the file has grown 1 block:
@@ -1581,15 +1581,15 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)4);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)4);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        // Note how large is the root holder due the size of its segment
+        // Note how large is the root set due the size of its segment
         // that it was fragmented in several extents due the repeated
         // calls to flush_writes
-        // However, the holder still fits in the header of the xoz file
+        // However, the set still fits in the header of the xoz file
         // so there is no need of a trampoline
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
@@ -1605,12 +1605,12 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0184 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "def8 "
@@ -1662,9 +1662,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder2 = repo2.root();
-        EXPECT_EQ(root_holder2->set()->count(), (uint32_t)4);
-        EXPECT_EQ(root_holder2->set()->does_require_write(), (bool)false);
+        auto root_set2 = repo2.root();
+        EXPECT_EQ(root_set2->count(), (uint32_t)4);
+        EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
         // Close and reopen and check again
         repo2.close();
@@ -1681,12 +1681,12 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0184 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "def8 "
@@ -1738,9 +1738,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder3 = repo3.root();
-        EXPECT_EQ(root_holder3->set()->count(), (uint32_t)4);
-        EXPECT_EQ(root_holder3->set()->does_require_write(), (bool)false);
+        auto root_set3 = repo3.root();
+        EXPECT_EQ(root_set3->count(), (uint32_t)4);
+        EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
         // Close and reopen and check again
         repo3.close();
@@ -1757,12 +1757,12 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0184 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "def8 "
@@ -1828,14 +1828,14 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
             dscptr->set_data({c, c});
 
-            repo.root()->set()->add(std::move(dscptr));
+            repo.root()->add(std::move(dscptr));
         }
 
         // Perform a single flush_writes
         // This should make the set to allocate all the needed space once
         // so its segment will be less fragmented and much smaller than
         // if we do a single alloc per descriptor
-        repo.root()->set()->flush_writes();
+        repo.root()->flush_writes();
 
         // We expect the file has grown 1 block:
         // The reasoning is that the 26 descriptors will fit in a single
@@ -1854,15 +1854,15 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)26);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        // Note how large is the root holder due the size of its segment
+        // Note how large is the root set due the size of its segment
         // that it was fragmented in several extents due the repeated
         // calls to flush_writes
-        // However, the holder still fits in the header of the xoz file
+        // However, the set still fits in the header of the xoz file
         // so there is no need of a trampoline
         repo.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
@@ -1878,12 +1878,12 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0184 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "  // <--- TODO
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "def8 "
@@ -1953,9 +1953,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder2 = repo2.root();
-        EXPECT_EQ(root_holder2->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder2->set()->does_require_write(), (bool)false);
+        auto root_set2 = repo2.root();
+        EXPECT_EQ(root_set2->count(), (uint32_t)26);
+        EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
         // Close and reopen and check again
         repo2.close();
@@ -1972,12 +1972,12 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0184 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "def8 "
@@ -2048,9 +2048,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder3 = repo3.root();
-        EXPECT_EQ(root_holder3->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder3->set()->does_require_write(), (bool)false);
+        auto root_set3 = repo3.root();
+        EXPECT_EQ(root_set3->count(), (uint32_t)26);
+        EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
         // Close and reopen and check again
         repo3.close();
@@ -2067,12 +2067,12 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0184 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "def8 "
@@ -2128,7 +2128,6 @@ namespace {
     }
 #endif
 
-
     TEST(RepositoryTest, TrampolineRequired) {
         DescriptorMapping dmap({});
 
@@ -2154,8 +2153,8 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
             dscptr->set_data({c, c});
 
-            repo.root()->set()->add(std::move(dscptr));
-            repo.root()->set()->flush_writes();
+            repo.root()->add(std::move(dscptr));
+            repo.root()->flush_writes();
         }
 
         // We expect the file has grown 1 block:
@@ -2175,9 +2174,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)26);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and reopen and check again
         repo.close();
@@ -2200,7 +2199,7 @@ namespace {
                 // trampoline padding
                 "0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "a95f "
@@ -2251,14 +2250,14 @@ namespace {
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*2, 128,
                 // second data block
 
-                // root holder -----------
+                // root set descriptor -----------
                 "0184 7000 "
                 "0184 0080 0080 0100 0040 0080 0100 0020 "
                 "0080 0100 0010 0080 0100 0008 0080 0100 0004 "
                 "0080 0100 0002 0080 0100 0001 0080 0100 "
                 "8000 0080 0100 4000 0080 0100 2000 0080 "
                 "0100 1000 0080 0100 0800 0080 0100 0400 00c0 "
-                // end of root holder --------
+                // end of root set descriptor --------
 
                 // padding
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -2289,9 +2288,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder2 = repo2.root();
-        EXPECT_EQ(root_holder2->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder2->set()->does_require_write(), (bool)false);
+        auto root_set2 = repo2.root();
+        EXPECT_EQ(root_set2->count(), (uint32_t)26);
+        EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
         // Close and reopen and check again
         repo2.close();
@@ -2314,7 +2313,7 @@ namespace {
                 // trampoline padding
                 "0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "a95f "
@@ -2365,14 +2364,14 @@ namespace {
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*2, 128,
                 // second data block
 
-                // root holder -----------
+                // root set descriptor -----------
                 "0184 7000 "
                 "0184 0080 0080 0100 0040 0080 0100 0020 "
                 "0080 0100 0010 0080 0100 0008 0080 0100 0004 "
                 "0080 0100 0002 0080 0100 0001 0080 0100 "
                 "8000 0080 0100 4000 0080 0100 2000 0080 "
                 "0100 1000 0080 0100 0800 0080 0100 0400 00c0 "
-                // end of root holder --------
+                // end of root set descriptor --------
 
                 // padding
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -2403,9 +2402,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder3 = repo3.root();
-        EXPECT_EQ(root_holder3->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder3->set()->does_require_write(), (bool)false);
+        auto root_set3 = repo3.root();
+        EXPECT_EQ(root_set3->count(), (uint32_t)26);
+        EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
         // Close and reopen and check again
         repo3.close();
@@ -2428,7 +2427,7 @@ namespace {
                 // trampoline padding
                 "0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "a95f "
@@ -2479,14 +2478,14 @@ namespace {
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128*2, 128,
                 // second data block
 
-                // root holder -----------
+                // root set descriptor -----------
                 "0184 7000 "
                 "0184 0080 0080 0100 0040 0080 0100 0020 "
                 "0080 0100 0010 0080 0100 0008 0080 0100 0004 "
                 "0080 0100 0002 0080 0100 0001 0080 0100 "
                 "8000 0080 0100 4000 0080 0100 2000 0080 "
                 "0100 1000 0080 0100 0800 0080 0100 0400 00c0 "
-                // end of root holder --------
+                // end of root set descriptor --------
 
                 // padding
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -2526,10 +2525,10 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo.root()->set()->add(std::move(dscptr));
+            auto id = repo.root()->add(std::move(dscptr));
             ids.push_back(id);
 
-            repo.root()->set()->flush_writes();
+            repo.root()->flush_writes();
         }
 
         // This will flush any pending write and also it will write the header
@@ -2552,13 +2551,13 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)26);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Remove from the set all except the first 4 descriptors added
         for (size_t i = 4; i < ids.size(); ++i) {
-            repo.root()->set()->erase(ids[i]);
+            repo.root()->erase(ids[i]);
         }
 
         // Close and reopen and check again. We should expect to see
@@ -2577,12 +2576,12 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0184 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "def8 "
@@ -2644,9 +2643,9 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo.root()->set()->add(std::move(dscptr), true);
+            auto id = repo.root()->add(std::move(dscptr), true);
             ids.push_back(id);
-            repo.root()->set()->flush_writes();
+            repo.root()->flush_writes();
         }
 
         repo.flush_writes(true);
@@ -2666,9 +2665,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)26);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and reopen and check again
         repo.close();
@@ -2693,7 +2692,7 @@ namespace {
 
                 // trampoline padding
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "f1b6 "
@@ -2783,13 +2782,13 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder2 = repo2.root();
-        EXPECT_EQ(root_holder2->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder2->set()->does_require_write(), (bool)false);
+        auto root_set2 = repo2.root();
+        EXPECT_EQ(root_set2->count(), (uint32_t)26);
+        EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
         // Remove from the set all except the first 2 descriptors added
         for (size_t i = 2; i < ids.size(); ++i) {
-            repo2.root()->set()->erase(ids[i]);
+            repo2.root()->erase(ids[i]);
         }
 
         repo2.close();
@@ -2811,7 +2810,7 @@ namespace {
 
                 // trampoline padding
                 "0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "def8 "
@@ -2868,9 +2867,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder3 = repo3.root();
-        EXPECT_EQ(root_holder3->set()->count(), (uint32_t)2);
-        EXPECT_EQ(root_holder3->set()->does_require_write(), (bool)false);
+        auto root_set3 = repo3.root();
+        EXPECT_EQ(root_set3->count(), (uint32_t)2);
+        EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
         repo3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
@@ -2891,7 +2890,7 @@ namespace {
 
                 // trampoline padding
                 "0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "def8 "
@@ -2957,9 +2956,9 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo.root()->set()->add(std::move(dscptr), true);
+            auto id = repo.root()->add(std::move(dscptr), true);
             ids.push_back(id);
-            repo.root()->set()->flush_writes();
+            repo.root()->flush_writes();
         }
 
         repo.flush_writes(true);
@@ -2979,15 +2978,15 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)26);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)26);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Now let's shrink the trampoline removing some descriptors
         // (and reducing the set)
         for (size_t i = 10; i < ids.size(); ++i) {
-            repo.root()->set()->erase(ids[i]);
-            repo.root()->set()->flush_writes();
+            repo.root()->erase(ids[i]);
+            repo.root()->flush_writes();
         }
 
         repo.close();
@@ -3014,7 +3013,7 @@ namespace {
                 // trampoline padding
                 "0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "10dd "
@@ -3077,7 +3076,7 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = repo2.root()->set()->get<DefaultDescriptor>(ids[i]);
+            auto dscptr = repo2.root()->get<DefaultDescriptor>(ids[i]);
             auto data = dscptr->get_data();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3086,8 +3085,8 @@ namespace {
 
         // Let's shrink the trampoline even further
         for (size_t i = 4; i < 10; ++i) {
-            repo2.root()->set()->erase(ids[i]);
-            repo2.root()->set()->flush_writes();
+            repo2.root()->erase(ids[i]);
+            repo2.root()->flush_writes();
         }
 
         repo2.close();
@@ -3112,7 +3111,7 @@ namespace {
                 // trampoline padding
                 "0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "75a0 "
@@ -3139,7 +3138,7 @@ namespace {
                 "0040 0080 0100 0020 "
                 "0080 0100 0010 0080 "
                 "0100 0008 "
-                //  root holder segment (trampoline content):
+                //  root set descriptor segment (trampoline content):
                 //      00001 [1000000000000000] 00001 [0100000000000000]
                 //      00001 [0010000000000000] 00001 [0001000000000000]
                 //      00001 [0000100000000000] (struct: 28 B, data: 40 B)
@@ -3164,7 +3163,7 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < 4; ++i) {
             char c = char('A' + i);
-            auto dscptr = repo3.root()->set()->get<DefaultDescriptor>(ids[i]);
+            auto dscptr = repo3.root()->get<DefaultDescriptor>(ids[i]);
             auto data = dscptr->get_data();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3177,9 +3176,9 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo3.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo3.root()->set()->add(std::move(dscptr), true);
+            auto id = repo3.root()->add(std::move(dscptr), true);
             ids[i] = id;
-            repo3.root()->set()->flush_writes();
+            repo3.root()->flush_writes();
         }
 
         repo3.close();
@@ -3204,7 +3203,7 @@ namespace {
                 // trampoline padding
                 "0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "aed5 "
@@ -3251,7 +3250,7 @@ namespace {
                 "1000 0080 0100 0800 "
                 "0080 0100 0400 0080 "
                 "0100 0200 00c0 0000 "
-                //  root holder segment (trampoline content):
+                //  root set descriptor segment (trampoline content):
                 //      00001 [1000000000000000] 00001 [0100000000000000]
                 //      00001 [0010000000000000] 00001 [0001000000000000]
                 //      00001 [0000100000000000]
@@ -3279,7 +3278,7 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = repo4.root()->set()->get<DefaultDescriptor>(ids[i]);
+            auto dscptr = repo4.root()->get<DefaultDescriptor>(ids[i]);
             auto data = dscptr->get_data();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3292,7 +3291,7 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo4.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo4.root()->set()->add(std::move(dscptr), true);
+            auto id = repo4.root()->add(std::move(dscptr), true);
             ids[i] = id;
             repo4.flush_writes(true);
         }
@@ -3325,7 +3324,7 @@ namespace {
                 // trampoline padding
                 "0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "a0bf "
@@ -3465,7 +3464,7 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < (int)ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = repo5.root()->set()->get<DefaultDescriptor>(ids[i]);
+            auto dscptr = repo5.root()->get<DefaultDescriptor>(ids[i]);
             auto data = dscptr->get_data();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);

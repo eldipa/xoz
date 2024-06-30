@@ -407,8 +407,7 @@ void Repository::init_new_repository(const struct default_parameters_t& defaults
     // (write_trailer will not try to alloc space for a trampoline because the
     // root set of an empty set should fit in the header).
     // Once we call bootstrap_repository() we should be fine.
-    // TODO delete this line (and the warning above): root_set->full_sync(false);
-    root_set->update_header();
+    root_set->full_sync(false);
 
     write_header();
     write_trailer();

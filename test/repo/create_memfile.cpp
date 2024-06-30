@@ -49,9 +49,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and check what we have on disk.
         repo.close();
@@ -68,13 +68,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
@@ -91,7 +91,6 @@ namespace {
                 "454f 4600"
                 );
     }
-
 
     TEST(RepositoryTest, MemCreateNotUsingDefaults) {
         DescriptorMapping dmap({});
@@ -114,9 +113,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and check what we have on disk.
         repo.close();
@@ -133,13 +132,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "c058 "
@@ -185,10 +184,10 @@ namespace {
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
         dscptr->set_data({'A', 'B'});
 
-        repo.root()->set()->add(std::move(dscptr));
+        repo.root()->add(std::move(dscptr));
 
         // Explicit write
-        repo.root()->set()->flush_writes();
+        repo.root()->flush_writes();
 
         // We expect the file has grown
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -205,9 +204,9 @@ namespace {
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)1);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)1);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and reopen and check again
         repo.close();
@@ -224,13 +223,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0184 0800 0184 0080 00c0 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "cb98 "
@@ -270,7 +269,7 @@ namespace {
         dscptr->set_data({'A', 'B'});
 
         // Add a descriptor to the set but do not write the set. Let repo.close() to do it.
-        repo.root()->set()->add(std::move(dscptr));
+        repo.root()->add(std::move(dscptr));
 
         // We expect the file has *not* grown
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -287,9 +286,9 @@ namespace {
 
         // The set was modified but not written: we expect
         // the set to require another write.
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)1);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)true);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)1);
+        EXPECT_EQ(root_set->does_require_write(), (bool)true);
 
         // Close the repo. This should imply a write of the set.
         repo.close();
@@ -306,13 +305,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0184 0800 0184 0080 00c0 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "cb98 "
@@ -352,12 +351,12 @@ namespace {
         dscptr->set_data({'A', 'B'});
 
         // Add a descriptor to the set and write it.
-        auto id1 = repo.root()->set()->add(std::move(dscptr));
-        repo.root()->set()->flush_writes();
+        auto id1 = repo.root()->add(std::move(dscptr));
+        repo.root()->flush_writes();
 
         // Now, remove it.
-        repo.root()->set()->erase(id1);
-        repo.root()->set()->flush_writes();
+        repo.root()->erase(id1);
+        repo.root()->flush_writes();
 
         // Check repository's parameters: the blk array *should* be larger
         // than the initial size
@@ -373,9 +372,9 @@ namespace {
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_holder = repo.root();
-        EXPECT_EQ(root_holder->set()->count(), (uint32_t)0);
-        EXPECT_EQ(root_holder->set()->does_require_write(), (bool)false);
+        auto root_set = repo.root();
+        EXPECT_EQ(root_set->count(), (uint32_t)0);
+        EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and check what we have on disk. Because the descriptor set
         // has some erased data, we can shrink the file during the close.
@@ -393,13 +392,13 @@ namespace {
                 "0000 0000 "                     // feature_flags_incompat
                 "0000 0000 "                     // feature_flags_ro_compat
 
-                // root holder ---------------
+                // root set descriptor ---------------
                 "0108 0000 0000 "
 
-                // holder padding
+                // padding
                 "0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
-                // end of the root holder ----
+                // end of the root set descriptor ----
 
                 // checksum
                 "3f58 "
