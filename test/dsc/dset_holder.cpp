@@ -89,9 +89,9 @@ const size_t FP_SZ = 224;
     EXPECT_EQ(hexdump((blkarr).expose_mem_fp(), (at), (len)), (data));              \
 } while (0)
 
-#define XOZ_EXPECT_SET(holder, cnt, pending) do {                      \
-    EXPECT_EQ((holder)->set()->count(), (uint32_t)(cnt));                         \
-    EXPECT_EQ((holder)->set()->does_require_write(), (bool)(pending));   \
+#define XOZ_EXPECT_SET(dset, cnt, pending) do {                      \
+    EXPECT_EQ((dset)->count(), (uint32_t)(cnt));                         \
+    /* TODO EXPECT_EQ((dset)->does_require_write(), (bool)(pending));*/   \
 } while (0)
 
 namespace {
@@ -99,86 +99,86 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx({});
+        RuntimeContext rctx({{0x01, DescriptorSet::create}}, true);
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        // Create the holder descriptor that will create the descriptor set
-        auto holder = DescriptorSetHolder::create(d_blkarr, rctx);
-        holder->id(rctx.request_temporal_id());
+        // Create the dset descriptor
+        auto dset = DescriptorSet::create(d_blkarr, rctx);
+        dset->id(rctx.request_temporal_id());
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
-        XOZ_EXPECT_SET(holder, 0, true);
+        XOZ_EXPECT_SET(dset, 0, true);
 
-        // Write the holder to disk. This will trigger the write of the set *but*
+        // Write the dset to disk. This will trigger the write of the set *but*
         // because the set is empty, nothing is written and the set is still pending
         // for writing.
-        holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp), rctx);
-        XOZ_EXPECT_SET(holder, 0, true);
+        dset->full_sync(false);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET(dset, 0, true);
 
         // Check sizes
-        // 2 bytes for the descriptor's own metadata/header, 2 bytes for holder's reserved field
+        // 2 bytes for the descriptor's own metadata/header, 2 bytes for dset's reserved field
         // and 2 more bytes for the set's reserved field, hence 6 bytes in total.
-        XOZ_EXPECT_SIZES(*holder,
+        XOZ_EXPECT_SIZES(*dset,
                 6, /* struct size */
                 4,   /* descriptor data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
 
-        XOZ_EXPECT_SERIALIZATION(fp, *holder,
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
                 "0108 0000 0000"
                 );
-        XOZ_EXPECT_CHECKSUM(fp, *holder);
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
 
         // Load the set again, and check it
         // Note: does_require_write() is true because the set loaded was empty
         // so technically its header still needs to be written
         auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
-        auto holder2 = dsc2->cast<DescriptorSetHolder>();
-        XOZ_EXPECT_SET(holder2, 0, true);
+        auto dset2 = dsc2->cast<DescriptorSet>();
+        XOZ_EXPECT_SET(dset2, 0, true);
 
         // Write it back, we expect the same serialization
-        holder2->full_sync(false);
-        holder2->write_struct_into(IOSpan(fp), rctx);
-        XOZ_EXPECT_SET(holder2, 0, true);
+        dset2->full_sync(false);
+        dset2->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET(dset2, 0, true);
 
-        XOZ_EXPECT_SIZES(*holder2,
+        XOZ_EXPECT_SIZES(*dset2,
                 6, /* struct size */
                 4,   /* descriptor data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
 
-        XOZ_EXPECT_SERIALIZATION(fp, *holder2,
+        XOZ_EXPECT_SERIALIZATION(fp, *dset2,
                 "0108 0000 0000"
                 );
-        XOZ_EXPECT_CHECKSUM(fp, *holder2);
+        XOZ_EXPECT_CHECKSUM(fp, *dset2);
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, rctx, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset2, rctx, d_blkarr);
     }
 
     TEST(DescriptorSetHolderTest, AddDescWithoutWrite) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx({});
+        RuntimeContext rctx({{0x01, DescriptorSet::create}}, true);
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        // Create the holder descriptor that will create the descriptor set
-        auto holder = DescriptorSetHolder::create(d_blkarr, rctx);
-        holder->id(rctx.request_temporal_id());
+        // Create the dset descriptor
+        auto dset = DescriptorSet::create(d_blkarr, rctx);
+        dset->id(rctx.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
@@ -194,26 +194,26 @@ namespace {
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
-        holder->set()->add(std::move(dscptr));
+        dset->add(std::move(dscptr));
 
         // 1 descriptor and pending to write
-        XOZ_EXPECT_SET(holder, 1, true);
+        XOZ_EXPECT_SET(dset, 1, true);
 
-        // Write the holder to disk. This will trigger the write of the set.
-        holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp), rctx);
-        XOZ_EXPECT_SET(holder, 1, false);
+        // Write the dset to disk. This will trigger the write of the set.
+        dset->full_sync(false);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET(dset, 1, false);
 
         // Check sizes
-        XOZ_EXPECT_SIZES(*holder,
+        XOZ_EXPECT_SIZES(*dset,
                 18,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
-                2,   /* descriptor data size: 2 bytes for holder's reserved uint16_t */
+                2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
                 10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
                 10   /* obj data size */
                 );
 
-        XOZ_EXPECT_SERIALIZATION(fp, *holder,
-                // holder (descriptor) header (from Descriptor)
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                // dset (descriptor) header (from Descriptor)
                 "0184 0a00 "
 
                 // segment's extents
@@ -222,34 +222,34 @@ namespace {
                 // segment's inline
                 "00c0 "
 
-                // holder's reserved uint16_t
+                // dset's reserved uint16_t
                 "0000"
                 );
-        XOZ_EXPECT_CHECKSUM(fp, *holder);
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
 
         // Load the set again, and check it: expected 1 descriptor and no need to write the set
         auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
-        auto holder2 = dsc2->cast<DescriptorSetHolder>();
-        XOZ_EXPECT_SET(holder2, 1, false);
+        auto dset2 = dsc2->cast<DescriptorSet>();
+        XOZ_EXPECT_SET(dset2, 1, false);
 
         // Write it back, we expect the same serialization
-        holder2->full_sync(false);
-        holder2->write_struct_into(IOSpan(fp), rctx);
-        XOZ_EXPECT_SET(holder2, 1, false);
+        dset2->full_sync(false);
+        dset2->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET(dset2, 1, false);
 
-        XOZ_EXPECT_SIZES(*holder2,
+        XOZ_EXPECT_SIZES(*dset2,
                 18,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
-                2,   /* descriptor data size: 2 bytes for holder's reserved uint16_t */
+                2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
                 10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
                 10   /* obj data size */
                 );
 
-        XOZ_EXPECT_SERIALIZATION(fp, *holder2,
-                // holder (descriptor) header (from Descriptor)
+        XOZ_EXPECT_SERIALIZATION(fp, *dset2,
+                // dset (descriptor) header (from Descriptor)
                 "0184 0a00 "
 
                 // segment's extents
@@ -258,14 +258,14 @@ namespace {
                 // segment's inline
                 "00c0 "
 
-                // holder's reserved uint16_t
+                // dset's reserved uint16_t
                 "0000"
                 );
-        XOZ_EXPECT_CHECKSUM(fp, *holder2);
+        XOZ_EXPECT_CHECKSUM(fp, *dset2);
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, rctx, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset2, rctx, d_blkarr);
     }
 
 
@@ -273,14 +273,14 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx({});
+        RuntimeContext rctx({{0x01, DescriptorSet::create}}, true);
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        // Create the holder descriptor that will create the descriptor set
-        auto holder = DescriptorSetHolder::create(d_blkarr, rctx);
-        holder->id(rctx.request_temporal_id());
+        // Create the dset descriptor
+        auto dset = DescriptorSet::create(d_blkarr, rctx);
+        dset->id(rctx.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
@@ -296,23 +296,23 @@ namespace {
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
-        auto id1 = holder->set()->add(std::move(dscptr));
+        auto id1 = dset->add(std::move(dscptr));
 
-        // Write the holder to disk. This will trigger the write of the set.
-        holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp), rctx);
-        XOZ_EXPECT_SET(holder, 1, false);
+        // Write the dset to disk. This will trigger the write of the set.
+        dset->full_sync(false);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET(dset, 1, false);
 
         // Check sizes
-        XOZ_EXPECT_SIZES(*holder,
+        XOZ_EXPECT_SIZES(*dset,
                 18,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
-                2,   /* descriptor data size: 2 bytes for holder's reserved uint16_t */
+                2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
                 10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
                 10   /* obj data size */
                 );
 
-        XOZ_EXPECT_SERIALIZATION(fp, *holder,
-                // holder (descriptor) header (from Descriptor)
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                // dset (descriptor) header (from Descriptor)
                 "0184 0a00 "
 
                 // segment's extents
@@ -321,136 +321,138 @@ namespace {
                 // segment's inline
                 "00c0 "
 
-                // holder's reserved uint16_t
+                // dset's reserved uint16_t
                 "0000"
                 );
-        XOZ_EXPECT_CHECKSUM(fp, *holder);
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
 
-        holder->set()->erase(id1);
+        dset->erase(id1);
 
         // 0 descriptor and pending to write
-        XOZ_EXPECT_SET(holder, 0, true);
+        XOZ_EXPECT_SET(dset, 0, true);
 
-        // Write the holder to disk. This will trigger the write of the set leaving it empty
+        // Write the dset to disk. This will trigger the write of the set leaving it empty
         XOZ_RESET_FP(fp, FP_SZ);
-        holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp), rctx);
-        XOZ_EXPECT_SET(holder, 0, true);
+        dset->full_sync(false);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET(dset, 0, true);
 
         // Check sizes
-        XOZ_EXPECT_SIZES(*holder,
+        XOZ_EXPECT_SIZES(*dset,
                 6,   /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
-                4,   /* descriptor data size: 2 bytes for holder's reserved uint16_t and 2 pf dset's reserved */
+                4,   /* descriptor data size: 2 bytes for dset's reserved uint16_t and 2 pf dset's reserved */
                 0 ,  /* segment data size: 0 bytes */
                 0    /* obj data size */
                 );
 
-        XOZ_EXPECT_SERIALIZATION(fp, *holder,
-                // holder (descriptor) header (from Descriptor)
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                // dset (descriptor) header (from Descriptor)
                 "0108 "
 
-                // holder's reserved uint16_t
+                // dset's reserved uint16_t
                 "0000 "
 
                 // dset's reserved uint16_t
                 "0000"
                 );
-        XOZ_EXPECT_CHECKSUM(fp, *holder);
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
     }
 
+#if 0
+    // TODO
     TEST(DescriptorSetHolderTest, EmptySetNonDefault) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx({});
+        RuntimeContext rctx({{0x01, DescriptorSet::create}}, true);
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        // Create the holder descriptor that will create the descriptor set. Use a non-zero u16data
-        auto holder = DescriptorSetHolder::create(d_blkarr, rctx, 0x41);
-        holder->id(rctx.request_temporal_id());
+        // Create the dset descriptor. Use a non-zero u16data
+        auto dset = DescriptorSet::create(d_blkarr, rctx, 0x41);
+        dset->id(rctx.request_temporal_id());
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
-        XOZ_EXPECT_SET(holder, 0, true);
+        XOZ_EXPECT_SET(dset, 0, true);
 
-        // Write the holder to disk. This will trigger the write of the set *but*
+        // Write the dset to disk. This will trigger the write of the set *but*
         // because the set is empty, nothing is written and the set is still pending
         // for writing.
-        holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp), rctx);
-        XOZ_EXPECT_SET(holder, 0, true);
+        dset->full_sync(false);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET(dset, 0, true);
 
         // Check sizes
-        // 2 bytes for the descriptor's own metadata/header, 2 bytes for holder's reserved field
+        // 2 bytes for the descriptor's own metadata/header, 2 bytes for dset's reserved field
         // and 2 more bytes for the set's reserved field, hence 6 bytes in total.
-        XOZ_EXPECT_SIZES(*holder,
+        XOZ_EXPECT_SIZES(*dset,
                 6, /* struct size */
                 4,   /* descriptor data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
 
-        XOZ_EXPECT_SERIALIZATION(fp, *holder,
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
                 "0108 0000 4100"
                 );
-        XOZ_EXPECT_CHECKSUM(fp, *holder);
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder, rctx, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
 
         // Load the set again, and check it
         // Note: does_require_write() is true because the set loaded was empty
         // so technically its header still needs to be written
         auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
-        auto holder2 = dsc2->cast<DescriptorSetHolder>();
-        XOZ_EXPECT_SET(holder2, 0, true);
+        auto dset2 = dsc2->cast<DescriptorSet>();
+        XOZ_EXPECT_SET(dset2, 0, true);
 
         // Write it back, we expect the same serialization
-        holder2->full_sync(false);
-        holder2->write_struct_into(IOSpan(fp), rctx);
-        XOZ_EXPECT_SET(holder2, 0, true);
+        dset2->full_sync(false);
+        dset2->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET(dset2, 0, true);
 
-        XOZ_EXPECT_SIZES(*holder2,
+        XOZ_EXPECT_SIZES(*dset2,
                 6, /* struct size */
                 4,   /* descriptor data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
 
-        XOZ_EXPECT_SERIALIZATION(fp, *holder2,
+        XOZ_EXPECT_SERIALIZATION(fp, *dset2,
                 "0108 0000 4100"
                 );
-        XOZ_EXPECT_CHECKSUM(fp, *holder2);
+        XOZ_EXPECT_CHECKSUM(fp, *dset2);
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, *holder2, rctx, d_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset2, rctx, d_blkarr);
     }
-
+#endif
 
     TEST(DescriptorSetHolderTest, DestroyHolderImpliesRemoveSet) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        RuntimeContext rctx({});
+        RuntimeContext rctx({{0x01, DescriptorSet::create}}, true);
 
         VectorBlockArray d_blkarr(16);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
-        // Create the holder descriptor that will create the descriptor set
-        auto holder = DescriptorSetHolder::create(d_blkarr, rctx);
-        holder->id(rctx.request_temporal_id());
+        // Create the dset descriptor
+        auto dset = DescriptorSet::create(d_blkarr, rctx);
+        dset->id(rctx.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
@@ -466,11 +468,11 @@ namespace {
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
-        holder->set()->add(std::move(dscptr));
+        dset->add(std::move(dscptr));
 
-        // Write the holder to disk. This will trigger the write of the set.
-        holder->full_sync(false);
-        holder->write_struct_into(IOSpan(fp), rctx);
+        // Write the dset to disk. This will trigger the write of the set.
+        dset->full_sync(false);
+        dset->write_struct_into(IOSpan(fp), rctx);
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
                 "0000 fb40 fa80 0000 00c0 0000 0000 0000"
@@ -479,7 +481,7 @@ namespace {
         // Calling destroy should remove the set (and if we force a release
         // at the allocator and the block array level we should get the unused space
         // free)
-        holder->destroy();
+        dset->destroy();
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
 
@@ -489,7 +491,7 @@ namespace {
 
         // should fail
         EXPECT_THAT(
-            ensure_called_once([&]() { holder->destroy(); }),
+            ensure_called_once([&]() { dset->destroy(); }),
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(

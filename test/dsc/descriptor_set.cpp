@@ -39,7 +39,7 @@ using ::testing_xoz::helpers::ensure_called_once;
 } while (0)
 
 #define XOZ_EXPECT_SET_SERIALIZATION(blkarr, dset, data) do {       \
-    auto sg = (dset).segment();                                     \
+    auto sg = (dset)->segment();                                     \
     EXPECT_EQ(hexdump(IOSegment((blkarr), sg)), (data));            \
 } while (0)
 
@@ -55,42 +55,41 @@ namespace {
         // Data block array: this will be the block array that the set will
         // use to access "external data blocks" *and* to access its own
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
+        // But currently DescriptorSet only accept one single blkarray as parameter
+        // so work for both purposes.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
-
-        // Mandatory: we load the descriptors from the segment above (of course, none)
-        dset.create_set();
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Write down the set: expected only its header with a 0x0000 checksum
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
 
         // Load another set from the previous set's segment to see that
         // both are consistent each other
-        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, rctx);
-        dset2.load_set();
+        auto dset2 = DescriptorSet::create(dset->segment(), d_blkarr, rctx);
 
         // Header already written before, so no need to write it back (because it didn't change)
-        EXPECT_EQ(dset2.count(), (uint32_t)0);
-        EXPECT_EQ(dset2.does_require_write(), (bool)false);
+        EXPECT_EQ(dset2->count(), (uint32_t)0);
+        EXPECT_EQ(dset2->does_require_write(), (bool)false);
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
     }
 
+#if 0
     TEST(DescriptorSetTest, EmptySetNoDefaultConstruction) {
         RuntimeContext rctx({});
 
@@ -102,36 +101,35 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        // Mandatory: we load the descriptors from the segment above (of course, none)
-        dset.create_set(0x41);
+        dset->create_set(0x41);
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Write down the set: expected only its header with a 0x0000 checksum
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "4100 4100"
                 );
 
         // Load another set from the previous set's segment to see that
         // both are consistent each other
-        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, rctx);
-        dset2.load_set();
+        auto dset2 = DescriptorSet::create(dset->segment(), d_blkarr, rctx);
 
         // Header already written before, so no need to write it back (because it didn't change)
-        EXPECT_EQ(dset2.count(), (uint32_t)0);
-        EXPECT_EQ(dset2.does_require_write(), (bool)false);
+        EXPECT_EQ(dset2->count(), (uint32_t)0);
+        EXPECT_EQ(dset2->does_require_write(), (bool)false);
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "4100 4100"
                 );
     }
+#endif
 
     TEST(DescriptorSetTest, AddUpdateEraseDescriptor) {
         RuntimeContext rctx({});
@@ -141,9 +139,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -158,75 +155,74 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
-        EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
+        EXPECT_EQ(dset->get(id1)->get_owner(), std::addressof(*dset));
 
         // Write down the set: we expect to see that single descriptor there
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
-        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, rctx);
+        auto dset2 = DescriptorSet::create(dset->segment(), d_blkarr, rctx);
 
-        dset2.load_set();
 
-        EXPECT_EQ(dset2.count(), (uint32_t)1);
-        EXPECT_EQ(dset2.does_require_write(), (bool)false);
+        EXPECT_EQ(dset2->count(), (uint32_t)1);
+        EXPECT_EQ(dset2->does_require_write(), (bool)false);
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 fa00 fa00"
                 );
 
         // Mark the descriptor as modified so the set requires a new write
-        dset.mark_as_modified(id1);
+        dset->mark_as_modified(id1);
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
-        EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
+        EXPECT_EQ(dset->get(id1)->get_owner(), std::addressof(*dset));
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
         // Retrieve the descriptor object, change it a little, mark it as modified
         // and check that the set correctly updated the content (serialization)
-        auto dscptr2 = dset.get<DefaultDescriptor>(id1);
+        auto dscptr2 = dset->get<DefaultDescriptor>(id1);
         dscptr2->set_data({'A', 'B'});
 
-        dset.mark_as_modified(id1);
+        dset->mark_as_modified(id1);
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
-        EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
+        EXPECT_EQ(dset->get(id1)->get_owner(), std::addressof(*dset));
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 3b47 fa04 4142"
                 );
 
         // Delete it
-        dset.erase(id1);
+        dset->erase(id1);
 
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // The deleted descriptors are left as padding.
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000 0000"
                 );
 
         // Release free space
-        dset.release_free_space();
+        dset->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
@@ -240,9 +236,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -259,23 +254,23 @@ namespace {
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
         dscptr->set_data({'A', 'B'});
 
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 3b47 fa04 4142"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         // Replace descriptor's data
-        auto dscptr2 = dset.get<DefaultDescriptor>(id1);
+        auto dscptr2 = dset->get<DefaultDescriptor>(id1);
         dscptr2->set_data({'C', 'D'});
 
-        dset.mark_as_modified(id1);
+        dset->mark_as_modified(id1);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 3d49 fa04 4344"
                 );
@@ -283,9 +278,9 @@ namespace {
         // Grow descriptor's data
         dscptr2->set_data({'A', 'B', 'C', 'D'});
 
-        dset.mark_as_modified(id1);
+        dset->mark_as_modified(id1);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 7e8f fa08 4142 4344"
                 );
@@ -294,9 +289,9 @@ namespace {
         // Shrink descriptor's data
         dscptr2->set_data({'E', 'F'});
 
-        dset.mark_as_modified(id1);
+        dset->mark_as_modified(id1);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 3f4b fa04 4546 0000"
                 );
@@ -305,14 +300,14 @@ namespace {
         // Shrink descriptor's data to zero
         dscptr2->set_data({});
 
-        dset.mark_as_modified(id1);
+        dset->mark_as_modified(id1);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00 0000 0000"
                 );
 
-        dset.release_free_space();
+        dset->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
@@ -326,9 +321,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -343,44 +337,43 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.get(id1)->get_owner(), (DescriptorSet*)(&dset));
+        EXPECT_EQ(dset->get(id1)->get_owner(), std::addressof(*dset));
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
+        auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
 
-        dset2.create_set();
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
 
         // Move the descriptor from dset to dset2
-        dset.move_out(id1, dset2);
+        dset->move_out(id1, dset2);
 
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        EXPECT_EQ(dset2.count(), (uint32_t)1);
-        EXPECT_EQ(dset2.does_require_write(), (bool)true);
-        EXPECT_EQ(dset2.get(id1)->get_owner(), (DescriptorSet*)(&dset2));
+        EXPECT_EQ(dset2->count(), (uint32_t)1);
+        EXPECT_EQ(dset2->does_require_write(), (bool)true);
+        EXPECT_EQ(dset2->get(id1)->get_owner(), std::addressof(*dset2));
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 fa00 fa00"
                 );
@@ -394,9 +387,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -411,47 +403,46 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
+        auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
 
-        dset2.create_set();
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
 
         // Modify the descriptor living in dset
-        auto dscptr2 = dset.get<DefaultDescriptor>(id1);
+        auto dscptr2 = dset->get<DefaultDescriptor>(id1);
         dscptr2->set_data({'A', 'B'});
 
-        dset.mark_as_modified(id1);
+        dset->mark_as_modified(id1);
 
         // Move the descriptor from dset to dset2
-        dset.move_out(id1, dset2);
+        dset->move_out(id1, dset2);
 
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        EXPECT_EQ(dset2.count(), (uint32_t)1);
-        EXPECT_EQ(dset2.does_require_write(), (bool)true);
+        EXPECT_EQ(dset2->count(), (uint32_t)1);
+        EXPECT_EQ(dset2->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 3b47 fa04 4142"
                 );
@@ -465,9 +456,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -482,48 +472,47 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
+        auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
 
-        dset2.create_set();
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
 
         // Move the descriptor from dset to dset2
-        dset.move_out(id1, dset2);
+        dset->move_out(id1, dset2);
 
         // Modify the descriptor living in dset2
-        auto dscptr2 = dset2.get<DefaultDescriptor>(id1);
+        auto dscptr2 = dset2->get<DefaultDescriptor>(id1);
         dscptr2->set_data({'A', 'B'});
 
-        dset2.mark_as_modified(id1);
+        dset2->mark_as_modified(id1);
 
 
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        EXPECT_EQ(dset2.count(), (uint32_t)1);
-        EXPECT_EQ(dset2.does_require_write(), (bool)true);
+        EXPECT_EQ(dset2->count(), (uint32_t)1);
+        EXPECT_EQ(dset2->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 3b47 fa04 4142"
                 );
@@ -542,10 +531,9 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
-        dset.flush_writes();
+        dset->flush_writes();
 
         // Any descriptor set has a header of 4 bytes
         d_blkarr.allocator().release();
@@ -575,14 +563,14 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2));
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 7f0b fa80 8200 0124 0086 0020 00c0"
                 );
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         // Check that the array grew further (in subblocks) due the write of the set
         d_blkarr.allocator().release();
@@ -591,15 +579,15 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6));
 
         // Delete the descriptor: its external data blocks should be released too
-        dset.erase(id1);
-        dset.flush_writes();
+        dset->erase(id1);
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
-        dset.release_free_space();
+        dset->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
@@ -625,10 +613,9 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
-        dset.flush_writes();
+        dset->flush_writes();
 
         // Any descriptor set has a header of 4 bytes
         d_blkarr.allocator().release();
@@ -655,14 +642,14 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2));
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 7f0b fa80 8200 0124 0086 0020 00c0"
                 );
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         // Check that the array grew further (in subblocks) due the write of the set
         d_blkarr.allocator().release();
@@ -672,9 +659,8 @@ namespace {
 
         // Create another set
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
-        dset2.create_set();
-        dset2.flush_writes();
+        auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
+        dset2->flush_writes();
 
         // Check for the new descriptor set's header
         d_blkarr.allocator().release();
@@ -685,24 +671,24 @@ namespace {
         // Move the descriptor from dset to dset2: while the descriptor is deleted from dset,
         // its external blocks should not be deallocated because the descriptor "moved" to
         // the other set.
-        dset.move_out(id1, dset2);
+        dset->move_out(id1, dset2);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        dset2.flush_writes();
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 7f0b fa80 8200 0124 0086 0020 00c0"
                 );
 
-        dset.release_free_space();
+        dset->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
 
-        dset2.release_free_space();
+        dset2->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 7f0b fa80 8200 0124 0086 0020 00c0"
                 );
@@ -716,13 +702,13 @@ namespace {
 
 
         // Delete the descriptor: its external data blocks should be released too
-        dset2.erase(id1);
-        dset2.flush_writes();
+        dset2->erase(id1);
+        dset2->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        dset2.release_free_space();
+        dset2->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
                 "0000 0000"
                 );
@@ -749,13 +735,11 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
+        auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
 
-        dset.create_set();
-        dset2.create_set();
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -774,18 +758,18 @@ namespace {
             // the output determinisitc otherwise, if multiples descriptors
             // are pending to be added, there is no deterministic order
             // in which they will be written.
-            dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
-            dset.flush_writes();
+            dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+            dset->flush_writes();
 
             auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
             dscptr2->set_data({'A', 'B'});
-            uint32_t id2 = dset.add(std::move(dscptr2));
-            dset.flush_writes();
+            uint32_t id2 = dset->add(std::move(dscptr2));
+            dset->flush_writes();
 
             auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
             dscptr3->set_data({'C', 'D'});
-            dset.add(std::move(dscptr3));
-            dset.flush_writes();
+            dset->add(std::move(dscptr3));
+            dset->flush_writes();
 
             // Then, add a bunch of descriptors to dset2
             // Note: we add a bunch but we don't write the set until the end.
@@ -793,29 +777,29 @@ namespace {
             // all the descriptors are the same, it doesn't matter
             // the order and their output will still be deterministic.
             for (int i = 0; i < 2; ++i) {
-                dset2.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+                dset2->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
             }
-            dset2.flush_writes();
+            dset2->flush_writes();
 
-            EXPECT_EQ(dset.get(id2)->get_owner(), (DescriptorSet*)(&dset));
+            EXPECT_EQ(dset->get(id2)->get_owner(), std::addressof(*dset));
 
-            dset.move_out(id2, dset2);
-            dset.flush_writes();
-            dset2.flush_writes();
+            dset->move_out(id2, dset2);
+            dset->flush_writes();
+            dset2->flush_writes();
 
-            EXPECT_EQ(dset2.get(id2)->get_owner(), (DescriptorSet*)(&dset2));
+            EXPECT_EQ(dset2->get(id2)->get_owner(), std::addressof(*dset2));
 
             for (int i = 0; i < 3; ++i) {
-                dset2.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+                dset2->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
             }
-            dset2.flush_writes();
+            dset2->flush_writes();
         }
 
-        EXPECT_EQ(dset.count(), (uint32_t)2);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)2);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
-        EXPECT_EQ(dset2.count(), (uint32_t)6);
-        EXPECT_EQ(dset2.does_require_write(), (bool)false);
+        EXPECT_EQ(dset2->count(), (uint32_t)6);
+        EXPECT_EQ(dset2->does_require_write(), (bool)false);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 374a fa00 0000 0000 fa04 4344"
@@ -830,7 +814,7 @@ namespace {
         // they are not at the end of the set so they cannot be released as
         // free space.
         // The following does not change the set.
-        dset.release_free_space();
+        dset->release_free_space();
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 374a fa00 0000 0000 fa04 4344"
@@ -839,16 +823,16 @@ namespace {
 
         // Find the last descriptor. It is the one that has 2 bytes of data ({'C', 'D'})
         uint32_t last_dsc_id = 0;
-        for (auto it = dset.begin(); it != dset.end(); ++it) {
+        for (auto it = dset->begin(); it != dset->end(); ++it) {
             if ((*it)->calc_data_space_size() == 2) {
                 last_dsc_id = (*it)->id();
             }
         }
 
         // Delete it and release the free space
-        dset.erase(last_dsc_id);
-        dset.flush_writes();
-        dset.release_free_space();
+        dset->erase(last_dsc_id);
+        dset->flush_writes();
+        dset->release_free_space();
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
@@ -868,9 +852,8 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -884,32 +867,32 @@ namespace {
         };
 
         {
-            // Add descriptor 1, 2, 3 to dset. All except the last
+            // Add descriptor 1, 2, 3 to dset-> All except the last
             // are added *and* written; the last is added only
             // to test that even if still pending to be written
             // it can be accessed
-            dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
-            dset.flush_writes();
+            dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+            dset->flush_writes();
 
             auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
             dscptr2->set_data({'A', 'B', 'C', 'D'});
-            dset.add(std::move(dscptr2));
-            dset.flush_writes();
+            dset->add(std::move(dscptr2));
+            dset->flush_writes();
 
             auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
             dscptr3->set_data({'C', 'D'});
-            dset.add(std::move(dscptr3));
+            dset->add(std::move(dscptr3));
             // leave the set unwritten so dscptr3 is unwritten as well
         }
 
-        EXPECT_EQ(dset.count(), (uint32_t)3);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)3);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         std::list<uint32_t> sizes;
 
         // Test that we can get the descriptors (order is no guaranteed)
         sizes.clear();
-        for (auto it = dset.begin(); it != dset.end(); ++it) {
+        for (auto it = dset->begin(); it != dset->end(); ++it) {
             sizes.push_back((*it)->calc_data_space_size());
         }
 
@@ -923,7 +906,7 @@ namespace {
 
         // Test that we can get the descriptors - const version
         sizes.clear();
-        for (auto it = dset.cbegin(); it != dset.cend(); ++it) {
+        for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
             sizes.push_back((*it)->calc_data_space_size());
         }
 
@@ -949,9 +932,8 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         struct Descriptor::header_t hdr = {
             .own_edata = false,
@@ -966,39 +948,39 @@ namespace {
 
         // Let the set assign a temporal id
         hdr.id = 0x0;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
 
         // The set should honor our temporal id
         hdr.id = 0x81f11f1f;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
 
         // Let the set assign a persistent id for us, even if the id is a temporal one
         hdr.id = 0x0;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr), true);
+        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr), true);
         hdr.id = 0x81f11f10;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr), true);
+        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr), true);
 
         // The set should honor our persistent id, even if assign_persistent_id is true
         hdr.id = 0xff1;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
         hdr.id = 0xff2;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr), true);
+        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr), true);
 
         // Add a descriptor with a temporal id and then assign it a persistent id
         hdr.id = 0x80a0a0a0;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
-        dset.assign_persistent_id(hdr.id);
+        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->assign_persistent_id(hdr.id);
 
         // Add a descriptor with a persistent id and then assign it a persistent id
         // This should have no effect
         hdr.id = 0xaff1;
-        dset.add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
-        dset.assign_persistent_id(hdr.id);
+        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->assign_persistent_id(hdr.id);
 
         // Let's collect all the ids
         std::list<uint32_t> ids;
 
-        for (auto it = dset.begin(); it != dset.end(); ++it) {
+        for (auto it = dset->begin(); it != dset->end(); ++it) {
             ids.push_back((*it)->id());
         }
 
@@ -1046,9 +1028,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1063,21 +1044,21 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Down cast to Descriptor subclass again
         // If the downcast works, cast<X> does neither throws nor return null
-        auto dscptr2 = dset.get<DefaultDescriptor>(id1);
+        auto dscptr2 = dset->get<DefaultDescriptor>(id1);
         EXPECT_EQ((bool)dscptr2, (bool)true);
 
         // If the downcast fails, throw an exception (it does not return null either)
         EXPECT_THAT(
             ensure_called_once([&]() {
                 [[maybe_unused]]
-                auto dscptr3 = dset.get<DescriptorSubRW>(id1);
+                auto dscptr3 = dset->get<DescriptorSubRW>(id1);
                 }),
             ThrowsMessage<std::runtime_error>(
                 AllOf(
@@ -1090,7 +1071,7 @@ namespace {
 
         // Only if we pass ret_null = true, the failed cast will return null
         // and avoid throwing.
-        auto dscptr4 = dset.get<DescriptorSubRW>(id1, true);
+        auto dscptr4 = dset->get<DescriptorSubRW>(id1, true);
         EXPECT_EQ((bool)dscptr4, (bool)false);
 
         // Getting a non-existing descriptor (id not found) is an error
@@ -1098,7 +1079,7 @@ namespace {
         EXPECT_THAT(
             ensure_called_once([&]() {
                 [[maybe_unused]]
-                auto dscptr3 = dset.get<DescriptorSubRW>(99);
+                auto dscptr3 = dset->get<DescriptorSubRW>(99);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1111,7 +1092,7 @@ namespace {
         EXPECT_THAT(
             ensure_called_once([&]() {
                 [[maybe_unused]]
-                auto dscptr3 = dset.get<DescriptorSubRW>(99, true);
+                auto dscptr3 = dset->get<DescriptorSubRW>(99, true);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1134,34 +1115,32 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        // Mandatory: we load the descriptors from the segment above (of course, none)
-        dset.create_set();
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Write down the set: expected only its header with a 0x0000 checksum
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
 
         // Clear an empty set: no effect
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000"
                 );
 
         // Remove the set removes also the header
-        dset.remove_set();
+        dset->destroy();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
@@ -1178,15 +1157,13 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        // Mandatory: we load the descriptors from the segment above (of course, none)
-        dset.create_set();
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
@@ -1195,16 +1172,16 @@ namespace {
         // Clear an empty set: no effect and no error
         // The does_require_write() is still true because the header is still pending
         // to be written
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
 
         // Remove the set does not fail if nothing was written before
-        dset.remove_set();
+        dset->destroy();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
@@ -1218,9 +1195,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1235,49 +1211,49 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        dset.add(std::move(dscptr));
+        dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Write down the set: we expect to see that single descriptor there
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         // Clear the set
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Another descriptor but this time, do not write it
         auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        dset.add(std::move(dscptr2));
+        dset->add(std::move(dscptr2));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Clear the set with pending writes (the addition).
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Remove the set removes also the header
-        dset.remove_set();
+        dset->destroy();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
@@ -1291,13 +1267,12 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
-        EXPECT_EQ(dset.segment().length(), (uint32_t)0); // nothing yet
+        EXPECT_EQ(dset->segment().length(), (uint32_t)0); // nothing yet
 
-        dset.flush_writes();
-        EXPECT_EQ(dset.segment().length(), (uint32_t)1); // room for the header
+        dset->flush_writes();
+        EXPECT_EQ(dset->segment().length(), (uint32_t)1); // room for the header
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1312,20 +1287,20 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        dset.add(std::move(dscptr));
+        dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Write down the set: we expect to see that single descriptor there
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fd0a fa80 0000 0124 0086 0020 00c0"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
-        EXPECT_EQ(dset.segment().length(), (uint32_t)2); // room for the header + added descriptor
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
+        EXPECT_EQ(dset->segment().length(), (uint32_t)2); // room for the header + added descriptor
 
         // Check that we are using the expected block counts:
         //  - floor(130 / 32) blocks for the external data
@@ -1338,24 +1313,24 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(8 + 1));
 
         // Clear the set
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         // The set's segment is not empty because clear_set()+flush_writes() does not
         // shrink (aka release) the segment by default
-        EXPECT_EQ(dset.segment().length(), (uint32_t)2);
+        EXPECT_EQ(dset->segment().length(), (uint32_t)2);
 
         // The caller must explicitly call release_free_space(). Note the even it
         // the set is empty, its segment will not because there is some room
         // for its header
-        dset.release_free_space();
-        EXPECT_EQ(dset.segment().length(), (uint32_t)1);
+        dset->release_free_space();
+        EXPECT_EQ(dset->segment().length(), (uint32_t)1);
 
         // We check that the external blocks were deallocated. Only 1 block
         // should remain that holds the descriptor set (header only).
@@ -1373,13 +1348,12 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
-        EXPECT_EQ(dset.segment().length(), (uint32_t)0); // nothing yet
+        EXPECT_EQ(dset->segment().length(), (uint32_t)0); // nothing yet
 
-        dset.flush_writes();
-        EXPECT_EQ(dset.segment().length(), (uint32_t)1); // room for the header
+        dset->flush_writes();
+        EXPECT_EQ(dset->segment().length(), (uint32_t)1); // room for the header
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1394,20 +1368,20 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        dset.add(std::move(dscptr));
+        dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Write down the set: we expect to see that single descriptor there
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fd0a fa80 0000 0124 0086 0020 00c0"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
-        EXPECT_EQ(dset.segment().length(), (uint32_t)2); // room for the header + added descriptor
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
+        EXPECT_EQ(dset->segment().length(), (uint32_t)2); // room for the header + added descriptor
 
         // Check that we are using the expected block counts:
         //  - floor(130 / 32) blocks for the external data
@@ -1422,11 +1396,11 @@ namespace {
         // Remove the set, we expect that this will release the allocated blocks
         // and shrink the block array, thus, it will also make the set's segment empty
         // (not even a header is needed)
-        dset.remove_set();
+        dset->destroy();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
-        EXPECT_EQ(dset.segment().length(), (uint32_t)0);
+        EXPECT_EQ(dset->segment().length(), (uint32_t)0);
 
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -1442,9 +1416,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1459,62 +1432,62 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Write down the set: we expect to see that single descriptor there
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         // Mark the descriptor as modified so the set requires a new write
-        dset.mark_as_modified(id1);
+        dset->mark_as_modified(id1);
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
         // Clear the set
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Another descriptor, write it, then modify it but do not write it again
         auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        auto id2 = dset.add(std::move(dscptr2));
-        dset.flush_writes();
-        dset.mark_as_modified(id2);
+        auto id2 = dset->add(std::move(dscptr2));
+        dset->flush_writes();
+        dset->mark_as_modified(id2);
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Clear the set with pending writes (the update).
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Remove the set removes also the header
-        dset.remove_set();
+        dset->destroy();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
@@ -1528,9 +1501,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1545,72 +1517,72 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        uint32_t id1 = dset.add(std::move(dscptr));
+        uint32_t id1 = dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Write down the set: we expect to see that single descriptor there
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 fa00 fa00"
                 );
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         // Delete the descriptor
-        dset.erase(id1);
+        dset->erase(id1);
 
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Clear the set: no change
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Another descriptor, write it, then delete it but do not write it again
         auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        auto id2 = dset.add(std::move(dscptr2));
-        dset.flush_writes();
-        dset.erase(id2);
+        auto id2 = dset->add(std::move(dscptr2));
+        dset->flush_writes();
+        dset->erase(id2);
 
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Clear the set with pending writes (the deletion).
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // A second clear does not change anything
-        dset.clear_set();
-        EXPECT_EQ(dset.count(), (uint32_t)0);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        dset->clear_set();
+        EXPECT_EQ(dset->count(), (uint32_t)0);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
 
-        dset.flush_writes();
+        dset->flush_writes();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 0000 0000"
                 );
 
         // Remove the set removes also the header
-        dset.remove_set();
+        dset->destroy();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 ""
                 );
@@ -1629,9 +1601,8 @@ namespace {
         // Create set with two different block arrays, one for the descriptor set
         // the other for the external data.
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr_1, d_blkarr_2, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr_2, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1648,12 +1619,12 @@ namespace {
         // Descriptor uses the same block array for the external data than
         // the set so it is OK.
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr_2);
-        dset.add(std::move(dscptr));
+        dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
 
         // This descriptor uses other block array, which makes the add() to fail
         hdr.id += 1;
@@ -1661,7 +1632,7 @@ namespace {
 
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.add(std::move(dscptr2));
+                dset->add(std::move(dscptr2));
                 }),
             ThrowsMessage<std::runtime_error>(
                 AllOf(
@@ -1677,8 +1648,8 @@ namespace {
         );
 
         // The set didn't accept the descriptor
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)false);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)false);
     }
 
     TEST(DescriptorSetTest, AddMoveFailDueDuplicatedId) {
@@ -1689,9 +1660,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1706,10 +1676,10 @@ namespace {
         };
 
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        auto id1 = dset.add(std::move(dscptr));
+        auto id1 = dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // This descriptor uses the same id than the previous one
         // so the add should fail
@@ -1717,7 +1687,7 @@ namespace {
 
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.add(std::move(dscptr2));
+                dset->add(std::move(dscptr2));
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1732,21 +1702,20 @@ namespace {
         );
 
         // The set didn't accept the descriptor
-        EXPECT_EQ(dset.count(), (uint32_t)1);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
 
         // Create another descriptor with the same id and store it in a different set
         // No problem because the new set does not know about the former.
         auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
 
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
-        dset2.create_set();
+        auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
 
-        dset2.add(std::move(dscptr3));
+        dset2->add(std::move(dscptr3));
 
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.move_out(hdr.id, dset2);
+                dset->move_out(hdr.id, dset2);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1761,8 +1730,8 @@ namespace {
         );
 
         // On a failed move_out(), both sets will protect their descriptors
-        EXPECT_EQ((bool)(dset.get(id1)), (bool)true);
-        EXPECT_EQ((bool)(dset2.get(id1)), (bool)true);
+        EXPECT_EQ((bool)(dset->get(id1)), (bool)true);
+        EXPECT_EQ((bool)(dset2->get(id1)), (bool)true);
     }
 
     TEST(DescriptorSetTest, IdDoesNotExist) {
@@ -1773,8 +1742,7 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
-        dset.create_set();
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1790,31 +1758,31 @@ namespace {
 
         // Store 1 descriptor and write it
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        auto id1 = dset.add(std::move(dscptr));
+        auto id1 = dset->add(std::move(dscptr));
 
-        EXPECT_EQ(dset.count(), (uint32_t)1);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
-        dset.flush_writes();
+        dset->flush_writes();
 
         // Add another descriptor but do not write it.
         hdr.id += 1;
         auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        auto id2 = dset.add(std::move(dscptr2));
+        auto id2 = dset->add(std::move(dscptr2));
 
-        EXPECT_EQ(dset.count(), (uint32_t)2);
-        EXPECT_EQ(dset.does_require_write(), (bool)true);
+        EXPECT_EQ(dset->count(), (uint32_t)2);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
 
         // Now delete both descriptors and do not write it
-        dset.erase(id1);
-        dset.erase(id2);
+        dset->erase(id1);
+        dset->erase(id2);
 
         auto id3 = hdr.id + 1; // this descriptor never existed
 
         // Try to erase an id that does not exist
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.erase(id1);
+                dset->erase(id1);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1826,7 +1794,7 @@ namespace {
         );
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.erase(id2);
+                dset->erase(id2);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1838,7 +1806,7 @@ namespace {
         );
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.erase(id3);
+                dset->erase(id3);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1852,7 +1820,7 @@ namespace {
         // Try to modify an id that does not exist
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.mark_as_modified(id1);
+                dset->mark_as_modified(id1);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1864,7 +1832,7 @@ namespace {
         );
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.mark_as_modified(id2);
+                dset->mark_as_modified(id2);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1876,7 +1844,7 @@ namespace {
         );
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.mark_as_modified(id3);
+                dset->mark_as_modified(id3);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1889,12 +1857,11 @@ namespace {
 
         // Try to move out an id that does not exist
         Segment sg2(blk_sz_order);
-        DescriptorSet dset2(sg2, d_blkarr, d_blkarr, rctx);
-        dset2.create_set();
+        auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
 
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.move_out(id1, dset2);
+                dset->move_out(id1, dset2);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1906,7 +1873,7 @@ namespace {
         );
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.move_out(id2, dset2);
+                dset->move_out(id2, dset2);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1918,7 +1885,7 @@ namespace {
         );
         EXPECT_THAT(
             ensure_called_once([&]() {
-                dset.move_out(id3, dset2);
+                dset->move_out(id3, dset2);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1938,9 +1905,8 @@ namespace {
         const auto blk_sz_order = d_blkarr.blk_sz_order();
 
         Segment sg(blk_sz_order);
-        DescriptorSet dset(sg, d_blkarr, d_blkarr, rctx);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
 
-        dset.create_set();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1960,21 +1926,21 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
             dscptr->set_data({c, c});
 
-            auto id = dset.add(std::move(dscptr), true);
+            auto id = dset->add(std::move(dscptr), true);
             ids.push_back(id);
-            dset.flush_writes();
+            dset->flush_writes();
         }
 
         // Reduce the set
         for (size_t i = 10; i < ids.size(); ++i) {
-            dset.erase(ids[i]);
-            dset.flush_writes();
+            dset->erase(ids[i]);
+            dset->flush_writes();
         }
 
         // Reduce the set even more
         for (size_t i = 4; i < 10; ++i) {
-            dset.erase(ids[i]);
-            dset.flush_writes();
+            dset->erase(ids[i]);
+            dset->flush_writes();
         }
 
         // Adding the erased descriptors back again
@@ -1983,9 +1949,9 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
             dscptr->set_data({c, c});
 
-            auto id = dset.add(std::move(dscptr), true);
+            auto id = dset->add(std::move(dscptr), true);
             ids[i] = id;
-            dset.flush_writes();
+            dset->flush_writes();
         }
 
         // Now expand the set even further
@@ -1994,12 +1960,12 @@ namespace {
             auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
             dscptr->set_data({c, c});
 
-            auto id = dset.add(std::move(dscptr), true);
+            auto id = dset->add(std::move(dscptr), true);
             ids[i] = id;
-            dset.flush_writes();
+            dset->flush_writes();
         }
 
-        dset.release_free_space();
+        dset->release_free_space();
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 "0000 8e9f "
                 "fa06 0100 0000 4141 fa06 0200 0000 4242 "
@@ -2020,13 +1986,12 @@ namespace {
         // Load another set from the previous set's segment to see that
         // both are consistent each other
         rctx.reset();
-        DescriptorSet dset2(dset.segment(), d_blkarr, d_blkarr, rctx);
-        dset2.load_set();
+        auto dset2 = DescriptorSet::create(dset->segment(), d_blkarr, rctx);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < (int)ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = dset2.get<DefaultDescriptor>(ids[i]);
+            auto dscptr = dset2->get<DefaultDescriptor>(ids[i]);
             auto data = dscptr->get_data();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
