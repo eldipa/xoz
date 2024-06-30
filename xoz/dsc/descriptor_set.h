@@ -69,7 +69,7 @@ private:
     bool set_loaded;
 
     uint16_t reserved;  // u16data (get/set)
-    uint32_t checksum;
+    uint32_t current_checksum;
 
     /*
      * Track if we changed the header and it requires a write
@@ -77,7 +77,7 @@ private:
      * note: the header may be written anyways even if this
      * variable is false. For example, if there were
      * changes in the descriptors (because we require an update
-     * of the checksum).
+     * of the current_checksum).
      * */
     bool header_does_require_write;
 

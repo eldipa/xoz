@@ -19,7 +19,7 @@ DescriptorSet::DescriptorSet(const Segment& segm, BlockArray& sg_blkarr, BlockAr
         rctx(rctx),
         set_loaded(false),
         reserved(0),
-        checksum(0),
+        current_checksum(0),
         header_does_require_write(false) {}
 
 void DescriptorSet::load_set() { load_descriptors(false, 0); }
@@ -63,7 +63,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
                                   << " at loading descriptors: " << io.tell_rd() << " bytes position");
     }
 
-    checksum = 0;
+    current_checksum = 0;
     uint16_t stored_checksum = 0;
 
     std::list<Extent> allocated_exts;
@@ -73,15 +73,15 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         stored_checksum = io.read_u16_from_le();
 
         // stored_checksum is not part of the checksum
-        checksum = inet_add(checksum, reserved);
+        current_checksum = inet_add(current_checksum, reserved);
 
         // ensure that the allocator knows that our header is already reserved by us
         const auto ext = Extent(st_blkarr.bytes2blk_nr(0), st_blkarr.bytes2blk_cnt(header_size), false);
         allocated_exts.push_back(ext);
     } else {
         reserved = u16data;
-        checksum = inet_add(checksum, reserved);
-        stored_checksum = inet_to_u16(checksum);
+        current_checksum = inet_add(current_checksum, reserved);
+        stored_checksum = inet_to_u16(current_checksum);
     }
 
     [[maybe_unused]] auto io_rd_begin = io.tell_rd();
@@ -153,7 +153,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
                                     << "Mostly likely an internal bug");
         }
 
-        checksum = fold_inet_checksum(inet_add(checksum, dsc->checksum));
+        current_checksum = fold_inet_checksum(inet_add(current_checksum, dsc->checksum));
 
         dsc->set_owner(this);
         owned[id] = std::move(dsc);
@@ -162,11 +162,11 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         // assert(!dsc); (ok, linter is detecting this)
     }
 
-    auto checksum_check = fold_inet_checksum(inet_remove(checksum, stored_checksum));
+    auto checksum_check = fold_inet_checksum(inet_remove(current_checksum, stored_checksum));
     if (not is_inet_checksum_good(checksum_check)) {
         throw InconsistentXOZ(F() << "Mismatch checksum for descriptor set on loading. "
                                   << "Read: 0x" << std::hex << stored_checksum << ", "
-                                  << "computed: 0x" << std::hex << checksum << ", "
+                                  << "computed: 0x" << std::hex << current_checksum << ", "
                                   << "remained: 0x" << std::hex << checksum_check);
     }
 
@@ -181,7 +181,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
             chk = 0;
         }
 
-        assert(chk == checksum);
+        assert(chk == current_checksum);
     }
 #endif
 
@@ -383,26 +383,26 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 
     for (const auto dsc: to_update) {
         auto pos = st_blkarr.blk2bytes(dsc->ext.blk_nr());
-        checksum = inet_remove(checksum, dsc->checksum);
+        current_checksum = inet_remove(current_checksum, dsc->checksum);
 
         io2.seek_wr(pos);
         dsc->write_struct_into(io2, rctx);
-        checksum = inet_add(checksum, dsc->checksum);
+        current_checksum = inet_add(current_checksum, dsc->checksum);
     }
     to_update.clear();
 
     // note: we don't checksum this->reserved because it should had been checksum
     // earlier and in each change to this->reserved.
-    checksum = fold_inet_checksum(checksum);
+    current_checksum = fold_inet_checksum(current_checksum);
 
-    if (checksum == 0xffff) {
-        checksum = 0x0000;
+    if (current_checksum == 0xffff) {
+        current_checksum = 0x0000;
     }
 
     io2.seek_wr(0);
 
     io2.write_u16_to_le(this->reserved);
-    io2.write_u16_to_le(assert_u16(this->checksum));
+    io2.write_u16_to_le(assert_u16(this->current_checksum));
     header_does_require_write = false;
 
 #ifndef NDEBUG
@@ -415,7 +415,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
             chk = 0;
         }
 
-        assert(chk == checksum);
+        assert(chk == current_checksum);
     }
 #endif
 }
@@ -457,7 +457,7 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
     auto dsc = dscptr.get();
     to_add.insert(dsc);
 
-    checksum = fold_inet_checksum(inet_add(checksum, dsc->checksum));
+    current_checksum = fold_inet_checksum(inet_add(current_checksum, dsc->checksum));
 
     assert(not to_update.contains(dsc));
 }
@@ -517,7 +517,7 @@ void DescriptorSet::impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved)
     owned.erase(dscptr->id());
 
     if (dscptr->checksum != 0) {
-        checksum = fold_inet_checksum(inet_remove(checksum, dscptr->checksum));
+        current_checksum = fold_inet_checksum(inet_remove(current_checksum, dscptr->checksum));
     }
 }
 
@@ -532,7 +532,7 @@ void DescriptorSet::clear_set() {
         to_destroy.insert(dscptr);
 
         if (dscptr->checksum != 0) {
-            checksum = fold_inet_checksum(inet_remove(checksum, dscptr->checksum));
+            current_checksum = fold_inet_checksum(inet_remove(current_checksum, dscptr->checksum));
         }
     }
 
@@ -569,7 +569,7 @@ void DescriptorSet::remove_set() {
     set_loaded = false;
     header_does_require_write = false;
     reserved = 0;
-    checksum = 0;
+    current_checksum = 0;
     segm = Segment::EmptySegment(sg_blkarr.blk_sz_order());
 }
 
