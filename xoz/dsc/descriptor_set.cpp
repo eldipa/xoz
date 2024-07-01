@@ -267,6 +267,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // and we re-add it later
     std::list<Extent> pending;
     for (const auto dsc: to_update) {
+        dsc->update_header();
         uint32_t cur_dsc_sz = dsc->calc_struct_footprint_size();
         uint32_t alloc_dsc_sz = st_blkarr.blk2bytes(dsc->ext.blk_cnt());
 
@@ -396,6 +397,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // from that pre-allocated space.
     // This should reduce the fragmentation of the set's segment making it much smaller
     for (const auto dsc: to_add) {
+        dsc->update_header();
         dsc->ext = st_blkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
     }
 
