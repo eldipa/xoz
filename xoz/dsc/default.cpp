@@ -31,6 +31,7 @@ void DefaultDescriptor::set_data(const std::vector<char>& data) {
 
     hdr.dsize = dsize;
     dsc_data = data;
+    notify_descriptor_changed();
 }
 
 const std::vector<char>& DefaultDescriptor::get_data() const { return dsc_data; }
