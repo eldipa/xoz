@@ -39,6 +39,11 @@ private:
     std::set<std::shared_ptr<Descriptor>> to_destroy;
 
     /*
+     * These are the sub-descriptor-sets owned by this.
+     * */
+    std::set<DescriptorSet*> children;
+
+    /*
      * <segm> is the segment that holds the descriptors of this set. The segment points to blocks
      * in the <sg_blkarr> block array that contains the header of the set and the descriptors
      * of the set. These descriptors may point to "external" data blocks in

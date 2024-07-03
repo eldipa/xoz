@@ -511,6 +511,12 @@ void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persis
     auto dsc = dscptr.get();
     to_add.insert(dsc);
 
+    // if the added descriptor is a dset, track it in the subset list
+    auto subset = dscptr->cast<DescriptorSet>(true);
+    if (subset != nullptr) {
+        children.insert(subset);
+    }
+
     current_checksum = fold_inet_checksum(inet_add(current_checksum, dsc->checksum));
 
     assert(not to_update.contains(dsc));
@@ -575,6 +581,12 @@ void DescriptorSet::impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved)
         to_destroy.insert(dscptr);
     }
 
+    // if the removed descriptor is a dset, remove it from the subset list
+    auto subset = dscptr->cast<DescriptorSet>(true);
+    if (subset != nullptr) {
+        children.erase(subset);
+    }
+
     dscptr->set_owner(nullptr);
     owned.erase(dscptr->id());
 
@@ -601,6 +613,7 @@ void DescriptorSet::clear_set() {
     owned.clear();
     to_add.clear();
     to_update.clear();
+    children.clear();
 }
 
 void DescriptorSet::destroy() {
