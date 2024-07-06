@@ -2471,4 +2471,176 @@ namespace {
                 )
         );
     }
+
+    TEST(DescriptorSetTest, SingleSubset) {
+        RuntimeContext rctx({});
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        Segment sg(blk_sz_order);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
+
+        Segment subsg(blk_sz_order);
+        auto subdset = DescriptorSet::create(subsg, d_blkarr, rctx);
+
+        // Add one descriptor to the dset and another to the subdset
+        struct Descriptor::header_t hdr = {
+            .own_edata = false,
+            .type = 0xfa,
+
+            .id = 0x0,
+
+            .dsize = 0,
+            .esize = 0,
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+        };
+
+        auto dscptr1 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        uint32_t id1 = subdset->add(std::move(dscptr1));
+
+        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        uint32_t id2 = dset->add(std::move(dscptr2));
+
+        // Add the subset to the main set
+        uint32_t id3 = dset->add(std::move(subdset));
+
+        // Count is not recursive: the set has only 2 direct descriptors
+        EXPECT_EQ(dset->count(), (uint32_t)2);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
+        EXPECT_EQ(dset->get(id2)->get_owner(), std::addressof(*dset));
+        EXPECT_EQ(dset->get(id3)->get_owner(), std::addressof(*dset));
+
+        // Check subset (get a reference to it again because the ref subset was left
+        // invalid after the std::move in the dset->add above)
+        auto xsubdset = dset->get<DescriptorSet>(id3);
+        EXPECT_EQ(xsubdset->count(), (uint32_t)1);
+        EXPECT_EQ(xsubdset->get(id1)->get_owner(), std::addressof(*xsubdset));
+
+        // Write down the set: we expect to see all the descriptors of dset and xsubdset
+        // because full_sync is recursive.
+        dset->full_sync(false);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                "0000 0429 fa00 0184 0600 0084 00c0 0080 0000 0020 00c0 0000"
+                );
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
+                "0000 fa00 fa00"
+                );
+
+
+        Segment sg2(blk_sz_order);
+        auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
+
+        // Move child from dset to dset2
+        dset->move_out(id3, dset2);
+
+        EXPECT_EQ(dset->count(), (uint32_t)1);
+        EXPECT_EQ(dset->get(id2)->get_owner(), std::addressof(*dset));
+
+        EXPECT_EQ(dset2->count(), (uint32_t)1);
+        EXPECT_EQ(dset2->get(id3)->get_owner(), std::addressof(*dset2));
+
+        // Move the xsubdset's id1 desc to dset2 (parent)
+        xsubdset->move_out(id1, dset2);
+        EXPECT_EQ(dset2->count(), (uint32_t)2);
+        EXPECT_EQ(dset2->get(id1)->get_owner(), std::addressof(*dset2));
+        EXPECT_EQ(dset2->get(id3)->get_owner(), std::addressof(*dset2));
+
+        // On dset->full_sync, check dset changed but no dset2 nor xsubdset
+        dset->full_sync(false);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                // the set has only 1 desc (fa00), the rest is just padding
+                // that could be reclaimed
+                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
+                "" // yields empty but the dset2 is not empty!
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
+                "0000 fa00 fa00" // yields non-empty but xsubdset is empty!
+                );
+
+        // If we sync xsubdset, its parent is not synch'd
+        xsubdset->full_sync(false);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
+                "" // still incorrect (out of sync)
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
+                "0000 0000 0000" // correct, in-sync, xsubdset is empty (those zeros are just padding)
+                );
+
+        // Sync dset2 and its children releasing unused space
+        dset2->full_sync(true);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
+                "0000 fb08 fa00 0108 0000 0000" // correct, in sync
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
+                "" // correct, no padding
+                );
+
+        // Again, no change is expected
+        dset2->full_sync(true);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
+                "0000 fb08 fa00 0108 0000 0000" // correct, in sync
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
+                "" // correct, no padding
+                );
+
+        // Move the desc back, sync and then clear dset2 which should clear xsubdset as well
+        dset2->move_out(id1, *xsubdset);
+        dset2->full_sync(false);
+        EXPECT_EQ(dset2->count(), (uint32_t)1);
+        EXPECT_EQ(xsubdset->count(), (uint32_t)1);
+
+        dset2->clear_set();
+        dset2->full_sync(true);
+        EXPECT_EQ(dset2->count(), (uint32_t)0);
+
+        // We cannot check xsubdset->count() because the xsubdset was destroyed during
+        // dset2->clear_set()
+        //EXPECT_EQ(xsubdset->count(), (uint32_t)0);
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
+                ""
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
+                ""
+                );
+
+        // Create another subset, make it child of dset and move dset's only desc to the subset
+        // Sync and check
+        Segment subsg2(blk_sz_order);
+        uint32_t id4 = dset->add(std::move(DescriptorSet::create(subsg2, d_blkarr, rctx)));
+
+        auto xsubdset2 = dset->get<DescriptorSet>(id4);
+        dset->move_out(id2, *xsubdset2);
+
+        dset->full_sync(false);
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                "0000 0a28 0184 0600 0084 00c0 0080 0000 0020 00c0 0000 0000"
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset2,
+                "0000 fa00 fa00"
+                );
+
+        // Now, destroy dset. We expect a recursive destroy.
+        dset->destroy();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                ""
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset2,
+                ""
+                );
+    }
 }
