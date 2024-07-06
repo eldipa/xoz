@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <memory>
 #include <set>
@@ -42,6 +44,7 @@ private:
      * These are the sub-descriptor-sets owned by this.
      * */
     std::set<DescriptorSet*> children;
+    bool visited;
 
     /*
      * <segm> is the segment that holds the descriptors of this set. The segment points to blocks
@@ -289,6 +292,34 @@ private:
     void flush_writes_no_recursive();
     void release_free_space_no_recursive();
     void update_header_no_recursive();
+
+    template <class Fn>
+    void depth_first(Fn fn) {
+        std::deque<DescriptorSet*> to_explore;
+        to_explore.push_back(this);
+
+        try {
+            while (not to_explore.empty()) {
+                auto dset = to_explore.back();
+
+                if (dset->visited or dset->children.empty()) {
+                    fn(dset);
+                    dset->visited = false;
+                    to_explore.pop_back();
+                } else {
+                    dset->visited = true;
+
+                    // push dset's children into the stack
+                    std::for_each(dset->children.begin(), dset->children.end(),
+                                  [&to_explore](auto e) { to_explore.push_back(e); });
+                }
+            }
+        } catch (...) {
+            // Ensure any 'visited' set has the flag unset before keep propagating the exception
+            std::for_each(to_explore.begin(), to_explore.end(), [](auto e) { e->visited = false; });
+            throw;
+        }
+    }
 
 private:
     /*
