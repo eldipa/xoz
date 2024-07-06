@@ -294,6 +294,8 @@ private:
     void release_free_space_no_recursive();
     void update_header_no_recursive();
     void full_sync_no_recursive(const bool release);
+    void clear_set_no_recursive();
+    void destroy_no_recursive();
 
     template <class Fn>
     void depth_first(Fn fn) {

@@ -596,7 +596,7 @@ void DescriptorSet::impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved)
     }
 }
 
-void DescriptorSet::clear_set() {
+void DescriptorSet::clear_set_no_recursive() {
     fail_if_set_not_loaded();
     for (const auto& p: owned) {
         auto dscptr = p.second;
@@ -617,12 +617,22 @@ void DescriptorSet::clear_set() {
     children.clear();
 }
 
-void DescriptorSet::destroy() {
+void DescriptorSet::destroy_no_recursive() {
     fail_if_set_not_loaded();
-    clear_set();
 
-    // Call destructors
+    // Clear this set but not children's: those will be cleared
+    // on the destroy() call on them
+    clear_set_no_recursive();
+
+    // Call destructors of all the descriptors except our children
+    // to avoid a recursive call
     for (const auto& dscptr: to_destroy) {
+        auto subset = dscptr->cast<DescriptorSet>(true);
+        if (subset != nullptr) {
+            // skip child set
+            continue;
+        }
+
         dscptr->destroy();
     }
     to_destroy.clear();
@@ -830,4 +840,12 @@ void DescriptorSet::full_sync_no_recursive(const bool release) {
 
 void DescriptorSet::full_sync(const bool release) {
     depth_first([release](DescriptorSet* dset) { dset->full_sync_no_recursive(release); });
+}
+
+void DescriptorSet::clear_set() {
+    depth_first([](DescriptorSet* dset) { dset->clear_set_no_recursive(); });
+}
+
+void DescriptorSet::destroy() {
+    depth_first([](DescriptorSet* dset) { dset->destroy_no_recursive(); });
 }
