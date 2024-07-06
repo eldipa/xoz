@@ -25,6 +25,7 @@
 // Not a trivial implementation. Very related with the fix of the "recursive calls"
 DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& blkarr, RuntimeContext& rctx):
         Descriptor(hdr, blkarr),
+        visited(false),
         segm(hdr.segm),
         sg_blkarr(blkarr),
         ed_blkarr(blkarr),
@@ -807,8 +808,26 @@ void DescriptorSet::update_header_no_recursive() {
     }
 }
 
-void DescriptorSet::update_header() { update_header_no_recursive(); }
+void DescriptorSet::update_header() {
+    depth_first([](DescriptorSet* dset) { dset->update_header_no_recursive(); });
+}
 
-void DescriptorSet::release_free_space() { release_free_space_no_recursive(); }
+void DescriptorSet::release_free_space() {
+    depth_first([](DescriptorSet* dset) { dset->release_free_space_no_recursive(); });
+}
 
-void DescriptorSet::flush_writes() { flush_writes_no_recursive(); }
+void DescriptorSet::flush_writes() {
+    depth_first([](DescriptorSet* dset) { dset->flush_writes_no_recursive(); });
+}
+
+void DescriptorSet::full_sync_no_recursive(const bool release) {
+    flush_writes_no_recursive();
+    if (release) {
+        release_free_space_no_recursive();
+    }
+    update_header_no_recursive();
+}
+
+void DescriptorSet::full_sync(const bool release) {
+    depth_first([release](DescriptorSet* dset) { dset->full_sync_no_recursive(release); });
+}

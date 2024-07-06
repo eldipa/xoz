@@ -30,7 +30,7 @@ public:
      * Call the virtual method flush_writes() and update_header()
      * and optionally release_free_space().
      * */
-    void full_sync(const bool release) {
+    virtual void full_sync(const bool release) {
         flush_writes();
         if (release) {
             release_free_space();

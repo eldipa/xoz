@@ -145,6 +145,8 @@ public:
 
     void update_header() override;
 
+    void full_sync(const bool release) override;
+
     /*
      * Check if there is any change pending to be written (addition of new descriptors,
      * remotion, or update).
@@ -292,6 +294,7 @@ private:
     void flush_writes_no_recursive();
     void release_free_space_no_recursive();
     void update_header_no_recursive();
+    void full_sync_no_recursive(const bool release);
 
     template <class Fn>
     void depth_first(Fn fn) {
