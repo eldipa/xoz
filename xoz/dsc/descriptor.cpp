@@ -128,13 +128,13 @@ fail:
     }
 }
 
-std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr) {
-    uint32_t checksum = 0;
+struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr,
+                                                         bool& ex_type_used, uint32_t* checksum) {
+    uint32_t local_checksum = 0;
 
-    uint32_t dsc_begin_pos = io.tell_rd();
     uint16_t firstfield = io.read_u16_from_le();
 
-    checksum += firstfield;
+    local_checksum += firstfield;
 
     bool own_edata = read_bitsfield_from_u16<bool>(firstfield, MASK_OWN_EDATA_FLAG);
     uint8_t lo_dsize = read_bitsfield_from_u16<uint8_t>(firstfield, MASK_LO_DSIZE);
@@ -147,7 +147,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
     if (has_id) {
         uint32_t idfield = io.read_u32_from_le();
 
-        checksum += inet_checksum(idfield);
+        local_checksum += inet_checksum(idfield);
 
         hi_dsize = read_bitsfield_from_u32<uint8_t>(idfield, MASK_HI_DSIZE);
         id = read_bitsfield_from_u32<uint32_t>(idfield, MASK_ID);
@@ -159,7 +159,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
     if (own_edata) {
         uint16_t sizefield = io.read_u16_from_le();
 
-        checksum += sizefield;
+        local_checksum += sizefield;
 
         bool large = read_bitsfield_from_u16<bool>(sizefield, MASK_LARGE_FLAG);
         lo_esize = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_LO_ESIZE);
@@ -167,7 +167,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
         if (large) {
             uint16_t largefield = io.read_u16_from_le();
 
-            checksum += largefield;
+            local_checksum += largefield;
 
             hi_esize = read_bitsfield_from_u16<uint32_t>(largefield, MASK_HI_ESIZE);
         }
@@ -217,7 +217,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
 
     if (own_edata) {
         hdr.segm = Segment::load_struct_from(io, ed_blkarr.blk_sz_order(), Segment::EndMode::AnyEnd, uint32_t(-1),
-                                             &checksum);
+                                             &local_checksum);
     }
 
     /* TODO
@@ -229,11 +229,11 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
     */
 
     // extended-type (for types that require full 16 bits)
-    bool ex_type_used = false;
+    ex_type_used = false;
     if (type == EXTENDED_TYPE_VAL_THRESHOLD) {
         type = io.read_u16_from_le();
 
-        checksum += type;
+        local_checksum += type;
 
         hdr.type = type;
         ex_type_used = true;
@@ -243,7 +243,32 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
         throw NotEnoughRoom(dsize, io.remain_rd(), F() << "No enough room for reading descriptor's data of " << hdr);
     }
 
-    descriptor_create_fn fn = rctx.descriptor_create_lookup(type);
+    uint32_t data_begin_pos = io.tell_rd();
+    uint32_t dsc_end_pos = data_begin_pos + hdr.dsize;
+
+    if (io.remain_rd() < hdr.dsize) {
+        throw InconsistentXOZ("");  // TODO
+    }
+
+    local_checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
+
+    if (checksum) {
+        *checksum = inet_add(*checksum, inet_to_u16(local_checksum));
+    }
+
+    io.seek_rd(data_begin_pos);
+    return hdr;
+}
+
+std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr) {
+
+    uint32_t dsc_begin_pos = io.tell_rd();
+
+    uint32_t checksum = 0;
+    bool ex_type_used = false;
+    struct Descriptor::header_t hdr = load_header_from(io, rctx, ed_blkarr, ex_type_used, &checksum);
+
+    descriptor_create_fn fn = rctx.descriptor_create_lookup(hdr.type);
     std::unique_ptr<Descriptor> dsc = fn(hdr, ed_blkarr, rctx);
 
     if (!dsc) {
@@ -261,11 +286,9 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
     chk_struct_footprint(true, io, dsc_begin_pos, dsc_end_pos, dsc.get(), ex_type_used);
 
     // note: as the check in chk_rw_specifics_on_data and the following assert
-    // we can be 100% sure that we are checksuming all the data field from
+    // we can be 100% sure that load_header_from checksummed all the data field from
     // data_begin_pos to data_begin_pos+hdr.dsize.
     assert(dsc_end_pos == data_begin_pos + hdr.dsize);
-    checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
-
     dsc->checksum = inet_to_u16(checksum);
 
     return dsc;

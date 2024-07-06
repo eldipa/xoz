@@ -13,6 +13,19 @@ class BlockArray;
 
 class Descriptor {
 public:
+    struct header_t {
+        bool own_edata;
+        uint16_t type;
+
+        uint32_t id;
+
+        uint8_t dsize;   // in bytes
+        uint32_t esize;  // in bytes
+
+        Segment segm;  // data segment, only for own_edata descriptors
+    };
+
+public:
     /*
      * Callers should call update_header() before calling write_struct_into()
      * to ensure that the content of the descriptor is updated so any calculation
@@ -25,6 +38,16 @@ public:
         return load_struct_from(io, rctx, ed_blkarr);
     }
     void write_struct_into(IOBase&& io, RuntimeContext& rctx) { return write_struct_into(io, rctx); }
+
+    /*
+     * Load the header of the descriptor but do not create a Descriptors class or call any
+     * subclass-specific loading.
+     * The computed checksum *does* include the descriptor's data (dsize) however.
+     *
+     * The read pointer of io is left at the begin of the descriptor's data.
+     * */
+    static struct header_t load_header_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr, bool& ex_type_used,
+                                            uint32_t* checksum);
 
     /*
      * Call the virtual method flush_writes() and update_header()
@@ -127,18 +150,6 @@ public:
     }
 
 public:  // public but it should be interpreted as an opaque section
-    struct header_t {
-        bool own_edata;
-        uint16_t type;
-
-        uint32_t id;
-
-        uint8_t dsize;   // in bytes
-        uint32_t esize;  // in bytes
-
-        Segment segm;  // data segment, only for own_edata descriptors
-    };
-
     friend void PrintTo(const struct header_t& hdr, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);
 
