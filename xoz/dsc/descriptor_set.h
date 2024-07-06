@@ -286,6 +286,11 @@ private:
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
 
 private:
+    void flush_writes_no_recursive();
+    void release_free_space_no_recursive();
+    void update_header_no_recursive();
+
+private:
     /*
      * Load the set into memory. This must be called once to initialize the internal allocator
      * properly.

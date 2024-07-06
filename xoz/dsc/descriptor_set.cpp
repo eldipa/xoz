@@ -243,7 +243,7 @@ void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
     io.fill(0, st_blkarr.blk2bytes(ext.blk_cnt()));
 }
 
-void DescriptorSet::flush_writes() {
+void DescriptorSet::flush_writes_no_recursive() {
     // TODO this will trigger a recursive chain reaction of writes if the set has other sets
     auto io = IOSegment(sg_blkarr, segm);
     write_modified_descriptors(io);
@@ -468,7 +468,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 #endif
 }
 
-void DescriptorSet::release_free_space() {
+void DescriptorSet::release_free_space_no_recursive() {
     if (count() == 0 and header_ext != Extent::EmptyExtent()) {
         st_blkarr.allocator().dealloc_single_extent(header_ext);
         header_ext = Extent::EmptyExtent();
@@ -782,7 +782,7 @@ void DescriptorSet::write_struct_specifics_into(IOBase& io) {
     }
 }
 
-void DescriptorSet::update_header() {
+void DescriptorSet::update_header_no_recursive() {
     // Make sure set to be 100% sync so we can know how much space its segment is owning
     assert(count() == 0 or not does_require_write());
 
@@ -806,3 +806,9 @@ void DescriptorSet::update_header() {
         hdr.dsize = 2;  // 1 uint16 field: the holder's reserved field
     }
 }
+
+void DescriptorSet::update_header() { update_header_no_recursive(); }
+
+void DescriptorSet::release_free_space() { release_free_space_no_recursive(); }
+
+void DescriptorSet::flush_writes() { flush_writes_no_recursive(); }
