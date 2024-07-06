@@ -139,12 +139,6 @@ public:
      * This method must be called at least once if the set or its descriptors
      * were modified. See does_require_write() method.
      * */
-    void flush_writes() override;
-
-    void release_free_space() override;
-
-    void update_header() override;
-
     void full_sync(const bool release) override;
 
     /*
@@ -289,6 +283,11 @@ private:
     void impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved);
 
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
+
+protected:
+    void flush_writes() override;
+    void release_free_space() override;
+    void update_header() override;
 
 private:
     void flush_writes_no_recursive();

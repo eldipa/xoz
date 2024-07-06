@@ -413,7 +413,7 @@ void Repository::init_new_repository(const struct default_parameters_t& defaults
     write_trailer();
 }
 
-void Repository::flush_writes(const bool release) {
+void Repository::full_sync(const bool release) {
     // Update the root set. If there is any pending write, this will
     // do it. This may trigger some allocations in fblkarr and if release
     // is true, it may trigger some deallocations (shrinks) too.
@@ -431,7 +431,7 @@ void Repository::close() {
         return;
 
     closing = true;
-    flush_writes(true);
+    full_sync(true);
 
     fblkarr->close();
     closed = true;

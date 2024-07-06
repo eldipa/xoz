@@ -108,7 +108,7 @@ public:
     /*
      * Flush any pending write.
      * */
-    void flush_writes(const bool release);
+    void full_sync(const bool release);
 
     // Call to close()
     ~Repository();

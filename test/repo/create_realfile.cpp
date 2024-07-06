@@ -1561,7 +1561,7 @@ namespace {
             dscptr->set_data({c, c});
 
             repo.root()->add(std::move(dscptr));
-            repo.root()->flush_writes();
+            repo.root()->full_sync(false);
         }
 
         // We expect the file has grown 1 block:
@@ -1588,7 +1588,7 @@ namespace {
         // Close and reopen and check again
         // Note how large is the root set due the size of its segment
         // that it was fragmented in several extents due the repeated
-        // calls to flush_writes
+        // calls to full_sync
         // However, the set still fits in the header of the xoz file
         // so there is no need of a trampoline
         repo.close();
@@ -1800,7 +1800,7 @@ namespace {
 
     // TODO: this test is disabled because the optimization of
     // "fragmentation avoidance" is not implemented in DescriptorSet
-    // so doing a single flush_writes ends up doing a lot of tiny
+    // so doing a single full_sync ends up doing a lot of tiny
     // allocations anyways.
 #if 0
     TEST(RepositoryTest, TrampolineNotRequiredDueFewWrites) {
@@ -1831,11 +1831,11 @@ namespace {
             repo.root()->add(std::move(dscptr));
         }
 
-        // Perform a single flush_writes
+        // Perform a single full_sync
         // This should make the set to allocate all the needed space once
         // so its segment will be less fragmented and much smaller than
         // if we do a single alloc per descriptor
-        repo.root()->flush_writes();
+        repo.root()->full_sync(false);
 
         // We expect the file has grown 1 block:
         // The reasoning is that the 26 descriptors will fit in a single
@@ -1861,7 +1861,7 @@ namespace {
         // Close and reopen and check again
         // Note how large is the root set due the size of its segment
         // that it was fragmented in several extents due the repeated
-        // calls to flush_writes
+        // calls to full_sync
         // However, the set still fits in the header of the xoz file
         // so there is no need of a trampoline
         repo.close();
@@ -2154,7 +2154,7 @@ namespace {
             dscptr->set_data({c, c});
 
             repo.root()->add(std::move(dscptr));
-            repo.root()->flush_writes();
+            repo.root()->full_sync(false);
         }
 
         // We expect the file has grown 1 block:
@@ -2528,13 +2528,13 @@ namespace {
             auto id = repo.root()->add(std::move(dscptr));
             ids.push_back(id);
 
-            repo.root()->flush_writes();
+            repo.root()->full_sync(false);
         }
 
         // This will flush any pending write and also it will write the header
         // In this step, it is found that the root set does not fit in the header
         // so the header requires a trampoline
-        repo.flush_writes(true);
+        repo.full_sync(true);
 
         // 3 blocks needed: 1 header, 1 for the descriptors and 1 for the root set
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -2645,10 +2645,10 @@ namespace {
 
             auto id = repo.root()->add(std::move(dscptr), true);
             ids.push_back(id);
-            repo.root()->flush_writes();
+            repo.root()->full_sync(false);
         }
 
-        repo.flush_writes(true);
+        repo.full_sync(true);
 
         // We expect the file has grown 3 blocks.
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -2958,10 +2958,10 @@ namespace {
 
             auto id = repo.root()->add(std::move(dscptr), true);
             ids.push_back(id);
-            repo.root()->flush_writes();
+            repo.root()->full_sync(false);
         }
 
-        repo.flush_writes(true);
+        repo.full_sync(true);
 
         // We expect the file has grown 3 blocks.
         EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -2986,7 +2986,7 @@ namespace {
         // (and reducing the set)
         for (size_t i = 10; i < ids.size(); ++i) {
             repo.root()->erase(ids[i]);
-            repo.root()->flush_writes();
+            repo.root()->full_sync(false);
         }
 
         repo.close();
@@ -3086,7 +3086,7 @@ namespace {
         // Let's shrink the trampoline even further
         for (size_t i = 4; i < 10; ++i) {
             repo2.root()->erase(ids[i]);
-            repo2.root()->flush_writes();
+            repo2.root()->full_sync(false);
         }
 
         repo2.close();
@@ -3178,7 +3178,7 @@ namespace {
 
             auto id = repo3.root()->add(std::move(dscptr), true);
             ids[i] = id;
-            repo3.root()->flush_writes();
+            repo3.root()->full_sync(false);
         }
 
         repo3.close();
@@ -3293,7 +3293,7 @@ namespace {
 
             auto id = repo4.root()->add(std::move(dscptr), true);
             ids[i] = id;
-            repo4.flush_writes(true);
+            repo4.full_sync(true);
         }
 
 
