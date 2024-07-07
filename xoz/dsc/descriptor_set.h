@@ -140,18 +140,9 @@ public:
 
     /*
      * Flush any pending write to disk. This can be called multiple times: the implementation
-     * will try to avoid any write if there are no changes to write.
-     *
-     * This method must be called at least once if the set or its descriptors
-     * were modified. See does_require_write() method.
+     * will try to avoid any write if there are no changes.
      * */
     void full_sync(const bool release) override;
-
-    /*
-     * Check if there is any change pending to be written (addition of new descriptors,
-     * remotion, or update).
-     * */
-    bool does_require_write() const;
 
     /*
      * Count how many descriptors are owned by this set. This does not count
@@ -348,6 +339,17 @@ private:
 
 public:
     uint16_t /* private */ u16data() const { return this->reserved; }
+
+    /*
+     * Check if there is any change pending to be written (addition of new descriptors,
+     * remotion, or update).
+     * This is only for testing:
+     * does_require_write may return False but a call to full_sync could modify a subdset
+     * which in turn propagates changes to dset so it *does* require write (True)
+     * In other words, it is hard to reason about does_require_write and it is not
+     * super useful anyways
+     * */
+    bool /* testing */ does_require_write() const;
 
 private:
     void fail_if_set_not_loaded() const;
