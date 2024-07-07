@@ -274,6 +274,10 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         return;
     }
 
+    // Keep a copy of set's segment to compare it at the end of the method against
+    // the, possibly updated, set's segment.
+    auto orig_segm = segm;
+
     // Find any descriptor that shrank and it will require less space so we
     // can "split" the space and free a part.
     // Also, find any descriptor that grew so we remove it
@@ -453,6 +457,10 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     io2.write_u16_to_le(this->reserved);
     io2.write_u16_to_le(assert_u16(this->current_checksum));
     header_does_require_write = false;
+
+    if (orig_segm != segm) {
+        notify_descriptor_changed();
+    }
 
 #ifndef NDEBUG
     {
