@@ -819,7 +819,8 @@ void DescriptorSet::update_header_no_recursive() {
 }
 
 void DescriptorSet::update_header() {
-    depth_first([](DescriptorSet* dset) { dset->update_header_no_recursive(); });
+    // it does not make sense to update the header recursively
+    update_header_no_recursive();
 }
 
 void DescriptorSet::release_free_space() {
