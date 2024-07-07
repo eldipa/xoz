@@ -17,6 +17,12 @@ class RuntimeContext;
 
 class DescriptorSet: public Descriptor {
 private:
+    struct by_id {
+        constexpr bool operator()(Descriptor* const& lhs, Descriptor* const& rhs) const {
+            return lhs->id() < rhs->id();
+        }
+    };
+
     // Descriptors owned by this DescriptorSet. Owned means that the descriptors
     // belongs to this set and to no other one. They may or no be present in the XOZ
     // file at the moment.
@@ -29,8 +35,8 @@ private:
     //               such change is not being reflected by the file and it should be
     //  - the rest: descriptors owned and present in the XOZ file that don't require an update (not changed)
     //
-    std::set<Descriptor*> to_add;
-    std::set<Descriptor*> to_update;
+    std::set<Descriptor*, by_id> to_add;
+    std::set<Descriptor*, by_id> to_update;
 
     // Descriptors in the to_remove set are not owned by the set but they were moments ago.
     // The remotion can happen if the descriptor is explicitly deleted (erase) or it is moved
@@ -43,7 +49,7 @@ private:
     /*
      * These are the sub-descriptor-sets owned by this.
      * */
-    std::set<DescriptorSet*> children;
+    std::set<DescriptorSet*, by_id> children;
     bool visited;
 
     /*

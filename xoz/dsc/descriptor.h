@@ -93,7 +93,7 @@ public:
     friend void PrintTo(const Descriptor& dsc, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const Descriptor& dsc);
 
-    uint32_t id() const { return hdr.id; }
+    [[nodiscard]] constexpr inline uint32_t id() const { return hdr.id; }
     void id(uint32_t new_id) { hdr.id = new_id; }
 
 
