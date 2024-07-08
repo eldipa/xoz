@@ -832,11 +832,11 @@ void DescriptorSet::update_header() {
 }
 
 void DescriptorSet::release_free_space() {
-    depth_first([](DescriptorSet* dset) { dset->release_free_space_no_recursive(); });
+    depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->release_free_space_no_recursive(); });
 }
 
 void DescriptorSet::flush_writes() {
-    depth_first([](DescriptorSet* dset) { dset->flush_writes_no_recursive(); });
+    depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->flush_writes_no_recursive(); });
 }
 
 void DescriptorSet::full_sync_no_recursive(const bool release) {
@@ -848,13 +848,13 @@ void DescriptorSet::full_sync_no_recursive(const bool release) {
 }
 
 void DescriptorSet::full_sync(const bool release) {
-    depth_first([release](DescriptorSet* dset) { dset->full_sync_no_recursive(release); });
+    depth_first_for_each_set(*this, [release](DescriptorSet* dset) { dset->full_sync_no_recursive(release); });
 }
 
 void DescriptorSet::clear_set() {
-    depth_first([](DescriptorSet* dset) { dset->clear_set_no_recursive(); });
+    depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->clear_set_no_recursive(); });
 }
 
 void DescriptorSet::destroy() {
-    depth_first([](DescriptorSet* dset) { dset->destroy_no_recursive(); });
+    depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->destroy_no_recursive(); });
 }

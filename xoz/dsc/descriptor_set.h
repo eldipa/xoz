@@ -248,6 +248,34 @@ public:
     inline const_dsc_iterator_t cbegin() const { return xoz::dsc::internals::DescriptorIterator(owned.cbegin()); }
     inline const_dsc_iterator_t cend() const { return xoz::dsc::internals::DescriptorIterator(owned.cend()); }
 
+    template <class Fn>
+    static void depth_first_for_each_set(DescriptorSet& root, Fn fn) {
+        std::deque<DescriptorSet*> to_explore;
+        to_explore.push_back(&root);
+
+        try {
+            while (not to_explore.empty()) {
+                auto dset = to_explore.back();
+
+                if (dset->visited or dset->children.empty()) {
+                    fn(dset);
+                    dset->visited = false;
+                    to_explore.pop_back();
+                } else {
+                    dset->visited = true;
+
+                    // push dset's children into the stack
+                    std::for_each(dset->children.begin(), dset->children.end(),
+                                  [&to_explore](auto e) { to_explore.push_back(e); });
+                }
+            }
+        } catch (...) {
+            // Ensure any 'visited' set has the flag unset before keep propagating the exception
+            std::for_each(to_explore.begin(), to_explore.end(), [](auto e) { e->visited = false; });
+            throw;
+        }
+    }
+
     Segment segment() const { return segm; }
 
 public:
@@ -293,34 +321,6 @@ private:
     void full_sync_no_recursive(const bool release);
     void clear_set_no_recursive();
     void destroy_no_recursive();
-
-    template <class Fn>
-    void depth_first(Fn fn) {
-        std::deque<DescriptorSet*> to_explore;
-        to_explore.push_back(this);
-
-        try {
-            while (not to_explore.empty()) {
-                auto dset = to_explore.back();
-
-                if (dset->visited or dset->children.empty()) {
-                    fn(dset);
-                    dset->visited = false;
-                    to_explore.pop_back();
-                } else {
-                    dset->visited = true;
-
-                    // push dset's children into the stack
-                    std::for_each(dset->children.begin(), dset->children.end(),
-                                  [&to_explore](auto e) { to_explore.push_back(e); });
-                }
-            }
-        } catch (...) {
-            // Ensure any 'visited' set has the flag unset before keep propagating the exception
-            std::for_each(to_explore.begin(), to_explore.end(), [](auto e) { e->visited = false; });
-            throw;
-        }
-    }
 
 private:
     /*
