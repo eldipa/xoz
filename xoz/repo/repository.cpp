@@ -102,17 +102,17 @@ void Repository::bootstrap_repository() {
 const std::stringstream& Repository::expose_mem_fp() const { return fblkarr->expose_mem_fp(); }
 
 std::list<Segment> Repository::scan_descriptor_sets() {
-    // TODO this should be recursive to scan *all*, not just the root.
-
     std::list<Segment> allocated;
-
     allocated.push_back(root_set->segment());
-    for (auto it = root_set->begin(); it != root_set->end(); ++it) {
-        auto& dsc(*it);
-        if (dsc->does_own_edata()) {
-            allocated.push_back(dsc->edata_segment_ref());
+
+    DescriptorSet::depth_first_for_each_set(*root_set, [&allocated](const DescriptorSet* dset) {
+        for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
+            auto& dsc(*it);
+            if (dsc->does_own_edata()) {
+                allocated.push_back(dsc->edata_segment_ref());
+            }
         }
-    }
+    });
 
     return allocated;
 }
