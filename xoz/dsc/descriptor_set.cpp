@@ -200,6 +200,11 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
 
         current_checksum = fold_inet_checksum(inet_add(current_checksum, dsc->checksum));
 
+        auto subset = dsc->cast<DescriptorSet>(true);
+        if (subset != nullptr) {
+            children.insert(subset);
+        }
+
         dsc->set_owner(this);
         owned[id] = std::move(dsc);
 
