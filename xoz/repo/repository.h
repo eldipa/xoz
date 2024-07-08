@@ -126,6 +126,7 @@ public:
      * TODO this probably is not for testing at all!
      * */
     BlockArray& /* internal - for testing */ expose_block_array() { return *fblkarr.get(); }
+    RuntimeContext& /* internal - for testing */ expose_runtime_context() { return rctx; }
 
 private:
     /*
