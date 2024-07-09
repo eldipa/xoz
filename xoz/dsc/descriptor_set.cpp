@@ -11,18 +11,6 @@
 #include "xoz/mem/inet_checksum.h"
 #include "xoz/repo/runtime_context.h"
 
-// TODO
-// It is not clear when we should notify that the descriptor changed (calling notify_descriptor_changed())
-// On write_modified_descriptors() we can compute if the segment changed or not to call or not
-// notify_descriptor_changed() (or even we could be conservative and say that if there was a single alloc/dealloc we can
-// assume that the set changed and call notify_descriptor_changed()).
-//
-// More. Who call write_modified_descriptors() (or dset.flush_writes ???). Should be recursive?
-// Would a depth first impl work? I mean, onf dset.flush_writes, the dset calls to its sub-dsets flush_writes
-// and only then call write_modified_descriptors() because by that moment, the sub-dsets, if were modified,
-// they should had notified to the (main) dset and write_modified_descriptors makes sense.
-//
-// Not a trivial implementation. Very related with the fix of the "recursive calls"
 DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& blkarr, RuntimeContext& rctx):
         Descriptor(hdr, blkarr),
         visited(false),
