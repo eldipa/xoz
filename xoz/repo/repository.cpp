@@ -522,7 +522,14 @@ void Repository::update_trampoline_space() {
         if (trampoline_segm.length() == 0) {
             trampoline_segm = fblkarr->allocator().alloc(req_sz);
         } else {
-            trampoline_segm = fblkarr->allocator().realloc(trampoline_segm, req_sz);
+            // Do not call realloc and instead, call dealloc + alloc.
+            // The rationale is that realloc will try to expand (or shrink)
+            // in place the segment, minimizing the needed copy of the reallocated data
+            // However, we are going to override the space anyways so this
+            // minimization is pointless and forces an unnecessary more
+            // inefficient allocation.
+            fblkarr->allocator().dealloc(trampoline_segm);
+            trampoline_segm = fblkarr->allocator().alloc(req_sz);
         }
     }
 
