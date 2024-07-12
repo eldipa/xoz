@@ -2,6 +2,7 @@
 #include "xoz/ext/extent.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/alloc/segment_allocator.h"
+#include "xoz/io/iosegment.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -3487,6 +3488,387 @@ namespace {
         EXPECT_EQ(stats2.before_reset.allocable_internal_frag_sz, uint64_t(0));
 
         EXPECT_THAT(stats2.before_reset.in_use_ext_per_segm, ElementsAre(0,0,2,0,0,0,0,0));
+    }
+
+    namespace {
+        void writeall(BlockArray& blkarr, Segment& segm, const std::string& s) {
+            IOSegment io(blkarr, segm);
+            io.writeall(s.c_str(), assert_u32(s.size()));
+        }
+
+        std::string readall(BlockArray& blkarr, Segment& segm, const uint32_t len) {
+            std::vector<char> buf;
+
+            IOSegment io(blkarr, segm);
+            io.readall(buf, len);
+
+            return std::string(buf.data(), buf.size());
+        }
+    }
+
+    TEST(SegmentAllocatorTest, IncreaseSizeByRealloc) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(blkarr);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
+
+        // Initially, zero length segment
+        Segment segm = sg_alloc.alloc(0);
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(0));
+
+        // Realloc to 1 byte (expected inline data)
+        sg_alloc.realloc(segm, 1);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(1));
+
+        writeall(blkarr, segm, "A");
+
+        {
+            auto stats = sg_alloc.stats();
+
+            EXPECT_EQ(stats.current.in_use_by_user_sz, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_blk_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_subblk_cnt, uint64_t(0));
+
+            EXPECT_EQ(stats.current.in_use_ext_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_inlined_sz, uint64_t(1));
+
+            EXPECT_EQ(stats.current.alloc_call_cnt, uint64_t(2));
+            EXPECT_EQ(stats.current.dealloc_call_cnt, uint64_t(0));
+
+            EXPECT_EQ(stats.current.external_frag_sz, uint64_t(0));
+            EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(0));
+            EXPECT_EQ(stats.current.allocable_internal_frag_sz, uint64_t((0) * blkarr.subblk_sz()));
+
+            EXPECT_THAT(stats.current.in_use_ext_per_segm, ElementsAre(1,0,0,0,0,0,0,0));
+
+            XOZ_EXPECT_ALL_ZERO_STATS(stats.before_reset);
+            EXPECT_EQ(stats.reset_cnt, uint64_t(0));
+        }
+
+        // Realloc to 3 bytes (still inline data)
+        sg_alloc.realloc(segm, 3);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(3));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(3));
+
+        EXPECT_EQ(readall(blkarr, segm, 1), "A");
+        writeall(blkarr, segm, "ABC");
+
+        // Realloc to subblk_sz (expected 1 extent)
+        sg_alloc.realloc(segm, blkarr.subblk_sz());
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(0));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(4));
+        EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)1);
+
+        EXPECT_EQ(readall(blkarr, segm, 3), "ABC");
+        writeall(blkarr, segm, "ABCD");
+
+        {
+            auto stats = sg_alloc.stats();
+
+            EXPECT_EQ(stats.current.in_use_by_user_sz, uint64_t(blkarr.subblk_sz()));
+            EXPECT_EQ(stats.current.in_use_blk_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_blk_for_suballoc_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_subblk_cnt, uint64_t(1));
+
+            EXPECT_EQ(stats.current.in_use_ext_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_inlined_sz, uint64_t(0));
+
+            EXPECT_EQ(stats.current.alloc_call_cnt, uint64_t(4));
+            EXPECT_EQ(stats.current.dealloc_call_cnt, uint64_t(0));
+
+            EXPECT_EQ(stats.current.external_frag_sz, uint64_t(0));
+            EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(2));
+            EXPECT_EQ(stats.current.allocable_internal_frag_sz, uint64_t((15) * blkarr.subblk_sz()));
+
+            EXPECT_THAT(stats.current.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
+
+            XOZ_EXPECT_ALL_ZERO_STATS(stats.before_reset);
+            EXPECT_EQ(stats.reset_cnt, uint64_t(0));
+        }
+
+        // Realloc to subblk_sz + 1 byte (expected 1 extent and 1 byte of inline data)
+        sg_alloc.realloc(segm, blkarr.subblk_sz() + 1);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(5));
+        EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)1);
+
+        EXPECT_EQ(readall(blkarr, segm, 4), "ABCD");
+        writeall(blkarr, segm, "ABCDE");
+
+        // Realloc to 3 subblk_sz + 1 byte (expected 1 extents and 1 byte of inline data)
+        sg_alloc.realloc(segm, blkarr.subblk_sz() * 3 + 1);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(13));
+        EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)3);
+
+        EXPECT_EQ(readall(blkarr, segm, 5), "ABCDE");
+        writeall(blkarr, segm, "ABCDEFGHIJKLM");
+
+        {
+            auto stats = sg_alloc.stats();
+
+            EXPECT_EQ(stats.current.in_use_by_user_sz, uint64_t(1 + 3 * blkarr.subblk_sz()));
+            EXPECT_EQ(stats.current.in_use_blk_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_blk_for_suballoc_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_subblk_cnt, uint64_t(3));
+
+            EXPECT_EQ(stats.current.in_use_ext_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_inlined_sz, uint64_t(1));
+
+            EXPECT_EQ(stats.current.alloc_call_cnt, uint64_t(6));
+            EXPECT_EQ(stats.current.dealloc_call_cnt, uint64_t(2));
+
+            EXPECT_EQ(stats.current.external_frag_sz, uint64_t(0));
+            EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(2));
+            EXPECT_EQ(stats.current.allocable_internal_frag_sz, uint64_t((13) * blkarr.subblk_sz()));
+
+            EXPECT_THAT(stats.current.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
+
+            XOZ_EXPECT_ALL_ZERO_STATS(stats.before_reset);
+            EXPECT_EQ(stats.reset_cnt, uint64_t(0));
+        }
+
+        // Realloc to 17 subblk_sz (expected 2 extents)
+        sg_alloc.realloc(segm, blkarr.subblk_sz() * 17);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)2);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(0));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(68));
+        EXPECT_EQ(segm.exts()[0].blk_cnt(), (uint8_t)1);
+        EXPECT_EQ(segm.exts()[1].subblk_cnt(), (uint8_t)1);
+
+        EXPECT_EQ(readall(blkarr, segm, 13), "ABCDEFGHIJKLM");
+        writeall(blkarr, segm, "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJKKKKLLLLMMMMNNNNOOOOPPPPQQQQ");
+
+        EXPECT_EQ(readall(blkarr, segm, 68), "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJKKKKLLLLMMMMNNNNOOOOPPPPQQQQ");
+
+        {
+            auto stats = sg_alloc.stats();
+
+            EXPECT_EQ(stats.current.in_use_by_user_sz, uint64_t((blkarr.subblk_sz() * 17)));
+            EXPECT_EQ(stats.current.in_use_blk_cnt, uint64_t(2));
+            EXPECT_EQ(stats.current.in_use_blk_for_suballoc_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_subblk_cnt, uint64_t(1));
+
+            EXPECT_EQ(stats.current.in_use_ext_cnt, uint64_t(2));
+            EXPECT_EQ(stats.current.in_use_inlined_sz, uint64_t(0));
+
+            EXPECT_EQ(stats.current.alloc_call_cnt, uint64_t(7));
+            EXPECT_EQ(stats.current.dealloc_call_cnt, uint64_t(3));
+
+            EXPECT_EQ(stats.current.external_frag_sz, uint64_t(0));
+            EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(2));
+            EXPECT_EQ(stats.current.allocable_internal_frag_sz, uint64_t((15) * blkarr.subblk_sz()));
+
+            EXPECT_THAT(stats.current.in_use_ext_per_segm, ElementsAre(0,0,1,0,0,0,0,0));
+
+            XOZ_EXPECT_ALL_ZERO_STATS(stats.before_reset);
+            EXPECT_EQ(stats.reset_cnt, uint64_t(0));
+        }
+    }
+
+    TEST(SegmentAllocatorTest, DecreaseSizeByRealloc) {
+
+        auto blkarr_ptr = FileBlockArray::create_mem_based(64, 1);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+        SegmentAllocator sg_alloc;
+        sg_alloc.manage_block_array(blkarr);
+        sg_alloc.initialize_from_allocated(std::list<Segment>());
+
+        // Initially, a segment with 1 extent of 1 block and another extent with 1 subblock
+        Segment segm = sg_alloc.alloc(68);
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(68));
+
+        writeall(blkarr, segm, "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJKKKKLLLLMMMMNNNNOOOOPPPPQQQQ");
+
+        // Realloc to 3 subblk_sz + 1 byte (expected 1 extents and 1 byte of inline data)
+        sg_alloc.realloc(segm, blkarr.subblk_sz() * 3 + 1);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(13));
+        EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)3);
+
+        EXPECT_EQ(readall(blkarr, segm, 13), "AAAABBBBCCCCD");
+
+        {
+            auto stats = sg_alloc.stats();
+
+            EXPECT_EQ(stats.current.in_use_by_user_sz, uint64_t(1 + 3 * blkarr.subblk_sz()));
+            EXPECT_EQ(stats.current.in_use_blk_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_blk_for_suballoc_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_subblk_cnt, uint64_t(3));
+
+            EXPECT_EQ(stats.current.in_use_ext_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_inlined_sz, uint64_t(1));
+
+            EXPECT_EQ(stats.current.alloc_call_cnt, uint64_t(2));
+            EXPECT_EQ(stats.current.dealloc_call_cnt, uint64_t(1));
+
+            EXPECT_EQ(stats.current.external_frag_sz, uint64_t(64));
+            EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(2));
+            EXPECT_EQ(stats.current.allocable_internal_frag_sz, uint64_t((13) * blkarr.subblk_sz()));
+
+            EXPECT_THAT(stats.current.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
+
+            XOZ_EXPECT_ALL_ZERO_STATS(stats.before_reset);
+            EXPECT_EQ(stats.reset_cnt, uint64_t(0));
+        }
+
+        // Realloc to subblk_sz + 1 byte (expected 1 extent and 1 byte of inline data)
+        sg_alloc.realloc(segm, blkarr.subblk_sz() + 1);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(5));
+        EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)1);
+
+        EXPECT_EQ(readall(blkarr, segm, 5), "AAAAB");
+
+        // Realloc to subblk_sz (expected 1 extent)
+        sg_alloc.realloc(segm, blkarr.subblk_sz());
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)1);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(0));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(4));
+        EXPECT_EQ(segm.exts()[0].subblk_cnt(), (uint8_t)1);
+
+        EXPECT_EQ(readall(blkarr, segm, 4), "AAAA");
+
+        {
+            auto stats = sg_alloc.stats();
+
+            EXPECT_EQ(stats.current.in_use_by_user_sz, uint64_t(blkarr.subblk_sz()));
+            EXPECT_EQ(stats.current.in_use_blk_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_blk_for_suballoc_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_subblk_cnt, uint64_t(1));
+
+            EXPECT_EQ(stats.current.in_use_ext_cnt, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_inlined_sz, uint64_t(0));
+
+            EXPECT_EQ(stats.current.alloc_call_cnt, uint64_t(3));
+            EXPECT_EQ(stats.current.dealloc_call_cnt, uint64_t(2));
+
+            EXPECT_EQ(stats.current.external_frag_sz, uint64_t(64));
+            EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(2));
+            EXPECT_EQ(stats.current.allocable_internal_frag_sz, uint64_t((15) * blkarr.subblk_sz()));
+
+            EXPECT_THAT(stats.current.in_use_ext_per_segm, ElementsAre(0,1,0,0,0,0,0,0));
+
+            XOZ_EXPECT_ALL_ZERO_STATS(stats.before_reset);
+            EXPECT_EQ(stats.reset_cnt, uint64_t(0));
+        }
+
+        // Realloc to 3 bytes (only inline data)
+        sg_alloc.realloc(segm, 3);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(3));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(3));
+
+        EXPECT_EQ(readall(blkarr, segm, 3), "AAA");
+
+        {
+            auto stats = sg_alloc.stats();
+
+            EXPECT_EQ(stats.current.in_use_by_user_sz, uint64_t(3));
+            EXPECT_EQ(stats.current.in_use_blk_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_subblk_cnt, uint64_t(0));
+
+            EXPECT_EQ(stats.current.in_use_ext_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_inlined_sz, uint64_t(3));
+
+            EXPECT_EQ(stats.current.alloc_call_cnt, uint64_t(4));
+            EXPECT_EQ(stats.current.dealloc_call_cnt, uint64_t(3));
+
+            EXPECT_EQ(stats.current.external_frag_sz, uint64_t(128));
+            EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(0));
+            EXPECT_EQ(stats.current.allocable_internal_frag_sz, uint64_t((0) * blkarr.subblk_sz()));
+
+            EXPECT_THAT(stats.current.in_use_ext_per_segm, ElementsAre(1,0,0,0,0,0,0,0));
+
+            XOZ_EXPECT_ALL_ZERO_STATS(stats.before_reset);
+            EXPECT_EQ(stats.reset_cnt, uint64_t(0));
+        }
+
+        // Realloc to 1 byte (expected inline data)
+        sg_alloc.realloc(segm, 1);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(1));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(1));
+
+        EXPECT_EQ(readall(blkarr, segm, 1), "A");
+
+        {
+            auto stats = sg_alloc.stats();
+
+            EXPECT_EQ(stats.current.in_use_by_user_sz, uint64_t(1));
+            EXPECT_EQ(stats.current.in_use_blk_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_subblk_cnt, uint64_t(0));
+
+            EXPECT_EQ(stats.current.in_use_ext_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_inlined_sz, uint64_t(1));
+
+            EXPECT_EQ(stats.current.alloc_call_cnt, uint64_t(4));
+            EXPECT_EQ(stats.current.dealloc_call_cnt, uint64_t(3));
+
+            EXPECT_EQ(stats.current.external_frag_sz, uint64_t(128));
+            EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(0));
+            EXPECT_EQ(stats.current.allocable_internal_frag_sz, uint64_t((0) * blkarr.subblk_sz()));
+
+            EXPECT_THAT(stats.current.in_use_ext_per_segm, ElementsAre(1,0,0,0,0,0,0,0));
+
+            XOZ_EXPECT_ALL_ZERO_STATS(stats.before_reset);
+            EXPECT_EQ(stats.reset_cnt, uint64_t(0));
+        }
+
+        // Realloc to 0 byte
+        sg_alloc.realloc(segm, 0);
+
+        EXPECT_EQ(segm.ext_cnt(), (size_t)0);
+        EXPECT_EQ(segm.inline_data_sz(), (uint8_t)(0));
+        EXPECT_EQ(segm.calc_data_space_size(), (uint8_t)(0));
+
+        {
+            auto stats = sg_alloc.stats();
+
+            EXPECT_EQ(stats.current.in_use_by_user_sz, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_blk_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_subblk_cnt, uint64_t(0));
+
+            EXPECT_EQ(stats.current.in_use_ext_cnt, uint64_t(0));
+            EXPECT_EQ(stats.current.in_use_inlined_sz, uint64_t(0));
+
+            EXPECT_EQ(stats.current.alloc_call_cnt, uint64_t(4));
+            EXPECT_EQ(stats.current.dealloc_call_cnt, uint64_t(3));
+
+            EXPECT_EQ(stats.current.external_frag_sz, uint64_t(128));
+            EXPECT_EQ(stats.current.internal_frag_avg_sz, uint64_t(0));
+            EXPECT_EQ(stats.current.allocable_internal_frag_sz, uint64_t((0) * blkarr.subblk_sz()));
+
+            EXPECT_THAT(stats.current.in_use_ext_per_segm, ElementsAre(1,0,0,0,0,0,0,0));
+
+            XOZ_EXPECT_ALL_ZERO_STATS(stats.before_reset);
+            EXPECT_EQ(stats.reset_cnt, uint64_t(0));
+        }
     }
 }
 

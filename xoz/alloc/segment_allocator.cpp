@@ -8,6 +8,7 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <vector>
 
 #include "xoz/alloc/free_map.h"
 #include "xoz/alloc/subblock_free_map.h"
@@ -344,17 +345,159 @@ void SegmentAllocator::dealloc(const Segment& segm) {
     reclaim_free_space_from_subfr_map();
 }
 
-Segment SegmentAllocator::realloc(const Segment& segm, const uint32_t sz) {
+void SegmentAllocator::realloc(Segment& segm, const uint32_t sz) { realloc(segm, sz, default_req); }
+
+void SegmentAllocator::realloc(Segment& segm, const uint32_t sz, const struct req_t& req) {
     fail_if_block_array_not_initialized();
     fail_if_allocator_not_initialized();
     fail_if_allocator_is_blocked();
 
-    if (sz == 0) {
-        throw std::runtime_error("Cannot reallocate a segment to a new one of zero bytes");
+    uint32_t cur_sz = segm.calc_data_space_size();
+
+    if (cur_sz == sz) {
+        return;
     }
 
-    dealloc(segm);
-    return alloc(sz);
+    const bool should_expand = (cur_sz < sz);
+
+    std::vector<char> saved;
+    if (should_expand) {
+        const bool last_ext_is_suballoc = segm.ext_cnt() >= 1 and segm.exts().back().is_suballoc();
+        const bool has_end_of_segment = segm.has_end_of_segment();
+        const auto inline_data_sz = segm.inline_data_sz();
+
+        uint32_t saved_sz = 0;
+        if (last_ext_is_suballoc) {
+            saved_sz += assert_u32(segm.exts().back().calc_data_space_size(_blkarr->blk_sz_order()));
+        }
+
+        if (has_end_of_segment) {
+            saved_sz += inline_data_sz;
+        }
+
+        IOSegment io(*_blkarr, segm);
+        io.seek_rd(saved_sz, IOBase::Seekdir::end);
+        io.readall(saved, saved_sz);
+
+        if (has_end_of_segment) {
+            segm.remove_inline_data();
+
+            in_use_inlined_sz -= inline_data_sz;
+            in_use_by_user_sz -= inline_data_sz;
+        }
+
+        if (last_ext_is_suballoc) {
+            Segment tail(_blkarr->blk_sz_order());
+            tail.add_extent(segm.exts().back());
+
+            // fake (stats only) that we deallocate the whole initial segment
+            // and that we allocate then only its tail
+            calc_ext_per_segm_stats(segm, false);
+            calc_ext_per_segm_stats(tail, true);
+
+            // now, perform a real deallocation of the tail.
+            // the stats computed here will be compensated by the ones computed
+            // in the earlier call to calc_ext_per_segm_stats
+            dealloc(tail);
+
+            // drop the last extent (tail) and fake (stats only) an
+            // allocation of the new segment
+            segm.remove_last_extent();
+            calc_ext_per_segm_stats(segm, true);
+        }
+
+        cur_sz -= saved_sz;  // this should not overflow
+    } else {
+        const auto inline_data_sz = segm.inline_data_sz();
+        if (cur_sz - sz <= inline_data_sz) {
+            // Easy case: we shrink a little the inline data and that's all
+            segm.reserve_inline_data(assert_u8(inline_data_sz - (cur_sz - sz)));
+
+            in_use_inlined_sz -= (cur_sz - sz);
+            in_use_by_user_sz -= (cur_sz - sz);
+            return;
+        }
+
+        segm.remove_inline_data();
+        cur_sz -= inline_data_sz;  // this should not overflow
+        in_use_inlined_sz -= inline_data_sz;
+        in_use_by_user_sz -= inline_data_sz;
+
+        assert(segm.ext_cnt() >= 1);
+    }
+
+    assert(not segm.has_end_of_segment());
+
+    if (should_expand) {
+        assert(sz > cur_sz);
+
+        const uint32_t extra_sz = sz - cur_sz;  // this should not overflow either
+        Segment tail = alloc(extra_sz, req);
+
+        // fake stats: drop initial segment and tail and then add the merged of those two
+        calc_ext_per_segm_stats(tail, false);
+        calc_ext_per_segm_stats(segm, false);
+
+        segm.extend(tail);
+        calc_ext_per_segm_stats(segm, true);
+
+        assert(segm.calc_data_space_size() >= sz);
+
+        IOSegment io(*_blkarr, segm);
+        io.seek_wr(cur_sz);
+        io.writeall(saved);
+
+    } else {
+        Segment to_free(_blkarr->blk_sz_order());
+        uint32_t shrink_sz = (cur_sz - sz);  // this should not overflow but it may be zero
+        while (shrink_sz) {
+            auto last_ext = segm.exts().back();
+            uint32_t last_ext_sz = last_ext.calc_data_space_size(_blkarr->blk_sz_order());
+
+            if (last_ext_sz <= shrink_sz) {
+                to_free.add_extent(last_ext);
+                segm.remove_last_extent();
+                shrink_sz -= last_ext_sz;
+                cur_sz -= last_ext_sz;
+            } else {
+                assert(saved.size() == 0);
+                const uint32_t saved_sz = last_ext_sz - shrink_sz;  // this should not overflow
+                {
+                    // Go to the begin of the last extent and read only
+                    // a few bytes from there. The rest of the bytes will
+                    // be dropped anyways after the reallocation and there
+                    // is no need to preserve them
+                    IOSegment io(*_blkarr, segm);
+                    io.seek_rd(last_ext_sz, IOBase::Seekdir::end);
+                    io.readall(saved, saved_sz);
+                }
+
+                // drop the last extent and alloc the difference
+                to_free.add_extent(last_ext);
+                segm.remove_last_extent();
+                cur_sz -= last_ext_sz;
+
+                // free the extents so the following alloc may have a chance of having
+                // a better performance
+                dealloc(to_free);
+                to_free.clear();
+
+                segm.extend(alloc(saved_sz, req));
+                {
+                    IOSegment io(*_blkarr, segm);
+                    io.seek_wr(cur_sz);
+                    io.writeall(saved);
+                }
+
+                shrink_sz = 0;
+            }
+        }
+
+        // Free any pending extent: (it may or may not be needed)
+        if (to_free.ext_cnt() >= 1) {
+            dealloc(to_free);
+        }
+    }
 }
 
 void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
@@ -368,19 +511,6 @@ void SegmentAllocator::dealloc_single_extent(const Extent& ext) {
     Segment segm(_blkarr->blk_sz_order());
     segm.add_extent(ext);
     this->dealloc(segm);
-}
-
-Extent SegmentAllocator::realloc_single_extent(const Extent& ext, const uint32_t sz) {
-    fail_if_block_array_not_initialized();
-    fail_if_allocator_not_initialized();
-    fail_if_allocator_is_blocked();
-
-    if (sz == 0) {
-        throw std::runtime_error("Cannot reallocate a single extent to a new one of zero bytes");
-    }
-
-    dealloc_single_extent(ext);
-    return alloc_single_extent(sz);
 }
 
 void SegmentAllocator::initialize_with_nothing_allocated() { initialize_from_allocated(std::list<Segment>()); }

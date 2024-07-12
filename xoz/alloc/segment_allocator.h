@@ -115,20 +115,24 @@ public:
     void dealloc_single_extent(const Extent& ext);
 
     /*
-     * Allocs a new segment/extent of the given size (sz)
-     * deallocating the one given by parameter (segm/ext).
+     * Resize the given segment in place deallocating parts of the segment not longer
+     * needed or allocating new parts.
      *
-     * Caller must use the returned segment/extent and consider <segm>/<ext> invalid.
+     * The resize is "in place" in a best-effort fashion:
+     * When the size is increased, new extents (and possibly inline data) will be added to segment
+     * to reach the desired size. If on the contrary the segment shrinks, extents are
+     * removed (and possible a few are added, including, may be inline data).
      *
-     * The given segment <segm> or extent <ext> cannot be empty (in other words,
-     * they need to represent something that was allocated).
-     * The new size <sz> cannot be zero.
+     * The implementation will try to avoid doing real reallocations of blocks to minimize
+     * the copies and the writes, all at the expense of leaving a possibly more fragmented
+     * segment. Do not use realloc to consolidate/compact a segment!
      *
-     * Note: the reallocation does not copy the content of the old segment/extent
-     * to the new one. No data is preserved.
+     * In all the cases the data is preserved (obviously, if a shrink happen, that will be lost).
+     * New space allocated has undefined data: caller should either override with useful data
+     * or zero'd it.
      * */
-    Segment realloc(const Segment& segm, const uint32_t sz);
-    Extent realloc_single_extent(const Extent& ext, const uint32_t sz);
+    void realloc(Segment& segm, const uint32_t sz);
+    void realloc(Segment& segm, const uint32_t sz, const struct req_t& req);
 
     /*
      * Initialize the segment allocator saying which segments/extents are already
