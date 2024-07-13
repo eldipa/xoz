@@ -20,8 +20,6 @@
 #include "xoz/repo/repository.h"
 
 
-#if 1
-
 // A Descriptor is the minimum unit of storage. You will have to implement yours
 // based on your needs.
 // In our case, we want to store "files" in the archiver so we create a descriptor
@@ -47,8 +45,14 @@
 class File: public Descriptor {
 
 public:
-    File(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, const std::string& fname, uint16_t fname_sz):
-            Descriptor(hdr, ed_blkarr), fname_cache(fname), fname_sz(fname_sz) {}
+    // Each descriptor has a type that denotes its nature. File Descriptors
+    // have the 0xab type. Of course this was chosen by me for this demo.
+    // The type should be very well documented in a RFC or like.
+    constexpr static uint16_t TYPE = 0x00ab;
+
+    File(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, const std::string& fname, uint32_t file_sz,
+         uint16_t fname_sz):
+            Descriptor(hdr, ed_blkarr), fname(fname), file_sz(file_sz), fname_sz(fname_sz) {}
 
     // (4) create() method with user-defined signature.
     //
@@ -64,21 +68,20 @@ public:
             throw std::runtime_error("File could not be open");
         }
 
-        // As an example we will store the size of file name in the "data"
-        // The store will happen in write_struct_specifics_into(), not here.
-        //
-        // One minor caveat, the "data" must have a size multiple of 2 so we need to take that
-        // into account when checking the size.
-        std::string fname = std::filesystem::path(fpath).filename().string();
-        uint32_t fname_sz = assert_u32(fname.size());  // cppcheck-suppress shadowVariable
-
         // We want to store the content of the file in XOZ so we need to measure how much
         // space do we need.
         auto begin = file.tellg();
         file.seekg(0, std::ios_base::end);
-        auto file_sz = assert_u32(file.tellg() - begin);
+
+        // cppcheck-suppress shadowVariable
+        uint32_t file_sz = assert_u32(file.tellg() - begin);
 
         file.seekg(0);  // rewind
+
+        // Also, we would like to store the name of the file
+        // cppcheck-suppress shadowVariable
+        std::string fname = std::filesystem::path(fpath).filename().string();
+        uint16_t fname_sz = assert_u16(fname.size());  // cppcheck-suppress shadowVariable
 
         // Each descriptor has two areas to store data: the "data" section embedded in the
         // descriptor structure and the "external" section.
@@ -86,7 +89,7 @@ public:
         // The "data" section is for small things that are frequently updated; the "external"
         // section is for very large, less frequently updated data.
         //
-        // We're going to store the file name and the file content in the "external" section.
+        // We're going to store the file content and file name in the "external" section.
         // First, let's see how much do we need:
         auto total_alloc_sz = fname_sz + file_sz;
 
@@ -98,7 +101,7 @@ public:
         //
         // The is_esize_greater_than_allowed only fails if it is larger than 1GB.
         if (Descriptor::is_esize_greater_than_allowed(total_alloc_sz)) {
-            throw std::runtime_error("File is too large");
+            throw std::runtime_error("File + file name is too large");
         }
 
         // We take the "external" data block array's allocator and we allocate the required amount
@@ -125,53 +128,40 @@ public:
         // as such using an IOSegment (or 'io' object for short).
         IOSegment io(ed_blkarr, segm);
 
-        // Let's write the file name (no null will be stored)
-        io.writeall(fname.c_str(), fname_sz);
-
         // Now, copy the file content to the io object. Writing to the io will
         // write directly to xoz file.
         io.writeall(file);
 
-        // We are storing the file name and file content in the same place,
-        // one after the other. To know where one ends and the other starts we
-        // manually tracking the file name size.
-        // This will be stored in write_struct_specifics_into() (see (1))
-        // in a uint16_t (2 bytes, this is the dsize in hdr)
+        // Then, write the file name (no null will be stored)
+        io.writeall(fname.c_str(), fname_sz);
+
+        // We said earlier than there are two store areas: the "data" and the "external"
+        // sections.
         //
-        // Note: This is "ok" for File, which it is a very simple descriptor, but it is
-        // not ok for more complex ones that work with variable-size fields.
-        // Tracking manually where each field starts and forcing us to do a single alloc
-        // at the begin is not user-friendly.
+        // We plan to store in the "data" section the sizes of the file as uint32_t
+        // and its name as uint16_t (6 bytes in total).
         //
-        // This is a limitation of current xoz implementation (of IOBase and the allocator)
-        // and this is why the rename() functionality of tarlike is disabled
-        // (see (8) and (11))
-        // Sorry.
-        //
-        // For fixed-size fields, there is no problem.
+        // The write is made in write_struct_specifics_into, no here, but we need
+        // to declare the total size in the 'dsize' field.
 
         struct header_t hdr = {
                 // The descriptor owns external data so we set this to True
                 .own_edata = true,
-
-                // Each descriptor has a type that denotes its nature. File Descriptors
-                // have the 0xab type. Of course this was chosen by me for this demo.
-                // The type should be very well documented in a RFC or like.
-                .type = 0xab,
+                .type = TYPE,
 
                 // Each descriptor has an id, either a temporal id or a persistent id.
                 // If we put 0x0, XOZ will assign an id for us when the descriptor is added
                 // to the descriptor set (6)
                 .id = 0x0,
 
-                .dsize = assert_u8(sizeof(uint16_t)),
+                .dsize = assert_u8(sizeof(uint32_t) + sizeof(uint16_t)),
                 .esize = assert_u32(total_alloc_sz),
 
-                .segm = segm,  // the location of the external data (our file)
+                .segm = segm,  // the location of the external data (our file and file name)
         };
 
         // Call the Descriptor constructor and build a File object.
-        return std::make_unique<File>(hdr, ed_blkarr, fname, assert_u16(fname_sz));
+        return std::make_unique<File>(hdr, ed_blkarr, fname, file_sz, fname_sz);
     }
 
     // (3)
@@ -185,47 +175,37 @@ public:
     // of the descriptor mapping (see main()).
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
                                               [[maybe_unused]] RuntimeContext& rctx) {
-        return std::make_unique<File>(hdr, ed_blkarr, "", 0);
+        return std::make_unique<File>(hdr, ed_blkarr, "", 0, 0);
     }
 
 public:
     // (7)
-    //
-    // TODO We cannot make get_fname a const method.
-    //
-    // This is a limitation of the IOSegment API: it expects a non-const
-    // reference to the segment, even if we are going to read and only read.
-    // Because we are in a const method (get_fname), hdr.segm is a const reference
-    // so we are forced to do a local non-const copy to work with IOSegment.
-    // The same happens with the blkarray reference that it must be non-const
-    // even we are going to only read.
-    std::string get_fname() {
-        if (fname_cache == "") {
-            std::vector<char> buf(fname_sz);
-
-            IOSegment io(external_blkarr(), hdr.segm);
-            io.readall(buf);
-
-            fname_cache.assign(buf.data(), fname_sz);
-        }
-
-        return fname_cache;
-    }
+    std::string get_fname() const { return fname; }
 
     // (8)
-    /*
-    void set_fname(std::string new_fname) {
-        // Not supported for now
+    void set_fname(const std::string& new_fname) {
+        uint16_t new_fname_sz = assert_u16(new_fname.size());
+
+        external_blkarr().allocator().realloc(hdr.segm, file_sz + new_fname_sz);
+        // hdr.segm.add_end_of_segment();
+
+        IOSegment io(external_blkarr(), hdr.segm);
+        io.seek_wr(file_sz);
+        io.writeall(new_fname.c_str(), new_fname_sz);
+
+        fname = new_fname;
+        fname_sz = new_fname_sz;
+
+        notify_descriptor_changed();
     }
-    */
 
     // (9)
     void extract() {
         std::fstream f;
-        auto fname = get_fname();
         f.open(fname, std::ios_base::in);
         if (f) {
             // Do not extract the file if such exists already in the user's working directory
+            std::cerr << "The file '" << fname << "' already exist. Extraction aborted.\n";
             return;
         }
 
@@ -241,10 +221,9 @@ public:
         // We use the "external" data block array, the same that we used to store the file
         // in the create() method (4).
         IOSegment io(external_blkarr(), hdr.segm);
-        io.seek_rd(fname_sz);
 
-        // Read all and dump it into f
-        io.readall(f);
+        // Read the file content and dump it into f
+        io.readall(f, file_sz);
     }
 
 protected:
@@ -257,14 +236,37 @@ protected:
     // Here "data" means the small private data section that every descriptor has
     // (this is not the "external" data).
     //
-    // As we did in (4), we expect to read or write the size of the file name size.
+    // As we did in (4), we expect to read or write the size of the file and file name sizes.
     // Again, more complex structures could be read/written here (if they fit).
     //
     // Note: the content of the "data" section *must* by a multiple of 2 and it must
     // be below up to a maximum of 127 bytes.
-    void read_struct_specifics_from(IOBase& io) override { fname_sz = io.read_u16_from_le(); }
+    void read_struct_specifics_from(IOBase& io) override {
+        file_sz = io.read_u32_from_le();
+        fname_sz = io.read_u16_from_le();
 
-    void write_struct_specifics_into(IOBase& io) override { io.write_u16_to_le(fname_sz); }
+        // We *can* read from the "external" section if we want
+        // Here, we read and put in memory the file name but we
+        // left the file content unread in disk.
+        //
+        // To read from the "external" section, we create another IO
+        // with the header's segment
+        IOSegment ioe(external_blkarr(), hdr.segm);
+
+        // The file name is stored immediately after the file content
+        // so we seek to that position
+        ioe.seek_rd(file_sz);
+
+        // Read the string
+        std::vector<char> buf(fname_sz);
+        ioe.readall(buf);
+        fname.assign(buf.data(), fname_sz);
+    }
+
+    void write_struct_specifics_into(IOBase& io) override {
+        io.write_u32_to_le(file_sz);
+        io.write_u16_to_le(fname_sz);
+    }
 
     // (2) Update this->hdr
     //
@@ -272,7 +274,8 @@ protected:
     // the header's attributes because a descriptor may be written to disk
     // in any moment and the header needs to reflect the latest state.
     void update_header() override {
-        // No change can happen on File so nothing needs to be updated
+        hdr.segm.add_end_of_segment();
+        hdr.esize = hdr.segm.calc_data_space_size();
     }
 
     // (5)
@@ -297,7 +300,8 @@ protected:
     }
 
 private:
-    std::string fname_cache;
+    std::string fname;
+    uint32_t file_sz;
     uint16_t fname_sz;
 };
 
@@ -379,8 +383,7 @@ void extract_file(std::shared_ptr<DescriptorSet>& dset, int id_arg) {
     std::cout << "[ID " << id << "] File " << f->get_fname() << " extracted\n";
 }
 
-/*
- (11)
+// (11)
 void rename_file(std::shared_ptr<DescriptorSet>& dset, int id_arg, const std::string& new_name) {
     uint32_t id = assert_u32(id_arg);
     std::shared_ptr<File> f;
@@ -395,20 +398,18 @@ void rename_file(std::shared_ptr<DescriptorSet>& dset, int id_arg, const std::st
 
     // Because we changed the descriptor we need to mark it as "modified"
     // so the set can know that it should schedule a write to disk with this update
-    // However, if the descriptor was coded correctly, this should not be needed
-    // because any descriptor that it is changed it should notify about the change
-    // without requiring the caller (us) to do an explicit call to mark_as_modified().
     //
-    // If you need to do this call, 99% is probably that the descriptor is wrong.
-    // Putting this here just for documentation and demo.
+    // In theory, all the descriptors should call notify_descriptor_changed() internally.
+    // However, and just to be sure, you can call mark_as_modified() on the set:
+    // this should not be necessary but it does not do any harm
+    // (in fact the File descriptor calls notify_descriptor_changed() so it is *not* necessary)
     dset->mark_as_modified(id);
     std::cout << "[ID " << id << "] File " << f->get_fname() << " renamed.\n";
 }
-*/
 
 void list_files(std::shared_ptr<DescriptorSet>& dset) {
     // The descriptor set supports a C++ classic iteration.
-    // The iterators has the method as<> to downcast descriptors
+    // The iterators has the method cast<> to downcast descriptors
     // as get<> does.
     for (auto it = dset->begin(); it != dset->end(); ++it) {
         auto f = (*it)->cast<File>();
@@ -416,7 +417,10 @@ void list_files(std::shared_ptr<DescriptorSet>& dset) {
     }
 }
 
-void stats(const Repository& repo) { std::cout << repo << "\n"; }
+void stats(const Repository& repo) {
+    // Writing a repo to stdout will pretty print the statistics of the xoz file
+    std::cout << repo << "\n";
+}
 
 void print_usage() {
     std::cerr << "Missing/Bad arguments\n";
@@ -424,7 +428,7 @@ void print_usage() {
     std::cerr << "  add files:      tarlike <file.xoz> a <file name> [<file name>...]\n";
     std::cerr << "  delete files:   tarlike <file.xoz> d <file id> [<file id>...]\n";
     std::cerr << "  extract files:  tarlike <file.xoz> x <file id> [<file id>...]\n";
-    // std::cerr << "  rename a file:  tarlike <file.xoz> r <file id> <new file name>\n";
+    std::cerr << "  rename a file:  tarlike <file.xoz> r <file id> <new file name>\n";
     std::cerr << "  list files:     tarlike <file.xoz> l\n";
     std::cerr << "  show stats:     tarlike <file.xoz> s\n";
 }
@@ -437,10 +441,15 @@ int main(int argc, char* argv[]) {
         return ret;
     }
 
-    DescriptorMapping dmap({{0xab, File::create}});
+    // xoz library needs to know how to map descriptor types (integers)
+    // to C++ classes, in particular, to factory methods (create())
+    DescriptorMapping dmap({{File::TYPE, File::create}});
 
+    // Create a repo. Create a fresh new xoz file or open it if already exists.
     Repository repo = Repository::create(dmap, argv[1]);
 
+    // Each repo has one root descriptor set. A set can then have more sets within (subsets)
+    // but in this demo we are not exploring that.
     auto dset = repo.root();
 
     ret = 0;
@@ -542,8 +551,3 @@ int main(int argc, char* argv[]) {
 
     return ret;
 }
-#else
-
-int main() { return 0; }
-
-#endif
