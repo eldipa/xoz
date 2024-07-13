@@ -114,6 +114,11 @@ public:
     bool is_closed() const;
 
     /*
+     * Close the file without releasing any block. No trailer is written either.
+     * */
+    void panic_close();
+
+    /*
      * Construction/assignation by movement/by copy are not allowed.
      * */
     FileBlockArray(FileBlockArray&&) = delete;

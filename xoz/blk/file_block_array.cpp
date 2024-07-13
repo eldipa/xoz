@@ -384,6 +384,17 @@ void FileBlockArray::close() {
     closed = true;
 }
 
+void FileBlockArray::panic_close() {
+    if (closed)
+        return;
+
+    if (not is_mem_based()) {
+        disk_fp.close();
+    }
+
+    closed = true;
+}
+
 bool FileBlockArray::is_closed() const { return closed; }
 
 uint32_t FileBlockArray::header_sz() const { return begin_blk_nr() << blk_sz_order(); }

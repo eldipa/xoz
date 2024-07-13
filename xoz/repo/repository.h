@@ -106,6 +106,12 @@ public:
     void close();
 
     /*
+     * Close the repository abruptly without flushing any pending write.
+     * This should be called as a last resort if a call to close() failed.
+     * */
+    void panic_close();
+
+    /*
      * Flush any pending write.
      * */
     void full_sync(const bool release);

@@ -443,83 +443,103 @@ int main(int argc, char* argv[]) {
 
     auto dset = repo.root();
 
-    switch (argv[2][0]) {
-        case 'a':
-            // add
-            if (argc == 3) {
-                std::cerr << "Missing the name of the file(s) to add\n";
-                goto fail;
-            }
-            for (int i = 3; i < argc; ++i) {
-                add_file(repo, argv[i]);
-            }
-            break;
-        case 'd':
-            // delete
-            if (argc == 3) {
-                std::cerr << "Missing the id(s) of the file(s) to remove\n";
-                goto fail;
-            }
-            for (int i = 3; i < argc; ++i) {
-                del_file(dset, atoi(argv[i]));
-            }
-            break;
-        case 'x':
-            // extract
-            if (argc == 3) {
-                std::cerr << "Missing the id(s) of the file(s) to extract\n";
-                goto fail;
-            }
-            for (int i = 3; i < argc; ++i) {
-                extract_file(dset, atoi(argv[i]));
-            }
-            break;
-        /*
-         * (11)
-         * case 'r':
-            // rename
-            if (argc == 3) {
-                std::cerr << "Missing the id of the file to rename\n";
-                goto fail;
-            } else if (argc == 4) {
-                std::cerr << "Missing the new file name of the file to rename\n";
-                goto fail;
-            } else if (argc > 5) {
-                std::cerr << "Too many arguments\n";
-                goto fail;
-            }
+    ret = 0;
+    try {
+        switch (argv[2][0]) {
+            case 'a':
+                // add
+                if (argc == 3) {
+                    std::cerr << "Missing the name of the file(s) to add\n";
+                    ret = -2;
+                    break;
+                }
+                for (int i = 3; i < argc; ++i) {
+                    add_file(repo, argv[i]);
+                }
+                break;
+            case 'd':
+                // delete
+                if (argc == 3) {
+                    std::cerr << "Missing the id(s) of the file(s) to remove\n";
+                    ret = -2;
+                    break;
+                }
+                for (int i = 3; i < argc; ++i) {
+                    del_file(dset, atoi(argv[i]));
+                }
+                break;
+            case 'x':
+                // extract
+                if (argc == 3) {
+                    std::cerr << "Missing the id(s) of the file(s) to extract\n";
+                    ret = -2;
+                    break;
+                }
+                for (int i = 3; i < argc; ++i) {
+                    extract_file(dset, atoi(argv[i]));
+                }
+                break;
+            case 'r':
+                // rename
+                if (argc == 3) {
+                    std::cerr << "Missing the id of the file to rename\n";
+                    ret = -2;
+                    break;
+                } else if (argc == 4) {
+                    std::cerr << "Missing the new file name of the file to rename\n";
+                    ret = -2;
+                    break;
+                } else if (argc > 5) {
+                    std::cerr << "Too many arguments\n";
+                    ret = -2;
+                    break;
+                }
 
-            rename_file(dset, atoi(argv[3]), argv[4]);
-            break;
-        */
-        case 'l':
-            // list
-            if (argc != 3) {
-                std::cerr << "Too many arguments\n";
-                goto fail;
-            }
-            list_files(dset);
-            break;
-        case 's':
-            // stats
-            if (argc != 3) {
-                std::cerr << "Too many arguments\n";
-                goto fail;
-            }
-            stats(repo);
-            break;
-        default:
-            std::cerr << "Unknown command.\n";
-            print_usage();
-            goto fail;
+                rename_file(dset, atoi(argv[3]), argv[4]);
+                break;
+            case 'l':
+                // list
+                if (argc != 3) {
+                    std::cerr << "Too many arguments\n";
+                    ret = -2;
+                    break;
+                }
+                list_files(dset);
+                break;
+            case 's':
+                // stats
+                if (argc != 3) {
+                    std::cerr << "Too many arguments\n";
+                    ret = -2;
+                    break;
+                }
+                stats(repo);
+                break;
+            default:
+                std::cerr << "Unknown command.\n";
+                print_usage();
+                ret = -2;
+                break;
+        }
+    } catch (const std::exception& err) {
+        std::cerr << err.what() << "\n";
+        ret = -3;
     }
 
-    // Ensure everything is written to disk
-    repo.close();
+    try {
+        // Ensure everything is written to disk
+        repo.close();
+    } catch (const std::exception& err) {
+        std::cerr << err.what() << "\n";
+        ret = -4;
 
-    ret = 0;
+        // This is bad: it is very likely that there is a bug in either the xoz lib
+        // or in one of the descriptors.
+        // The only thing we can do is to try to close the file. At this moment
+        // we may end up with a corrupted file.
+        repo.panic_close();
+    }
 
-fail:
     return ret;
 }
 #else

@@ -438,6 +438,15 @@ void Repository::close() {
     closing = false;
 }
 
+void Repository::panic_close() {
+    if (closed)
+        return;
+
+    fblkarr->panic_close();
+    closed = true;
+    closing = false;
+}
+
 void Repository::load_root_set(struct repo_header_t& hdr) {
     IOSpan root_io(hdr.root, sizeof(hdr.root));
 
