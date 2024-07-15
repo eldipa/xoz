@@ -1,0 +1,14 @@
+target_sources(xoz
+    PRIVATE
+    bug.cpp
+    extent.cpp
+    size.cpp
+    xoz.cpp
+    PUBLIC
+    bug.h
+    exceptions.h
+    extent.h
+    msg.h
+    size.h
+    xoz.h
+    )

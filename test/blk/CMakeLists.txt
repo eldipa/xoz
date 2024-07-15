@@ -1,0 +1,11 @@
+target_sources(runtests
+    PRIVATE
+    file_block_array.cpp
+    file_rw_extent_full_alloc.cpp
+    file_rw_extent_sub_alloc.cpp
+    segment_block_array_64_128.cpp
+    segment_block_array_64_16.cpp
+    segment_block_array_64_2.cpp
+    segment_block_array_64_64.cpp
+    vector_block_array.cpp
+    )

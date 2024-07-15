@@ -1,0 +1,14 @@
+target_sources(xoz
+    PRIVATE
+    free_map.cpp
+    internals.cpp
+    segment_allocator.cpp
+    subblock_free_map.cpp
+    tail_allocator.cpp
+    PUBLIC
+    free_map.h
+    internals.h
+    segment_allocator.h
+    subblock_free_map.h
+    tail_allocator.h
+    )

@@ -1,0 +1,12 @@
+target_sources(xoz
+    PRIVATE
+    block_array.cpp
+    file_block_array.cpp
+    segment_block_array.cpp
+    vector_block_array.cpp
+    PUBLIC
+    block_array.h
+    file_block_array.h
+    segment_block_array.h
+    vector_block_array.h
+    )

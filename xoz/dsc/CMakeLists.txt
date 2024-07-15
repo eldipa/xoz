@@ -1,0 +1,13 @@
+target_sources(xoz
+    PRIVATE
+    default.cpp
+    descriptor.cpp
+    descriptor_mapping.cpp
+    descriptor_set.cpp
+    PUBLIC
+    default.h
+    descriptor.h
+    descriptor_mapping.h
+    descriptor_set.h
+    internals.h
+    )
