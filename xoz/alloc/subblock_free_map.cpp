@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "xoz/err/exceptions.h"
-#include "xoz/trace.h"
+#include "xoz/log/trace.h"
 
 using namespace xoz::alloc::internals;  // NOLINT
 

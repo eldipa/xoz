@@ -1,4 +1,4 @@
-#include "xoz/trace.h"
+#include "xoz/log/trace.h"
 
 #include <cstdlib>
 

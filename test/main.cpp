@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
-#include "xoz/trace.h"
+#include "xoz/log/trace.h"
 
 #include <fstream>
 
