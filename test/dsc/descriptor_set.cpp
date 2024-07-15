@@ -2618,7 +2618,7 @@ namespace {
         // Create another subset, make it child of dset and move dset's only desc to the subset
         // Sync and check
         Segment subsg2(blk_sz_order);
-        uint32_t id4 = dset->add(std::move(DescriptorSet::create(subsg2, d_blkarr, rctx)));
+        uint32_t id4 = dset->add((DescriptorSet::create(subsg2, d_blkarr, rctx)));
 
         auto xsubdset2 = dset->get<DescriptorSet>(id4);
         dset->move_out(id2, *xsubdset2);
