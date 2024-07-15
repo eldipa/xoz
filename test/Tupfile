@@ -1,3 +1,0 @@
-include_rules
-:foreach *.cpp |> !compile-test -I../ |>
-: *.o repo/*.o segm/*.o ext/*.o alloc/*.o  dsc/*.o io/*.o blk/*.o dsc/*.o mem/*.o ../xoz/libxoz.a |> !build-runtests |> runtests

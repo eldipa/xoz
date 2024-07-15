@@ -1,4 +1,0 @@
-include_rules
-:foreach *.cpp |> !compile -I../ |>
-:foreach *.o | ../xoz/libxoz.a |> !build-prog $(TUP_VARIANTDIR)/../xoz/libxoz.a |> %B
-

@@ -1,3 +1,0 @@
-include_rules
-:foreach *.cpp |> !compile -I../ |>
-: *.o repo/*.o segm/*.o ext/*.o alloc/*.o mem/*.o dsc/*.o io/*.o err/*.o blk/*.o log/*.o |> !build-static-lib |> libxoz.a
