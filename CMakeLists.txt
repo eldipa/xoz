@@ -15,6 +15,8 @@ project(xoz
     LANGUAGES CXX
     )
 
+message(CMAKE_CXX_COMPILER_ID="${CMAKE_CXX_COMPILER_ID}")
+
 # Define targets: xoz lib and a few demo programs
 add_library(xoz STATIC)
 add_executable(allocdemo)
