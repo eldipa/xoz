@@ -72,6 +72,10 @@ function(
             -Wsign-conversion # warn on sign conversions
             -Wno-unused-command-line-argument
       )
+  else()
+      list(APPEND CLANG_WARNINGS
+            -Wno-sign-conversion
+      )
   endif()
 
   set(GCC_WARNINGS
