@@ -1,41 +1,34 @@
 .PHONY: all test clean coverage
 
-ifndef buildvariant
-compileallvariants ?= 1
-buildvariant = build-debug-gcc
-else
-compileallvariants ?= 0
-endif
-
-debug: compile-debug
+test-debug: compile-debug
 	./build-debug/runtests
 
-release: compile-release
+test-release: compile-release
 	./build-release/runtests
 
-relwithdebinfo: compile-relwithdebinfo
+test-relwithdebinfo: compile-relwithdebinfo
 	./build-relwithdebinfo/runtests
 
 compile-debug:
-	cmake -S . -B ./build-debug -DCMAKE_BUILD_TYPE=Debug
-	cmake --build  build-debug/
+	cmake -S . -B ./build-debug -DCMAKE_BUILD_TYPE=Debug $(EXTRA_GENERATE)
+	cmake --build  build-debug/ $(EXTRA_COMPILE)
 
 compile-release:
-	cmake -S . -B ./build-release -DCMAKE_BUILD_TYPE=Release
-	cmake --build  build-release/
+	cmake -S . -B ./build-release -DCMAKE_BUILD_TYPE=Release $(EXTRA_GENERATE)
+	cmake --build  build-release/ $(EXTRA_COMPILE)
 
 compile-relwithdebinfo:
-	cmake -S . -B ./build-relwithdebinfo -DCMAKE_BUILD_TYPE=RelWithDebInfo
-	cmake --build  build-relwithdebinfo/
+	cmake -S . -B ./build-relwithdebinfo -DCMAKE_BUILD_TYPE=RelWithDebInfo $(EXTRA_GENERATE)
+	cmake --build  build-relwithdebinfo/ $(EXTRA_COMPILE)
 
 valgrind-debug: compile-debug
-	valgrind ./build-debug/runtests
+	valgrind $(EXTRA_VALGRIND) ./build-debug/runtests
 
 valgrind-release: compile-release
-	valgrind ./build-release/runtests
+	valgrind $(EXTRA_VALGRIND) ./build-release/runtests
 
 valgrind-relwithdebinfo: compile-relwithdebinfo
-	valgrind ./build-relwithdebinfo/runtests
+	valgrind $(EXTRA_VALGRIND) ./build-relwithdebinfo/runtests
 
 all: debug release relwithdebinfo
 
