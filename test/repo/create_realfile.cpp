@@ -3302,7 +3302,6 @@ namespace {
         // frequently allocations/deallocation and how there is a lot of unallocated space
         // that it is in the middle of the file and it cannot be recovered/reclaimed.
         repo4.close();
-        std::cout << "//////////////\n";
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
