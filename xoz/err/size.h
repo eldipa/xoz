@@ -5,6 +5,7 @@
 
 #include "xoz/err/msg.h"
 
+namespace xoz {
 class NotEnoughRoom: public std::exception {
 private:
     std::string msg;
@@ -26,3 +27,4 @@ public:
 
     const char* what() const noexcept override;
 };
+}  // namespace xoz

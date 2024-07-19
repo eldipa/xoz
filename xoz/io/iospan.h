@@ -5,6 +5,7 @@
 
 #include "xoz/io/iobase.h"
 
+namespace xoz {
 /*
  * Read/write bytes into/from a span of bytes. This class
  * offers and more ergonomic interface to work with these
@@ -33,3 +34,4 @@ private:
      * */
     uint32_t rw_operation(const bool is_read_op, char* data, const uint32_t data_sz) override final;
 };
+}  // namespace xoz

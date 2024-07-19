@@ -17,6 +17,9 @@ using ::testing::AllOf;
 
 using ::testing_xoz::helpers::ensure_called_once;
 
+using namespace ::xoz;
+using namespace ::xoz::alloc::internals;
+
 #define XOZ_EXPECT_FREE_MAP_CONTENT_BY_BLK_NR(fr_map, matcher) do {     \
         std::list<Extent> fr_extents;                           \
         fr_extents.assign((fr_map).cbegin_by_blk_nr(), (fr_map).cend_by_blk_nr());    \

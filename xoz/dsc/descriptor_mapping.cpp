@@ -5,6 +5,7 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/log/format_string.h"
 
+namespace xoz {
 DescriptorMapping::DescriptorMapping(const std::map<uint16_t, descriptor_create_fn>& descriptors_map,
                                      bool override_reserved) {
     for (auto [type, fn]: descriptors_map) {
@@ -46,3 +47,4 @@ descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) 
 
     return it->second;
 }
+}  // namespace xoz

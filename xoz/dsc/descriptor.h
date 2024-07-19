@@ -7,6 +7,7 @@
 #include "xoz/io/iobase.h"
 #include "xoz/segm/segment.h"
 
+namespace xoz {
 class RuntimeContext;
 class DescriptorSet;
 class BlockArray;
@@ -328,3 +329,4 @@ private:
     static void chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end,
                                      const Descriptor* const dsc, bool ex_type_used);
 };
+}  // namespace xoz

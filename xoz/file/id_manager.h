@@ -6,6 +6,7 @@
 
 #include "xoz/err/exceptions.h"
 
+namespace xoz {
 class IDManager {
 public:
     IDManager() { reset(); }
@@ -62,3 +63,4 @@ private:
 
     std::set<uint32_t> persistent_ids;
 };
+}  // namespace xoz

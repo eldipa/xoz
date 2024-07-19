@@ -15,6 +15,7 @@
 #include "xoz/mem/inet_checksum.h"
 #include "xoz/segm/internals.h"
 
+namespace xoz {
 void PrintTo(const Segment& segm, std::ostream* out) {
     if (segm.exts().size() == 0) {
         (*out) << "[] ";
@@ -509,3 +510,4 @@ bool Segment::operator==(const Segment& segm) const {
 
     return exts() == segm.exts() and raw == segm.raw;
 }
+}  // namespace xoz

@@ -13,6 +13,7 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/io/iospan.h"
 
+namespace xoz {
 class Segment;
 
 class FileBlockArray: public BlockArray {
@@ -333,3 +334,4 @@ private:
 
     constexpr static const char* IN_MEMORY_FPATH = "@in-memory";
 };
+}  // namespace xoz

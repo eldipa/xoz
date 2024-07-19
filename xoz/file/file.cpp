@@ -9,6 +9,7 @@
 #include "xoz/mem/endianness.h"
 #include "xoz/mem/inet_checksum.h"
 
+namespace xoz {
 struct File::preload_file_ctx_t File::dummy = {false, {0}};
 
 File::File(const DescriptorMapping& dmap, const char* fpath):
@@ -605,3 +606,4 @@ void File::check_blk_sz_order(const uint8_t blk_sz_order) {
                                          .str());
     }
 }
+}  // namespace xoz

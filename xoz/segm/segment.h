@@ -9,6 +9,7 @@
 #include "xoz/ext/extent.h"
 #include "xoz/io/iobase.h"
 
+namespace xoz {
 class Segment {
 public:
     static const uint32_t MaxInlineSize = (1 << 6) - 1;
@@ -214,3 +215,4 @@ private:
     bool inline_present;
     std::vector<char> raw;
 };
+}  // namespace xoz

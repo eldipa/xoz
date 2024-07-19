@@ -13,6 +13,7 @@
 #include "xoz/mem/bits.h"
 
 
+namespace xoz {
 IOBase::IOBase(const uint32_t src_sz): src_sz(src_sz), rd(0), wr(0) {}
 
 void IOBase::rw_operation_exact_sz(const bool is_read_op, char* data, const uint32_t exact_sz) {
@@ -266,3 +267,4 @@ void IOBase::rw_operation_exact_sz_iostream(std::ostream* const output, std::ist
                         .str());
     }
 }
+}  // namespace xoz

@@ -6,12 +6,11 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/log/trace.h"
 
-using namespace xoz::alloc::internals;  // NOLINT
-
 #define TRACE TRACE_ON(0x01)
 
 #define TRACE_LINE TRACE << "\t\t\t\t"
 
+namespace xoz::alloc::internals {
 FreeMap::FreeMap(bool coalescing_enabled, uint16_t split_above_threshold):
         coalescing_enabled(coalescing_enabled), split_above_threshold(split_above_threshold) {}
 
@@ -338,3 +337,4 @@ void FreeMap::fail_if_overlap(const Extent& ext) const {
         }
     }
 }
+}  // namespace xoz::alloc::internals

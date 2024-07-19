@@ -16,6 +16,9 @@ using ::testing::AllOf;
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::subvec;
 
+using namespace ::xoz;
+using namespace ::xoz::alloc::internals;
+
 // Check that the serialization of the extents in fp are of the
 // expected size (call calc_struct_footprint_size) and they match
 // byte-by-byte with the expected data (in hexdump)

@@ -7,6 +7,7 @@
 
 #include "xoz/mem/bits.h"
 
+namespace xoz {
 // An extent can have 2 mutually exclusive interpretations:
 //
 //  - it either defines a contiguous array of <blk_cnt>
@@ -222,3 +223,4 @@ public:
         }
     };
 };
+}  // namespace xoz

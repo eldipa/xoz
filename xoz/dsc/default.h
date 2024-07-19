@@ -5,6 +5,7 @@
 #include "xoz/dsc/descriptor.h"
 #include "xoz/io/iobase.h"
 
+namespace xoz {
 /*
  * Default descriptor: it is the most basic descriptor possible that just
  * carries the data read from a XOZ file about a descriptor and writes into
@@ -41,3 +42,4 @@ protected:
     void write_struct_specifics_into(IOBase& io) override;
     void update_header() override {}
 };
+}  // namespace xoz

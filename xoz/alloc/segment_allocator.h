@@ -9,6 +9,7 @@
 #include "xoz/ext/extent.h"
 #include "xoz/segm/segment.h"
 
+namespace xoz {
 class BlockArray;
 
 class SegmentAllocator {
@@ -60,10 +61,10 @@ private:
     uint8_t blk_sz_order;
     uint32_t subblk_sz;
 
-    TailAllocator tail;
+    xoz::alloc::internals::TailAllocator tail;
 
-    FreeMap fr_map;
-    SubBlockFreeMap subfr_map;
+    xoz::alloc::internals::FreeMap fr_map;
+    xoz::alloc::internals::SubBlockFreeMap subfr_map;
 
     bool coalescing_enabled;
 
@@ -280,8 +281,9 @@ public:
     }
 
 
-    typedef xoz::alloc::internals::ConstExtentMergeIterator<FreeMap::const_iterator_by_blk_nr_t,
-                                                            SubBlockFreeMap::const_iterator_by_blk_nr_t, true>
+    typedef xoz::alloc::internals::ConstExtentMergeIterator<
+            xoz::alloc::internals::FreeMap::const_iterator_by_blk_nr_t,
+            xoz::alloc::internals::SubBlockFreeMap::const_iterator_by_blk_nr_t, true>
             const_iterator_by_blk_nr_t;
 
     inline const_iterator_by_blk_nr_t cbegin_by_blk_nr() const {
@@ -364,3 +366,4 @@ private:
     struct i_stats_t stats_before_reset;
     uint64_t reset_cnt;
 };
+}  // namespace xoz

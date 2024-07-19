@@ -6,6 +6,7 @@
 #include "xoz/io/iosegment.h"
 #include "xoz/segm/segment.h"
 
+namespace xoz {
 // Note:
 //  - fg_blk_cnt means blk count in terms of the array's blocks (public API)
 //  - bg_blk_cnt means blk count in terms of the segment's blocks (internal implementation API)
@@ -168,3 +169,4 @@ SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& bg_blkarr, uint3
 }
 
 SegmentBlockArray::~SegmentBlockArray() {}
+}  // namespace xoz

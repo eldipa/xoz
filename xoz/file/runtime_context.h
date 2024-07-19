@@ -7,6 +7,7 @@
 #include "xoz/dsc/descriptor_mapping.h"
 #include "xoz/file/id_manager.h"
 
+namespace xoz {
 class RuntimeContext: public IDManager, public DescriptorMapping {
 public:
     explicit RuntimeContext(const DescriptorMapping& dmap): IDManager(), DescriptorMapping(dmap) {}
@@ -14,3 +15,4 @@ public:
                             bool override_reserved = false):
             IDManager(), DescriptorMapping(descriptors_map, override_reserved) {}
 };
+}  // namespace xoz

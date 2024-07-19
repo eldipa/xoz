@@ -5,6 +5,7 @@
 
 #include "xoz/err/msg.h"
 
+namespace xoz {
 class File;
 
 class OpenXOZError: public std::exception {
@@ -44,3 +45,4 @@ public:
 
     const char* what() const noexcept override;
 };
+}  // namespace xoz

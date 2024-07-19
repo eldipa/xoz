@@ -17,6 +17,8 @@
     }             \
     while (0)
 
+using namespace xoz;  // NOLINT
+
 class Demo {
 private:
     BlockArray& blkarr;
@@ -162,7 +164,7 @@ int main(int argc, char* argv[]) {
     if (argc != 7)
         return -1;
 
-    set_trace_mask_from_env();
+    xoz::log::set_trace_mask_from_env();
 
     bool coalescing_enabled = argv[1][0] == '1';
     uint16_t split_above_threshold = assert_u16(atoi(argv[2]));

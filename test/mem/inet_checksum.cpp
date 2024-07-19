@@ -14,6 +14,8 @@ using ::testing::ThrowsMessage;
 using ::testing::AllOf;
 using ::testing_xoz::helpers::ensure_called_once;
 
+using namespace ::xoz;
+
 namespace {
     TEST(InetChecksumTest, GoodChecksum) {
         EXPECT_EQ(is_inet_checksum_good(0), (bool)true);

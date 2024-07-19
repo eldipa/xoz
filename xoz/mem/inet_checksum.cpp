@@ -2,6 +2,7 @@
 
 #include "xoz/io/iobase.h"
 
+namespace xoz {
 uint32_t inet_checksum(IOBase& io, const uint32_t begin, const uint32_t end) {
     assert(begin <= end);
 
@@ -36,3 +37,4 @@ uint32_t inet_checksum(IOBase& io, const uint32_t begin, const uint32_t end) {
     assert(io.tell_rd() == end);
     return checksum;
 }
+}  // namespace xoz

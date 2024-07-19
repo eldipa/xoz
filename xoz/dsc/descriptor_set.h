@@ -13,6 +13,7 @@
 #include "xoz/dsc/internals.h"
 #include "xoz/io/iobase.h"
 
+namespace xoz {
 class RuntimeContext;
 
 class DescriptorSet: public Descriptor {
@@ -361,3 +362,4 @@ private:
     void read_struct_specifics_from(IOBase& io) override;
     void write_struct_specifics_into(IOBase& io) override;
 };
+}  // namespace xoz

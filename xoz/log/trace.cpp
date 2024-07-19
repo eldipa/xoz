@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 
+namespace xoz::log {
 // Do not modify this unless via calling set_trace_mask_from_env()
 int __XOZ_TRACE_MASK = 0;
 
@@ -14,3 +15,4 @@ void set_trace_mask_from_env() {
         __XOZ_TRACE_MASK = std::atoi(valstr);
     }
 }
+}  // namespace xoz::log

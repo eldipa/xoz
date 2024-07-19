@@ -8,6 +8,7 @@
 
 #include "xoz/mem/endianness.h"
 
+namespace xoz {
 /*
  * Abstract base class to read from and write into a source like
  * a traditional C++ iostream but simpler and with a more
@@ -301,3 +302,4 @@ protected:
 protected:
     virtual ~IOBase() {}
 };
+}  // namespace xoz

@@ -8,6 +8,7 @@
 #include "xoz/ext/extent.h"
 #include "xoz/mem/bits.h"
 
+namespace xoz {
 class BlockArray {
 public:
     /*
@@ -364,3 +365,4 @@ public:
 private:
     void fail_if_block_array_not_initialized() const;
 };
+}  // namespace xoz

@@ -10,6 +10,8 @@ using ::testing::ThrowsMessage;
 using ::testing::AllOf;
 using ::testing_xoz::helpers::ensure_called_once;
 
+using namespace ::xoz;
+
 namespace {
     TEST(ExtentTest, BlockNumberBits) {
         // Block numbers are 26 bits long

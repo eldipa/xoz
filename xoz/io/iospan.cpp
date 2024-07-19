@@ -8,6 +8,7 @@
 
 #include "xoz/mem/bits.h"
 
+namespace xoz {
 IOSpan::IOSpan(std::span<char> dataspan): IOBase(assert_u32(dataspan.size())), dataspan(dataspan) {
     if (dataspan.size() > uint32_t(-1)) {
         throw "";  // TODO
@@ -37,3 +38,4 @@ uint32_t IOSpan::rw_operation(const bool is_read_op, char* data, const uint32_t 
 
     return rw_total_sz;
 }
+}  // namespace xoz

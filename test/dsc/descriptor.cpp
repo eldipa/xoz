@@ -23,6 +23,9 @@ using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::are_all_zeros;
 using ::testing_xoz::helpers::ensure_called_once;
 
+using namespace ::xoz;
+using namespace ::xoz::alloc::internals;
+
 namespace {
 const size_t FP_SZ = 224;
 }

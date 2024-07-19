@@ -25,6 +25,7 @@
 #define TRACE_SECTION(x) TRACE << (x) << " "
 #define TRACE_LINE TRACE << "    "
 
+namespace xoz {
 SegmentAllocator::SegmentAllocator(bool coalescing_enabled, uint16_t split_above_threshold,
                                    const struct req_t& default_req):
         _blkarr(nullptr),
@@ -1089,3 +1090,4 @@ void SegmentAllocator::fail_if_allocator_is_blocked() const {
         throw std::runtime_error("SegmentAllocator is blocked: no allocation/deallocation/release is allowed.");
     }
 }
+}  // namespace xoz

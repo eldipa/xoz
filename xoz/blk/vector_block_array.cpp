@@ -8,6 +8,7 @@
 #include "xoz/io/iosegment.h"
 #include "xoz/segm/segment.h"
 
+namespace xoz {
 std::tuple<uint32_t, uint16_t> VectorBlockArray::impl_grow_by_blocks(uint16_t ar_blk_cnt) {
     // we over allocate 25% of the requested space on each grow, with a minimum of 1 additional block
     if (over_allocate) {
@@ -63,3 +64,4 @@ VectorBlockArray::VectorBlockArray(uint32_t blk_sz, bool over_allocate): BlockAr
 }
 
 VectorBlockArray::~VectorBlockArray() {}
+}  // namespace xoz

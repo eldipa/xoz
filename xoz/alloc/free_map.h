@@ -6,6 +6,7 @@
 #include "xoz/alloc/internals.h"
 #include "xoz/ext/extent.h"
 
+namespace xoz::alloc::internals {
 class FreeMap {
     using map_nr2cnt_t = xoz::alloc::internals::map_nr2cnt_t;
     using multimap_cnt2nr_t = xoz::alloc::internals::multimap_cnt2nr_t;
@@ -99,3 +100,4 @@ private:
 
     void fail_if_overlap(const Extent& ext) const;
 };
+}  // namespace xoz::alloc::internals

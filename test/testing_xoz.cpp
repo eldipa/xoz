@@ -3,8 +3,8 @@
 #include <iomanip>
 #include <fstream>
 
-std::string testing_xoz::helpers::hexdump(const IOSegment& io, unsigned at, unsigned len) {
-    IOSegment rdio = io.dup();
+std::string testing_xoz::helpers::hexdump(const xoz::IOSegment& io, unsigned at, unsigned len) {
+    xoz::IOSegment rdio = io.dup();
     rdio.seek_rd(0);
 
     std::vector<char> buf;

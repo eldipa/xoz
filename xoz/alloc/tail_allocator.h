@@ -4,8 +4,11 @@
 
 #include "xoz/ext/extent.h"
 
+namespace xoz {
 class BlockArray;
+}
 
+namespace xoz::alloc::internals {
 class TailAllocator {
 private:
     BlockArray* blkarr;
@@ -45,3 +48,4 @@ public:
 
     bool is_at_the_end(const Extent& ext) const;
 };
+}  // namespace xoz::alloc::internals

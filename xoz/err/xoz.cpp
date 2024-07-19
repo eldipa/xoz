@@ -7,6 +7,7 @@
 
 #include "xoz/file/file.h"
 
+namespace xoz {
 OpenXOZError::OpenXOZError(const char* fpath, const std::string& msg) {
     std::stringstream ss;
     ss << "Open file '" << fpath << "' failed.\n";
@@ -45,3 +46,4 @@ WouldEndUpInconsistentXOZ::WouldEndUpInconsistentXOZ(const std::string& msg) { t
 WouldEndUpInconsistentXOZ::WouldEndUpInconsistentXOZ(const F& msg): WouldEndUpInconsistentXOZ(msg.ss.str()) {}
 
 const char* WouldEndUpInconsistentXOZ::what() const noexcept { return msg.data(); }
+}  // namespace xoz

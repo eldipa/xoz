@@ -6,6 +6,7 @@
 #include <string>
 
 
+namespace xoz {
 InternalError::InternalError(const std::string& msg) {
     std::stringstream ss;
     ss << "[Possible bug detected] " << msg;
@@ -16,3 +17,4 @@ InternalError::InternalError(const std::string& msg) {
 InternalError::InternalError(const F& msg): InternalError(msg.ss.str()) {}
 
 const char* InternalError::what() const noexcept { return msg.data(); }
+}  // namespace xoz

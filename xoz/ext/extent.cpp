@@ -6,6 +6,7 @@
 
 #include "xoz/err/exceptions.h"
 
+namespace xoz {
 Extent::Extent(uint32_t blk_nr, uint16_t blk_cnt, bool is_suballoc):
         _blk_nr(blk_nr & uint32_t(0x03ffffff)), _blk_cnt(blk_cnt) {
     if (blk_nr & uint32_t(~0x03ffffff)) {
@@ -172,3 +173,4 @@ uint32_t Extent::estimate_on_avg_internal_frag_sz(uint8_t blk_sz_order) const {
         return 0;
     }
 }
+}  // namespace xoz

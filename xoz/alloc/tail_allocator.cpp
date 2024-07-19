@@ -9,8 +9,8 @@
 #include "xoz/ext/extent.h"
 #include "xoz/file/file.h"
 
-using namespace xoz::alloc::internals;  // NOLINT
 
+namespace xoz::alloc::internals {
 TailAllocator::TailAllocator(): blkarr(nullptr) {}
 
 void TailAllocator::manage_block_array(BlockArray& blkarr) { this->blkarr = &blkarr; }
@@ -67,3 +67,4 @@ void TailAllocator::fail_if_block_array_not_initialized() const {
         throw std::runtime_error("Block array not initialized (managed). Missed call to manage_block_array?");
     }
 }
+}  // namespace xoz::alloc::internals

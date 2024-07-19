@@ -6,6 +6,7 @@
 #include "xoz/io/iobase.h"
 #include "xoz/segm/segment.h"
 
+namespace xoz {
 class BlockArray;
 
 /*
@@ -79,3 +80,4 @@ private:
 protected:
     IOSegment(const IOSegment& io) = default;
 };
+}  // namespace xoz

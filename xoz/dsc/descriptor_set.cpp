@@ -11,6 +11,7 @@
 #include "xoz/log/format_string.h"
 #include "xoz/mem/inet_checksum.h"
 
+namespace xoz {
 DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& blkarr, RuntimeContext& rctx):
         Descriptor(hdr, blkarr),
         visited(false),
@@ -851,3 +852,4 @@ void DescriptorSet::clear_set() {
 void DescriptorSet::destroy() {
     depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->destroy_no_recursive(); });
 }
+}  // namespace xoz

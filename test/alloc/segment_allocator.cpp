@@ -22,6 +22,9 @@ using ::testing_xoz::helpers::subvec;
 using ::testing_xoz::helpers::ensure_called_once;
 using ::testing_xoz::helpers::are_all_zeros;
 
+using namespace ::xoz;
+using namespace ::xoz::alloc::internals;
+
 #define XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, matcher) do {     \
         std::list<Extent> fr_extents;                           \
         fr_extents.assign((sg_alloc).cbegin_by_blk_nr(), (sg_alloc).cend_by_blk_nr());    \

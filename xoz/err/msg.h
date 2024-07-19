@@ -3,6 +3,7 @@
 #include <sstream>
 #include <string>
 
+namespace xoz {
 struct F {
     std::stringstream ss;
 
@@ -14,3 +15,4 @@ struct F {
 
     std::string str() { return ss.str(); }
 };
+}  // namespace xoz

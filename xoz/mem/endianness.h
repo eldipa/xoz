@@ -3,6 +3,7 @@
 #include <bit>
 #include <cstdint>
 
+namespace xoz {
 constexpr uint16_t u16_byteswap(uint16_t x) noexcept { return uint16_t((x >> 8) | (x << 8)); }
 
 constexpr uint32_t u32_byteswap(uint32_t x) noexcept {
@@ -67,3 +68,4 @@ constexpr inline uint64_t u64_to_le(uint64_t x) {
     *reinterpret_cast<uint16_t*>(*dataptr) = x;
     *dataptr += sizeof(uint16_t);
 }
+}  // namespace xoz

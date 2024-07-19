@@ -6,6 +6,7 @@
 #include "xoz/alloc/internals.h"
 #include "xoz/ext/extent.h"
 
+namespace xoz::alloc::internals {
 class SubBlockFreeMap {
     using map_nr2ext_t = xoz::alloc::internals::map_nr2ext_t;
 
@@ -80,3 +81,4 @@ private:
     void _provide_any_ext(const Extent& ext);
     void _provide_subblk_ext(const Extent& ext);
 };
+}  // namespace xoz::alloc::internals

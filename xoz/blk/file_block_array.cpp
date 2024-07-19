@@ -9,6 +9,7 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/mem/bits.h"
 
+namespace xoz {
 FileBlockArray::FileBlockArray(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr):
         BlockArray(), fpath(fpath), fp(disk_fp), closed(true), closing(false) {
     std::stringstream ignored;
@@ -435,3 +436,4 @@ void FileBlockArray::read_trailer(char* buf, uint32_t exact_sz) {
 
     memcpy(buf, trailer.data(), exact_sz);
 }
+}  // namespace xoz

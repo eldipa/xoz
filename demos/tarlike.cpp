@@ -19,6 +19,7 @@
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/file/file.h"
 
+using namespace xoz;  // NOLINT
 
 // A Descriptor is the minimum unit of storage. You will have to implement yours
 // based on your needs.

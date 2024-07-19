@@ -6,6 +6,7 @@
 
 #include "xoz/dsc/descriptor.h"
 
+namespace xoz {
 class BlockArray;
 
 // Signature that a function must honor to be used as a descriptor-create function
@@ -36,3 +37,4 @@ public:
 private:
     std::map<uint16_t, descriptor_create_fn> mapping;
 };
+}  // namespace xoz

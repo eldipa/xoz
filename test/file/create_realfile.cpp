@@ -20,6 +20,9 @@ using ::testing::AllOf;
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::file2mem;
 
+using namespace ::xoz;
+using namespace ::xoz::alloc::internals;
+
 #define XOZ_EXPECT_FILE_SERIALIZATION(path, at, len, data) do {           \
     EXPECT_EQ(hexdump(file2mem(path), (at), (len)), (data));              \
 } while (0)

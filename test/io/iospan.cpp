@@ -17,6 +17,8 @@ using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::subvec;
 using ::testing_xoz::helpers::are_all_zeros;
 
+using namespace ::xoz;
+
 #define XOZ_EXPECT_BUFFER_SERIALIZATION(buf, at, len, data) do {           \
     EXPECT_EQ(hexdump((buf), (at), (len)), (data));                        \
 } while (0)

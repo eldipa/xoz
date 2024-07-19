@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 
+namespace xoz {
 
 // Calculate the log2 of a uint16_t or uint32_t values
 [[nodiscard]] constexpr inline uint8_t u16_log2_floor(uint16_t x) { return uint8_t(16 - std::countl_zero(x) - 1); }
@@ -114,3 +115,4 @@ constexpr inline typename std::enable_if_t<std::is_integral_v<T> and std::is_uns
     int shift = std::countr_zero(mask);
     field |= assert_u32(uint32_t(val << shift) & mask);
 }
+}  // namespace xoz

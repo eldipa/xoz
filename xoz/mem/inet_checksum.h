@@ -5,6 +5,7 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/mem/bits.h"
 
+namespace xoz {
 class IOBase;
 
 /*
@@ -106,3 +107,4 @@ constexpr inline uint32_t inet_remove(const uint32_t checksum, const uint16_t re
 }
 
 constexpr inline uint16_t inet_to_u16(const uint32_t checksum) { return uint16_t(fold_inet_checksum(checksum)); }
+}  // namespace xoz

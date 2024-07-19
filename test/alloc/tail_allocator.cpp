@@ -17,6 +17,9 @@ using ::testing::AllOf;
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::subvec;
 
+using namespace ::xoz;
+using namespace ::xoz::alloc::internals;
+
 #define XOZ_EXPECT_FILE_SERIALIZATION(blkarr, at, len, data) do {           \
     EXPECT_EQ(hexdump((blkarr).expose_mem_fp(), (at), (len)), (data));              \
 } while (0)

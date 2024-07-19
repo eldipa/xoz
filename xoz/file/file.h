@@ -19,6 +19,7 @@
 #include "xoz/file/runtime_context.h"
 #include "xoz/segm/segment.h"
 
+namespace xoz {
 class File {
 public:
     struct default_parameters_t {
@@ -334,3 +335,4 @@ public:
 
     Segment /* testing */ trampoline_segment() const { return trampoline_segm; }
 };
+}  // namespace xoz

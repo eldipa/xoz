@@ -9,6 +9,7 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/ext/extent.h"
 
+namespace xoz {
 void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr) {
     fail_if_bad_blk_sz(blk_sz);
 
@@ -438,3 +439,4 @@ void BlockArray::fail_if_bad_blk_nr(uint32_t blk_nr) {
                         .str());
     }
 }
+}  // namespace xoz

@@ -13,6 +13,7 @@
 #include "xoz/segm/segment.h"
 
 namespace {
+using namespace xoz;  // NOLINT
 std::vector<uint32_t> create_ext_index(const Segment& sg, [[maybe_unused]] const uint32_t sg_no_inline_sz,
                                        const uint8_t blk_sz_order) {
     uint32_t cnt = sg.ext_cnt();
@@ -33,6 +34,7 @@ std::vector<uint32_t> create_ext_index(const Segment& sg, [[maybe_unused]] const
 }  // namespace
 
 
+namespace xoz {
 IOSegment::IOSegment(BlockArray& blkarr, Segment& sg):
         IOBase(sg.calc_data_space_size()),
         blkarr(blkarr),
@@ -145,3 +147,4 @@ void IOSegment::fill_c(BlockArray& blkarr, Segment& sg, const char c, const bool
     }
     io.fill(c, sz);
 }
+}  // namespace xoz

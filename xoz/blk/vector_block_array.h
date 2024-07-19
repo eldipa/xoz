@@ -7,6 +7,7 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/io/iospan.h"
 
+namespace xoz {
 class Segment;
 
 /*
@@ -39,3 +40,4 @@ public:
 
     const std::vector<char>& expose_mem_fp() const { return buf; }
 };
+}  // namespace xoz

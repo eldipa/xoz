@@ -6,6 +6,7 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/io/iosegment.h"
 
+namespace xoz {
 class Segment;
 
 /*
@@ -53,3 +54,4 @@ public:
 
     const IOSegment& expose_mem_fp() const { return *bg_io.get(); }
 };
+}  // namespace xoz

@@ -16,6 +16,7 @@
 #include "xoz/mem/inet_checksum.h"
 
 
+namespace xoz {
 /*
  * Check the positions in the io that the data field begins (before calling descriptor subclass)
  * and ends (after calling the descriptor subclass) and compares the difference with the data_sz (in bytes).
@@ -553,3 +554,4 @@ void Descriptor::notify_descriptor_changed() {
         owner_raw_ptr->mark_as_modified(this->id());
     }
 }
+}  // namespace xoz

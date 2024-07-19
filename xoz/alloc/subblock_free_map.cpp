@@ -6,11 +6,10 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/log/trace.h"
 
-using namespace xoz::alloc::internals;  // NOLINT
-
 #define TRACE TRACE_ON(0x02)
 #define TRACE_LINE TRACE << "\t\t\t\t"
 
+namespace xoz::alloc::internals {
 SubBlockFreeMap::SubBlockFreeMap(): owned_subblk_cnt(0), allocated_subblk_cnt(0) {}
 
 void SubBlockFreeMap::provide(const std::list<Extent>& exts) {
@@ -330,3 +329,4 @@ void SubBlockFreeMap::fail_if_blk_nr_already_seen(const Extent& ext) const {
                                  (F() << "both have the same block number (bitmap ignored in the check)").str());
     }
 }
+}  // namespace xoz::alloc::internals

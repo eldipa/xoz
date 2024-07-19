@@ -1,5 +1,6 @@
 #include "xoz/dsc/default.h"
 
+namespace xoz {
 DefaultDescriptor::DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr):
         Descriptor(hdr, ed_blkarr) {
     dsc_data.resize(hdr.dsize);
@@ -35,3 +36,4 @@ void DefaultDescriptor::set_data(const std::vector<char>& data) {
 }
 
 const std::vector<char>& DefaultDescriptor::get_data() const { return dsc_data; }
+}  // namespace xoz

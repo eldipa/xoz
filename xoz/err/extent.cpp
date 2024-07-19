@@ -8,6 +8,7 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/ext/extent.h"
 
+namespace xoz {
 ExtentOutOfBounds::ExtentOutOfBounds(const BlockArray& blkarr, const Extent& ext, const std::string& msg) {
     std::stringstream ss;
 
@@ -97,3 +98,4 @@ ExtentOverlapError::ExtentOverlapError(const Extent& ref, const Extent& ext, con
         ExtentOverlapError("reference extent", ref, "", ext, msg) {}
 
 const char* ExtentOverlapError::what() const noexcept { return msg.data(); }
+}  // namespace xoz

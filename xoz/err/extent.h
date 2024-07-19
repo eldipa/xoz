@@ -5,6 +5,7 @@
 
 #include "xoz/err/msg.h"
 
+namespace xoz {
 class BlockArray;
 class Extent;
 
@@ -38,3 +39,4 @@ public:
 
     const char* what() const noexcept override;
 };
+}  // namespace xoz

@@ -19,6 +19,9 @@ using ::testing::AllOf;
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::file2mem;
 
+using namespace ::xoz;
+using namespace ::xoz::alloc::internals;
+
 #define XOZ_EXPECT_FILE_MEM_SERIALIZATION(xfile, at, len, data) do {           \
     EXPECT_EQ(hexdump((xfile).expose_mem_fp(), (at), (len)), (data));              \
 } while (0)
