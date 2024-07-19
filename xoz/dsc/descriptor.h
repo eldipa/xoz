@@ -20,7 +20,7 @@ public:
 
         uint32_t id;
 
-        uint8_t dsize;   // in bytes
+        uint8_t isize;   // in bytes
         uint32_t esize;  // in bytes
 
         Segment segm;  // data segment, only for own_edata descriptors
@@ -43,9 +43,9 @@ public:
     /*
      * Load the header of the descriptor but do not create a Descriptors class or call any
      * subclass-specific loading.
-     * The computed checksum *does* include the descriptor's data (dsize) however.
+     * The computed checksum *does* include the descriptor's internal data (isize) however.
      *
-     * The read pointer of io is left at the begin of the descriptor's data.
+     * The read pointer of io is left at the begin of the descriptor's internal data.
      * */
     static struct header_t load_header_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr, bool& ex_type_used,
                                             uint32_t* checksum);
@@ -64,19 +64,19 @@ public:
 
 public:
     // Return the size in bytes to represent the Descriptor structure in disk
-    // *including* the descriptor data (see calc_data_space_size)
+    // *including* the descriptor internal data (see calc_internal_data_space_size)
     uint32_t calc_struct_footprint_size() const;
 
-    // Return the size in bytes that this descriptor has. Such data space
-    // can be used by a Descriptor subclass to retrieve / store specifics
-    // fields.
+    // Return the size in bytes that this descriptor has for internal data.
+    // Such internal data space can be used by a Descriptor subclass
+    // to retrieve / store specifics fields.
     // For the perspective of this method, such interpretation is transparent
     // and the whole space is seen as a single consecutive chunk of space
     // whose size is returned.
-    uint32_t calc_data_space_size() const { return hdr.dsize; }
+    uint32_t calc_internal_data_space_size() const { return hdr.isize; }
 
     // Return the size in bytes of that referenced by the segment and
-    // that represent the external data (not the descriptor's data).
+    // that represent the external data (not the descriptor's internal data).
     //
     // The size may be larger than calc_external_data_size() (the esize field in the descriptor
     // header) if the descriptor has more space allocated than the declared in esize.
@@ -183,7 +183,7 @@ protected:
     Descriptor(const struct header_t& hdr, BlockArray& ed_blkarr):
             hdr(hdr), ext(Extent::EmptyExtent()), ed_blkarr(ed_blkarr), owner_raw_ptr(nullptr), checksum(0) {}
 
-    static void chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
+    static void chk_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
     /* Subclasses must override these methods to read/write specific data
      * from/into the iobase (xoz file) where the read/write pointer of io object
@@ -209,7 +209,7 @@ protected:
      * */
     virtual void destroy();
 
-    constexpr static inline bool is_dsize_greater_than_allowed(uint8_t dsize) { return dsize > 127; }
+    constexpr static inline bool is_isize_greater_than_allowed(uint8_t isize) { return isize > 127; }
 
     constexpr static inline bool is_esize_greater_than_allowed(uint32_t esize) { return esize > 0x7fffffff; }
 
@@ -234,7 +234,7 @@ protected:
 protected:
     /*
      * Subclass must update the content of this->hdr such
-     * calc_struct_footprint_size() and calc_data_space_size() reflect the updated
+     * calc_struct_footprint_size() and calc_internal_data_space_size() reflect the updated
      * sizes of the descriptor struct and a next write_struct_into() will work
      * as expected (writing that amount of bytes).
      *
@@ -324,8 +324,8 @@ public:
 
 public:
 private:
-    static void chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end,
-                                         uint32_t data_sz);
+    static void chk_rw_specifics_on_idata(bool is_read_op, IOBase& io, uint32_t idata_begin, uint32_t subclass_end,
+                                          uint32_t idata_sz);
     static void chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end,
                                      const Descriptor* const dsc, bool ex_type_used);
 };

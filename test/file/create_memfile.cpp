@@ -179,7 +179,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
@@ -263,7 +263,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
@@ -345,7 +345,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };

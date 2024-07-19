@@ -32,7 +32,7 @@ std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockA
     struct Descriptor::header_t hdr = {.own_edata = false,
                                        .type = 0x01,
                                        .id = 0x00,
-                                       .dsize = 2,
+                                       .isize = 2,
                                        .esize = segm.calc_data_space_size(),
                                        .segm = segm};
 
@@ -807,7 +807,7 @@ void DescriptorSet::update_header_no_recursive() {
         hdr.esize = 0;
         hdr.segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order());
 
-        hdr.dsize = 4;  // 2 uint16 fields: the holder's and set's reserved fields
+        hdr.isize = 4;  // 2 uint16 fields: the holder's and set's reserved fields
     } else {
         // Easiest case: the holder's segment is the set's segment. Nothing else is needed
         // except ensuring it has an end-of-segment because it is required by Descriptor
@@ -816,7 +816,7 @@ void DescriptorSet::update_header_no_recursive() {
         hdr.own_edata = true;
         hdr.esize = hdr.segm.calc_data_space_size();
 
-        hdr.dsize = 2;  // 1 uint16 field: the holder's reserved field
+        hdr.isize = 2;  // 1 uint16 field: the holder's reserved field
     }
 }
 

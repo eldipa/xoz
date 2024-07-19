@@ -3,12 +3,12 @@
 namespace xoz {
 DefaultDescriptor::DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr):
         Descriptor(hdr, ed_blkarr) {
-    dsc_data.resize(hdr.dsize);
+    internal_data.resize(hdr.isize);
 }
 
-void DefaultDescriptor::read_struct_specifics_from(IOBase& io) { io.readall(dsc_data, hdr.dsize); }
+void DefaultDescriptor::read_struct_specifics_from(IOBase& io) { io.readall(internal_data, hdr.isize); }
 
-void DefaultDescriptor::write_struct_specifics_into(IOBase& io) { io.writeall(dsc_data, hdr.dsize); }
+void DefaultDescriptor::write_struct_specifics_into(IOBase& io) { io.writeall(internal_data, hdr.isize); }
 
 std::unique_ptr<Descriptor> DefaultDescriptor::create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
                                                       [[maybe_unused]] RuntimeContext& rctx) {
@@ -21,19 +21,19 @@ void DefaultDescriptor::set_data(const std::vector<char>& data) {
         throw "";
     }
 
-    auto dsize = uint8_t(data.size());
-    if (dsize % 2 != 0) {
+    auto isize = uint8_t(data.size());
+    if (isize % 2 != 0) {
         throw "";
     }
 
-    if (is_dsize_greater_than_allowed(dsize)) {
+    if (is_isize_greater_than_allowed(isize)) {
         throw "";
     }
 
-    hdr.dsize = dsize;
-    dsc_data = data;
+    hdr.isize = isize;
+    internal_data = data;
     notify_descriptor_changed();
 }
 
-const std::vector<char>& DefaultDescriptor::get_data() const { return dsc_data; }
+const std::vector<char>& DefaultDescriptor::get_data() const { return internal_data; }
 }  // namespace xoz

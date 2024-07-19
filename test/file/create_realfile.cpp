@@ -1554,7 +1554,7 @@ namespace {
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
@@ -1822,7 +1822,7 @@ namespace {
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
@@ -2147,7 +2147,7 @@ namespace {
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
@@ -2518,7 +2518,7 @@ namespace {
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
@@ -2636,7 +2636,7 @@ namespace {
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
@@ -2949,7 +2949,7 @@ namespace {
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
@@ -3491,7 +3491,7 @@ namespace {
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
@@ -3871,7 +3871,7 @@ namespace {
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };

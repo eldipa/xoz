@@ -75,10 +75,10 @@ const size_t FP_SZ = 224;
 
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
-#define XOZ_EXPECT_SIZES(dsc, disk_sz, data_sz, segm_data_sz, obj_data_sz) do {      \
+#define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, edata_sz, obj_data_sz) do {      \
     EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
-    EXPECT_EQ((dsc).calc_data_space_size(), (unsigned)(data_sz));                                  \
-    EXPECT_EQ((dsc).calc_external_data_space_size(), (unsigned)(segm_data_sz));      \
+    EXPECT_EQ((dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
+    EXPECT_EQ((dsc).calc_external_data_space_size(), (unsigned)(edata_sz));      \
     EXPECT_EQ((dsc).calc_external_data_size(), (unsigned)(obj_data_sz));       \
 } while (0)
 
@@ -206,7 +206,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -303,7 +303,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -388,7 +388,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -461,7 +461,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -535,7 +535,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -623,7 +623,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 130,
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment() // <-- allocation here
         };
@@ -702,7 +702,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 130,
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment() // <-- allocation here
         };
@@ -819,7 +819,7 @@ namespace {
 
             .id = 0x0, // let the descriptor set assign a new id each
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -896,7 +896,7 @@ namespace {
         // Find the last descriptor. It is the one that has 2 bytes of data ({'C', 'D'})
         uint32_t last_dsc_id = 0;
         for (auto it = dset->begin(); it != dset->end(); ++it) {
-            if ((*it)->calc_data_space_size() == 2) {
+            if ((*it)->calc_internal_data_space_size() == 2) {
                 last_dsc_id = (*it)->id();
             }
         }
@@ -933,7 +933,7 @@ namespace {
 
             .id = 0x0, // let the descriptor set assign a new id each
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -965,7 +965,7 @@ namespace {
         // Test that we can get the descriptors (order is no guaranteed)
         sizes.clear();
         for (auto it = dset->begin(); it != dset->end(); ++it) {
-            sizes.push_back((*it)->calc_data_space_size());
+            sizes.push_back((*it)->calc_internal_data_space_size());
         }
 
         sizes.sort(); // make the test deterministic
@@ -979,7 +979,7 @@ namespace {
         // Test that we can get the descriptors - const version
         sizes.clear();
         for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
-            sizes.push_back((*it)->calc_data_space_size());
+            sizes.push_back((*it)->calc_internal_data_space_size());
         }
 
         sizes.sort(); // make the test deterministic
@@ -1013,7 +1013,7 @@ namespace {
 
             .id = 0x0, // see above
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -1110,7 +1110,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -1276,7 +1276,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -1352,7 +1352,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment()
         };
@@ -1431,7 +1431,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment()
         };
@@ -1495,7 +1495,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -1580,7 +1580,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -1680,7 +1680,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr_1.blk_sz_order())
         };
@@ -1706,7 +1706,7 @@ namespace {
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(
-                        "descriptor {id: 0x80000002, type: 250, dsize: 0} "
+                        "descriptor {id: 0x80000002, type: 250, isize: 0} "
                         "claims to use a block array for external data at 0x"
                         ),
                     HasSubstr(
@@ -1739,7 +1739,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -1761,9 +1761,9 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "descriptor {id: 0x80000001, type: 250, dsize: 0} "
+                        "descriptor {id: 0x80000001, type: 250, isize: 0} "
                         "has an id that collides with descriptor "
-                        "{id: 0x80000001, type: 250, dsize: 0} "
+                        "{id: 0x80000001, type: 250, isize: 0} "
                         "that it is already owned by the set"
                         )
                     )
@@ -1789,9 +1789,9 @@ namespace {
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
                     HasSubstr(
-                        "descriptor {id: 0x80000001, type: 250, dsize: 0} "
+                        "descriptor {id: 0x80000001, type: 250, isize: 0} "
                         "has an id that collides with descriptor "
-                        "{id: 0x80000001, type: 250, dsize: 0} "
+                        "{id: 0x80000001, type: 250, isize: 0} "
                         "that it is already owned by the set"
                         )
                     )
@@ -1820,7 +1820,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -1984,7 +1984,7 @@ namespace {
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -2160,7 +2160,7 @@ namespace {
 
             .id = 0x800000a1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -2262,7 +2262,7 @@ namespace {
 
             .id = 0x800000a1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -2434,7 +2434,7 @@ namespace {
 
             .id = 0x800000a1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
@@ -2495,7 +2495,7 @@ namespace {
 
             .id = 0x0,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };

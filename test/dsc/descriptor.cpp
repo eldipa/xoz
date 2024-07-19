@@ -36,10 +36,10 @@ const size_t FP_SZ = 224;
 
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
-#define XOZ_EXPECT_SIZES(dsc, disk_sz, data_sz, segm_data_sz, obj_data_sz) do {      \
+#define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, edata_sz, obj_data_sz) do {      \
     EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
-    EXPECT_EQ((dsc).calc_data_space_size(), (unsigned)(data_sz));                                  \
-    EXPECT_EQ((dsc).calc_external_data_space_size(), (unsigned)(segm_data_sz));      \
+    EXPECT_EQ((dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
+    EXPECT_EQ((dsc).calc_external_data_space_size(), (unsigned)(edata_sz));      \
     EXPECT_EQ((dsc).calc_external_data_size(), (unsigned)(obj_data_sz));       \
 } while (0)
 
@@ -91,7 +91,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -101,7 +101,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -132,19 +132,19 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data({1, 2, 3, 4}); // dsize = 4
+        dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4, /* struct size */
-                4,   /* descriptor data size */
+                4,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -175,19 +175,19 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data({1, 2, 3, 4}); // dsize = 4
+        dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4, /* struct size */
-                4,   /* descriptor data size */
+                4,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -218,19 +218,19 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data({1, 2, 3, 4}); // dsize = 4
+        dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+2+4, /* struct size */
-                4,   /* descriptor data size */
+                4,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -261,19 +261,19 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data({1, 2, 3, 4}); // dsize = 4
+        dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+2+4, /* struct size */
-                4,   /* descriptor data size */
+                4,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -304,19 +304,19 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data({1, 2, 3, 4}); // dsize = 4
+        dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+2+4, /* struct size */
-                4,   /* descriptor data size */
+                4,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -374,7 +374,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -383,13 +383,13 @@ namespace {
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data(data); // dsize = 64-2
+        dsc.set_data(data); // isize = 64-2
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+64-2, /* struct size */
-                64-2,   /* descriptor data size */
+                64-2,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -422,7 +422,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -431,13 +431,13 @@ namespace {
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data(data); // dsize = 64
+        dsc.set_data(data); // isize = 64
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+64, /* struct size */
-                64,   /* descriptor data size */
+                64,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -470,7 +470,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -479,13 +479,13 @@ namespace {
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data(data); // dsize = 128-2
+        dsc.set_data(data); // isize = 128-2
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+128-2, /* struct size */
-                128-2,   /* descriptor data size */
+                128-2,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -520,7 +520,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -529,13 +529,13 @@ namespace {
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data(data); // dsize = 64-2
+        dsc.set_data(data); // isize = 64-2
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+64-2, /* struct size */
-                64-2,   /* descriptor data size */
+                64-2,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -569,7 +569,7 @@ namespace {
 
             .id = 0x7fffffff,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -578,13 +578,13 @@ namespace {
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data(data); // dsize = 64-2
+        dsc.set_data(data); // isize = 64-2
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+64-2, /* struct size */
-                64-2,   /* descriptor data size */
+                64-2,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -617,7 +617,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -627,7 +627,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -658,7 +658,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -668,7 +668,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -699,7 +699,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -709,7 +709,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2+2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -740,7 +740,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -750,7 +750,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2+2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -781,7 +781,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -790,13 +790,13 @@ namespace {
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data(data); // dsize = 64
+        dsc.set_data(data); // isize = 64
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2+64, /* struct size */
-                64,   /* descriptor data size */
+                64,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -830,7 +830,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 1,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -840,7 +840,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 1  /* obj data size */
                 );
@@ -871,7 +871,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = (1 << 15) - 1,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -881,7 +881,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 (1 << 15) - 1  /* obj data size */
                 );
@@ -912,7 +912,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = (1 << 15),
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -922,7 +922,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2+2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 (1 << 15)  /* obj data size */
                 );
@@ -953,7 +953,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = uint32_t(1 << 31) - 1,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -963,7 +963,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2+2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 uint32_t(1 << 31) - 1  /* obj data size */
                 );
@@ -994,7 +994,7 @@ namespace {
 
             .id = 1,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 1,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -1006,7 +1006,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+4, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 3,  /* segment data size */
                 1  /* obj data size */
                 );
@@ -1037,19 +1037,19 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data({1, 2}); // dsize = 2
+        dsc.set_data({1, 2}); // isize = 2
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+2, /* struct size */
-                2,   /* descriptor data size */
+                2,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -1063,8 +1063,8 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
-                        "No enough room for writing descriptor's data of "
-                        "descriptor {id: 0x80000001, type: 255, dsize: 2}"
+                        "No enough room for writing descriptor's internal data of "
+                        "descriptor {id: 0x80000001, type: 255, isize: 2}"
                         )
                     )
                 )
@@ -1085,8 +1085,8 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
-                        "No enough room for reading descriptor's data of "
-                        "descriptor {id: 0x80000001, type: 255, dsize: 2}"
+                        "No enough room for reading descriptor's internal data of "
+                        "descriptor {id: 0x80000001, type: 255, isize: 2}"
                         )
                     )
                 )
@@ -1107,19 +1107,19 @@ namespace {
 
             .id = 15,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 42,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
-        dsc.set_data({1, 2}); // dsize = 2
+        dsc.set_data({1, 2}); // isize = 2
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2+2, /* struct size */
-                2,   /* descriptor data size */
+                2,   /* internal data size */
                 0,  /* segment data size */
                 42  /* obj data size */
                 );
@@ -1133,8 +1133,8 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
-                        "No enough room for writing descriptor's data of "
-                        "descriptor {id: 0x0000000f, type: 255, dsize: 2, esize: 42, owns: 0}"
+                        "No enough room for writing descriptor's internal data of "
+                        "descriptor {id: 0x0000000f, type: 255, isize: 2, esize: 42, owns: 0}"
                         )
                     )
                 )
@@ -1154,8 +1154,8 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
-                        "No enough room for reading descriptor's data of "
-                        "descriptor {id: 0x0000000f, type: 255, dsize: 2, esize: 42, owns: 0}"
+                        "No enough room for reading descriptor's internal data of "
+                        "descriptor {id: 0x0000000f, type: 255, isize: 2, esize: 42, owns: 0}"
                         )
                     )
                 )
@@ -1193,19 +1193,19 @@ namespace {
 
             .id = 15,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 42,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
         DescriptorSubRW dsc = DescriptorSubRW(hdr, ed_blkarr);
-        dsc.set_data({1, 2}); // dsize = 2
+        dsc.set_data({1, 2}); // isize = 2
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2+2, /* struct size */
-                2,   /* descriptor data size */
+                2,   /* internal data size */
                 0,  /* segment data size */
                 42  /* obj data size */
                 );
@@ -1258,7 +1258,7 @@ namespace {
 
             .id = 0,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
@@ -1268,7 +1268,7 @@ namespace {
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
                 2+4+2+2, /* struct size */
-                0,   /* descriptor data size */
+                0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
                 );
@@ -1282,7 +1282,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Descriptor id is zero in descriptor "
-                        "{id: 0x00000000, type: 255, dsize: 0, esize: 0, owns: 0}"
+                        "{id: 0x00000000, type: 255, isize: 0, esize: 0, owns: 0}"
                         )
                     )
                 )
@@ -1303,7 +1303,7 @@ namespace {
                 "ff82 0000 0000 0000 00c0"
                 );
 
-        // Because the dsize of the descriptor is small, there is no reason to have
+        // Because the isize of the descriptor is small, there is no reason to have
         // an id = 0.
         EXPECT_THAT(
             ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, ed_blkarr); }),
@@ -1312,7 +1312,7 @@ namespace {
                     HasSubstr(
                         "xoz file seems inconsistent/corrupt. "
                         "Descriptor id is zero, detected with partially loaded descriptor "
-                        "{id: 0x00000000, type: 255, dsize: 0, esize: 0, owns: 0}"
+                        "{id: 0x00000000, type: 255, isize: 0, esize: 0, owns: 0}"
                         )
                     )
                 )
@@ -1360,7 +1360,7 @@ namespace {
 
             .id = 0x80000001,
 
-            .dsize = 0,
+            .isize = 0,
             .esize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };

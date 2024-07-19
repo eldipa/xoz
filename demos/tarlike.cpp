@@ -119,10 +119,10 @@ public:
         std::string fname = std::filesystem::path(fpath).filename().string();
         uint16_t fname_sz = xoz::assert_u16(fname.size());  // cppcheck-suppress shadowVariable
 
-        // Each descriptor has two areas to store data: the "inner" section embedded in the
+        // Each descriptor has two areas to store data: the "internal" section embedded in the
         // descriptor structure and the "content" section.
         //
-        // The "inner" section is for small things that are frequently updated; the "content"
+        // The "internal" section is for small things that are frequently updated; the "content"
         // section is for very large, less frequently updated data.
         //
         // We're going to store the file content and file name in the "content" section.
@@ -171,14 +171,14 @@ public:
         // Then, write the file name (no null will be stored)
         io.writeall(fname.c_str(), fname_sz);
 
-        // We said earlier than there are two store areas: the "inner" and the "content"
+        // We said earlier than there are two store areas: the "internal" and the "content"
         // sections.
         //
-        // We plan to store in the "inner" section the sizes of the file as uint32_t
+        // We plan to store in the "internal" section the sizes of the file as uint32_t
         // and its name as uint16_t (6 bytes in total).
         //
         // The write is made in write_struct_specifics_into, no here, but we need
-        // to declare the total size in the 'dsize' field.
+        // to declare the total size in the 'isize' field.
 
         struct header_t hdr = {
                 // The descriptor owns content data so we set this to True
@@ -190,7 +190,7 @@ public:
                 // to the descriptor set (6)
                 .id = 0x0,
 
-                .dsize = xoz::assert_u8(sizeof(uint32_t) + sizeof(uint16_t)),
+                .isize = xoz::assert_u8(sizeof(uint32_t) + sizeof(uint16_t)),
                 .esize = xoz::assert_u32(total_alloc_sz),
 
                 .segm = segm,  // the location of the content data (our file and file name)
@@ -266,16 +266,16 @@ protected:
     // (1)
     //
     // These two methods are in charge to read from the io or write into the io object
-    // the "inner" of the descriptor. This happens when the descriptor is being read from
+    // the "internal" of the descriptor. This happens when the descriptor is being read from
     // or write to the xoz file.
     //
-    // Here "inner" means the small private data section that every descriptor has
+    // Here "internal" means the small private data section that every descriptor has
     // (this is not the "content" data).
     //
     // As we did in (4), we expect to read or write the size of the file and file name sizes.
     // Again, more complex structures could be read/written here (if they fit).
     //
-    // Note: the content of the "inner" section *must* by a multiple of 2 and it must
+    // Note: the content of the "internal" section *must* by a multiple of 2 and it must
     // be below up to a maximum of 127 bytes.
     void read_struct_specifics_from(IOBase& io) override {
         file_sz = io.read_u32_from_le();

@@ -17,7 +17,7 @@ namespace xoz {
 
 class DefaultDescriptor: public Descriptor {
 private:
-    std::vector<char> dsc_data;
+    std::vector<char> internal_data;
 
 public:
     DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr);

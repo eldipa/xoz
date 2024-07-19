@@ -18,41 +18,42 @@
 
 namespace xoz {
 /*
- * Check the positions in the io that the data field begins (before calling descriptor subclass)
- * and ends (after calling the descriptor subclass) and compares the difference with the data_sz (in bytes).
+ * Check the positions in the io that the (internal) data field begins (before calling descriptor subclass)
+ * and ends (after calling the descriptor subclass) and compares the difference with the idata_sz (in bytes).
  *
  * If there is any anomaly, throw an error: InconsistentXOZ (if is_read_op) or WouldEndUpInconsistentXOZ (if not
  * is_read_op)
  * */
-void Descriptor::chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t data_begin, uint32_t subclass_end,
-                                          uint32_t data_sz) {
-    uint32_t data_end = data_begin + data_sz;  // descriptor truly end
+void Descriptor::chk_rw_specifics_on_idata(bool is_read_op, IOBase& io, uint32_t idata_begin, uint32_t subclass_end,
+                                           uint32_t idata_sz) {
+    uint32_t idata_end = idata_begin + idata_sz;  // descriptor truly end
     F errmsg;
 
-    if (data_begin > subclass_end) {
-        errmsg = std::move(F() << "The descriptor subclass moved the " << (is_read_op ? "read " : "write ")
-                               << "pointer backwards and left it at position " << subclass_end
-                               << " that it is before the begin of the data section at position " << data_begin << ".");
+    if (idata_begin > subclass_end) {
+        errmsg =
+                std::move(F() << "The descriptor subclass moved the " << (is_read_op ? "read " : "write ")
+                              << "pointer backwards and left it at position " << subclass_end
+                              << " that it is before the begin of the data section at position " << idata_begin << ".");
         goto fail;
     }
 
-    if (subclass_end - data_begin > data_sz) {
+    if (subclass_end - idata_begin > idata_sz) {
         errmsg = std::move(F() << "The descriptor subclass overflowed the " << (is_read_op ? "read " : "write ")
-                               << "pointer by " << subclass_end - data_begin - data_sz
-                               << " bytes (total available: " << data_sz << " bytes) "
+                               << "pointer by " << subclass_end - idata_begin - idata_sz
+                               << " bytes (total available: " << idata_sz << " bytes) "
                                << "and left it at position " << subclass_end
-                               << " that it is beyond the end of the data section at position " << data_end << ".");
+                               << " that it is beyond the end of the data section at position " << idata_end << ".");
         goto fail;
     }
 
     // This is the only case that may happen.
-    if (subclass_end - data_begin < data_sz) {
+    if (subclass_end - idata_begin < idata_sz) {
         errmsg = std::move(F() << "The descriptor subclass underflowed the " << (is_read_op ? "read " : "write ")
-                               << "pointer and processed " << subclass_end - data_begin << " bytes (left "
-                               << data_sz - (subclass_end - data_begin) << " bytes unprocessed of " << data_sz
+                               << "pointer and processed " << subclass_end - idata_begin << " bytes (left "
+                               << idata_sz - (subclass_end - idata_begin) << " bytes unprocessed of " << idata_sz
                                << " bytes available) "
                                << "and left it at position " << subclass_end
-                               << " that it is before the end of the data section at position " << data_end << ".");
+                               << " that it is before the end of the data section at position " << idata_end << ".");
         goto fail;
     }
 
@@ -60,10 +61,10 @@ void Descriptor::chk_rw_specifics_on_data(bool is_read_op, IOBase& io, uint32_t 
 
 fail:
     if (is_read_op) {
-        io.seek_rd(data_end);
+        io.seek_rd(idata_end);
         throw InconsistentXOZ(errmsg);
     } else {
-        io.seek_wr(data_end);
+        io.seek_wr(idata_end);
         throw WouldEndUpInconsistentXOZ(errmsg);
     }
 }
@@ -138,23 +139,23 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
     local_checksum += firstfield;
 
     bool own_edata = read_bitsfield_from_u16<bool>(firstfield, MASK_OWN_EDATA_FLAG);
-    uint8_t lo_dsize = read_bitsfield_from_u16<uint8_t>(firstfield, MASK_LO_DSIZE);
+    uint8_t lo_isize = read_bitsfield_from_u16<uint8_t>(firstfield, MASK_LO_ISIZE);
     bool has_id = read_bitsfield_from_u16<bool>(firstfield, MASK_HAS_ID_FLAG);
     uint16_t type = read_bitsfield_from_u16<uint16_t>(firstfield, MASK_TYPE);
 
     uint32_t id = 0;
-    uint8_t hi_dsize = 0;
+    uint8_t hi_isize = 0;
 
     if (has_id) {
         uint32_t idfield = io.read_u32_from_le();
 
         local_checksum += inet_checksum(idfield);
 
-        hi_dsize = read_bitsfield_from_u32<uint8_t>(idfield, MASK_HI_DSIZE);
+        hi_isize = read_bitsfield_from_u32<uint8_t>(idfield, MASK_HI_ISIZE);
         id = read_bitsfield_from_u32<uint32_t>(idfield, MASK_ID);
     }
 
-    uint8_t dsize = uint8_t((uint8_t(hi_dsize << 5) | lo_dsize) << 1);  // in bytes
+    uint8_t isize = uint8_t((uint8_t(hi_isize << 5) | lo_isize) << 1);  // in bytes
 
     uint32_t lo_esize = 0, hi_esize = 0;
     if (own_edata) {
@@ -178,26 +179,26 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     Segment segm(ed_blkarr.blk_sz_order());
     struct Descriptor::header_t hdr = {
-            .own_edata = own_edata, .type = type, .id = 0, .dsize = dsize, .esize = esize, .segm = segm};
+            .own_edata = own_edata, .type = type, .id = 0, .isize = isize, .esize = esize, .segm = segm};
 
     // ID of zero is not an error, it just means that the descriptor will have a temporal id
     // assigned in runtime.
     if (has_id and id == 0) {
-        if (dsize >= (32 << 1)) {
-            // Ok, the has_id was set to true because the descriptor has a large dsize
-            // so it was required have the hi_dsize bit set and to fill the remaining
+        if (isize >= (32 << 1)) {
+            // Ok, the has_id was set to true because the descriptor has a large isize
+            // so it was required have the hi_isize bit set and to fill the remaining
             // slot, the id field was set to 0.
             //
             // In this context, the id should be a temporal one and not an error
-            assert(hi_dsize != 0);
+            assert(hi_isize != 0);
             id = rctx.request_temporal_id();
         } else {
-            // No ok. The has_id was set but it was not because the hi_dsize was required
+            // No ok. The has_id was set but it was not because the hi_isize was required
             // so it should because the descriptor has a persistent id but such cannot
             // be zero.
             //
             // This is an error
-            assert(hi_dsize == 0);
+            assert(hi_isize == 0);
             throw InconsistentXOZ(F() << "Descriptor id is zero, detected with partially loaded " << hdr);
         }
     } else if (has_id and id != 0) {
@@ -240,24 +241,25 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
         ex_type_used = true;
     }
 
-    if (dsize > io.remain_rd()) {
-        throw NotEnoughRoom(dsize, io.remain_rd(), F() << "No enough room for reading descriptor's data of " << hdr);
+    if (isize > io.remain_rd()) {
+        throw NotEnoughRoom(isize, io.remain_rd(),
+                            F() << "No enough room for reading descriptor's internal data of " << hdr);
     }
 
-    uint32_t data_begin_pos = io.tell_rd();
-    uint32_t dsc_end_pos = data_begin_pos + hdr.dsize;
+    uint32_t idata_begin_pos = io.tell_rd();
+    uint32_t dsc_end_pos = idata_begin_pos + hdr.isize;
 
-    if (io.remain_rd() < hdr.dsize) {
+    if (io.remain_rd() < hdr.isize) {
         throw InconsistentXOZ("");  // TODO
     }
 
-    local_checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
+    local_checksum += inet_checksum(io, idata_begin_pos, dsc_end_pos);
 
     if (checksum) {
         *checksum = inet_add(*checksum, inet_to_u16(local_checksum));
     }
 
-    io.seek_rd(data_begin_pos);
+    io.seek_rd(idata_begin_pos);
     return hdr;
 }
 
@@ -276,20 +278,20 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
         throw std::runtime_error((F() << "Subclass create for " << hdr << " returned a null pointer").str());
     }
 
-    uint32_t data_begin_pos = io.tell_rd();
+    uint32_t idata_begin_pos = io.tell_rd();
     {
         auto guard = ed_blkarr.allocator().block_all_alloc_dealloc_guard();  // cppcheck-suppress unreadVariable
         dsc->read_struct_specifics_from(io);
     }
     uint32_t dsc_end_pos = io.tell_rd();
 
-    chk_rw_specifics_on_data(true, io, data_begin_pos, dsc_end_pos, hdr.dsize);
+    chk_rw_specifics_on_idata(true, io, idata_begin_pos, dsc_end_pos, hdr.isize);
     chk_struct_footprint(true, io, dsc_begin_pos, dsc_end_pos, dsc.get(), ex_type_used);
 
-    // note: as the check in chk_rw_specifics_on_data and the following assert
+    // note: as the check in chk_rw_specifics_on_idata and the following assert
     // we can be 100% sure that load_header_from checksummed all the data field from
-    // data_begin_pos to data_begin_pos+hdr.dsize.
-    assert(dsc_end_pos == data_begin_pos + hdr.dsize);
+    // idata_begin_pos to idata_begin_pos+hdr.isize.
+    assert(dsc_end_pos == idata_begin_pos + hdr.isize);
     dsc->checksum = inet_to_u16(checksum);
 
     return dsc;
@@ -299,13 +301,13 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
 void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& rctx) {
     uint32_t dsc_begin_pos = io.tell_wr();
 
-    if (hdr.dsize % 2 != 0) {
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is not multiple of 2 in " << hdr);
+    if (hdr.isize % 2 != 0) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor isize is not multiple of 2 in " << hdr);
     }
 
     // TODO
-    if (is_dsize_greater_than_allowed(hdr.dsize)) {
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than allowed " << hdr);
+    if (is_isize_greater_than_allowed(hdr.isize)) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor isize is larger than allowed " << hdr);
     }
 
     if (hdr.id == 0) {
@@ -347,13 +349,13 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     */
 
     // If the id is persistent we must store it. It may not be persistent but we may require
-    // store hi_dsize so in that case we still need the idfield (but with an id of 0)
-    bool has_id = is_id_persistent(hdr.id) or hdr.dsize >= (32 << 1);
+    // store hi_isize so in that case we still need the idfield (but with an id of 0)
+    bool has_id = is_id_persistent(hdr.id) or hdr.isize >= (32 << 1);
 
     uint16_t firstfield = 0;
 
     write_bitsfield_into_u16(firstfield, hdr.own_edata, MASK_OWN_EDATA_FLAG);
-    write_bitsfield_into_u16(firstfield, assert_u16(hdr.dsize >> 1), MASK_LO_DSIZE);
+    write_bitsfield_into_u16(firstfield, assert_u16(hdr.isize >> 1), MASK_LO_ISIZE);
     write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
     if (hdr.type < EXTENDED_TYPE_VAL_THRESHOLD) {
@@ -367,11 +369,11 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     checksum += firstfield;
 
     // Write the second, if present
-    chk_dsize_fit_or_fail(has_id, hdr);
+    chk_isize_fit_or_fail(has_id, hdr);
     if (has_id) {
         uint32_t idfield = 0;
-        bool hi_dsize_msb = hdr.dsize >> (1 + 5);  // discard 5 lower bits of dsize
-        write_bitsfield_into_u32(idfield, hi_dsize_msb, MASK_HI_DSIZE);
+        bool hi_dsize_msb = hdr.isize >> (1 + 5);  // discard 5 lower bits of isize
+        write_bitsfield_into_u32(idfield, hi_dsize_msb, MASK_HI_ISIZE);
 
         if (is_id_temporal(hdr.id)) {
             // for temporal ids we are not required to have an idfield unless
@@ -432,26 +434,26 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
         ex_type_used = true;
     }
 
-    if (hdr.dsize > io.remain_wr()) {
-        throw NotEnoughRoom(hdr.dsize, io.remain_wr(),
-                            F() << "No enough room for writing descriptor's data of " << hdr);
+    if (hdr.isize > io.remain_wr()) {
+        throw NotEnoughRoom(hdr.isize, io.remain_wr(),
+                            F() << "No enough room for writing descriptor's internal data of " << hdr);
     }
 
-    uint32_t data_begin_pos = io.tell_wr();
+    uint32_t idata_begin_pos = io.tell_wr();
     write_struct_specifics_into(io);
     uint32_t dsc_end_pos = io.tell_wr();
 
-    chk_rw_specifics_on_data(false, io, data_begin_pos, dsc_end_pos, hdr.dsize);
+    chk_rw_specifics_on_idata(false, io, idata_begin_pos, dsc_end_pos, hdr.isize);
     chk_struct_footprint(false, io, dsc_begin_pos, dsc_end_pos, this, ex_type_used);
-    assert(dsc_end_pos == data_begin_pos + hdr.dsize);
+    assert(dsc_end_pos == idata_begin_pos + hdr.isize);
 
-    checksum += inet_checksum(io, data_begin_pos, dsc_end_pos);
+    checksum += inet_checksum(io, idata_begin_pos, dsc_end_pos);
     this->checksum = inet_to_u16(checksum);
 }
 
 uint32_t Descriptor::calc_struct_footprint_size() const {
-    if (hdr.dsize % 2 != 0) {
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is not multiple of 2 in " << hdr);
+    if (hdr.isize % 2 != 0) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor isize is not multiple of 2 in " << hdr);
     }
 
     uint32_t struct_sz = 0;
@@ -460,8 +462,8 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
     struct_sz += 2;
 
     // Write the idfield if present
-    bool has_id = is_id_persistent(hdr.id) or hdr.dsize >= (32 << 1);
-    chk_dsize_fit_or_fail(has_id, hdr);
+    bool has_id = is_id_persistent(hdr.id) or hdr.isize >= (32 << 1);
+    chk_isize_fit_or_fail(has_id, hdr);
     if (has_id) {
         struct_sz += 4;
     }
@@ -492,7 +494,7 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
         struct_sz += 2;
     }
 
-    struct_sz += hdr.dsize;  // hdr.dsize is in bytes too
+    struct_sz += hdr.isize;  // hdr.isize is in bytes too
 
     return struct_sz;
 }
@@ -506,7 +508,7 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
     std::ios_base::fmtflags ioflags = out->flags();
 
     (*out) << "descriptor {"
-           << "id: " << xoz::log::hex(hdr.id) << ", type: " << hdr.type << ", dsize: " << uint32_t(hdr.dsize);
+           << "id: " << xoz::log::hex(hdr.id) << ", type: " << hdr.type << ", isize: " << uint32_t(hdr.isize);
 
     if (hdr.own_edata) {
         (*out) << ", esize: " << hdr.esize << ", owns: " << hdr.segm.calc_data_space_size() << "}"
@@ -525,15 +527,15 @@ std::ostream& operator<<(std::ostream& out, const Descriptor& dsc) {
 
 void PrintTo(const Descriptor& dsc, std::ostream* out) { PrintTo(dsc.hdr, out); }
 
-void Descriptor::chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr) {
+void Descriptor::chk_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr) {
     if (has_id) {
-        if (hdr.dsize >= (64 << 1)) {
-            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
+        if (hdr.isize >= (64 << 1)) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor isize is larger than the maximum representable ("
                                                 << (64 << 1) << ") in " << hdr);
         }
     } else {
-        if (hdr.dsize >= (32 << 1)) {
-            throw WouldEndUpInconsistentXOZ(F() << "Descriptor dsize is larger than the maximum representable ("
+        if (hdr.isize >= (32 << 1)) {
+            throw WouldEndUpInconsistentXOZ(F() << "Descriptor isize is larger than the maximum representable ("
                                                 << (32 << 1) << ") in " << hdr);
         }
     }
