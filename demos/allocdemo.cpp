@@ -79,7 +79,7 @@ public:
         TRACE_END;
 
         // format:
-        // segm_id repo_data_blk_cnt ext_cnt (is_suballoc blk_nr blk_cnt/bitmap)* \n
+        // segm_id file_data_blk_cnt ext_cnt (is_suballoc blk_nr blk_cnt/bitmap)* \n
         std::cout << std::endl;
     }
 
@@ -117,7 +117,7 @@ public:
         TRACE_END;
 
         // format:
-        // repo_data_blk_cnt
+        // file_data_blk_cnt
         std::cout << std::endl;
     }
 
@@ -133,7 +133,7 @@ public:
         TRACE_END;
 
         // format:
-        // repo_data_blk_cnt
+        // file_data_blk_cnt
         std::cout << std::endl;
     }
 

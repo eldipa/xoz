@@ -153,7 +153,7 @@ uint32_t Extent::calc_data_space_size(uint8_t blk_sz_order) const {
 
     // A blk_sz_order > 16 may make (ext.blk_cnt() << blk_sz_order)
     // to overflow the uint32_t
-    // See Repository::MAX_BLK_NR
+    // See File::MAX_BLK_NR
     assert(blk_sz_order <= 16);
 
     if (ext.is_suballoc()) {

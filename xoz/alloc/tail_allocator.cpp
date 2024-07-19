@@ -7,7 +7,7 @@
 #include "xoz/alloc/internals.h"
 #include "xoz/blk/block_array.h"
 #include "xoz/ext/extent.h"
-#include "xoz/repo/repository.h"
+#include "xoz/file/file.h"
 
 using namespace xoz::alloc::internals;  // NOLINT
 
@@ -56,9 +56,9 @@ bool TailAllocator::is_at_the_end(const Extent& ext) const {
     blkarr->fail_if_out_of_boundaries(ext, "Detected on TailAllocator::dealloc");
 
     // Knowing that the extent is within the boundaries
-    // of the repository, checking the extent's past_end_blk_nr
+    // of the xoz file, checking the extent's past_end_blk_nr
     // is enough to know that the extent is exactly at the
-    // end of the repository (aka, the tail).
+    // end of the xoz file (aka, the tail).
     return (ext.past_end_blk_nr() == blkarr->past_end_blk_nr());
 }
 

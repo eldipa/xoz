@@ -185,7 +185,7 @@ protected:
     static void chk_dsize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
     /* Subclasses must override these methods to read/write specific data
-     * from/into the iobase (repository) where the read/write pointer of io object
+     * from/into the iobase (xoz file) where the read/write pointer of io object
      * is immediately after the descriptor (common) header.
      *
      * See load_struct_from and write_struct_into methods for more context.

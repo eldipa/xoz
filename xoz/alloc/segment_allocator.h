@@ -191,12 +191,12 @@ public:
         uint64_t alloc_call_cnt;
         uint64_t dealloc_call_cnt;
 
-        // External fragmentation is defined as how many blocks the repository
+        // External fragmentation is defined as how many blocks the xoz file
         // has (without counting metadata) and how many were allocated by
         // the Segment allocator.
         //
         // The difference, in block count, are the blocks unallocated by
-        // the allocator (aka free) but not released back the repository
+        // the allocator (aka free) but not released back the xoz file
         // (making not to shrink its size).
         //
         // The difference of blocks is then converted to bytes.

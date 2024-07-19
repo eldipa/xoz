@@ -6,10 +6,10 @@
 
 #include "xoz/blk/block_array.h"
 #include "xoz/err/exceptions.h"
+#include "xoz/file/runtime_context.h"
 #include "xoz/io/iosegment.h"
 #include "xoz/log/format_string.h"
 #include "xoz/mem/inet_checksum.h"
-#include "xoz/repo/runtime_context.h"
 
 DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& blkarr, RuntimeContext& rctx):
         Descriptor(hdr, blkarr),

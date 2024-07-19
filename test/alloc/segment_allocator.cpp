@@ -76,7 +76,7 @@ namespace {
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 1 byte so we expect to have 0 blocks allocated
-        // in the repository (and in the segment) and 1 byte
+        // in the xoz file (and in the segment) and 1 byte
         // inline'd in the segment.
         Segment segm = sg_alloc.alloc(1);
 
@@ -124,7 +124,7 @@ namespace {
 
         // Alloc N bytes that would completely fill a single subblk
         // so we expect to have 1 blocks allocated
-        // in the repository and 1 in the segment as for suballocation
+        // in the xoz file and 1 in the segment as for suballocation
         // with 1 sub block inside and 0 bytes inline'd.
         Segment segm = sg_alloc.alloc(blkarr.subblk_sz());
 
@@ -180,7 +180,7 @@ namespace {
 
         // Alloc N bytes that would completely fill a 2 subblks
         // so we expect to have 1 blocks allocated
-        // in the repository and 1 in the segment as for suballocation
+        // in the xoz file and 1 in the segment as for suballocation
         // with 2 sub block inside and 0 bytes inline'd.
         Segment segm = sg_alloc.alloc(blkarr.subblk_sz() << 1);
 
@@ -236,7 +236,7 @@ namespace {
 
         // Alloc N bytes that would completely fill a 2 subblks
         // so we expect to have 1 blocks allocated
-        // in the repository and 1 in the segment as for suballocation
+        // in the xoz file and 1 in the segment as for suballocation
         // with 2 sub block inside and 0 bytes inline'd.
         Segment segm = sg_alloc.alloc(blkarr.subblk_sz() << 1);
 
@@ -284,7 +284,7 @@ namespace {
         // with only 1 byte missed.
         //
         // So we expect to have 1 blocks allocated
-        // in the repository and 1 in the segment as for suballocation
+        // in the xoz file and 1 in the segment as for suballocation
         // with 15 sub block inside and (SUBLK_SZ - 1) bytes inline'd
         // (we are not applying any restriction to use less inline space
         // so the allocator is allocating "full" subblocks and the rest
@@ -343,7 +343,7 @@ namespace {
         // no more, no less.
         //
         // So we expect to have 1 blocks allocated
-        // in the repository and 1 extent in the segment with
+        // in the xoz file and 1 extent in the segment with
         // 1 block and 0 inline'd data.
         Segment segm = sg_alloc.alloc(blkarr.blk_sz());
 
@@ -401,7 +401,7 @@ namespace {
         // with 1 additional byte.
         //
         // So we expect to have 1 blocks allocated
-        // in the repository and 1 extent in the segment with
+        // in the xoz file and 1 extent in the segment with
         // 1 block and 1 inline'd data.
         Segment segm = sg_alloc.alloc(blkarr.blk_sz() + 1);
 
@@ -455,7 +455,7 @@ namespace {
         // and 1 additional subblock.
         //
         // So we expect to have 2 blocks allocated
-        // in the repository: 1 extent of 1 block and 1 extent
+        // in the xoz file: 1 extent of 1 block and 1 extent
         // of 1 subblock and 0 inline'd data.
         Segment segm = sg_alloc.alloc(blkarr.blk_sz() + blkarr.subblk_sz());
 
@@ -927,7 +927,7 @@ namespace {
         sg_alloc.initialize_from_allocated(std::list<Segment>());
 
         // Alloc 1 byte so we expect to have 0 blocks allocated
-        // in the repository (and in the segment) and 1 byte
+        // in the xoz file (and in the segment) and 1 byte
         // inline'd in the segment.
         Segment segm = sg_alloc.alloc(1);
 
@@ -1042,7 +1042,7 @@ namespace {
         EXPECT_EQ(stats.reset_cnt, uint64_t(0));
 
         // No block can be freed by the tail allocator
-        // (the repository) because the third segment is still in use.
+        // (the xoz file) because the third segment is still in use.
         sg_alloc.release();
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
                     Extent(2, 2, false)
@@ -1106,7 +1106,7 @@ namespace {
         EXPECT_EQ(stats.reset_cnt, uint64_t(0));
 
         // Then all of them released into the tail allocator
-        // shrinking the repository size (block count).
+        // shrinking the xoz file size (block count).
         sg_alloc.release();
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
 
@@ -1143,7 +1143,7 @@ namespace {
                     ));
 
         // Then all of them released into the tail allocator
-        // shrinking the repository size (block count).
+        // shrinking the xoz file size (block count).
         sg_alloc.release();
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
 
@@ -1224,7 +1224,7 @@ namespace {
         EXPECT_EQ(stats.reset_cnt, uint64_t(0));
 
         // No block can be freed by the tail allocator
-        // (the repository) because the third segment is still in use.
+        // (the xoz file) because the third segment is still in use.
         sg_alloc.release();
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
                     Extent(2, 2, false)
@@ -1289,7 +1289,7 @@ namespace {
         EXPECT_EQ(stats.reset_cnt, uint64_t(0));
 
         // Then all of them released into the tail allocator
-        // shrinking the repository size (block count).
+        // shrinking the xoz file size (block count).
         sg_alloc.release();
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
 
@@ -1326,7 +1326,7 @@ namespace {
                     ));
 
         // Then all of them released into the tail allocator
-        // shrinking the repository size (block count).
+        // shrinking the xoz file size (block count).
         sg_alloc.release();
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, IsEmpty());
 
@@ -1493,7 +1493,7 @@ namespace {
         EXPECT_EQ(stats.reset_cnt, uint64_t(0));
 
         // Dealloc the second segment, now the 1 block should be deallocated too
-        // however this does not implies a reduction of the repository size
+        // however this does not implies a reduction of the xoz file size
         sg_alloc.dealloc(segm2);
 
         // This is unchanged
@@ -1978,16 +1978,16 @@ namespace {
         //
         // Because split_above_threshold is 0, the allocator is not
         // allowed to split the 2 blocks into 2 extents of 1 block each,
-        // forcing the allocator to request more space from the repository.
+        // forcing the allocator to request more space from the xoz file.
         //
         // Because SegmentAllocator is configured with coalescing enabled,
         // the request of 2 blocks can be fulfilled using the last free
-        // 1-block extent plus a new 1-block extent from the repository.
+        // 1-block extent plus a new 1-block extent from the xoz file.
         //
         // This is possible because the free extent is at the end of the
         // free map and it will be coalesced with any new extent.
         //
-        // This translate in the repository to grow by 1 block and not
+        // This translate in the xoz file to grow by 1 block and not
         // by 2.
 
         Segment segm = sg_alloc.alloc(blkarr.blk_sz() * 2, req);
@@ -2005,7 +2005,7 @@ namespace {
         EXPECT_EQ(segm.exts()[0].blk_nr(), (uint32_t)(15));
 
         // Note how the free map didn't change *except*
-        // the last extent at the end of the repository *before*
+        // the last extent at the end of the xoz file *before*
         // the last allocation that it is *not* longer free.
         //
         // This is because SegmentAllocator used to partially fulfill
@@ -2070,7 +2070,7 @@ namespace {
         //
         // Because split_above_threshold is 0, the allocator is not
         // allowed to split the 2 blocks into 2 extents of 1 block each,
-        // forcing the allocator to request more space from the repository.
+        // forcing the allocator to request more space from the xoz file.
         //
         // Because SegmentAllocator is configured with coalescing disabled,
         // the allocator is forced to allocate the requested blocks without
@@ -2222,9 +2222,9 @@ namespace {
 
         // Note how the free extent at blk nr 7 was used to fill 1-block.
         // For the remaining 3-blocks an entire 2-block was obtained
-        // from the repository.
+        // from the xoz file.
         // The last free extent at blk nr 13 was *not* used because
-        // it is not at the end of the repository.
+        // it is not at the end of the xoz file.
         XOZ_EXPECT_FREE_MAPS_CONTENT_BY_BLK_NR(sg_alloc, ElementsAre(
                     Extent(9, 1, false),
                     Extent(11, 1, false),
@@ -2884,7 +2884,7 @@ namespace {
         //  - 7 free blks
         //
         // free blks   v       v-v           v-----v
-        // blk nr      0 1 2 3 4 5 6 7 8 9 a b c d e  Repo of 15 blks (0 to e inclusive)
+        // blk nr      0 1 2 3 4 5 6 7 8 9 a b c d e  File of 15 blks (0 to e inclusive)
         //               B C D           AAA          Segment 1 (Extents B and C are for suballoc)
         //               E H       F GGG              Segment 2 (Extents E and H are for suballoc)
         //               | |

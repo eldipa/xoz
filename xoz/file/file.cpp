@@ -1,4 +1,4 @@
-#include "xoz/repo/repository.h"
+#include "xoz/file/file.h"
 
 #include <cstring>
 #include <filesystem>
@@ -9,62 +9,62 @@
 #include "xoz/mem/endianness.h"
 #include "xoz/mem/inet_checksum.h"
 
-struct Repository::preload_repo_ctx_t Repository::dummy = {false, {0}};
+struct File::preload_file_ctx_t File::dummy = {false, {0}};
 
-Repository::Repository(const DescriptorMapping& dmap, const char* fpath):
+File::File(const DescriptorMapping& dmap, const char* fpath):
         fpath(fpath),
-        fblkarr(std::make_unique<FileBlockArray>(fpath, std::bind_front(Repository::preload_repo, dummy))),
+        fblkarr(std::make_unique<FileBlockArray>(fpath, std::bind_front(File::preload_file, dummy))),
         closed(true),
         closing(false),
         rctx(dmap),
         trampoline_segm(fblkarr->blk_sz_order()) {
-    bootstrap_repository();
+    bootstrap_file();
     assert(not closed);
     assert(this->fblkarr->begin_blk_nr() >= 1);
 }
 
-Repository::Repository(const DescriptorMapping& dmap, std::unique_ptr<FileBlockArray>&& fblkarr_,
-                       const struct default_parameters_t& defaults, bool is_a_new_repository):
+File::File(const DescriptorMapping& dmap, std::unique_ptr<FileBlockArray>&& fblkarr_,
+           const struct default_parameters_t& defaults, bool is_a_new_file):
         fpath(fblkarr_->get_file_path()),
         fblkarr(std::move(fblkarr_)),
         closed(true),
         closing(false),
         rctx(dmap),
         trampoline_segm(fblkarr->blk_sz_order()) {
-    if (is_a_new_repository) {
+    if (is_a_new_file) {
         // The given file block array has a valid and open file but it is not initialized as
-        // a repository yet. We do that here.
-        init_new_repository(defaults);
+        // a xoz file yet. We do that here.
+        init_new_file(defaults);
     }
 
-    bootstrap_repository();
+    bootstrap_file();
     assert(not closed);
     assert(this->fblkarr->begin_blk_nr() >= 1);
 }
 
-Repository::~Repository() { close(); }
+File::~File() { close(); }
 
-Repository Repository::create(const DescriptorMapping& dmap, const char* fpath, bool fail_if_exists,
-                              const struct default_parameters_t& defaults) {
+File File::create(const DescriptorMapping& dmap, const char* fpath, bool fail_if_exists,
+                  const struct default_parameters_t& defaults) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
     // the minimum block size (MIN_BLK_SZ) is an extra requirement of us
     // not of FileBlockArray.
     FileBlockArray::fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
-    // We pass defaults to the FileBlockArray::create via preload_repo function
+    // We pass defaults to the FileBlockArray::create via preload_file function
     // so the array is created with the correct dimensions.
-    // However, no header is written there so resulting file is not a valid repository yet
-    struct preload_repo_ctx_t ctx = {false, defaults};
+    // However, no header is written there so resulting file is not a valid xoz file yet
+    struct preload_file_ctx_t ctx = {false, defaults};
     auto fblkarr_ptr =
-            FileBlockArray::create(fpath, std::bind_front(Repository::preload_repo, std::ref(ctx)), fail_if_exists);
+            FileBlockArray::create(fpath, std::bind_front(File::preload_file, std::ref(ctx)), fail_if_exists);
 
-    // We delegate the initialization of the new repository to the Repository constructor
-    // that it should call init_new_repository iff ctx.was_file_created
-    return Repository(dmap, std::move(fblkarr_ptr), defaults, ctx.was_file_created);
+    // We delegate the initialization of the new xoz file to the File constructor
+    // that it should call init_new_file iff ctx.was_file_created
+    return File(dmap, std::move(fblkarr_ptr), defaults, ctx.was_file_created);
 }
 
-Repository Repository::create_mem_based(const DescriptorMapping& dmap, const struct default_parameters_t& defaults) {
+File File::create_mem_based(const DescriptorMapping& dmap, const struct default_parameters_t& defaults) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
     // the minimum block size (MIN_BLK_SZ) is an extra requirement of us
@@ -73,13 +73,13 @@ Repository Repository::create_mem_based(const DescriptorMapping& dmap, const str
 
     auto fblkarr_ptr = FileBlockArray::create_mem_based(defaults.blk_sz, 1 /* begin_blk_nr */);
 
-    // Memory based file block arrays (and therefore Repository too) are always created
-    // empty and require an initialization (so is_a_new_repository is always true)
-    return Repository(dmap, std::move(fblkarr_ptr), defaults, true);
+    // Memory based file block arrays (and therefore File too) are always created
+    // empty and require an initialization (so is_a_new_file is always true)
+    return File(dmap, std::move(fblkarr_ptr), defaults, true);
 }
 
-void Repository::bootstrap_repository() {
-    // During the construction of Repository, in particular of FileBlockArray fblkarr,
+void File::bootstrap_file() {
+    // During the construction of File, in particular of FileBlockArray fblkarr,
     // the block array was initialized so we can read/write extents/header/trailer but we cannot
     // allocate yet (we cannot use fblkarr->allocator() yet).
     assert(not fblkarr->is_closed());
@@ -93,15 +93,15 @@ void Repository::bootstrap_repository() {
         allocated.push_back(trampoline_segm);
     }
 
-    // With this, we can do alloc/dealloc and the Repository is fully operational.
+    // With this, we can do alloc/dealloc and the File is fully operational.
     fblkarr->allocator().initialize_from_allocated(allocated);
 
     closed = false;
 }
 
-const std::stringstream& Repository::expose_mem_fp() const { return fblkarr->expose_mem_fp(); }
+const std::stringstream& File::expose_mem_fp() const { return fblkarr->expose_mem_fp(); }
 
-std::list<Segment> Repository::scan_descriptor_sets() {
+std::list<Segment> File::scan_descriptor_sets() {
     std::list<Segment> allocated;
     allocated.push_back(root_set->segment());
 
@@ -117,7 +117,7 @@ std::list<Segment> Repository::scan_descriptor_sets() {
     return allocated;
 }
 
-struct Repository::stats_t Repository::stats() const {
+struct File::stats_t File::stats() const {
     struct stats_t st;
 
     auto fblkarr_st = fblkarr->stats();
@@ -126,31 +126,31 @@ struct Repository::stats_t Repository::stats() const {
     auto allocator_st = fblkarr->allocator().stats();
     memcpy(&st.allocator_stats, &allocator_st, sizeof(st.allocator_stats));
 
-    st.capacity_repo_sz = (fblkarr->capacity() + fblkarr->begin_blk_nr()) << fblkarr->blk_sz_order();
-    st.in_use_repo_sz = (fblkarr->blk_cnt() + fblkarr->begin_blk_nr()) << fblkarr->blk_sz_order();
+    st.capacity_file_sz = (fblkarr->capacity() + fblkarr->begin_blk_nr()) << fblkarr->blk_sz_order();
+    st.in_use_file_sz = (fblkarr->blk_cnt() + fblkarr->begin_blk_nr()) << fblkarr->blk_sz_order();
 
-    st.capacity_repo_sz += fblkarr->trailer_sz();
-    st.in_use_repo_sz += fblkarr->trailer_sz();
+    st.capacity_file_sz += fblkarr->trailer_sz();
+    st.in_use_file_sz += fblkarr->trailer_sz();
 
-    st.capacity_repo_sz_kb = double(st.capacity_repo_sz) / double(1024.0);
-    st.in_use_repo_sz_kb = double(st.in_use_repo_sz) / double(1024.0);
+    st.capacity_file_sz_kb = double(st.capacity_file_sz) / double(1024.0);
+    st.in_use_file_sz_kb = double(st.in_use_file_sz) / double(1024.0);
 
-    st.in_use_repo_sz_rel = (st.capacity_repo_sz == 0) ? 0 : (double(st.in_use_repo_sz) / double(st.capacity_repo_sz));
+    st.in_use_file_sz_rel = (st.capacity_file_sz == 0) ? 0 : (double(st.in_use_file_sz) / double(st.capacity_file_sz));
 
     st.header_sz = fblkarr->header_sz();
     st.trailer_sz = fblkarr->trailer_sz();
     return st;
 }
 
-void PrintTo(const Repository& repo, std::ostream* out) {
-    struct Repository::stats_t st = repo.stats();
+void PrintTo(const File& xfile, std::ostream* out) {
+    struct File::stats_t st = xfile.stats();
     std::ios_base::fmtflags ioflags = out->flags();
 
-    (*out) << "File:              " << std::setfill(' ') << std::setw(12) << repo.fblkarr->get_file_path() << "\n";
+    (*out) << "File:              " << std::setfill(' ') << std::setw(12) << xfile.fblkarr->get_file_path() << "\n";
 
-    auto& fp = repo.fblkarr->phy_file_stream();
+    auto& fp = xfile.fblkarr->phy_file_stream();
     (*out) << "Status:            ";
-    if (repo.fblkarr->is_closed()) {
+    if (xfile.fblkarr->is_closed()) {
         (*out) << std::setfill(' ') << std::setw(12) << "closed\n\n";
     } else {
         (*out) << "        open "
@@ -158,32 +158,32 @@ void PrintTo(const Repository& repo, std::ostream* out) {
                << "]\n\n";
     }
 
-    (*out) << "-- Repository -----------------\n"
-           << "Capacity:          " << std::setfill(' ') << std::setw(12) << st.capacity_repo_sz_kb << " kb\n"
-           << "In use:            " << std::setfill(' ') << std::setw(12) << st.in_use_repo_sz_kb << " kb ("
-           << std::setfill(' ') << std::setw(5) << std::fixed << std::setprecision(2) << (st.in_use_repo_sz_rel * 100)
+    (*out) << "-- File -----------------\n"
+           << "Capacity:          " << std::setfill(' ') << std::setw(12) << st.capacity_file_sz_kb << " kb\n"
+           << "In use:            " << std::setfill(' ') << std::setw(12) << st.in_use_file_sz_kb << " kb ("
+           << std::setfill(' ') << std::setw(5) << std::fixed << std::setprecision(2) << (st.in_use_file_sz_rel * 100)
            << "%)\n"
            << " - Header:         " << std::setfill(' ') << std::setw(12) << st.header_sz << " bytes\n"
            << " - Trailer:        " << std::setfill(' ') << std::setw(12) << st.trailer_sz << " bytes\n"
            << "\n";
 
     (*out) << "-- Block Array ----------------\n"
-           << (*repo.fblkarr) << "\n"
+           << (*xfile.fblkarr) << "\n"
            << "\n"
            << "-- Allocator ------------------\n"
-           << repo.fblkarr->allocator() << "\n";
+           << xfile.fblkarr->allocator() << "\n";
 
     out->flags(ioflags);
 }
 
-std::ostream& operator<<(std::ostream& out, const Repository& repo) {
-    PrintTo(repo, &out);
+std::ostream& operator<<(std::ostream& out, const File& xfile) {
+    PrintTo(xfile, &out);
     return out;
 }
 
 
-void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::istream& is,
-                              struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create) {
+void File::preload_file(struct File::preload_file_ctx_t& ctx, std::istream& is,
+                        struct FileBlockArray::blkarr_cfg_t& cfg, bool on_create) {
     if (on_create) {
         cfg.blk_sz = ctx.defaults.blk_sz;
         cfg.begin_blk_nr = 1;
@@ -192,7 +192,7 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
         return;
     }
 
-    struct repo_header_t hdr;
+    struct file_header_t hdr;
     is.read(reinterpret_cast<char*>(&hdr), sizeof(hdr));
 
     check_header_magic(hdr);
@@ -207,8 +207,8 @@ void Repository::preload_repo(struct Repository::preload_repo_ctx_t& ctx, std::i
     return;
 }
 
-void Repository::read_and_check_header_and_trailer() {
-    struct repo_header_t hdr;
+void File::read_and_check_header_and_trailer() {
+    struct file_header_t hdr;
 
     if (fblkarr->header_sz() < sizeof(hdr)) {
         throw InconsistentXOZ(*this, F() << "mismatch between the minimum size of the header (" << sizeof(hdr)
@@ -226,14 +226,14 @@ void Repository::read_and_check_header_and_trailer() {
     feature_flags_ro_compat = u32_from_le(hdr.feature_flags_ro_compat);
 
     if (feature_flags_incompat) {
-        throw InconsistentXOZ(*this, "the repository has incompatible features.");
+        throw InconsistentXOZ(*this, "the xoz file has incompatible features.");
     }
 
     if (feature_flags_ro_compat) {
         // TODO implement read-only mode
         throw InconsistentXOZ(
                 *this,
-                "the repository has read-only compatible features and the repository was not open in read-only mode.");
+                "the xoz file has read-only compatible features and the xoz file was not open in read-only mode.");
     }
 
     uint8_t blk_sz_order = u8_from_le(hdr.blk_sz_order);
@@ -244,18 +244,18 @@ void Repository::read_and_check_header_and_trailer() {
 
     auto blk_total_cnt = u32_from_le(hdr.blk_total_cnt);
     if (blk_total_cnt == 0) {
-        throw InconsistentXOZ(*this, "the repository has a declared block total count of zero.");
+        throw InconsistentXOZ(*this, "the xoz file has a declared block total count of zero.");
     }
 
-    // Calculate the repository size based on the block count.
-    uint64_t repo_sz = blk_total_cnt << blk_sz_order;
+    // Calculate the xoz file size based on the block count.
+    uint64_t file_sz = blk_total_cnt << blk_sz_order;
 
-    // Read the declared repository size from the header and
+    // Read the declared xoz file size from the header and
     // check that it matches with what we calculated
-    uint64_t repo_sz_read = u64_from_le(hdr.repo_sz);
-    if (repo_sz != repo_sz_read) {
-        throw InconsistentXOZ(*this, F() << "the repository declared a size of " << repo_sz_read
-                                         << " bytes but it is expected to have " << repo_sz
+    uint64_t file_sz_read = u64_from_le(hdr.file_sz);
+    if (file_sz != file_sz_read) {
+        throw InconsistentXOZ(*this, F() << "the xoz file declared a size of " << file_sz_read
+                                         << " bytes but it is expected to have " << file_sz
                                          << " bytes based on the declared block total count " << blk_total_cnt
                                          << " and block size " << blk_sz << ".");
     }
@@ -263,31 +263,31 @@ void Repository::read_and_check_header_and_trailer() {
 
     /*
      * TODO rewrite these checks
-    if (repo_sz > fp_end) {
+    if (file_sz > fp_end) {
         throw InconsistentXOZ(*this,
-                              F() << "the repository has a declared size (" << repo_sz
+                              F() << "the xoz file has a declared size (" << file_sz
                                   << ") starting at "
-                                  //<< phy_repo_start_pos << " offset this gives an expected end of "
-                                  // TODO<< phy_repo_end_pos << " which goes beyond the physical file end at " << fp_end
+                                  //<< phy_file_start_pos << " offset this gives an expected end of "
+                                  // TODO<< phy_file_end_pos << " which goes beyond the physical file end at " << fp_end
                                   << ".");
     }
 
-    if (fp_end > phy_repo_end_pos) {
-        // More real bytes than the ones in the repo
+    if (fp_end > phy_file_end_pos) {
+        // More real bytes than the ones in the xfile
         // Perhaps an incomplete shrink/truncate?
     }
-    assert(fp_end >= phy_repo_end_pos);
+    assert(fp_end >= phy_file_end_pos);
     */
 
 
     load_root_set(hdr);
 
-    // TODO this *may* still be useful: assert(phy_repo_end_pos > 0);
+    // TODO this *may* still be useful: assert(phy_file_end_pos > 0);
 
     uint16_t trailer_sz = u16_from_le(hdr.trailer_sz);
-    if (uint64_t(trailer_sz) < sizeof(struct repo_trailer_t)) {
+    if (uint64_t(trailer_sz) < sizeof(struct file_trailer_t)) {
         throw InconsistentXOZ(*this, F() << "the declared trailer size (" << trailer_sz
-                                         << " bytes) is too small, required at least " << sizeof(struct repo_trailer_t)
+                                         << " bytes) is too small, required at least " << sizeof(struct file_trailer_t)
                                          << " bytes.");
     }
 
@@ -297,7 +297,7 @@ void Repository::read_and_check_header_and_trailer() {
                                          << " bytes).");
     }
 
-    struct repo_trailer_t eof;
+    struct file_trailer_t eof;
     fblkarr->read_trailer(reinterpret_cast<char*>(&eof), sizeof(eof));
 
     if (strncmp(reinterpret_cast<const char*>(&eof.magic), "EOF", 4) != 0) {
@@ -305,7 +305,7 @@ void Repository::read_and_check_header_and_trailer() {
     }
 }
 
-void Repository::write_header() {
+void File::write_header() {
 
     // Write the root set in the buffer. This *may* trigger an (de)allocation
     // in the fblkarr if the use of a trampoline is required or not.
@@ -331,11 +331,11 @@ void Repository::write_header() {
     // The header will store the trailer size so we may decide
     // here to change it because at the moment of calling close()
     // we should have all the info needed.
-    uint16_t trailer_sz = assert_u16(sizeof(struct repo_trailer_t));
+    uint16_t trailer_sz = assert_u16(sizeof(struct file_trailer_t));
 
-    // note: we declare that the repository has the same block count
+    // note: we declare that the xoz file has the same block count
     // than the file block array *plus* its begin blk number to count
-    // for the array's header (where the repo's header will be written into)
+    // for the array's header (where the xfile's header will be written into)
     //
     // one comment on this: the file block array *may* have more blocks than
     // the blk_cnt() says because it may be keeping some unused blocks for
@@ -348,9 +348,9 @@ void Repository::write_header() {
     // store more details of fblkarr?
     uint32_t blk_total_cnt = fblkarr->blk_cnt() + fblkarr->begin_blk_nr();
 
-    struct repo_header_t hdr = {.magic = {'X', 'O', 'Z', 0},
+    struct file_header_t hdr = {.magic = {'X', 'O', 'Z', 0},
                                 .app_name = {0},
-                                .repo_sz = u64_to_le(blk_total_cnt << fblkarr->blk_sz_order()),
+                                .file_sz = u64_to_le(blk_total_cnt << fblkarr->blk_sz_order()),
                                 .trailer_sz = u16_to_le(trailer_sz),
                                 .blk_total_cnt = u32_to_le(blk_total_cnt),
                                 .blk_sz_order = u8_to_le(fblkarr->blk_sz_order()),
@@ -375,12 +375,12 @@ void Repository::write_header() {
     fblkarr->write_header(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
 }
 
-void Repository::write_trailer() {
-    struct repo_trailer_t eof = {.magic = {'E', 'O', 'F', 0}};
+void File::write_trailer() {
+    struct file_trailer_t eof = {.magic = {'E', 'O', 'F', 0}};
     fblkarr->write_trailer(reinterpret_cast<const char*>(&eof), sizeof(eof));
 }
 
-void Repository::init_new_repository(const struct default_parameters_t& defaults) {
+void File::init_new_file(const struct default_parameters_t& defaults) {
     fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
     trampoline_segm = Segment::EmptySegment(fblkarr->blk_sz_order());
@@ -402,18 +402,18 @@ void Repository::init_new_repository(const struct default_parameters_t& defaults
     // Note: it is important that the root set does not do any allocation
     // because fblkarr is not fully initialized yet.
     // In theory we should be fine because root set does not require
-    // alloc any space for an empty set (the initial state of any new repository)
+    // alloc any space for an empty set (the initial state of any new xoz file)
     // and neither write_header nor write_trailer requires alloc space
     // (write_trailer will not try to alloc space for a trampoline because the
     // root set of an empty set should fit in the header).
-    // Once we call bootstrap_repository() we should be fine.
+    // Once we call bootstrap_file() we should be fine.
     root_set->full_sync(false);
 
     write_header();
     write_trailer();
 }
 
-void Repository::full_sync(const bool release) {
+void File::full_sync(const bool release) {
     // Update the root set. If there is any pending write, this will
     // do it. This may trigger some allocations in fblkarr and if release
     // is true, it may trigger some deallocations (shrinks) too.
@@ -426,7 +426,7 @@ void Repository::full_sync(const bool release) {
     write_trailer();
 }
 
-void Repository::close() {
+void File::close() {
     if (closed)
         return;
 
@@ -438,7 +438,7 @@ void Repository::close() {
     closing = false;
 }
 
-void Repository::panic_close() {
+void File::panic_close() {
     if (closed)
         return;
 
@@ -447,7 +447,7 @@ void Repository::panic_close() {
     closing = false;
 }
 
-void Repository::load_root_set(struct repo_header_t& hdr) {
+void File::load_root_set(struct file_header_t& hdr) {
     IOSpan root_io(hdr.root, sizeof(hdr.root));
 
     FileBlockArray& fblkarr_ref = *fblkarr.get();
@@ -483,7 +483,7 @@ void Repository::load_root_set(struct repo_header_t& hdr) {
     }
 }
 
-void Repository::write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flags) {
+void File::write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flags) {
     assert(rootbuf_sz <= HEADER_ROOT_SET_SZ);
     IOSpan root_io(rootbuf, rootbuf_sz);
 
@@ -520,7 +520,7 @@ void Repository::write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uin
     }
 }
 
-void Repository::update_trampoline_space() {
+void File::update_trampoline_space() {
     uint32_t cur_sz = trampoline_segm.calc_data_space_size();
     uint32_t req_sz = root_set->calc_struct_footprint_size();
     assert(req_sz > 0);
@@ -564,13 +564,13 @@ void Repository::update_trampoline_space() {
     }
 }
 
-void Repository::check_header_magic(struct repo_header_t& hdr) {
+void File::check_header_magic(struct file_header_t& hdr) {
     if (strncmp(reinterpret_cast<const char*>(&hdr.magic), "XOZ", 4) != 0) {
         throw std::runtime_error("magic string 'XOZ' not found in the header.");
     }
 }
 
-uint16_t Repository::compute_header_checksum(struct repo_header_t& hdr) {
+uint16_t File::compute_header_checksum(struct file_header_t& hdr) {
     // Compute the checksum of the header. The field 'checksum' must be temporally
     // zeroed to do the computation
     uint16_t stored_checksum = hdr.checksum;
@@ -582,7 +582,7 @@ uint16_t Repository::compute_header_checksum(struct repo_header_t& hdr) {
     return inet_to_u16(checksum);
 }
 
-void Repository::compute_and_check_header_checksum(struct repo_header_t& hdr) {
+void File::compute_and_check_header_checksum(struct file_header_t& hdr) {
     uint16_t stored_checksum = hdr.checksum;
     uint32_t checksum = uint32_t(compute_header_checksum(hdr));
 
@@ -596,7 +596,7 @@ void Repository::compute_and_check_header_checksum(struct repo_header_t& hdr) {
     }
 }
 
-void Repository::check_blk_sz_order(const uint8_t blk_sz_order) {
+void File::check_blk_sz_order(const uint8_t blk_sz_order) {
     if (blk_sz_order < MIN_BLK_SZ_ORDER or blk_sz_order > MAX_BLK_SZ_ORDER) {
         throw std::runtime_error((F() << "block size order " << int(blk_sz_order) << " is out of range ["
                                       << int(MIN_BLK_SZ_ORDER) << " to " << int(MAX_BLK_SZ_ORDER)

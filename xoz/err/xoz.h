@@ -5,7 +5,7 @@
 
 #include "xoz/err/msg.h"
 
-class Repository;
+class File;
 
 class OpenXOZError: public std::exception {
 private:
@@ -24,8 +24,8 @@ private:
     std::string msg;
 
 public:
-    InconsistentXOZ(const Repository& repo, const std::string& msg);
-    InconsistentXOZ(const Repository& repo, const F& msg);
+    InconsistentXOZ(const File& xfile, const std::string& msg);
+    InconsistentXOZ(const File& xfile, const F& msg);
     explicit InconsistentXOZ(const std::string& msg);
     explicit InconsistentXOZ(const F& msg);
 

@@ -306,7 +306,7 @@ namespace {
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
-                        "Repository seems inconsistent/corrupt. "
+                        "xoz file seems inconsistent/corrupt. "
                         "Expected to read a segment that of length 3 "
                         "but an inline-extent was found before and "
                         "made the segment shorter of length 2."
@@ -323,7 +323,7 @@ namespace {
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
-                        "Repository seems inconsistent/corrupt. "
+                        "xoz file seems inconsistent/corrupt. "
                         "Expected to read a segment that ends at the end of the io object "
                         "but an inline-extent was found before that, obtaining a segment "
                         "with a length of 2 and in the io still remains 58 bytes."
@@ -341,7 +341,7 @@ namespace {
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
-                        "Repository seems inconsistent/corrupt. "
+                        "xoz file seems inconsistent/corrupt. "
                         "Expected to read a segment that ends "
                         "in an inline-extent but such was not found "
                         "and the segment got a length of 1."
@@ -1511,7 +1511,7 @@ namespace {
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
-                        "Repository seems inconsistent/corrupt. "
+                        "xoz file seems inconsistent/corrupt. "
                         "Extent with non-zero smallcnt block. Is inline flag missing?"
                         )
                     )
@@ -1528,7 +1528,7 @@ namespace {
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
-                        "Repository seems inconsistent/corrupt. "
+                        "xoz file seems inconsistent/corrupt. "
                         "Near extent block number wraparound: "
                         "current extent offset 1 and blk cnt 4 "
                         "in the backward direction and "

@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "xoz/repo/repository.h"
+#include "xoz/file/file.h"
 
 OpenXOZError::OpenXOZError(const char* fpath, const std::string& msg) {
     std::stringstream ss;
@@ -19,19 +19,19 @@ OpenXOZError::OpenXOZError(const char* fpath, const F& msg): OpenXOZError(fpath,
 
 const char* OpenXOZError::what() const noexcept { return msg.data(); }
 
-InconsistentXOZ::InconsistentXOZ(const Repository& repo, const std::string& msg) {
+InconsistentXOZ::InconsistentXOZ(const File& xfile, const std::string& msg) {
     std::stringstream ss;
-    ss << "Repository on file '" << repo.fpath << "' seems inconsistent/corrupt.\n";
+    ss << "xoz file '" << xfile.fpath << "' seems inconsistent/corrupt.\n";
     ss << msg;
 
     this->msg = ss.str();
 }
 
-InconsistentXOZ::InconsistentXOZ(const Repository& repo, const F& msg): InconsistentXOZ(repo, msg.ss.str()) {}
+InconsistentXOZ::InconsistentXOZ(const File& xfile, const F& msg): InconsistentXOZ(xfile, msg.ss.str()) {}
 
 InconsistentXOZ::InconsistentXOZ(const std::string& msg) {
     std::stringstream ss;
-    ss << "Repository seems inconsistent/corrupt. " << msg;
+    ss << "xoz file seems inconsistent/corrupt. " << msg;
 
     this->msg = ss.str();
 }

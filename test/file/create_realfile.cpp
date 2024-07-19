@@ -1,4 +1,4 @@
-#include "xoz/repo/repository.h"
+#include "xoz/file/file.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/dsc/default.h"
 
@@ -25,51 +25,51 @@ using ::testing_xoz::helpers::file2mem;
 } while (0)
 
 
-#define XOZ_EXPECT_TRAMPOLINE_SERIALIZATION(repo, at, len, data) do {    \
-    auto trampoline_io = IOSegment((repo).expose_block_array(), (repo).trampoline_segment());   \
+#define XOZ_EXPECT_TRAMPOLINE_SERIALIZATION(xfile, at, len, data) do {    \
+    auto trampoline_io = IOSegment((xfile).expose_block_array(), (xfile).trampoline_segment());   \
     EXPECT_EQ(hexdump(trampoline_io, (at), (len)), (data));             \
 } while (0)
 
 namespace {
-    // Create a new repository with default settings.
+    // Create a new xoz file with default settings.
     // Close it and check the dump of the file.
     //
     // The check of the dump is simplistic: it is only to validate
     // that the .xoz file was created and it is non-empty.
-    TEST(RepositoryTest, CreateNewUsingDefaults) {
+    TEST(FileTest, CreateNewUsingDefaults) {
         DescriptorMapping dmap({});
 
         DELETE("CreateNewUsingDefaults.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateNewUsingDefaults.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true);
 
-        // Check repository's parameters
-        // Because we didn't specified anything on Repository::create, it
+        // Check xoz file's parameters
+        // Because we didn't specified anything on File::create, it
         // should be using the defaults.
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(128+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(128+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t(128+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t(128+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)0);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and check what we have on disk.
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -102,45 +102,45 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateNewNotUsingDefaults) {
+    TEST(FileTest, CreateNewNotUsingDefaults) {
         DescriptorMapping dmap({});
 
         DELETE("CreateNewNotUsingDefaults.xoz");
 
         // Custom non-default parameters
-        struct Repository::default_parameters_t gp = {
+        struct File::default_parameters_t gp = {
             .blk_sz = 256
         };
 
         const char* fpath = SCRATCH_HOME "CreateNewNotUsingDefaults.xoz";
-        Repository repo = Repository::create(dmap, fpath, true, gp);
+        File xfile = File::create(dmap, fpath, true, gp);
 
-        // Check repository's parameters
-        // Because we didn't specified anything on Repository::create, it
+        // Check xoz file's parameters
+        // Because we didn't specified anything on File::create, it
         // should be using the defaults.
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)256);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t(256+4));
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)0);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and check what we have on disk.
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "08"                             // blk_sz_order
@@ -180,45 +180,45 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateNewUsingDefaultsThenOpen) {
+    TEST(FileTest, CreateNewUsingDefaultsThenOpen) {
         DescriptorMapping dmap({});
 
         DELETE("CreateNewUsingDefaultsThenOpen.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz";
-        Repository new_repo = Repository::create(dmap, fpath, true);
-        new_repo.close();
+        File new_xfile = File::create(dmap, fpath, true);
+        new_xfile.close();
 
-        Repository repo(dmap, SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz");
+        File xfile(dmap, SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz");
 
-        // Check repository's parameters
-        // Because we didn't specified anything on Repository::create, it
+        // Check xoz file's parameters
+        // Because we didn't specified anything on File::create, it
         // should be using the defaults.
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(128+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(128+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t(128+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t(128+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)0);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and check that the file in disk still exists
         // Note: in CreateNewUsingDefaults test we create-close-check, here
         // we do create-close-open-close-check.
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -251,42 +251,42 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateNotUsingDefaultsThenOpen) {
+    TEST(FileTest, CreateNotUsingDefaultsThenOpen) {
         DescriptorMapping dmap({});
 
         DELETE("CreateNotUsingDefaultsThenOpen.xoz");
 
         // Custom non-default parameters
-        struct Repository::default_parameters_t gp = {
+        struct File::default_parameters_t gp = {
             .blk_sz = 256
         };
 
         const char* fpath = SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz";
-        Repository new_repo = Repository::create(dmap, fpath, true, gp);
+        File new_xfile = File::create(dmap, fpath, true, gp);
 
-        // Check repository's parameters after create
-        EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(new_repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(new_repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(new_repo.expose_block_array().blk_sz(), (uint32_t)256);
+        // Check xoz file's parameters after create
+        EXPECT_EQ(new_xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(new_xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(new_xfile.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(new_xfile.expose_block_array().blk_sz(), (uint32_t)256);
 
-        auto stats = new_repo.stats();
+        auto stats = new_xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t(256+4));
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_set = new_repo.root();
+        auto root_set = new_xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)0);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
-        new_repo.close();
+        new_xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "08"                             // blk_sz_order
@@ -325,31 +325,31 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz");
+        File xfile(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz");
 
-        // Check repository's parameters after open
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
+        // Check xoz file's parameters after open
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)256);
 
-        auto stats2 = repo.stats();
+        auto stats2 = xfile.stats();
 
-        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t(256+4));
-        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats2.capacity_file_sz, uint64_t(256+4));
+        EXPECT_EQ(stats2.in_use_file_sz, uint64_t(256+4));
         EXPECT_EQ(stats2.header_sz, uint64_t(256));
         EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
 
-        auto root_set2 = repo.root();
+        auto root_set2 = xfile.root();
         EXPECT_EQ(root_set2->count(), (uint32_t)0);
         EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "08"                             // blk_sz_order
@@ -389,52 +389,52 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateNotUsingDefaultsThenOpenCloseOpen) {
+    TEST(FileTest, CreateNotUsingDefaultsThenOpenCloseOpen) {
         DescriptorMapping dmap({});
 
         DELETE("CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
         // Custom non-default parameters
-        struct Repository::default_parameters_t gp = {
+        struct File::default_parameters_t gp = {
             .blk_sz = 256
         };
 
         const char* fpath = SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz";
-        Repository new_repo = Repository::create(dmap, fpath, true, gp);
-        new_repo.close();
+        File new_xfile = File::create(dmap, fpath, true, gp);
+        new_xfile.close();
 
         {
-            Repository repo(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
+            File xfile(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
             // Close and reopen again
-            repo.close();
+            xfile.close();
         }
 
-        Repository repo(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
+        File xfile(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
-        // Check repository's parameters after open
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
+        // Check xoz file's parameters after open
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)256);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t(256+4));
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)0);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "08"                             // blk_sz_order
@@ -474,50 +474,50 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateThenRecreateAndOverride) {
+    TEST(FileTest, CreateThenRecreateAndOverride) {
         DescriptorMapping dmap({});
 
         DELETE("CreateThenRecreateAndOverride.xoz");
 
         // Custom non-default parameters
-        struct Repository::default_parameters_t gp = {
+        struct File::default_parameters_t gp = {
             .blk_sz = 256
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateAndOverride.xoz";
-        Repository new_repo = Repository::create(dmap, fpath, true, gp);
-        new_repo.close();
+        File new_xfile = File::create(dmap, fpath, true, gp);
+        new_xfile.close();
 
         // Create again with fail_if_exists == False so it will not fail
         // because the file already exists but instead it will open it
-        Repository repo = Repository::create(dmap, SCRATCH_HOME "CreateThenRecreateAndOverride.xoz", false);
+        File xfile = File::create(dmap, SCRATCH_HOME "CreateThenRecreateAndOverride.xoz", false);
 
-        // Check repository's parameters after open
-        // Because the second Repository::create *did not* create a fresh
-        // repository with a default params **but** it opened the previously
-        // created repository.
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
+        // Check xoz file's parameters after open
+        // Because the second File::create *did not* create a fresh
+        // xoz file with a default params **but** it opened the previously
+        // created xoz file.
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)256);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t(256+4));
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)0);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "08"                             // blk_sz_order
@@ -557,24 +557,24 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateThenRecreateButFail) {
+    TEST(FileTest, CreateThenRecreateButFail) {
         DescriptorMapping dmap({});
 
         DELETE("CreateThenRecreateButFail.xoz");
 
         // Custom non-default parameters
-       struct Repository::default_parameters_t  gp = {
+       struct File::default_parameters_t  gp = {
             .blk_sz = 256
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateButFail.xoz";
-        Repository new_repo = Repository::create(dmap, fpath, true, gp);
-        new_repo.close();
+        File new_xfile = File::create(dmap, fpath, true, gp);
+        new_xfile.close();
 
         // Create again with fail_if_exists == True so it **will** fail
         // because the file already exists but instead it will open it
         EXPECT_THAT(
-            [&]() { Repository::create(dmap, SCRATCH_HOME "CreateThenRecreateButFail.xoz", true); },
+            [&]() { File::create(dmap, SCRATCH_HOME "CreateThenRecreateButFail.xoz", true); },
             ThrowsMessage<OpenXOZError>(
                 AllOf(
                     HasSubstr("the file already exist and FileBlockArray::create is configured to not override it")
@@ -585,34 +585,34 @@ namespace {
         // Try to open it again, this time with fail_if_exists == False.
         // Check that the previous failed creation **did not** corrupted the original
         // file
-        Repository repo = Repository::create(dmap, SCRATCH_HOME "CreateThenRecreateButFail.xoz", false);
+        File xfile = File::create(dmap, SCRATCH_HOME "CreateThenRecreateButFail.xoz", false);
 
-        // Check repository's parameters after open
-        // Because the second Repository::create *did not* create a fresh
-        // repository with a default params **but** it opened the previously
-        // created repository.
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)256);
+        // Check xoz file's parameters after open
+        // Because the second File::create *did not* create a fresh
+        // xoz file with a default params **but** it opened the previously
+        // created xoz file.
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)256);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t(256+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t(256+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t(256+4));
         EXPECT_EQ(stats.header_sz, uint64_t(256));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)0);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 256,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "08"                             // blk_sz_order
@@ -652,43 +652,43 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateThenExpandByAlloc) {
+    TEST(FileTest, CreateThenExpandByAlloc) {
         DescriptorMapping dmap({});
 
         DELETE("CreateThenExpandByAlloc.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandByAlloc.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true);
 
-        const auto blk_sz = repo.expose_block_array().blk_sz();
+        const auto blk_sz = xfile.expose_block_array().blk_sz();
 
-        // The repository by default has 1 block so adding 3 more
+        // The xoz file by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto sg1 = repo.expose_block_array().allocator().alloc(blk_sz * 3);
+        auto sg1 = xfile.expose_block_array().allocator().alloc(blk_sz * 3);
         EXPECT_EQ(sg1.calc_data_space_size(), (uint32_t)(blk_sz * 3));
 
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)3);
 
 
         // Add 6 more blocks
-        auto sg2 = repo.expose_block_array().allocator().alloc(blk_sz * 6);
+        auto sg2 = xfile.expose_block_array().allocator().alloc(blk_sz * 6);
         EXPECT_EQ(sg2.calc_data_space_size(), (uint32_t)(blk_sz * 6));
 
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)9);
 
-        // Close. From the repository's allocator perspective, the sg1 and sg2 segments
+        // Close. From the xoz file's allocator perspective, the sg1 and sg2 segments
         // were and they still are allocated so we should see the space allocated
         // after the close.
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0005 0000 0000 0000 "           // repo_sz
+                "0005 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0a00 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -720,24 +720,24 @@ namespace {
                 "454f 4600"
                 );
 
-        // We open the same file. We expect the repo's blk array to have
+        // We open the same file. We expect the xfile's blk array to have
         // the same size as the previous one.
-        Repository repo2(dmap, SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
 
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)9);
 
-        // From this second repository, its allocator has no idea that sg1 and sg2 were
+        // From this second xoz file, its allocator has no idea that sg1 and sg2 were
         // allocated before. From its perspective, the whole space in the block array
         // has no owner and it is subject to be released on close()
         // (so we expect to see a shrink here)
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -769,22 +769,22 @@ namespace {
                 "454f 4600"
                 );
 
-        // We open the same file again. We expect the repo's blk array to have
+        // We open the same file again. We expect the xfile's blk array to have
         // the same size as the previous one after the shrink (0 blks in total)
-        Repository repo3(dmap, SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
+        File xfile3(dmap, SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
 
-        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().blk_cnt(), (uint32_t)0);
 
-        // Nothing weird should happen. All the "unallocated" space of repo1
-        // was released on repo2.close() so repo3.close() has nothing to do.
-        repo3.close();
+        // Nothing weird should happen. All the "unallocated" space of xfile1
+        // was released on xfile2.close() so xfile3.close() has nothing to do.
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -817,43 +817,43 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateThenExpandByBlkArrGrow) {
+    TEST(FileTest, CreateThenExpandByBlkArrGrow) {
         DescriptorMapping dmap({});
 
         DELETE("CreateThenExpandByBlkArrGrow.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true);
 
-        // The repository by default has 1 block so adding 3 more
+        // The xoz file by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto old_top_nr = repo.expose_block_array().grow_by_blocks(3);
+        auto old_top_nr = xfile.expose_block_array().grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)3);
 
 
         // Add 6 more blocks
-        old_top_nr = repo.expose_block_array().grow_by_blocks(6);
+        old_top_nr = xfile.expose_block_array().grow_by_blocks(6);
         EXPECT_EQ(old_top_nr, (uint32_t)4);
 
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)9);
 
         // Close. These 3+6 additional blocks are not allocated (not owned by any segment)
-        // *but*, the repository's allocator does not know that. From its perspective
+        // *but*, the xoz file's allocator does not know that. From its perspective
         // these blocks are *not* free (the allocator tracks free space only) so
         // it will believe that they *are* allocated/owned by someone, hence
-        // they will *not* be released on repo.close() and that's what we expect.
-        repo.close();
+        // they will *not* be released on xfile.close() and that's what we expect.
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0005 0000 0000 0000 "           // repo_sz
+                "0005 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0a00 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -886,21 +886,21 @@ namespace {
                 );
 
         // Open the file again. We expect to see that the file grew.
-        Repository repo2(dmap, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
 
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)9);
 
         // Close. Because the allocator does not know that any of these blocks
         // are owned (which are not), it will assume that they are free
-        // and repo2.close() will release them, shrinking the file in the process.
-        repo2.close();
+        // and xfile2.close() will release them, shrinking the file in the process.
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -932,22 +932,22 @@ namespace {
                 "454f 4600"
                 );
 
-        // We open the same file again. We expect the repo's blk array to have
+        // We open the same file again. We expect the xfile's blk array to have
         // the same size as the previous one after the shrink (0 blks in total)
-        Repository repo3(dmap, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
+        File xfile3(dmap, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
 
-        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().blk_cnt(), (uint32_t)0);
 
-        // Nothing weird should happen. All the "unallocated" space of repo1
-        // was released on repo2.close() so repo3.close() has nothing to do.
-        repo3.close();
+        // Nothing weird should happen. All the "unallocated" space of xfile1
+        // was released on xfile2.close() so xfile3.close() has nothing to do.
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -980,44 +980,44 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, CreateThenExpandThenRevertByAlloc) {
+    TEST(FileTest, CreateThenExpandThenRevertByAlloc) {
         DescriptorMapping dmap({});
 
         DELETE("CreateThenExpandThenRevertByAlloc.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true);
 
-        const auto blk_sz = repo.expose_block_array().blk_sz();
+        const auto blk_sz = xfile.expose_block_array().blk_sz();
 
-        // The repository by default has 1 block so adding 3 more
+        // The xoz file by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto sg1 = repo.expose_block_array().allocator().alloc(blk_sz * 3);
+        auto sg1 = xfile.expose_block_array().allocator().alloc(blk_sz * 3);
         EXPECT_EQ(sg1.calc_data_space_size(), (uint32_t)(blk_sz * 3));
 
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)3);
 
         // Now "revert" freeing those 3 blocks
-        repo.expose_block_array().allocator().dealloc(sg1);
+        xfile.expose_block_array().allocator().dealloc(sg1);
 
         // We expect the block array to *not* shrink (but the allocator *is* aware
         // that those blocks are free).
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)3);
 
         // Close. We expect to see those blocks released.
         // The allocator is aware that sg1 is free and therefore the blocks owned
         // by it are free. On allocator's release(), it will call to FileBlockArray's release()
-        // which in turn it will shrink the file on repo.close()
-        repo.close();
+        // which in turn it will shrink the file on xfile.close()
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1050,18 +1050,18 @@ namespace {
                 );
 
         // Reopen.
-        Repository repo2(dmap, SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz");
 
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)0);
 
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1096,39 +1096,39 @@ namespace {
     }
 
 
-    TEST(RepositoryTest, CreateThenExpandThenRevertByBlkArrGrow) {
+    TEST(FileTest, CreateThenExpandThenRevertByBlkArrGrow) {
         DescriptorMapping dmap({});
 
         DELETE("CreateThenExpandThenRevertByBlkArrGrow.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true);
 
-        // The repository by default has 1 block so adding 3 more
+        // The xoz file by default has 1 block so adding 3 more
         // will yield 4 blocks in total
-        auto old_top_nr = repo.expose_block_array().grow_by_blocks(3);
+        auto old_top_nr = xfile.expose_block_array().grow_by_blocks(3);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
 
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)3);
 
         // Now "revert" freeing those 3 blocks
-        repo.expose_block_array().shrink_by_blocks(3);
+        xfile.expose_block_array().shrink_by_blocks(3);
 
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)0);
 
         // Close. We expect to see those blocks released (because the blk array shrank)
-        // This should be handled by repo's FileBlockArray release() only
-        // (no need of repo's allocator to be involved)
-        repo.close();
+        // This should be handled by xfile's FileBlockArray release() only
+        // (no need of xfile's allocator to be involved)
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1161,18 +1161,18 @@ namespace {
                 );
 
         // Reopen.
-        Repository repo2(dmap, SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz");
 
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)0);
 
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1206,26 +1206,26 @@ namespace {
 
     }
 
-    TEST(RepositoryTest, CreateThenExpandCloseThenShrink) {
+    TEST(FileTest, CreateThenExpandCloseThenShrink) {
         DescriptorMapping dmap({});
 
         DELETE("CreateThenExpandCloseThenShrink.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true);
 
-        const auto blk_sz = repo.expose_block_array().blk_sz();
+        const auto blk_sz = xfile.expose_block_array().blk_sz();
 
-        // The repository by default has 1 block so adding 9 more
+        // The xoz file by default has 1 block so adding 9 more
         // will yield 10 blocks in total
-        auto sg1 = repo.expose_block_array().allocator().alloc(blk_sz * 9);
+        auto sg1 = xfile.expose_block_array().allocator().alloc(blk_sz * 9);
         EXPECT_EQ(sg1.calc_data_space_size(), (uint32_t)(blk_sz * 9));
 
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)9);
 
-        auto stats1 = repo.expose_block_array().allocator().stats();
+        auto stats1 = xfile.expose_block_array().allocator().stats();
 
         EXPECT_EQ(stats1.current.in_use_blk_cnt, uint64_t(9));
         EXPECT_EQ(stats1.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
@@ -1237,12 +1237,12 @@ namespace {
         EXPECT_EQ(stats1.current.dealloc_call_cnt, uint64_t(0));
 
         // Close and check: the file should be grown
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0005 0000 0000 0000 "           // repo_sz
+                "0005 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0a00 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1277,23 +1277,23 @@ namespace {
         // Reopen the file. The block array will have the same geometry but
         // the allocator will know that the allocated blocks (sg1) are not owned
         // by anyone
-        Repository repo2(dmap, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
 
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)9);
 
         // Allocate 9 additional blocks. From allocator perspective the 9 original blocks
         // were free to it should use them to fulfil the request of 9 "additional" blocks
         // Hence, the block array (and file) should *not* grow.
-        auto sg2 = repo2.expose_block_array().allocator().alloc(blk_sz * 9);
+        auto sg2 = xfile2.expose_block_array().allocator().alloc(blk_sz * 9);
         EXPECT_EQ(sg2.calc_data_space_size(), (uint32_t)(blk_sz * 9));
 
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)9);
 
-        auto stats2 = repo2.expose_block_array().allocator().stats();
+        auto stats2 = xfile2.expose_block_array().allocator().stats();
 
         EXPECT_EQ(stats2.current.in_use_blk_cnt, uint64_t(9));
         EXPECT_EQ(stats2.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
@@ -1305,12 +1305,12 @@ namespace {
         EXPECT_EQ(stats2.current.dealloc_call_cnt, uint64_t(0));
 
         // Expected no change respect the previous state
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0005 0000 0000 0000 "           // repo_sz
+                "0005 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0a00 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1342,19 +1342,19 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(dmap, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
+        File xfile3(dmap, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
 
-        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)10);
-        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)9);
+        EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)10);
+        EXPECT_EQ(xfile3.expose_block_array().blk_cnt(), (uint32_t)9);
 
         // Alloc a single block. The allocator should try to allocate the lowest
         // extents leaving the blocks with higher blk number free and subject
-        // to be released on repo3.close()
-        auto sg3 = repo3.expose_block_array().allocator().alloc(blk_sz * 1);
+        // to be released on xfile3.close()
+        auto sg3 = xfile3.expose_block_array().allocator().alloc(blk_sz * 1);
         EXPECT_EQ(sg3.calc_data_space_size(), (uint32_t)(blk_sz * 1));
 
-        auto stats3 = repo3.expose_block_array().allocator().stats();
+        auto stats3 = xfile3.expose_block_array().allocator().stats();
 
         EXPECT_EQ(stats3.current.in_use_blk_cnt, uint64_t(1));
         EXPECT_EQ(stats3.current.in_use_blk_for_suballoc_cnt, uint64_t(0));
@@ -1367,12 +1367,12 @@ namespace {
 
         // Close and check again: the file should shrank, only 2 blk should survive
         // (the header and the allocated blk of above)
-        repo3.close();
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1406,19 +1406,19 @@ namespace {
 
     }
 
-    TEST(RepositoryTest, CreateTooSmallBlockSize) {
+    TEST(FileTest, CreateTooSmallBlockSize) {
         DescriptorMapping dmap({});
 
         DELETE("CreateTooSmallBlockSize.xoz");
 
         // Too small
-        struct Repository::default_parameters_t gp = {
+        struct File::default_parameters_t gp = {
             .blk_sz = 64
         };
 
         const char* fpath = SCRATCH_HOME "CreateTooSmallBlockSize.xoz";
         EXPECT_THAT(
-            [&]() { Repository::create(dmap, fpath, true, gp); },
+            [&]() { File::create(dmap, fpath, true, gp); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("The minimum block size is 128 but given 64.")
@@ -1427,26 +1427,26 @@ namespace {
         );
     }
 
-    TEST(RepositoryTest, OpenTooSmallBlockSize) {
+    TEST(FileTest, OpenTooSmallBlockSize) {
         DescriptorMapping dmap({});
 
         DELETE("OpenTooSmallBlockSize.xoz");
 
         const char* fpath = SCRATCH_HOME "OpenTooSmallBlockSize.xoz";
-        Repository new_repo = Repository::create(dmap, fpath, true);
+        File new_xfile = File::create(dmap, fpath, true);
 
-        // Check repository's parameters after create
-        EXPECT_EQ(new_repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(new_repo.expose_block_array().past_end_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(new_repo.expose_block_array().blk_cnt(), (uint32_t)0);
-        EXPECT_EQ(new_repo.expose_block_array().blk_sz(), (uint32_t)128);
+        // Check xoz file's parameters after create
+        EXPECT_EQ(new_xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(new_xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(new_xfile.expose_block_array().blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(new_xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        new_repo.close();
+        new_xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1496,7 +1496,7 @@ namespace {
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8000 0000 0000 0000 "           // repo_sz
+                "8000 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0100 0000 "                     // blk_total_cnt
                 "06"                             // blk_sz_order
@@ -1525,7 +1525,7 @@ namespace {
 
         // Open, this should fail
         EXPECT_THAT(
-            [&]() { Repository repo(dmap, SCRATCH_HOME "OpenTooSmallBlockSize.xoz"); },
+            [&]() { File xfile(dmap, SCRATCH_HOME "OpenTooSmallBlockSize.xoz"); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("block size order 6 is out of range [7 to 16] (block sizes of 128 to 64K)")
@@ -1535,14 +1535,14 @@ namespace {
 
     }
 
-    TEST(RepositoryTest, TrampolineNotRequired) {
+    TEST(FileTest, TrampolineNotRequired) {
         DescriptorMapping dmap({});
 
         DELETE("TrampolineNotRequired.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineNotRequired.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+        File xfile = File::create(dmap, fpath, true);
+        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1557,31 +1557,31 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'D'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
-            repo.root()->add(std::move(dscptr));
-            repo.root()->full_sync(false);
+            xfile.root()->add(std::move(dscptr));
+            xfile.root()->full_sync(false);
         }
 
         // We expect the file has grown 1 block:
         // The reasoning is that the 4 descriptors will fit in a single
         // block thanks to the suballocation
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)4);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
@@ -1591,12 +1591,12 @@ namespace {
         // calls to full_sync
         // However, the set still fits in the header of the xoz file
         // so there is no need of a trampoline
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1645,34 +1645,34 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(dmap, SCRATCH_HOME "TrampolineNotRequired.xoz");
+        File xfile2(dmap, SCRATCH_HOME "TrampolineNotRequired.xoz");
 
         // We expect the file has grown
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats2 = repo2.stats();
+        auto stats2 = xfile2.stats();
 
-        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats2.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats2.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats2.header_sz, uint64_t(128));
         EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set2 = repo2.root();
+        auto root_set2 = xfile2.root();
         EXPECT_EQ(root_set2->count(), (uint32_t)4);
         EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1721,34 +1721,34 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(dmap, SCRATCH_HOME "TrampolineNotRequired.xoz");
+        File xfile3(dmap, SCRATCH_HOME "TrampolineNotRequired.xoz");
 
         // We expect the file has grown
-        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile3.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats3 = repo3.stats();
+        auto stats3 = xfile3.stats();
 
-        EXPECT_EQ(stats3.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats3.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats3.header_sz, uint64_t(128));
         EXPECT_EQ(stats3.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set3 = repo3.root();
+        auto root_set3 = xfile3.root();
         EXPECT_EQ(root_set3->count(), (uint32_t)4);
         EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        repo3.close();
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1803,14 +1803,14 @@ namespace {
     // so doing a single full_sync ends up doing a lot of tiny
     // allocations anyways.
 #if 0
-    TEST(RepositoryTest, TrampolineNotRequiredDueFewWrites) {
+    TEST(FileTest, TrampolineNotRequiredDueFewWrites) {
         DescriptorMapping dmap({});
 
         DELETE("TrampolineNotRequiredDueFewWrites.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+        File xfile = File::create(dmap, fpath, true);
+        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -1825,36 +1825,36 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
-            repo.root()->add(std::move(dscptr));
+            xfile.root()->add(std::move(dscptr));
         }
 
         // Perform a single full_sync
         // This should make the set to allocate all the needed space once
         // so its segment will be less fragmented and much smaller than
         // if we do a single alloc per descriptor
-        repo.root()->full_sync(false);
+        xfile.root()->full_sync(false);
 
         // We expect the file has grown 1 block:
         // The reasoning is that the 26 descriptors will fit in a single
         // block thanks to the suballocation
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)26);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
@@ -1864,12 +1864,12 @@ namespace {
         // calls to full_sync
         // However, the set still fits in the header of the xoz file
         // so there is no need of a trampoline
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -1936,34 +1936,34 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(dmap, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
+        File xfile2(dmap, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
 
         // We expect the file has grown
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats2 = repo2.stats();
+        auto stats2 = xfile2.stats();
 
-        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats2.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats2.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats2.header_sz, uint64_t(128));
         EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set2 = repo2.root();
+        auto root_set2 = xfile2.root();
         EXPECT_EQ(root_set2->count(), (uint32_t)26);
         EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -2031,34 +2031,34 @@ namespace {
                 );
 
 
-        Repository repo3(dmap, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
+        File xfile3(dmap, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
 
         // We expect the file has grown
-        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile3.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats3 = repo3.stats();
+        auto stats3 = xfile3.stats();
 
-        EXPECT_EQ(stats3.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats3.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats3.header_sz, uint64_t(128));
         EXPECT_EQ(stats3.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set3 = repo3.root();
+        auto root_set3 = xfile3.root();
         EXPECT_EQ(root_set3->count(), (uint32_t)26);
         EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        repo3.close();
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -2128,14 +2128,14 @@ namespace {
     }
 #endif
 
-    TEST(RepositoryTest, TrampolineRequired) {
+    TEST(FileTest, TrampolineRequired) {
         DescriptorMapping dmap({});
 
         DELETE("TrampolineRequired.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineRequired.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+        File xfile = File::create(dmap, fpath, true);
+        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -2150,41 +2150,41 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
-            repo.root()->add(std::move(dscptr));
-            repo.root()->full_sync(false);
+            xfile.root()->add(std::move(dscptr));
+            xfile.root()->full_sync(false);
         }
 
         // We expect the file has grown 1 block:
         // The reasoning is that the 26 descriptors will fit in a single
         // block thanks to the suballocation
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)26);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -2270,35 +2270,35 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(dmap, SCRATCH_HOME "TrampolineRequired.xoz");
+        File xfile2(dmap, SCRATCH_HOME "TrampolineRequired.xoz");
 
-        // The repo.close() forced to allocate a trampoline so the blk array
+        // The xfile.close() forced to allocate a trampoline so the blk array
         // should have one additional block
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)3);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)2);
-        EXPECT_EQ(repo2.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)2);
+        EXPECT_EQ(xfile2.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats2 = repo2.stats();
+        auto stats2 = xfile2.stats();
 
-        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t((128 * 3)+4));
-        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats2.capacity_file_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats2.in_use_file_sz, uint64_t((128 * 3)+4));
         EXPECT_EQ(stats2.header_sz, uint64_t(128));
         EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set2 = repo2.root();
+        auto root_set2 = xfile2.root();
         EXPECT_EQ(root_set2->count(), (uint32_t)26);
         EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -2384,35 +2384,35 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(dmap, SCRATCH_HOME "TrampolineRequired.xoz");
+        File xfile3(dmap, SCRATCH_HOME "TrampolineRequired.xoz");
 
-        // The repo.close() forced to allocate a trampoline so the blk array
+        // The xfile.close() forced to allocate a trampoline so the blk array
         // should have one additional block
-        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)3);
-        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)2);
-        EXPECT_EQ(repo3.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(xfile3.expose_block_array().blk_cnt(), (uint32_t)2);
+        EXPECT_EQ(xfile3.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats3 = repo3.stats();
+        auto stats3 = xfile3.stats();
 
-        EXPECT_EQ(stats3.capacity_repo_sz, uint64_t((128 * 3)+4));
-        EXPECT_EQ(stats3.in_use_repo_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats3.capacity_file_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats3.in_use_file_sz, uint64_t((128 * 3)+4));
         EXPECT_EQ(stats3.header_sz, uint64_t(128));
         EXPECT_EQ(stats3.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set3 = repo3.root();
+        auto root_set3 = xfile3.root();
         EXPECT_EQ(root_set3->count(), (uint32_t)26);
         EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        repo3.close();
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -2499,14 +2499,14 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, TrampolineRequiredButBeforeCloseItWasNotLongerRequired) {
+    TEST(FileTest, TrampolineRequiredButBeforeCloseItWasNotLongerRequired) {
         DescriptorMapping dmap({});
 
         DELETE("TrampolineRequiredButBeforeCloseItWasNotLongerRequired.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineRequiredButBeforeCloseItWasNotLongerRequired.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+        File xfile = File::create(dmap, fpath, true);
+        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -2522,52 +2522,52 @@ namespace {
 
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo.root()->add(std::move(dscptr));
+            auto id = xfile.root()->add(std::move(dscptr));
             ids.push_back(id);
 
-            repo.root()->full_sync(false);
+            xfile.root()->full_sync(false);
         }
 
         // This will flush any pending write and also it will write the header
         // In this step, it is found that the root set does not fit in the header
         // so the header requires a trampoline
-        repo.full_sync(true);
+        xfile.full_sync(true);
 
         // 3 blocks needed: 1 header, 1 for the descriptors and 1 for the root set
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)3);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)2);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)2);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 3)+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t((128 * 3)+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)26);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Remove from the set all except the first 4 descriptors added
         for (size_t i = 4; i < ids.size(); ++i) {
-            repo.root()->erase(ids[i]);
+            xfile.root()->erase(ids[i]);
         }
 
         // Close and reopen and check again. We should expect to see
         // 2 blocks, not 3 and no trampoline
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -2617,14 +2617,14 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, TrampolineRequiredThenCloseThenNotLongerRequired) {
+    TEST(FileTest, TrampolineRequiredThenCloseThenNotLongerRequired) {
         DescriptorMapping dmap({});
 
         DELETE("TrampolineRequiredThenCloseThenNotLongerRequired.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineRequiredThenCloseThenNotLongerRequired.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+        File xfile = File::create(dmap, fpath, true);
+        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -2640,42 +2640,42 @@ namespace {
 
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo.root()->add(std::move(dscptr), true);
+            auto id = xfile.root()->add(std::move(dscptr), true);
             ids.push_back(id);
-            repo.root()->full_sync(false);
+            xfile.root()->full_sync(false);
         }
 
-        repo.full_sync(true);
+        xfile.full_sync(true);
 
         // We expect the file has grown 3 blocks.
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 4)+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t((128 * 4)+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)26);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Close and reopen and check again
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0002 0000 0000 0000 "           // repo_sz
+                "0002 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0400 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -2764,39 +2764,39 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(dmap, fpath);
+        File xfile2(dmap, fpath);
 
-        // The repo.close() forced to allocate a trampoline so the blk array
+        // The xfile.close() forced to allocate a trampoline so the blk array
         // should have one additional block
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)3);
-        EXPECT_EQ(repo2.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(xfile2.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats2 = repo2.stats();
+        auto stats2 = xfile2.stats();
 
-        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t((128 * 4)+4));
-        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats2.capacity_file_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats2.in_use_file_sz, uint64_t((128 * 4)+4));
         EXPECT_EQ(stats2.header_sz, uint64_t(128));
         EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set2 = repo2.root();
+        auto root_set2 = xfile2.root();
         EXPECT_EQ(root_set2->count(), (uint32_t)26);
         EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
         // Remove from the set all except the first 2 descriptors added
         for (size_t i = 2; i < ids.size(); ++i) {
-            repo2.root()->erase(ids[i]);
+            xfile2.root()->erase(ids[i]);
         }
 
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -2849,34 +2849,34 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(dmap, fpath);
+        File xfile3(dmap, fpath);
 
-        // The repo.close() forced to allocate a trampoline so the blk array
+        // The xfile.close() forced to allocate a trampoline so the blk array
         // should have one additional block
-        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile3.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats3 = repo3.stats();
+        auto stats3 = xfile3.stats();
 
-        EXPECT_EQ(stats3.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats3.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats3.header_sz, uint64_t(128));
         EXPECT_EQ(stats3.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set3 = repo3.root();
+        auto root_set3 = xfile3.root();
         EXPECT_EQ(root_set3->count(), (uint32_t)2);
         EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
-        repo3.close();
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -2930,14 +2930,14 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, TrampolineRequiredOfDifferentSizes) {
+    TEST(FileTest, TrampolineRequiredOfDifferentSizes) {
         DescriptorMapping dmap({});
 
         DELETE("TrampolineRequiredOfDifferentSizes.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineRequiredOfDifferentSizes.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+        File xfile = File::create(dmap, fpath, true);
+        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -2953,49 +2953,49 @@ namespace {
 
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo.root()->add(std::move(dscptr), true);
+            auto id = xfile.root()->add(std::move(dscptr), true);
             ids.push_back(id);
-            repo.root()->full_sync(false);
+            xfile.root()->full_sync(false);
         }
 
-        repo.full_sync(true);
+        xfile.full_sync(true);
 
         // We expect the file has grown 3 blocks.
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)4);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)3);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 4)+4));
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t((128 * 4)+4));
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t((128 * 4)+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)26);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Now let's shrink the trampoline removing some descriptors
         // (and reducing the set)
         for (size_t i = 10; i < ids.size(); ++i) {
-            repo.root()->erase(ids[i]);
-            repo.root()->full_sync(false);
+            xfile.root()->erase(ids[i]);
+            xfile.root()->full_sync(false);
         }
 
-        repo.close();
+        xfile.close();
 
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -3071,12 +3071,12 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(dmap, fpath);
+        File xfile2(dmap, fpath);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = repo2.root()->get<DefaultDescriptor>(ids[i]);
+            auto dscptr = xfile2.root()->get<DefaultDescriptor>(ids[i]);
             auto data = dscptr->get_data();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3085,16 +3085,16 @@ namespace {
 
         // Let's shrink the trampoline even further
         for (size_t i = 4; i < 10; ++i) {
-            repo2.root()->erase(ids[i]);
-            repo2.root()->full_sync(false);
+            xfile2.root()->erase(ids[i]);
+            xfile2.root()->full_sync(false);
         }
 
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -3158,12 +3158,12 @@ namespace {
                 );
 
 
-        Repository repo3(dmap, fpath);
+        File xfile3(dmap, fpath);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < 4; ++i) {
             char c = char('A' + i);
-            auto dscptr = repo3.root()->get<DefaultDescriptor>(ids[i]);
+            auto dscptr = xfile3.root()->get<DefaultDescriptor>(ids[i]);
             auto data = dscptr->get_data();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3173,20 +3173,20 @@ namespace {
         // Now expand the trampoline adding the erased descriptors back again
         for (size_t i = 4; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo3.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile3.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo3.root()->add(std::move(dscptr), true);
+            auto id = xfile3.root()->add(std::move(dscptr), true);
             ids[i] = id;
-            repo3.root()->full_sync(false);
+            xfile3.root()->full_sync(false);
         }
 
-        repo3.close();
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -3273,12 +3273,12 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo4(dmap, fpath);
+        File xfile4(dmap, fpath);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = repo4.root()->get<DefaultDescriptor>(ids[i]);
+            auto dscptr = xfile4.root()->get<DefaultDescriptor>(ids[i]);
             auto data = dscptr->get_data();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3288,12 +3288,12 @@ namespace {
         // Now expand even further
         for (size_t i = 10; i < ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo4.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile4.expose_block_array());
             dscptr->set_data({c, c});
 
-            auto id = repo4.root()->add(std::move(dscptr), true);
+            auto id = xfile4.root()->add(std::move(dscptr), true);
             ids[i] = id;
-            repo4.full_sync(true);
+            xfile4.full_sync(true);
         }
 
 
@@ -3301,12 +3301,12 @@ namespace {
         // Note how the descriptor set and the trampoline are getting mixed because the
         // frequently allocations/deallocation and how there is a lot of unallocated space
         // that it is in the middle of the file and it cannot be recovered/reclaimed.
-        repo4.close();
+        xfile4.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0003 0000 0000 0000 "           // repo_sz
+                "0003 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0600 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -3458,12 +3458,12 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo5(dmap, fpath);
+        File xfile5(dmap, fpath);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < (int)ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = repo5.root()->get<DefaultDescriptor>(ids[i]);
+            auto dscptr = xfile5.root()->get<DefaultDescriptor>(ids[i]);
             auto data = dscptr->get_data();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3472,14 +3472,14 @@ namespace {
     }
 
 
-    TEST(RepositoryTest, TwoLevelDescriptorSets) {
+    TEST(FileTest, TwoLevelDescriptorSets) {
         DescriptorMapping dmap({});
 
         DELETE("TwoLevelDescriptorSets.xoz");
 
         const char* fpath = SCRATCH_HOME "TwoLevelDescriptorSets.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+        File xfile = File::create(dmap, fpath, true);
+        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -3494,23 +3494,23 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'D'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
-            repo.root()->add(std::move(dscptr));
-            repo.root()->full_sync(false);
+            xfile.root()->add(std::move(dscptr));
+            xfile.root()->full_sync(false);
         }
 
         uint32_t dset_id = 0;
         {
-            auto dset = DescriptorSet::create(repo.expose_block_array(), repo.expose_runtime_context());
-            dset_id = repo.root()->add(std::move(dset));
-            repo.root()->full_sync(false);
+            auto dset = DescriptorSet::create(xfile.expose_block_array(), xfile.expose_runtime_context());
+            dset_id = xfile.root()->add(std::move(dset));
+            xfile.root()->full_sync(false);
         }
 
-        auto dset = repo.root()->get<DescriptorSet>(dset_id);
+        auto dset = xfile.root()->get<DescriptorSet>(dset_id);
         for (char c = 'E'; c <= 'H'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
             dset->add(std::move(dscptr));
@@ -3518,32 +3518,32 @@ namespace {
         }
 
         // dset's descriptor changed so root set must be rewritten
-        EXPECT_EQ(repo.root()->does_require_write(), (bool)true);
-        repo.root()->full_sync(false);
+        EXPECT_EQ(xfile.root()->does_require_write(), (bool)true);
+        xfile.root()->full_sync(false);
 
         // We expect the file has grown 1 block:
         // The reasoning is that the 4 descriptors will fit in a single
         // block thanks to the suballocation
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1); // TODO are all of these ok?
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1); // TODO are all of these ok?
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 2)+4)); // TODO are all of these ok?
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t((128 * 2)+4)); // TODO are all of these ok?
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)5);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
         // Check allocator stats
-        auto stats1 = repo.expose_block_array().allocator().stats();
+        auto stats1 = xfile.expose_block_array().allocator().stats();
 
         EXPECT_EQ(stats1.current.in_use_blk_cnt, uint64_t(1));
         EXPECT_EQ(stats1.current.in_use_blk_for_suballoc_cnt, uint64_t(1));
@@ -3558,12 +3558,12 @@ namespace {
         // calls to full_sync
         // However, the set still fits in the header of the xoz file
         // so there is no need of a trampoline
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -3617,24 +3617,24 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo2(dmap, SCRATCH_HOME "TwoLevelDescriptorSets.xoz");
+        File xfile2(dmap, SCRATCH_HOME "TwoLevelDescriptorSets.xoz");
 
         // We expect the file has grown
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats2 = repo2.stats();
+        auto stats2 = xfile2.stats();
 
-        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats2.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats2.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats2.header_sz, uint64_t(128));
         EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set2 = repo2.root();
+        auto root_set2 = xfile2.root();
         EXPECT_EQ(root_set2->count(), (uint32_t)5);
         EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
@@ -3655,7 +3655,7 @@ namespace {
         }
         EXPECT_NE(dset_id, (uint32_t)0);
 
-        auto dset2 = repo2.root()->get<DescriptorSet>(dset_id);
+        auto dset2 = xfile2.root()->get<DescriptorSet>(dset_id);
         EXPECT_EQ(dset2->count(), (uint32_t)4);
         EXPECT_EQ(dset2->does_require_write(), (bool)false);
 
@@ -3667,7 +3667,7 @@ namespace {
 
         // Check allocator stats: see that we correctly recovered the state of used/free blocks
         // plus the extra space required for the trampoline (see the +n values below)
-        auto al_stats2 = repo2.expose_block_array().allocator().stats();
+        auto al_stats2 = xfile2.expose_block_array().allocator().stats();
 
         EXPECT_EQ(al_stats2.current.in_use_blk_cnt, uint64_t(1));
         EXPECT_EQ(al_stats2.current.in_use_blk_for_suballoc_cnt, uint64_t(1));
@@ -3677,12 +3677,12 @@ namespace {
         EXPECT_EQ(al_stats2.current.in_use_inlined_sz, uint64_t(0 + 4));
 
         // Close and reopen and check again
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -3736,28 +3736,28 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(dmap, SCRATCH_HOME "TwoLevelDescriptorSets.xoz");
+        File xfile3(dmap, SCRATCH_HOME "TwoLevelDescriptorSets.xoz");
 
         // We expect the file has grown
-        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile3.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats3 = repo3.stats();
+        auto stats3 = xfile3.stats();
 
-        EXPECT_EQ(stats3.capacity_repo_sz, uint64_t((128 * 2)+4));
-        EXPECT_EQ(stats3.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.capacity_file_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats3.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats3.header_sz, uint64_t(128));
         EXPECT_EQ(stats3.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set3 = repo3.root();
+        auto root_set3 = xfile3.root();
         EXPECT_EQ(root_set3->count(), (uint32_t)5);
         EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
-        // Same checks than made for repo2 but this time for repo3
+        // Same checks than made for xfile2 but this time for xfile3
         dset_id = 0;
         for (auto it = root_set3->cbegin(); it != root_set3->cend(); ++it) {
             auto dsc = (*it)->cast<DefaultDescriptor>(true);
@@ -3771,7 +3771,7 @@ namespace {
         }
         EXPECT_NE(dset_id, (uint32_t)0);
 
-        auto dset3 = repo3.root()->get<DescriptorSet>(dset_id);
+        auto dset3 = xfile3.root()->get<DescriptorSet>(dset_id);
         EXPECT_EQ(dset3->count(), (uint32_t)4);
         EXPECT_EQ(dset3->does_require_write(), (bool)false);
 
@@ -3782,7 +3782,7 @@ namespace {
         }
 
         // Check allocator stats: no change should had happen
-        auto al_stats3 = repo3.expose_block_array().allocator().stats();
+        auto al_stats3 = xfile3.expose_block_array().allocator().stats();
 
         EXPECT_EQ(al_stats3.current.in_use_blk_cnt, uint64_t(1));
         EXPECT_EQ(al_stats3.current.in_use_blk_for_suballoc_cnt, uint64_t(1));
@@ -3792,12 +3792,12 @@ namespace {
         EXPECT_EQ(al_stats3.current.in_use_inlined_sz, uint64_t(0 + 4));
 
         // Close and reopen and check again
-        repo3.close();
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "0001 0000 0000 0000 "           // repo_sz
+                "0001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0200 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -3852,14 +3852,14 @@ namespace {
                 );
     }
 
-    TEST(RepositoryTest, ThreeLevelDescriptorSets) {
+    TEST(FileTest, ThreeLevelDescriptorSets) {
         DescriptorMapping dmap({});
 
         DELETE("ThreeLevelDescriptorSets.xoz");
 
         const char* fpath = SCRATCH_HOME "ThreeLevelDescriptorSets.xoz";
-        Repository repo = Repository::create(dmap, fpath, true);
-        const auto blk_sz_order = repo.expose_block_array().blk_sz_order();
+        File xfile = File::create(dmap, fpath, true);
+        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
@@ -3874,29 +3874,29 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'D'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
-            repo.root()->add(std::move(dscptr));
-            repo.root()->full_sync(false);
+            xfile.root()->add(std::move(dscptr));
+            xfile.root()->full_sync(false);
         }
 
         uint32_t dset_id = 0;
         uint32_t l2dset_id = 0;
         {
-            auto dset = DescriptorSet::create(repo.expose_block_array(), repo.expose_runtime_context());
-            dset_id = repo.root()->add(std::move(dset));
+            auto dset = DescriptorSet::create(xfile.expose_block_array(), xfile.expose_runtime_context());
+            dset_id = xfile.root()->add(std::move(dset));
 
-            auto l2dset = DescriptorSet::create(repo.expose_block_array(), repo.expose_runtime_context());
-            l2dset_id = repo.root()->get<DescriptorSet>(dset_id)->add(std::move(l2dset));
+            auto l2dset = DescriptorSet::create(xfile.expose_block_array(), xfile.expose_runtime_context());
+            l2dset_id = xfile.root()->get<DescriptorSet>(dset_id)->add(std::move(l2dset));
 
             // sync
-            repo.root()->full_sync(false);
+            xfile.root()->full_sync(false);
         }
 
-        auto dset = repo.root()->get<DescriptorSet>(dset_id);
+        auto dset = xfile.root()->get<DescriptorSet>(dset_id);
         for (char c = 'E'; c <= 'H'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
             dset->add(std::move(dscptr));
@@ -3905,7 +3905,7 @@ namespace {
 
         auto l2dset = dset->get<DescriptorSet>(l2dset_id);
         for (char c = 'I'; c <= 'K'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, repo.expose_block_array());
+            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_data({c, c});
 
             l2dset->add(std::move(dscptr));
@@ -3913,35 +3913,35 @@ namespace {
         }
 
         // dset's descriptor changed so root set must be rewritten
-        EXPECT_EQ(repo.root()->does_require_write(), (bool)true);
-        repo.root()->full_sync(false);
+        EXPECT_EQ(xfile.root()->does_require_write(), (bool)true);
+        xfile.root()->full_sync(false);
 
-        EXPECT_EQ(repo.root()->does_require_write(), (bool)false);
-        EXPECT_EQ(repo.root()->get<DescriptorSet>(dset_id)->does_require_write(), (bool)false);
-        EXPECT_EQ(repo.root()->get<DescriptorSet>(dset_id)->get<DescriptorSet>(l2dset_id)->does_require_write(), (bool)false);
+        EXPECT_EQ(xfile.root()->does_require_write(), (bool)false);
+        EXPECT_EQ(xfile.root()->get<DescriptorSet>(dset_id)->does_require_write(), (bool)false);
+        EXPECT_EQ(xfile.root()->get<DescriptorSet>(dset_id)->get<DescriptorSet>(l2dset_id)->does_require_write(), (bool)false);
 
         // We expect the file has grown 1 block:
         // The reasoning is that the 4 descriptors will fit in a single
         // block thanks to the suballocation
-        EXPECT_EQ(repo.expose_block_array().begin_blk_nr(), (uint32_t)1); // TODO are all of these ok?
-        EXPECT_EQ(repo.expose_block_array().past_end_blk_nr(), (uint32_t)2);
-        EXPECT_EQ(repo.expose_block_array().blk_cnt(), (uint32_t)1);
-        EXPECT_EQ(repo.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1); // TODO are all of these ok?
+        EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(xfile.expose_block_array().blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(xfile.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats = repo.stats();
+        auto stats = xfile.stats();
 
-        EXPECT_EQ(stats.capacity_repo_sz, uint64_t((128 * 2)+4)); // TODO are all of these ok?
-        EXPECT_EQ(stats.in_use_repo_sz, uint64_t((128 * 2)+4));
+        EXPECT_EQ(stats.capacity_file_sz, uint64_t((128 * 2)+4)); // TODO are all of these ok?
+        EXPECT_EQ(stats.in_use_file_sz, uint64_t((128 * 2)+4));
         EXPECT_EQ(stats.header_sz, uint64_t(128));
         EXPECT_EQ(stats.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set = repo.root();
+        auto root_set = xfile.root();
         EXPECT_EQ(root_set->count(), (uint32_t)5);
         EXPECT_EQ(root_set->does_require_write(), (bool)false);
 
-        auto al_stats = repo.expose_block_array().allocator().stats();
+        auto al_stats = xfile.expose_block_array().allocator().stats();
 
         EXPECT_EQ(al_stats.current.in_use_blk_cnt, uint64_t(1));
         EXPECT_EQ(al_stats.current.in_use_blk_for_suballoc_cnt, uint64_t(1));
@@ -3956,12 +3956,12 @@ namespace {
         // calls to full_sync
         // However, the set still fits in the header of the xoz file
         // so there is no need of a trampoline
-        repo.close();
+        xfile.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -4025,24 +4025,24 @@ namespace {
                 // trailer
                 "454f 4600"
                 );
-        Repository repo2(dmap, SCRATCH_HOME "ThreeLevelDescriptorSets.xoz");
+        File xfile2(dmap, SCRATCH_HOME "ThreeLevelDescriptorSets.xoz");
 
         // We expect the file has grown
-        EXPECT_EQ(repo2.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo2.expose_block_array().past_end_blk_nr(), (uint32_t)3);
-        EXPECT_EQ(repo2.expose_block_array().blk_cnt(), (uint32_t)2);
-        EXPECT_EQ(repo2.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(xfile2.expose_block_array().blk_cnt(), (uint32_t)2);
+        EXPECT_EQ(xfile2.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats2 = repo2.stats();
+        auto stats2 = xfile2.stats();
 
-        EXPECT_EQ(stats2.capacity_repo_sz, uint64_t((128 * 3)+4));
-        EXPECT_EQ(stats2.in_use_repo_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats2.capacity_file_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats2.in_use_file_sz, uint64_t((128 * 3)+4));
         EXPECT_EQ(stats2.header_sz, uint64_t(128));
         EXPECT_EQ(stats2.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set2 = repo2.root();
+        auto root_set2 = xfile2.root();
         EXPECT_EQ(root_set2->count(), (uint32_t)5);
         EXPECT_EQ(root_set2->does_require_write(), (bool)false);
 
@@ -4063,7 +4063,7 @@ namespace {
         }
         EXPECT_NE(dset_id, (uint32_t)0);
 
-        auto dset2 = repo2.root()->get<DescriptorSet>(dset_id);
+        auto dset2 = xfile2.root()->get<DescriptorSet>(dset_id);
         EXPECT_EQ(dset2->count(), (uint32_t)5);
         EXPECT_EQ(dset2->does_require_write(), (bool)false);
 
@@ -4091,9 +4091,9 @@ namespace {
             EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
         }
 
-        // Check allocator stats: expected to see the same values seen for <repo>
+        // Check allocator stats: expected to see the same values seen for <xfile>
         // plus the ones due the trampoline
-        auto al_stats2 = repo2.expose_block_array().allocator().stats();
+        auto al_stats2 = xfile2.expose_block_array().allocator().stats();
 
         EXPECT_EQ(al_stats2.current.in_use_blk_cnt, uint64_t(1 + 1));
         EXPECT_EQ(al_stats2.current.in_use_blk_for_suballoc_cnt, uint64_t(1 + 1));
@@ -4103,12 +4103,12 @@ namespace {
         EXPECT_EQ(al_stats2.current.in_use_inlined_sz, uint64_t(0 + 4));
 
         // Close and reopen and check again
-        repo2.close();
+        xfile2.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -4140,7 +4140,7 @@ namespace {
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -4205,28 +4205,28 @@ namespace {
                 "454f 4600"
                 );
 
-        Repository repo3(dmap, SCRATCH_HOME "ThreeLevelDescriptorSets.xoz");
+        File xfile3(dmap, SCRATCH_HOME "ThreeLevelDescriptorSets.xoz");
 
         // We expect the file has grown
-        EXPECT_EQ(repo3.expose_block_array().begin_blk_nr(), (uint32_t)1);
-        EXPECT_EQ(repo3.expose_block_array().past_end_blk_nr(), (uint32_t)3);
-        EXPECT_EQ(repo3.expose_block_array().blk_cnt(), (uint32_t)2);
-        EXPECT_EQ(repo3.expose_block_array().blk_sz(), (uint32_t)128);
+        EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(xfile3.expose_block_array().blk_cnt(), (uint32_t)2);
+        EXPECT_EQ(xfile3.expose_block_array().blk_sz(), (uint32_t)128);
 
-        auto stats3 = repo3.stats();
+        auto stats3 = xfile3.stats();
 
-        EXPECT_EQ(stats3.capacity_repo_sz, uint64_t((128 * 3)+4));
-        EXPECT_EQ(stats3.in_use_repo_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats3.capacity_file_sz, uint64_t((128 * 3)+4));
+        EXPECT_EQ(stats3.in_use_file_sz, uint64_t((128 * 3)+4));
         EXPECT_EQ(stats3.header_sz, uint64_t(128));
         EXPECT_EQ(stats3.trailer_sz, uint64_t(4));
 
         // The set was explicitly written above, we don't expect
         // the set to require another write.
-        auto root_set3 = repo3.root();
+        auto root_set3 = xfile3.root();
         EXPECT_EQ(root_set3->count(), (uint32_t)5);
         EXPECT_EQ(root_set3->does_require_write(), (bool)false);
 
-        // Same checks than made for repo2 but this time for repo3
+        // Same checks than made for xfile2 but this time for xfile3
         dset_id = 0;
         for (auto it = root_set3->cbegin(); it != root_set3->cend(); ++it) {
             auto dsc = (*it)->cast<DefaultDescriptor>(true);
@@ -4240,7 +4240,7 @@ namespace {
         }
         EXPECT_NE(dset_id, (uint32_t)0);
 
-        auto dset3 = repo3.root()->get<DescriptorSet>(dset_id);
+        auto dset3 = xfile3.root()->get<DescriptorSet>(dset_id);
         EXPECT_EQ(dset3->count(), (uint32_t)5);
         EXPECT_EQ(dset3->does_require_write(), (bool)false);
 
@@ -4269,7 +4269,7 @@ namespace {
         }
 
         // Check allocator stats: expected no change
-        auto al_stats3 = repo3.expose_block_array().allocator().stats();
+        auto al_stats3 = xfile3.expose_block_array().allocator().stats();
 
         EXPECT_EQ(al_stats3.current.in_use_blk_cnt, uint64_t(1 + 1));
         EXPECT_EQ(al_stats3.current.in_use_blk_for_suballoc_cnt, uint64_t(1 + 1));
@@ -4279,12 +4279,12 @@ namespace {
         EXPECT_EQ(al_stats3.current.in_use_inlined_sz, uint64_t(0 + 4));
 
         // Close and reopen and check again
-        repo3.close();
+        xfile3.close();
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 0, 128,
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order
@@ -4316,7 +4316,7 @@ namespace {
                 // header
                 "584f 5a00 "                     // magic XOZ\0
                 "0000 0000 0000 0000 0000 0000 " // app_name
-                "8001 0000 0000 0000 "           // repo_sz
+                "8001 0000 0000 0000 "           // file_sz
                 "0400 "                          // trailer_sz
                 "0300 0000 "                     // blk_total_cnt
                 "07"                             // blk_sz_order

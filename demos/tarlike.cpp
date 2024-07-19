@@ -17,13 +17,13 @@
 
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/descriptor_set.h"
-#include "xoz/repo/repository.h"
+#include "xoz/file/file.h"
 
 
 // A Descriptor is the minimum unit of storage. You will have to implement yours
 // based on your needs.
 // In our case, we want to store "files" in the archiver so we create a descriptor
-// File inheriting from Descriptor class
+// FileMember inheriting from Descriptor class
 //
 // Any descriptor *must*:
 //  - say how to read/write the descriptor from/to the file. (1)
@@ -39,19 +39,19 @@
 //  - delay writes to disk until flush_writes is called. (no example)
 //  - delay release of free space until release_free_space is called. (no example)
 //
-// The File descriptor also offers a way to get/set the file name and to extract
+// The FileMember descriptor also offers a way to get/set the file name and to extract
 // the file content. (7), (8), (9)
 //
-class File: public Descriptor {
+class FileMember: public Descriptor {
 
 public:
-    // Each descriptor has a type that denotes its nature. File Descriptors
+    // Each descriptor has a type that denotes its nature. FileMember Descriptors
     // have the 0xab type. Of course this was chosen by me for this demo.
     // The type should be very well documented in a RFC or like.
     constexpr static uint16_t TYPE = 0x00ab;
 
-    File(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, const std::string& fname, uint32_t file_sz,
-         uint16_t fname_sz):
+    FileMember(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, const std::string& fname,
+               uint32_t file_sz, uint16_t fname_sz):
             Descriptor(hdr, ed_blkarr), fname(fname), file_sz(file_sz), fname_sz(fname_sz) {}
 
     // (4) create() method with user-defined signature.
@@ -60,8 +60,8 @@ public:
     // of data and creates the header (hdr).
     //
     // Because it is meant to be called by the user, it is likely to be used/modified
-    // immediately so we return a pointer to File and  not to Descriptor.
-    static std::unique_ptr<File> create(const std::string& fpath, BlockArray& ed_blkarr) {
+    // immediately so we return a pointer to FileMember and  not to Descriptor.
+    static std::unique_ptr<FileMember> create(const std::string& fpath, BlockArray& ed_blkarr) {
         // Let's open the file that we want to save in XOZ
         std::ifstream file(fpath, std::ios_base::in | std::ios_base::binary);
         if (!file) {
@@ -160,14 +160,14 @@ public:
                 .segm = segm,  // the location of the external data (our file and file name)
         };
 
-        // Call the Descriptor constructor and build a File object.
-        return std::make_unique<File>(hdr, ed_blkarr, fname, file_sz, fname_sz);
+        // Call the Descriptor constructor and build a FileMember object.
+        return std::make_unique<FileMember>(hdr, ed_blkarr, fname, file_sz, fname_sz);
     }
 
     // (3)
     //
     // This is the create function for when the descriptor is loaded from the xoz file
-    // Notice how it is very simple and just creates the correct File object: it does
+    // Notice how it is very simple and just creates the correct FileMember object: it does
     // not read/write anything and the header (hdr) is already created by the XOZ lib.
     //
     // The signature of this method is defined and required by XOZ. It cannot be changed.
@@ -175,7 +175,7 @@ public:
     // of the descriptor mapping (see main()).
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
                                               [[maybe_unused]] RuntimeContext& rctx) {
-        return std::make_unique<File>(hdr, ed_blkarr, "", 0, 0);
+        return std::make_unique<FileMember>(hdr, ed_blkarr, "", 0, 0);
     }
 
 public:
@@ -306,19 +306,19 @@ private:
 };
 
 
-void add_file(Repository& repo, const std::string& fname) {
-    // We want to create a new File descriptor. Error handling is up to you;
+void add_file(File& xfile, const std::string& fname) {
+    // We want to create a new FileMember descriptor. Error handling is up to you;
     // in my case I will just print the error and skip the addition of the
     // descriptor to the set.
     //
-    // Note how the "external" data block array passed to File::create
+    // Note how the "external" data block array passed to FileMember::create
     // is the same than the std::shared_ptr<DescriptorSet> dset has. This is important
     // because both the descriptors of the set and the set itself must
     // agree on which block array to use.
-    std::shared_ptr<DescriptorSet> dset = repo.root();
-    std::unique_ptr<File> f;
+    std::shared_ptr<DescriptorSet> dset = xfile.root();
+    std::unique_ptr<FileMember> f;
     try {
-        f = File::create(fname, repo.expose_block_array());
+        f = FileMember::create(fname, xfile.expose_block_array());
 
         // Check that we can add it to the set. This is meant to catch
         // mostly null ptrs and reused ids (basically, bugs).
@@ -347,14 +347,14 @@ void del_file(std::shared_ptr<DescriptorSet>& dset, int id_arg) {
     uint32_t id = assert_u32(id_arg);
     // Get the file, print its name and then erase it from the xoz file.
     //
-    // The get<File>() method will throw if the id does not exist or if
-    // the descriptor exists but it cannot be downcasted to File.
+    // The get<FileMember>() method will throw if the id does not exist or if
+    // the descriptor exists but it cannot be downcasted to FileMember.
     //
     // Error handling is up to you; in my case I will just print the error
     // and move on.
-    std::shared_ptr<File> f;
+    std::shared_ptr<FileMember> f;
     try {
-        f = dset->get<File>(id);
+        f = dset->get<FileMember>(id);
     } catch (const std::exception& err) {
         std::cout << "[err] File id " << id << " get failed:\n";
         std::cout << err.what() << "\n";
@@ -369,10 +369,10 @@ void del_file(std::shared_ptr<DescriptorSet>& dset, int id_arg) {
 
 void extract_file(std::shared_ptr<DescriptorSet>& dset, int id_arg) {
     uint32_t id = assert_u32(id_arg);
-    std::shared_ptr<File> f;
+    std::shared_ptr<FileMember> f;
     try {
         // Nothing new here: get the descriptor and extract the stored file.
-        f = dset->get<File>(id);
+        f = dset->get<FileMember>(id);
         f->extract();
     } catch (const std::exception& err) {
         std::cout << "[err] File id " << id << " get/extract failed:\n";
@@ -386,9 +386,9 @@ void extract_file(std::shared_ptr<DescriptorSet>& dset, int id_arg) {
 // (11)
 void rename_file(std::shared_ptr<DescriptorSet>& dset, int id_arg, const std::string& new_name) {
     uint32_t id = assert_u32(id_arg);
-    std::shared_ptr<File> f;
+    std::shared_ptr<FileMember> f;
     try {
-        f = dset->get<File>(id);
+        f = dset->get<FileMember>(id);
         f->set_fname(new_name);
     } catch (const std::exception& err) {
         std::cout << "[err] File id " << id << " rename failed:\n";
@@ -402,7 +402,7 @@ void rename_file(std::shared_ptr<DescriptorSet>& dset, int id_arg, const std::st
     // In theory, all the descriptors should call notify_descriptor_changed() internally.
     // However, and just to be sure, you can call mark_as_modified() on the set:
     // this should not be necessary but it does not do any harm
-    // (in fact the File descriptor calls notify_descriptor_changed() so it is *not* necessary)
+    // (in fact the FileMember descriptor calls notify_descriptor_changed() so it is *not* necessary)
     dset->mark_as_modified(id);
     std::cout << "[ID " << id << "] File " << f->get_fname() << " renamed.\n";
 }
@@ -412,14 +412,14 @@ void list_files(std::shared_ptr<DescriptorSet>& dset) {
     // The iterators has the method cast<> to downcast descriptors
     // as get<> does.
     for (auto it = dset->begin(); it != dset->end(); ++it) {
-        auto f = (*it)->cast<File>();
+        auto f = (*it)->cast<FileMember>();
         std::cout << "[ID " << f->id() << "] File " << f->get_fname() << "\n";
     }
 }
 
-void stats(const Repository& repo) {
-    // Writing a repo to stdout will pretty print the statistics of the xoz file
-    std::cout << repo << "\n";
+void stats(const File& xfile) {
+    // Writing a xfile to stdout will pretty print the statistics of the xoz file
+    std::cout << xfile << "\n";
 }
 
 void print_usage() {
@@ -443,14 +443,14 @@ int main(int argc, char* argv[]) {
 
     // xoz library needs to know how to map descriptor types (integers)
     // to C++ classes, in particular, to factory methods (create())
-    DescriptorMapping dmap({{File::TYPE, File::create}});
+    DescriptorMapping dmap({{FileMember::TYPE, FileMember::create}});
 
-    // Create a repo. Create a fresh new xoz file or open it if already exists.
-    Repository repo = Repository::create(dmap, argv[1]);
+    // Create a xfile. Create a fresh new xoz file or open it if already exists.
+    File xfile = File::create(dmap, argv[1]);
 
-    // Each repo has one root descriptor set. A set can then have more sets within (subsets)
+    // Each xfile has one root descriptor set. A set can then have more sets within (subsets)
     // but in this demo we are not exploring that.
-    auto dset = repo.root();
+    auto dset = xfile.root();
 
     ret = 0;
     try {
@@ -463,7 +463,7 @@ int main(int argc, char* argv[]) {
                     break;
                 }
                 for (int i = 3; i < argc; ++i) {
-                    add_file(repo, argv[i]);
+                    add_file(xfile, argv[i]);
                 }
                 break;
             case 'd':
@@ -522,7 +522,7 @@ int main(int argc, char* argv[]) {
                     ret = -2;
                     break;
                 }
-                stats(repo);
+                stats(xfile);
                 break;
             default:
                 std::cerr << "Unknown command.\n";
@@ -537,7 +537,7 @@ int main(int argc, char* argv[]) {
 
     try {
         // Ensure everything is written to disk
-        repo.close();
+        xfile.close();
     } catch (const std::exception& err) {
         std::cerr << err.what() << "\n";
         ret = -4;
@@ -546,7 +546,7 @@ int main(int argc, char* argv[]) {
         // or in one of the descriptors.
         // The only thing we can do is to try to close the file. At this moment
         // we may end up with a corrupted file.
-        repo.panic_close();
+        xfile.panic_close();
     }
 
     return ret;

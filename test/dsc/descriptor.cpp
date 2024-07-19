@@ -4,7 +4,7 @@
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/default.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/repo/runtime_context.h"
+#include "xoz/file/runtime_context.h"
 #include "xoz/blk/vector_block_array.h"
 #include "xoz/mem/inet_checksum.h"
 
@@ -1307,7 +1307,7 @@ namespace {
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
-                        "Repository seems inconsistent/corrupt. "
+                        "xoz file seems inconsistent/corrupt. "
                         "Descriptor id is zero, detected with partially loaded descriptor "
                         "{id: 0x00000000, type: 255, dsize: 0, esize: 0, owns: 0}"
                         )

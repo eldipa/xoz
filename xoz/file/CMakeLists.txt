@@ -1,8 +1,8 @@
 target_sources(xoz
     PRIVATE
-    repository.cpp
+    file.cpp
     PUBLIC
     id_manager.h
-    repository.h
+    file.h
     runtime_context.h
     )

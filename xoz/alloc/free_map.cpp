@@ -208,7 +208,7 @@ void FreeMap::dealloc(const Extent& ext) {
     TRACE_LINE << "|" << TRACE_FLUSH;
     auto end_it = fr_by_nr.end();
 
-    // TODO check that ext is in the range of the repository?
+    // TODO check that ext is in the range of the xoz file?
     fail_if_suballoc_or_zero_cnt(ext);
     fail_if_overlap(ext);
 

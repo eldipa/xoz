@@ -6,7 +6,7 @@
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/default.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/repo/runtime_context.h"
+#include "xoz/file/runtime_context.h"
 #include "xoz/blk/segment_block_array.h"
 #include "xoz/blk/vector_block_array.h"
 
@@ -14,7 +14,7 @@
 #include "gmock/gmock.h"
 #include "test/testing_xoz.h"
 
-#include "xoz/repo/repository.h"
+#include "xoz/file/file.h"
 #include "xoz/io/iosegment.h"
 #include "xoz/mem/inet_checksum.h"
 
@@ -99,8 +99,8 @@ const size_t FP_SZ = 224;
 } while (0)
 
 
-#define XOZ_EXPECT_REPO_SERIALIZATION(repo, at, len, data) do {           \
-    EXPECT_EQ(hexdump((repo).expose_mem_fp(), (at), (len)), (data));              \
+#define XOZ_EXPECT_REPO_SERIALIZATION(xfile, at, len, data) do {           \
+    EXPECT_EQ(hexdump((xfile).expose_mem_fp(), (at), (len)), (data));              \
 } while (0)
 
 namespace {

@@ -16,10 +16,10 @@
 #include "xoz/blk/file_block_array.h"
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/ext/extent.h"
-#include "xoz/repo/runtime_context.h"
+#include "xoz/file/runtime_context.h"
 #include "xoz/segm/segment.h"
 
-class Repository {
+class File {
 public:
     struct default_parameters_t {
         uint32_t blk_sz;
@@ -28,7 +28,7 @@ public:
     constexpr static struct default_parameters_t DefaultsParameters = {.blk_sz = 128};
 
     /*
-     * This is the minimum size of the blocks that the repository can use.
+     * This is the minimum size of the blocks that the xoz file can use.
      * Larger blocks are allowed as long as they are power of 2.
      *
      * Max block size order is 16. This is the largest order such than an Extent
@@ -58,20 +58,20 @@ private:
     uint32_t feature_flags_ro_compat;
 
 public:
-    // Open a physical file and read/load the repository.
+    // Open a physical file and read/load the xoz file.
     //
     // If the file does not exist, it cannot be opened for read+write
-    // or it contains an invalid repository, fail.
+    // or it contains an invalid xoz file, fail.
     //
-    // To create a new repository, use Repository::create.
-    explicit Repository(const DescriptorMapping& dmap, const char* fpath);
+    // To create a new xoz file, use File::create.
+    explicit File(const DescriptorMapping& dmap, const char* fpath);
 
-    // Create a new repository in the given physical file.
+    // Create a new xoz file in the given physical file.
     //
     // If the file exists and fail_if_exists is False, try to open a
-    // repository there (do not create a new one).
+    // xoz file there (do not create a new one).
     //
-    // During the open the repository will be checked and if
+    // During the open the xoz file will be checked and if
     // something does not look right, the open will fail.
     //
     // The check for the existence of the file and the subsequent creation
@@ -80,24 +80,24 @@ public:
     // created and we will end up overwriting it.
     //
     // If the file exists and fail_if_exists is True, fail, otherwise
-    // create a new file and a repository there.
+    // create a new file and a xoz file there.
     //
     // Only in this case the default parameters (def) will be used.
-    static Repository create(const DescriptorMapping& dmap, const char* fpath, bool fail_if_exists = false,
-                             const struct default_parameters_t& defaults = DefaultsParameters);
+    static File create(const DescriptorMapping& dmap, const char* fpath, bool fail_if_exists = false,
+                       const struct default_parameters_t& defaults = DefaultsParameters);
 
-    // Like Repository::create but make the repository be memory based
-    static Repository create_mem_based(const DescriptorMapping& dmap,
-                                       const struct default_parameters_t& defaults = DefaultsParameters);
+    // Like File::create but make the xoz file be memory based
+    static File create_mem_based(const DescriptorMapping& dmap,
+                                 const struct default_parameters_t& defaults = DefaultsParameters);
 
     /*
-     * Close the repository and flush any pending write.
+     * Close the xoz file and flush any pending write.
      * Multiple calls can be made without trouble.
      *
      * Also, close() is safe to be called for both disk based
-     * and memory based repositories.
+     * and memory based xoz files.
      *
-     * To reopen a repository, you need create a new instance.
+     * To reopen a xoz file, you need create a new instance.
      *
      * The close() will write any pending change in the root descriptor set and may
      * require allocate additional space (the trampoline space) to save the root set
@@ -106,7 +106,7 @@ public:
     void close();
 
     /*
-     * Close the repository abruptly without flushing any pending write.
+     * Close the xoz file abruptly without flushing any pending write.
      * This should be called as a last resort if a call to close() failed.
      * */
     void panic_close();
@@ -117,14 +117,14 @@ public:
     void full_sync(const bool release);
 
     // Call to close()
-    ~Repository();
+    ~File();
 
     inline std::shared_ptr<DescriptorSet> root() { return root_set; }
 
     const std::stringstream& expose_mem_fp() const;
 
-    Repository(const Repository&) = delete;
-    Repository& operator=(const Repository&) = delete;
+    File(const File&) = delete;
+    File& operator=(const File&) = delete;
 
 public:
     /*
@@ -138,16 +138,16 @@ private:
     /*
      * The given file block array must be a valid one with an opened file.
      * This constructor will grab it and take ownership of it and it will write
-     * into to initialize it as a Repository with the given defaults if is_a_new_repository
+     * into to initialize it as a File with the given defaults if is_a_new_file
      * is true.
      * */
-    Repository(const DescriptorMapping& dmap, std::unique_ptr<FileBlockArray>&& fblkarr_ptr,
-               const struct default_parameters_t& defaults, bool is_a_new_repository);
+    File(const DescriptorMapping& dmap, std::unique_ptr<FileBlockArray>&& fblkarr_ptr,
+         const struct default_parameters_t& defaults, bool is_a_new_file);
 
     /*
-     * Initialize a repository: its block array, its allocator, any index and check for errors or inconsistencies.
+     * Initialize a xoz file: its block array, its allocator, any index and check for errors or inconsistencies.
      * */
-    void bootstrap_repository();
+    void bootstrap_file();
 
     /*
      * Scan the descriptor sets from the root set to the bottom of the tree.
@@ -156,15 +156,15 @@ private:
     std::list<Segment> scan_descriptor_sets();
 
     /*
-     * Initialize freshly new repository backed by an allocated but empty file block array.
+     * Initialize freshly new xoz file backed by an allocated but empty file block array.
      * The array must have allocated space in its header but otherwise nothing else is assumed.
-     * This method will perform special write operations to initialize the repository
-     * but it will not perform the bootstrap_repository() call.
+     * This method will perform special write operations to initialize the xoz file
+     * but it will not perform the bootstrap_file() call.
      * This *must* be made by the caller.
      *
-     * The defaults parameters defines with which values initialize the repository.
+     * The defaults parameters defines with which values initialize the xoz file.
      * */
-    void init_new_repository(const struct default_parameters_t& defaults);
+    void init_new_file(const struct default_parameters_t& defaults);
 
     /*
      * Write the header/trailer.
@@ -180,21 +180,21 @@ private:
      * */
     void read_and_check_header_and_trailer();
 
-    // If the repository is disk based open the real file fpath,
-    // otherwise, if the repository is memory based, initialize it
+    // If the xoz file is disk based open the real file fpath,
+    // otherwise, if the xoz file is memory based, initialize it
     // with the given memory stringstream.
     void open_internal(const char* fpath, std::stringstream&& mem);
 
 
 public:
     struct stats_t {
-        // repository dimensions
-        uint64_t capacity_repo_sz;
-        double capacity_repo_sz_kb;
+        // xoz file dimensions
+        uint64_t capacity_file_sz;
+        double capacity_file_sz_kb;
 
-        uint64_t in_use_repo_sz;
-        double in_use_repo_sz_kb;
-        double in_use_repo_sz_rel;
+        uint64_t in_use_file_sz;
+        double in_use_file_sz_kb;
+        double in_use_file_sz_rel;
 
         uint64_t header_sz;
         uint64_t trailer_sz;
@@ -209,15 +209,15 @@ public:
 
     struct stats_t stats() const;
 
-    friend void PrintTo(const Repository& repo, std::ostream* out);
-    friend std::ostream& operator<<(std::ostream& out, const Repository& repo);
+    friend void PrintTo(const File& xfile, std::ostream* out);
+    friend std::ostream& operator<<(std::ostream& out, const File& xfile);
 
 private:
     friend class InconsistentXOZ;
     friend class ExtentOutOfBounds;
 
     /*
-     * The preload_repo function defines  the file block array geometry pre-loading the repository
+     * The preload_file function defines  the file block array geometry pre-loading the xoz file
      * and detect if the file was created recently or if not.
      *
      * The ctx is where we pass the default geometry (defaults) and we collect if the file
@@ -227,19 +227,19 @@ private:
      *
      * The dummy static instance is used for the (internal) cases where no real ctx is needed.
      * */
-    struct preload_repo_ctx_t {
+    struct preload_file_ctx_t {
         bool was_file_created;
         struct default_parameters_t defaults;
     };
 
-    static struct preload_repo_ctx_t dummy;
+    static struct preload_file_ctx_t dummy;
 
-    static void preload_repo(struct preload_repo_ctx_t& ctx, std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg,
+    static void preload_file(struct preload_file_ctx_t& ctx, std::istream& is, struct FileBlockArray::blkarr_cfg_t& cfg,
                              bool on_create);
 
 private:
-    // In-disk repository's header
-    struct repo_header_t {
+    // In-disk xoz file's header
+    struct file_header_t {
         // It should be "XOZ" followed by a NUL
         uint8_t magic[4];
 
@@ -249,16 +249,16 @@ private:
         // It may be NULL terminated but it is not required.
         uint8_t app_name[12];
 
-        // Size of the whole repository, including the header
+        // Size of the whole xoz file, including the header
         // but not the trailer, in bytes. It is a multiple
         // of the block total count
-        uint64_t repo_sz;
+        uint64_t file_sz;
 
         // The size in bytes of the trailer
         uint16_t trailer_sz;
 
-        // Count of blocks in the repo.
-        // It should be equal to repo_sz/blk_sz
+        // Count of blocks in the xfile.
+        // It should be equal to file_sz/blk_sz
         uint32_t blk_total_cnt;
 
         // Log base 2 of the block size in bytes
@@ -298,13 +298,13 @@ private:
         uint8_t padding[50];
     } __attribute__((packed));
 
-    // In-disk repository's trailer
-    struct repo_trailer_t {
+    // In-disk xoz file's trailer
+    struct file_trailer_t {
         // It should be "EOF" followed by a NUL
         uint8_t magic[4];
     } __attribute__((packed));
 
-    static_assert(sizeof(struct repo_header_t) == 128);
+    static_assert(sizeof(struct file_header_t) == 128);
 
 private:
     /*
@@ -318,18 +318,18 @@ private:
      * and the attribute trampoline_segm with the segment that points to the allocated trampoline
      * blocks. In the case of has_trampoline equals false, this segment will be empty.
      * */
-    void load_root_set(struct repo_header_t& hdr);
+    void load_root_set(struct file_header_t& hdr);
     void write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flag);
     void update_trampoline_space();
 
 private:
-    static void check_header_magic(struct repo_header_t& hdr);
-    static uint16_t compute_header_checksum(struct repo_header_t& hdr);
-    static void compute_and_check_header_checksum(struct repo_header_t& hdr);
+    static void check_header_magic(struct file_header_t& hdr);
+    static uint16_t compute_header_checksum(struct file_header_t& hdr);
+    static void compute_and_check_header_checksum(struct file_header_t& hdr);
     static void check_blk_sz_order(const uint8_t blk_sz_order);
 
 public:
-    static constexpr auto HEADER_ROOT_SET_SZ = sizeof(static_cast<struct repo_header_t*>(nullptr)->root);
+    static constexpr auto HEADER_ROOT_SET_SZ = sizeof(static_cast<struct file_header_t*>(nullptr)->root);
     static_assert(HEADER_ROOT_SET_SZ >= 32);
 
     Segment /* testing */ trampoline_segment() const { return trampoline_segm; }

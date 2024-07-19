@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "xoz/dsc/descriptor_mapping.h"
-#include "xoz/repo/id_manager.h"
+#include "xoz/file/id_manager.h"
 
 class RuntimeContext: public IDManager, public DescriptorMapping {
 public:

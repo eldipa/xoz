@@ -9,7 +9,7 @@ class BlockArray;
 class Extent;
 
 // An extent (blk_nr + blk_cnt) that goes (partially
-// or totally) beyond the bounds of the repository and
+// or totally) beyond the bounds of the xoz file and
 // it is *clear* that there is a bug or a corruption in the xoz
 // and not a user mistake
 class ExtentOutOfBounds: public std::exception {

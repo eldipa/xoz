@@ -184,11 +184,11 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
 
     TRACE_SECTION("A") << std::setw(5) << sz << " b" << TRACE_ENDL;
 
-    // Allocate extents trying to not expand the repository
+    // Allocate extents trying to not expand the xoz file
     // but instead reusing free space already present even if
     // that means to fragment the segment a little more
     //
-    // If single_extent, skip this as it may require expand the repository
+    // If single_extent, skip this as it may require expand the xoz file
     if (blk_cnt_remain and not req.single_extent) {
         TRACE_LINE << "to alloc,not grow -> " << blk_cnt_remain << "+" << subblk_cnt_remain << "+" << inline_sz
                    << "   -----v" << TRACE_ENDL;
@@ -196,7 +196,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
     }
 
     // If we still require to allocate more blocks, just allow
-    // to expand the repository to get more free space
+    // to expand the xoz file to get more free space
     if (blk_cnt_remain) {
         TRACE_LINE << "to alloc,may grow -> " << blk_cnt_remain << "+" << subblk_cnt_remain << "+" << inline_sz
                    << "   -----v" << TRACE_ENDL;
@@ -204,7 +204,7 @@ Segment SegmentAllocator::alloc(const uint32_t sz, const struct req_t& req) {
         // At this point we may give up the fragmentation threshold and split/fragment even
         // more than the threshold in order to fulfill the alloc.
         // However, if single_extent is set, we will not do that and we hope that we can alloc
-        // in a single try, including expand the repo if necessary.
+        // in a single try, including expand the xfile if necessary.
         const bool ignore_segm_frag_threshold = not req.single_extent;
         blk_cnt_remain =
                 allocate_extents(segm, blk_cnt_remain, req.segm_frag_threshold, ignore_segm_frag_threshold, true);
