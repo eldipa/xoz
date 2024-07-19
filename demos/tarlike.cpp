@@ -19,7 +19,42 @@
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/file/file.h"
 
-using namespace xoz;  // NOLINT
+// A Descriptor is the minimum unit of storage. It is a base class from
+// which the developer will subclass to create its own. In this demo,
+// we will code a FileMember subclass
+using xoz::Descriptor;
+
+// Descriptors live in one and only one DescriptorSet; DescriptorSet are
+// Descriptors by themselves.
+using xoz::DescriptorSet;
+
+// This is the xoz file. It contains a single "root" DescriptorSet where
+// descriptors and sets live.
+// In this demo, the "root" will only have FileMember descriptors.
+using xoz::File;
+
+// On loading a file from disk it is necessary to know which Descriptor subclass
+// correspond to each part of data.
+// DescriptorMapping makes that link.
+using xoz::DescriptorMapping;
+
+// Each Descriptor may own a Segment: a ordered list of Extents, each being
+// a contiguous blocks of space within the xoz file.
+using xoz::Segment;
+
+// A BlockArray is the space where those blocks live. You can think it as
+// the "usable" space of the xoz file (it is a little more than that but it is ok)
+using xoz::BlockArray;
+
+// Reading and writing blocks is cumbersome. Instead, we can use an IOSegment
+// to see the blocks pointed by a Segment as a contiguous stream of bytes, very much
+// like the API that std::fstream offers you. IOBase is its parent class.
+using xoz::IOBase;
+using xoz::IOSegment;
+
+// Opaque object. Not used in this demo.
+using xoz::RuntimeContext;
+
 
 // A Descriptor is the minimum unit of storage. You will have to implement yours
 // based on your needs.
@@ -75,22 +110,22 @@ public:
         file.seekg(0, std::ios_base::end);
 
         // cppcheck-suppress shadowVariable
-        uint32_t file_sz = assert_u32(file.tellg() - begin);
+        uint32_t file_sz = xoz::assert_u32(file.tellg() - begin);
 
         file.seekg(0);  // rewind
 
         // Also, we would like to store the name of the file
         // cppcheck-suppress shadowVariable
         std::string fname = std::filesystem::path(fpath).filename().string();
-        uint16_t fname_sz = assert_u16(fname.size());  // cppcheck-suppress shadowVariable
+        uint16_t fname_sz = xoz::assert_u16(fname.size());  // cppcheck-suppress shadowVariable
 
-        // Each descriptor has two areas to store data: the "data" section embedded in the
-        // descriptor structure and the "external" section.
+        // Each descriptor has two areas to store data: the "inner" section embedded in the
+        // descriptor structure and the "content" section.
         //
-        // The "data" section is for small things that are frequently updated; the "external"
+        // The "inner" section is for small things that are frequently updated; the "content"
         // section is for very large, less frequently updated data.
         //
-        // We're going to store the file content and file name in the "external" section.
+        // We're going to store the file content and file name in the "content" section.
         // First, let's see how much do we need:
         auto total_alloc_sz = fname_sz + file_sz;
 
@@ -105,12 +140,12 @@ public:
             throw std::runtime_error("File + file name is too large");
         }
 
-        // We take the "external" data block array's allocator and we allocate the required amount
+        // We take the "content" data block array's allocator and we allocate the required amount
         // of bytes. XOZ will do all the necessary things to find enough space without fragmenting
         // to much the xoz file or spreading the content too much.
         // If the xoz file is too small, it will grow automatically.
         //
-        // The alloc() method will return a "segment". A segment is a series of blocks numbers
+        // The alloc() method will return a Segment. A segment is a series of blocks numbers
         // that points to the allocated space.
         Segment segm = ed_blkarr.allocator().alloc(total_alloc_sz);
 
@@ -136,17 +171,17 @@ public:
         // Then, write the file name (no null will be stored)
         io.writeall(fname.c_str(), fname_sz);
 
-        // We said earlier than there are two store areas: the "data" and the "external"
+        // We said earlier than there are two store areas: the "inner" and the "content"
         // sections.
         //
-        // We plan to store in the "data" section the sizes of the file as uint32_t
+        // We plan to store in the "inner" section the sizes of the file as uint32_t
         // and its name as uint16_t (6 bytes in total).
         //
         // The write is made in write_struct_specifics_into, no here, but we need
         // to declare the total size in the 'dsize' field.
 
         struct header_t hdr = {
-                // The descriptor owns external data so we set this to True
+                // The descriptor owns content data so we set this to True
                 .own_edata = true,
                 .type = TYPE,
 
@@ -155,10 +190,10 @@ public:
                 // to the descriptor set (6)
                 .id = 0x0,
 
-                .dsize = assert_u8(sizeof(uint32_t) + sizeof(uint16_t)),
-                .esize = assert_u32(total_alloc_sz),
+                .dsize = xoz::assert_u8(sizeof(uint32_t) + sizeof(uint16_t)),
+                .esize = xoz::assert_u32(total_alloc_sz),
 
-                .segm = segm,  // the location of the external data (our file and file name)
+                .segm = segm,  // the location of the content data (our file and file name)
         };
 
         // Call the Descriptor constructor and build a FileMember object.
@@ -185,10 +220,10 @@ public:
 
     // (8)
     void set_fname(const std::string& new_fname) {
-        uint16_t new_fname_sz = assert_u16(new_fname.size());
+        uint16_t new_fname_sz = xoz::assert_u16(new_fname.size());
 
         external_blkarr().allocator().realloc(hdr.segm, file_sz + new_fname_sz);
-        // hdr.segm.add_end_of_segment();
+        hdr.segm.add_end_of_segment();
 
         IOSegment io(external_blkarr(), hdr.segm);
         io.seek_wr(file_sz);
@@ -219,7 +254,7 @@ public:
         // Create an IO object to read from the xoz file and write
         // the file contents. We use hdr.segm that contains the Segment (aka blocks)
         // that hold the data.
-        // We use the "external" data block array, the same that we used to store the file
+        // We use the "content" data block array, the same that we used to store the file
         // in the create() method (4).
         IOSegment io(external_blkarr(), hdr.segm);
 
@@ -231,26 +266,26 @@ protected:
     // (1)
     //
     // These two methods are in charge to read from the io or write into the io object
-    // the "data" of the descriptor. This happens when the descriptor is being read from
+    // the "inner" of the descriptor. This happens when the descriptor is being read from
     // or write to the xoz file.
     //
-    // Here "data" means the small private data section that every descriptor has
-    // (this is not the "external" data).
+    // Here "inner" means the small private data section that every descriptor has
+    // (this is not the "content" data).
     //
     // As we did in (4), we expect to read or write the size of the file and file name sizes.
     // Again, more complex structures could be read/written here (if they fit).
     //
-    // Note: the content of the "data" section *must* by a multiple of 2 and it must
+    // Note: the content of the "inner" section *must* by a multiple of 2 and it must
     // be below up to a maximum of 127 bytes.
     void read_struct_specifics_from(IOBase& io) override {
         file_sz = io.read_u32_from_le();
         fname_sz = io.read_u16_from_le();
 
-        // We *can* read from the "external" section if we want
+        // We *can* read from the "content" section if we want
         // Here, we read and put in memory the file name but we
         // left the file content unread in disk.
         //
-        // To read from the "external" section, we create another IO
+        // To read from the "content" section, we create another IO
         // with the header's segment
         IOSegment ioe(external_blkarr(), hdr.segm);
 
@@ -312,7 +347,7 @@ void add_file(File& xfile, const std::string& fname) {
     // in my case I will just print the error and skip the addition of the
     // descriptor to the set.
     //
-    // Note how the "external" data block array passed to FileMember::create
+    // Note how the "content" data block array passed to FileMember::create
     // is the same than the std::shared_ptr<DescriptorSet> dset has. This is important
     // because both the descriptors of the set and the set itself must
     // agree on which block array to use.
@@ -345,7 +380,7 @@ void add_file(File& xfile, const std::string& fname) {
 }
 
 void del_file(std::shared_ptr<DescriptorSet>& dset, int id_arg) {
-    uint32_t id = assert_u32(id_arg);
+    uint32_t id = xoz::assert_u32(id_arg);
     // Get the file, print its name and then erase it from the xoz file.
     //
     // The get<FileMember>() method will throw if the id does not exist or if
@@ -362,14 +397,14 @@ void del_file(std::shared_ptr<DescriptorSet>& dset, int id_arg) {
         return;
     }
 
-    // Removing a descriptor from a set deletes automatically the "external"
+    // Removing a descriptor from a set deletes automatically the "content"
     // data (aka, the stored file)
     dset->erase(id);
     std::cout << "[ID " << id << "] File " << f->get_fname() << " removed.\n";
 }
 
 void extract_file(std::shared_ptr<DescriptorSet>& dset, int id_arg) {
-    uint32_t id = assert_u32(id_arg);
+    uint32_t id = xoz::assert_u32(id_arg);
     std::shared_ptr<FileMember> f;
     try {
         // Nothing new here: get the descriptor and extract the stored file.
@@ -386,7 +421,7 @@ void extract_file(std::shared_ptr<DescriptorSet>& dset, int id_arg) {
 
 // (11)
 void rename_file(std::shared_ptr<DescriptorSet>& dset, int id_arg, const std::string& new_name) {
-    uint32_t id = assert_u32(id_arg);
+    uint32_t id = xoz::assert_u32(id_arg);
     std::shared_ptr<FileMember> f;
     try {
         f = dset->get<FileMember>(id);
