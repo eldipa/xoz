@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#define MASK_OWN_EDATA_FLAG uint16_t(0x8000)
+#define MASK_OWN_CONTENT_FLAG uint16_t(0x8000)
 #define MASK_HAS_ID_FLAG uint16_t(0x0200)
 
 #define MASK_LO_ISIZE uint16_t(0x7c00)
@@ -13,8 +13,8 @@
 
 #define MASK_LARGE_FLAG uint16_t(0x8000)
 
-#define MASK_LO_ESIZE uint16_t(0x7fff)
-#define MASK_HI_ESIZE uint16_t(0xffff)
+#define MASK_LO_CSIZE uint16_t(0x7fff)
+#define MASK_HI_CSIZE uint16_t(0xffff)
 
 #define EXTENDED_TYPE_VAL_THRESHOLD uint16_t(0x1ff)
 

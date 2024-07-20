@@ -75,10 +75,10 @@ const size_t FP_SZ = 224;
 
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
-#define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, edata_sz, obj_data_sz) do {      \
+#define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, cdata_sz, obj_data_sz) do {      \
     EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
     EXPECT_EQ((dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
-    EXPECT_EQ((dsc).calc_content_space_size(), (unsigned)(edata_sz));      \
+    EXPECT_EQ((dsc).calc_content_space_size(), (unsigned)(cdata_sz));      \
     EXPECT_EQ((dsc).content_size(), (unsigned)(obj_data_sz));       \
 } while (0)
 
@@ -201,7 +201,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -298,7 +298,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -383,7 +383,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -456,7 +456,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -530,7 +530,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -618,7 +618,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -697,7 +697,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -814,7 +814,7 @@ namespace {
 
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let the descriptor set assign a new id each
@@ -928,7 +928,7 @@ namespace {
 
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let the descriptor set assign a new id each
@@ -1008,7 +1008,7 @@ namespace {
 
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // see above
@@ -1105,7 +1105,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -1271,7 +1271,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -1347,7 +1347,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -1426,7 +1426,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -1490,7 +1490,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -1575,7 +1575,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -1675,7 +1675,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -1734,7 +1734,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -1815,7 +1815,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -1979,7 +1979,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
@@ -2155,7 +2155,7 @@ namespace {
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xfa,
 
             .id = 0x800000a1,
@@ -2257,7 +2257,7 @@ namespace {
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xfa,
 
             .id = 0x800000a1,
@@ -2429,7 +2429,7 @@ namespace {
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xfa,
 
             .id = 0x800000a1,
@@ -2490,7 +2490,7 @@ namespace {
 
         // Add one descriptor to the dset and another to the subdset
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0,

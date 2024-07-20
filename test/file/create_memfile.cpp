@@ -174,7 +174,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -258,7 +258,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
@@ -340,7 +340,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,

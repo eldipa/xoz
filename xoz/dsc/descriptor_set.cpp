@@ -29,7 +29,7 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
 std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockArray& blkarr, RuntimeContext& rctx) {
     assert(segm.inline_data_sz() == 0);
 
-    struct Descriptor::header_t hdr = {.own_edata = false,
+    struct Descriptor::header_t hdr = {.own_content = false,
                                        .type = 0x01,
                                        .id = 0x00,
                                        .isize = 2,
@@ -37,10 +37,10 @@ std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockA
                                        .segm = segm};
 
     hdr.segm.remove_inline_data();
-    hdr.own_edata = hdr.segm.length() > 0;
+    hdr.own_content = hdr.segm.length() > 0;
 
     auto dset = std::make_unique<DescriptorSet>(hdr, blkarr, rctx);
-    if (hdr.own_edata) {
+    if (hdr.own_content) {
         dset->load_set();
     } else {
         dset->create_set(0 /* TODO no other option */);
@@ -760,7 +760,7 @@ void DescriptorSet::fail_if_not_allowed_to_add(const Descriptor* dsc) const {
 void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     reserved = io.read_u16_from_le();
 
-    if (hdr.own_edata) {
+    if (hdr.own_content) {
         // Easiest case: the holder's segment points to the set's blocks
         segm = hdr.segm;
 
@@ -780,7 +780,7 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     // Remove it before creating the set.
     segm.remove_inline_data();
 
-    if (not hdr.own_edata) {
+    if (not hdr.own_content) {
         create_set(0 /* TODO remove this 0 */);
     } else {
         // TODO this will trigger a recursive chain reaction of reads if the set has other holders
@@ -803,7 +803,7 @@ void DescriptorSet::update_header_no_recursive() {
         // Second easiest case: the set is empty so we don't need to own any content
         // and instead we save the minimum bits in holder's private space to reconstruct
         // an empty set later.
-        hdr.own_edata = false;
+        hdr.own_content = false;
         hdr.csize = 0;
         hdr.segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order());
 
@@ -813,7 +813,7 @@ void DescriptorSet::update_header_no_recursive() {
         // except ensuring it has an end-of-segment because it is required by Descriptor
         hdr.segm = segm;
         hdr.segm.add_end_of_segment();
-        hdr.own_edata = true;
+        hdr.own_content = true;
         hdr.csize = hdr.segm.calc_data_space_size();
 
         hdr.isize = 2;  // 1 uint16 field: the holder's reserved field

@@ -138,7 +138,7 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     local_checksum += firstfield;
 
-    bool own_edata = read_bitsfield_from_u16<bool>(firstfield, MASK_OWN_EDATA_FLAG);
+    bool own_content = read_bitsfield_from_u16<bool>(firstfield, MASK_OWN_CONTENT_FLAG);
     uint8_t lo_isize = read_bitsfield_from_u16<uint8_t>(firstfield, MASK_LO_ISIZE);
     bool has_id = read_bitsfield_from_u16<bool>(firstfield, MASK_HAS_ID_FLAG);
     uint16_t type = read_bitsfield_from_u16<uint16_t>(firstfield, MASK_TYPE);
@@ -158,20 +158,20 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
     uint8_t isize = uint8_t((uint8_t(hi_isize << 5) | lo_isize) << 1);  // in bytes
 
     uint32_t lo_csize = 0, hi_csize = 0;
-    if (own_edata) {
+    if (own_content) {
         uint16_t sizefield = io.read_u16_from_le();
 
         local_checksum += sizefield;
 
         bool large = read_bitsfield_from_u16<bool>(sizefield, MASK_LARGE_FLAG);
-        lo_csize = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_LO_ESIZE);
+        lo_csize = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_LO_CSIZE);
 
         if (large) {
             uint16_t largefield = io.read_u16_from_le();
 
             local_checksum += largefield;
 
-            hi_csize = read_bitsfield_from_u16<uint32_t>(largefield, MASK_HI_ESIZE);
+            hi_csize = read_bitsfield_from_u16<uint32_t>(largefield, MASK_HI_CSIZE);
         }
     }
 
@@ -179,7 +179,7 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     Segment segm(ed_blkarr.blk_sz_order());
     struct Descriptor::header_t hdr = {
-            .own_edata = own_edata, .type = type, .id = 0, .isize = isize, .csize = csize, .segm = segm};
+            .own_content = own_content, .type = type, .id = 0, .isize = isize, .csize = csize, .segm = segm};
 
     // ID of zero is not an error, it just means that the descriptor will have a temporal id
     // assigned in runtime.
@@ -217,7 +217,7 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
     assert(id != 0);
     hdr.id = id;
 
-    if (own_edata) {
+    if (own_content) {
         hdr.segm = Segment::load_struct_from(io, ed_blkarr.blk_sz_order(), Segment::EndMode::AnyEnd, uint32_t(-1),
                                              &local_checksum);
     }
@@ -315,20 +315,20 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     }
 
     // TODO test
-    if (not hdr.segm.is_empty_space() and not hdr.own_edata) {
+    if (not hdr.segm.is_empty_space() and not hdr.own_content) {
         throw WouldEndUpInconsistentXOZ(
                 F() << "Descriptor does not claim to be owner of content but it has allocated a segment " << hdr.segm
                     << "; " << hdr);
     }
 
     // TODO test
-    if (hdr.own_edata and not hdr.segm.has_end_of_segment()) {
+    if (hdr.own_content and not hdr.segm.has_end_of_segment()) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims to be owner of content but its segment " << hdr.segm
                                             << "  has no explicit end; " << hdr);
     }
 
     // TODO test
-    if (hdr.csize and not hdr.own_edata) {
+    if (hdr.csize and not hdr.own_content) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.csize
                                             << " bytes of content but it is not an owner; " << hdr);
     }
@@ -342,7 +342,7 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     /* TODO
     const auto segm_sz = hdr.segm.calc_data_space_size();
     if (segm_sz < hdr.csize) {
-        assert(hdr.own_edata);
+        assert(hdr.own_content);
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.csize << " bytes of content
     but it has allocated only " << segm_sz << ": " << hdr);
     }
@@ -354,7 +354,7 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
 
     uint16_t firstfield = 0;
 
-    write_bitsfield_into_u16(firstfield, hdr.own_edata, MASK_OWN_EDATA_FLAG);
+    write_bitsfield_into_u16(firstfield, hdr.own_content, MASK_OWN_CONTENT_FLAG);
     write_bitsfield_into_u16(firstfield, assert_u16(hdr.isize >> 1), MASK_LO_ISIZE);
     write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
@@ -390,13 +390,13 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     }
 
 
-    if (hdr.own_edata) {
+    if (hdr.own_content) {
         uint16_t sizefield = 0;
 
         // Write the sizefield and optionally the largefield
         if (hdr.csize < (1 << 15)) {
             write_bitsfield_into_u16(sizefield, false, MASK_LARGE_FLAG);
-            write_bitsfield_into_u16(sizefield, hdr.csize, MASK_LO_ESIZE);
+            write_bitsfield_into_u16(sizefield, hdr.csize, MASK_LO_CSIZE);
 
             io.write_u16_to_le(sizefield);
             checksum += sizefield;
@@ -408,10 +408,10 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
             }
 
             write_bitsfield_into_u16(sizefield, true, MASK_LARGE_FLAG);
-            write_bitsfield_into_u16(sizefield, hdr.csize, MASK_LO_ESIZE);
+            write_bitsfield_into_u16(sizefield, hdr.csize, MASK_LO_CSIZE);
 
             uint16_t largefield = 0;
-            write_bitsfield_into_u16(largefield, assert_u16(hdr.csize >> 15), MASK_HI_ESIZE);
+            write_bitsfield_into_u16(largefield, assert_u16(hdr.csize >> 15), MASK_HI_CSIZE);
 
             io.write_u16_to_le(sizefield);
             io.write_u16_to_le(largefield);
@@ -469,7 +469,7 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
     }
 
 
-    if (hdr.own_edata) {
+    if (hdr.own_content) {
         if (hdr.csize < (1 << 15)) {
             // sizefield
             struct_sz += 2;
@@ -510,7 +510,7 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
     (*out) << "descriptor {"
            << "id: " << xoz::log::hex(hdr.id) << ", type: " << hdr.type << ", isize: " << uint32_t(hdr.isize);
 
-    if (hdr.own_edata) {
+    if (hdr.own_content) {
         (*out) << ", csize: " << hdr.csize << ", owns: " << hdr.segm.calc_data_space_size() << "}"
                << " " << hdr.segm;
     } else {
@@ -541,10 +541,10 @@ void Descriptor::chk_isize_fit_or_fail(bool has_id, const struct Descriptor::hea
     }
 }
 
-uint32_t Descriptor::calc_content_space_size() const { return hdr.own_edata ? hdr.segm.calc_data_space_size() : 0; }
+uint32_t Descriptor::calc_content_space_size() const { return hdr.own_content ? hdr.segm.calc_data_space_size() : 0; }
 
 void Descriptor::destroy() {
-    if (hdr.own_edata) {
+    if (hdr.own_content) {
         ed_blkarr.allocator().dealloc(hdr.segm);
     }
 }

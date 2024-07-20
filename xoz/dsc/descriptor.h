@@ -15,7 +15,7 @@ class BlockArray;
 class Descriptor {
 public:
     struct header_t {
-        bool own_edata;
+        bool own_content;
         uint16_t type;
 
         uint32_t id;
@@ -23,7 +23,7 @@ public:
         uint8_t isize;   // in bytes
         uint32_t csize;  // in bytes
 
-        Segment segm;  // data segment, only for own_edata descriptors
+        Segment segm;  // data segment, only for own_content descriptors
     };
 
 public:
@@ -86,7 +86,7 @@ public:
     // For non-owner descriptors returns always 0
     uint32_t calc_content_space_size() const;
 
-    uint32_t content_size() const { return hdr.own_edata ? hdr.csize : 0; }
+    uint32_t content_size() const { return hdr.own_content ? hdr.csize : 0; }
 
 public:
     virtual ~Descriptor() {}
@@ -157,15 +157,15 @@ public:  // public but it should be interpreted as an opaque section
     /*
      * Does the descriptor owns content?
      * */
-    bool does_own_edata() const { return hdr.own_edata; }
+    bool does_own_content() const { return hdr.own_content; }
 
     /*
      * Return a const reference to the segment that points to the owned content
      * data.
-     * The segment is **undefined** if does_own_edata() returns false.
+     * The segment is **undefined** if does_own_content() returns false.
      * */
-    const Segment& edata_segment_ref() const {
-        assert(does_own_edata());
+    const Segment& content_segment_ref() const {
+        assert(does_own_content());
         return hdr.segm;
     }
 

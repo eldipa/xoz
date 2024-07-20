@@ -182,7 +182,7 @@ public:
 
         struct header_t hdr = {
                 // The descriptor owns content data so we set this to True
-                .own_edata = true,
+                .own_content = true,
                 .type = TYPE,
 
                 // Each descriptor has an id, either a temporal id or a persistent id.

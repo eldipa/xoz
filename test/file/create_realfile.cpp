@@ -1549,7 +1549,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
@@ -1817,7 +1817,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
@@ -2142,7 +2142,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
@@ -2513,7 +2513,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
@@ -2631,7 +2631,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
@@ -2944,7 +2944,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
@@ -3486,7 +3486,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
@@ -3866,7 +3866,7 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us

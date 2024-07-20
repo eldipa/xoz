@@ -109,8 +109,8 @@ std::list<Segment> File::scan_descriptor_sets() {
     DescriptorSet::depth_first_for_each_set(*root_set, [&allocated](const DescriptorSet* dset) {
         for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
             auto& dsc(*it);
-            if (dsc->does_own_edata()) {
-                allocated.push_back(dsc->edata_segment_ref());
+            if (dsc->does_own_content()) {
+                allocated.push_back(dsc->content_segment_ref());
             }
         }
     });

@@ -36,10 +36,10 @@ const size_t FP_SZ = 224;
 
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
-#define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, edata_sz, obj_data_sz) do {      \
+#define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, cdata_sz, obj_data_sz) do {      \
     EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
     EXPECT_EQ((dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
-    EXPECT_EQ((dsc).calc_content_space_size(), (unsigned)(edata_sz));      \
+    EXPECT_EQ((dsc).calc_content_space_size(), (unsigned)(cdata_sz));      \
     EXPECT_EQ((dsc).content_size(), (unsigned)(obj_data_sz));       \
 } while (0)
 
@@ -86,7 +86,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
@@ -127,7 +127,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
@@ -170,7 +170,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0x1fe,
 
             .id = 0x80000001,
@@ -213,7 +213,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0x1ff,
 
             .id = 0x80000001,
@@ -256,7 +256,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xffff,
 
             .id = 0x80000001,
@@ -299,7 +299,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xffff, // fake a type that requires ex_type
 
             .id = 0x80000001,
@@ -369,7 +369,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
@@ -417,7 +417,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
@@ -465,7 +465,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
@@ -515,7 +515,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xff,
 
             .id = 1,
@@ -564,7 +564,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xff,
 
             .id = 0x7fffffff,
@@ -612,7 +612,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 1,
@@ -653,7 +653,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0x1fe,
 
             .id = 1,
@@ -694,7 +694,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0x1ff,
 
             .id = 1,
@@ -735,7 +735,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xffff,
 
             .id = 1,
@@ -776,7 +776,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 1,
@@ -825,7 +825,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 1,
@@ -866,7 +866,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 1,
@@ -907,7 +907,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 1,
@@ -948,7 +948,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 1,
@@ -989,7 +989,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 1,
@@ -1032,7 +1032,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
@@ -1102,7 +1102,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 15,
@@ -1188,7 +1188,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 15,
@@ -1253,7 +1253,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = true,
+            .own_content = true,
             .type = 0xff,
 
             .id = 0,
@@ -1355,7 +1355,7 @@ namespace {
         VectorBlockArray ed_blkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_edata = false,
+            .own_content = false,
             .type = 0xffff, // fake a type that requires ex_type
 
             .id = 0x80000001,
