@@ -60,13 +60,13 @@ const size_t FP_SZ = 224;
 
 // Load from fp the obj and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
-#define XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr) do {                         \
+#define XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr) do {                         \
     std::vector<char> buf2;                                              \
     XOZ_RESET_FP(buf2, FP_SZ);                                           \
     uint32_t checksum2 = 0;                                              \
     uint32_t checksum3 = 0;                                              \
                                                                          \
-    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (ed_blkarr));   \
+    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (cblkarr));   \
     checksum2 = dsc2_ptr->checksum;                                      \
     dsc2_ptr->checksum = 0;                                              \
     dsc2_ptr->write_struct_into(IOSpan(buf2), (rctx));                           \
@@ -83,7 +83,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -93,10 +93,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -115,7 +115,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeData) {
@@ -124,7 +124,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -134,10 +134,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
@@ -158,7 +158,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithoutExtendedType) {
@@ -167,7 +167,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -177,10 +177,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
@@ -201,7 +201,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeWithExtendedType) {
@@ -210,7 +210,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -220,10 +220,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
@@ -244,7 +244,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithExtendedType) {
@@ -253,7 +253,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -263,10 +263,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
@@ -287,7 +287,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeButWithExtendedType) {
@@ -296,7 +296,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -306,10 +306,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data({1, 2, 3, 4}); // isize = 4
 
 
@@ -339,7 +339,7 @@ namespace {
         XOZ_RESET_FP(buf2, FP_SZ);
         rctx.reset(0x80000001);
 
-        auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), rctx, ed_blkarr);
+        auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr);
 
         auto checksum2 = dsc2_ptr->checksum;
         dsc2_ptr->checksum = 0;
@@ -366,7 +366,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -376,13 +376,13 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
         std::vector<char> data(64-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data(data); // isize = 64-2
 
 
@@ -405,7 +405,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdOneMoreLoData) {
@@ -414,7 +414,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -424,13 +424,13 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data(data); // isize = 64
 
 
@@ -453,7 +453,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, NoOwnsTempIdMaxHiData) {
@@ -462,7 +462,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -472,13 +472,13 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
         std::vector<char> data(128-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data(data); // isize = 128-2
 
 
@@ -503,7 +503,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, NoOwnsPersistentIdMaxLoData) {
@@ -512,7 +512,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -522,13 +522,13 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
         std::vector<char> data(64-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data(data); // isize = 64-2
 
 
@@ -551,7 +551,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
 
@@ -561,7 +561,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -571,13 +571,13 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
         std::vector<char> data(64-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data(data); // isize = 64-2
 
 
@@ -600,7 +600,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegm) {
@@ -609,7 +609,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -619,10 +619,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -641,7 +641,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithoutExtendedType) {
@@ -650,7 +650,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -660,10 +660,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -682,7 +682,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinTypeWithExtendedType) {
@@ -691,7 +691,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -701,10 +701,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -723,7 +723,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithExtendedType) {
@@ -732,7 +732,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -742,10 +742,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -764,7 +764,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdOneMoreLoDataEmptySegm) {
@@ -773,7 +773,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -783,13 +783,13 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data(data); // isize = 64
 
 
@@ -813,7 +813,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmSomeObjData) {
@@ -822,7 +822,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -832,10 +832,10 @@ namespace {
 
             .isize = 0,
             .csize = 1,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -854,7 +854,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxNonLargeObjData) {
@@ -863,7 +863,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -873,10 +873,10 @@ namespace {
 
             .isize = 0,
             .csize = (1 << 15) - 1,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -895,7 +895,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmOneMoreNonLargeObjData) {
@@ -904,7 +904,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -914,10 +914,10 @@ namespace {
 
             .isize = 0,
             .csize = (1 << 15),
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -936,7 +936,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxLargeObjData) {
@@ -945,7 +945,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -955,10 +955,10 @@ namespace {
 
             .isize = 0,
             .csize = uint32_t(1 << 31) - 1,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -977,7 +977,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, OwnsPersistentIdZeroDataSegmInlineSomeObjData) {
@@ -986,7 +986,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -996,12 +996,12 @@ namespace {
 
             .isize = 0,
             .csize = 1,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
         hdr.segm.set_inline_data({0x1, 0x2, 0x3});
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1020,7 +1020,7 @@ namespace {
 
         // Load, write it back and check both byte-strings
         // are the same
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, NotEnoughRoomForRWNonOwnerTemporalId) {
@@ -1029,7 +1029,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -1039,10 +1039,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data({1, 2}); // isize = 2
 
 
@@ -1080,7 +1080,7 @@ namespace {
         fp.resize(2+2 - 1); // shorter by 1 byte
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, ed_blkarr); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1099,7 +1099,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -1109,10 +1109,10 @@ namespace {
 
             .isize = 0,
             .csize = 42,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
         dsc.set_data({1, 2}); // isize = 2
 
 
@@ -1149,7 +1149,7 @@ namespace {
         fp.resize(2+4+2+2+2 - 1); // shorter by 1 byte
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, ed_blkarr); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr); }),
             ThrowsMessage<NotEnoughRoom>(
                 AllOf(
                     HasSubstr(
@@ -1164,15 +1164,15 @@ namespace {
 
     class DescriptorSubRW : public DefaultDescriptor {
     public:
-        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) : DefaultDescriptor(hdr, ed_blkarr) {}
+        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : DefaultDescriptor(hdr, cblkarr) {}
         void read_struct_specifics_from(IOBase&) override {
             return; // 0 read
         }
         void write_struct_specifics_into(IOBase&) override {
             return; // 0 write
         }
-        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, [[maybe_unused]] RuntimeContext& rctx) {
-            return std::make_unique<DescriptorSubRW>(hdr, ed_blkarr);
+        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, [[maybe_unused]] RuntimeContext& rctx) {
+            return std::make_unique<DescriptorSubRW>(hdr, cblkarr);
         }
     };
 
@@ -1185,7 +1185,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -1195,10 +1195,10 @@ namespace {
 
             .isize = 0,
             .csize = 42,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DescriptorSubRW dsc = DescriptorSubRW(hdr, ed_blkarr);
+        DescriptorSubRW dsc = DescriptorSubRW(hdr, cblkarr);
         dsc.set_data({1, 2}); // isize = 2
 
 
@@ -1226,12 +1226,12 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Write a valid descriptor of data size 2
-        DefaultDescriptor dsc2 = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc2 = DefaultDescriptor(hdr, cblkarr);
         dsc2.set_data({1, 2});
         dsc2.write_struct_into(IOSpan(fp), rctx);
 
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, ed_blkarr); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1250,7 +1250,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
@@ -1260,10 +1260,10 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1292,7 +1292,7 @@ namespace {
 
         // this will make the write_struct_into to set the has_id to true...
         hdr.id = 0xffff;
-        DefaultDescriptor dsc2 = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc2 = DefaultDescriptor(hdr, cblkarr);
         dsc2.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_CHECKSUM(fp, dsc2); // check before the patch
 
@@ -1306,7 +1306,7 @@ namespace {
         // Because the isize of the descriptor is small, there is no reason to have
         // an id = 0.
         EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, ed_blkarr); }),
+            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr); }),
             ThrowsMessage<InconsistentXOZ>(
                 AllOf(
                     HasSubstr(
@@ -1324,7 +1324,7 @@ namespace {
         // We repeat again has_id = true but we also make the descriptor very large so
         // we force to and id of 0 (because the temporal id is not stored)
         hdr.id = 0x80000001;
-        DefaultDescriptor dsc3 = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc3 = DefaultDescriptor(hdr, cblkarr);
 
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
@@ -1343,7 +1343,7 @@ namespace {
 
         // Load should be ok even if the id is 0 in the string. A temporal id should be then
         // set to the loaded descriptor.
-        XOZ_EXPECT_DESERIALIZATION(fp, dsc3, rctx, ed_blkarr);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc3, rctx, cblkarr);
     }
 
     TEST(DescriptorTest, DownCast) {
@@ -1352,7 +1352,7 @@ namespace {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray ed_blkarr(1024);
+        VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
@@ -1362,11 +1362,11 @@ namespace {
 
             .isize = 0,
             .csize = 0,
-            .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
         // The concrete Descriptor subclass
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, ed_blkarr);
+        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
 
         // Upper cast to Descriptor abstract class
         Descriptor* dsc2 = &dsc;

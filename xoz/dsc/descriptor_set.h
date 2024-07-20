@@ -57,7 +57,7 @@ private:
      * <segm> is the segment that holds the descriptors of this set. The segment points to blocks
      * in the <sg_blkarr> block array that contains the header of the set and the descriptors
      * of the set. These descriptors may point to "content" data blocks in
-     * the <ed_blkarr> blocks array.
+     * the <cblkarr> blocks array.
      *
      * The <st_blkarr> is the block array constructed from the segment and <sg_blkarr> used to alloc/dealloc
      * descriptors. We use <st_blkarr> to track the allocated space within the space pointed
@@ -66,7 +66,7 @@ private:
      * See load_descriptors / write_modified_descriptors.
      *
      *                                   <st_blkarr> of 2 bytes blks
-     *        <segm>                     <sg_blkarr> of N bytes blks      <ed_blkarr> of M bytes blks
+     *        <segm>                     <sg_blkarr> of N bytes blks      <cblkarr> of M bytes blks
      *   segment of the set                segment-pointed blocks          "content" data blocks
      *         +--+                              +-------+                      +--------+
      *         |  |                              |       |                      |        |
@@ -74,11 +74,11 @@ private:
      *         |  |                              |       |                      |        |
      *         +--+                              +-------+                      +--------+
      *
-     * Note: currently both sg_blkarr and ed_blkarr point to the *same* block array.
+     * Note: currently both sg_blkarr and cblkarr point to the *same* block array.
      * */
     Segment segm;
     BlockArray& sg_blkarr;
-    BlockArray& ed_blkarr;
+    BlockArray& cblkarr;
     SegmentBlockArray st_blkarr;
 
     RuntimeContext& rctx;
@@ -115,17 +115,17 @@ public:
      * Otherwise, load_set() will be immediately invoked.
      *
      * For descriptors that own content data, the descriptor set will remove
-     * data blocks from ed_blkarr when the descriptor is removed from the set
+     * data blocks from cblkarr when the descriptor is removed from the set
      * (and it was not moved to another set).
      *
      * Writes/additions/deletions of the content of these data blocks are made by
      * the descriptors and not handled by the set.
      **/
-    static std::unique_ptr<DescriptorSet> create(const Segment& segm, BlockArray& ed_blkarr, RuntimeContext& rctx);
-    static std::unique_ptr<DescriptorSet> create(BlockArray& ed_blkarr, RuntimeContext& rctx);
+    static std::unique_ptr<DescriptorSet> create(const Segment& segm, BlockArray& cblkarr, RuntimeContext& rctx);
+    static std::unique_ptr<DescriptorSet> create(BlockArray& cblkarr, RuntimeContext& rctx);
 
-    DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, RuntimeContext& rctx);
-    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
+    DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, RuntimeContext& rctx);
+    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               RuntimeContext& rctx);
 
     /*

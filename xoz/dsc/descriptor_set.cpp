@@ -17,7 +17,7 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
         visited(false),
         segm(hdr.segm),
         sg_blkarr(blkarr),
-        ed_blkarr(blkarr),
+        cblkarr(blkarr),
         st_blkarr(this->segm, sg_blkarr, 2),
         rctx(rctx),
         set_loaded(false),
@@ -135,7 +135,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         // Read the descriptor
         assert(io.tell_rd() % align == 0);
         uint32_t dsc_begin_pos = io.tell_rd();
-        auto dsc = Descriptor::load_struct_from(io, rctx, ed_blkarr);
+        auto dsc = Descriptor::load_struct_from(io, rctx, cblkarr);
         uint32_t dsc_end_pos = io.tell_rd();
 
         // Descriptor::load_struct_from should had check for any anomaly of how much
@@ -723,10 +723,10 @@ std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
 
 void DescriptorSet::fail_if_using_incorrect_blkarray(const Descriptor* dsc) const {
     assert(dsc != nullptr);
-    if (std::addressof(dsc->ed_blkarr) != std::addressof(ed_blkarr)) {
+    if (std::addressof(dsc->cblkarr) != std::addressof(cblkarr)) {
         throw std::runtime_error((F() << (*dsc) << " claims to use a block array for content at " << std::hex
-                                      << std::addressof(dsc->ed_blkarr) << " but the descriptor set is using one at "
-                                      << std::hex << std::addressof(ed_blkarr))
+                                      << std::addressof(dsc->cblkarr) << " but the descriptor set is using one at "
+                                      << std::hex << std::addressof(cblkarr))
                                          .str());
     }
 }
@@ -772,7 +772,7 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
         // Second easiest case: the holder does not point to anything, the set
         // is empty. So build it from those bits.
         [[maybe_unused]] auto _ = io.read_u16_from_le();
-        segm = Segment::EmptySegment(ed_blkarr.blk_sz_order());
+        segm = Segment::EmptySegment(cblkarr.blk_sz_order());
     }
 
 
@@ -805,7 +805,7 @@ void DescriptorSet::update_header_no_recursive() {
         // an empty set later.
         hdr.own_content = false;
         hdr.csize = 0;
-        hdr.segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order());
+        hdr.segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order());
 
         hdr.isize = 4;  // 2 uint16 fields: the holder's and set's reserved fields
     } else {

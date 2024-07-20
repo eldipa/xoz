@@ -58,13 +58,13 @@ const size_t FP_SZ = 224;
 
 // Load from fp the obj and serialize it back again into
 // a temporal fp2 stream. Then compare both (they should be the same)
-#define XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, ed_blkarr) do {                         \
+#define XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr) do {                         \
     std::vector<char> buf2;                                              \
     XOZ_RESET_FP(buf2, FP_SZ);                                           \
     uint32_t checksum2 = 0;                                              \
     uint32_t checksum3 = 0;                                              \
                                                                          \
-    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (ed_blkarr));   \
+    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (cblkarr));   \
     checksum2 = dsc2_ptr->checksum;                                      \
     dsc2_ptr->checksum = 0;                                              \
     dsc2_ptr->write_struct_into(IOSpan(buf2), (rctx));                   \
@@ -112,7 +112,7 @@ namespace {
 
         // Data block array: this will be the block array that the set will
         // use to access "content data blocks" *and* to access its own
-        // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
+        // segment. In DescriptorSet's parlance, cblkarr and sg_blkarr.
         // But currently DescriptorSet only accept one single blkarray as parameter
         // so work for both purposes.
         VectorBlockArray d_blkarr(32);
@@ -152,7 +152,7 @@ namespace {
 
         // Data block array: this will be the block array that the set will
         // use to access "content data blocks" *and* to access its own
-        // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
+        // segment. In DescriptorSet's parlance, cblkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
         const auto blk_sz_order = d_blkarr.blk_sz_order();
@@ -1080,15 +1080,15 @@ namespace {
 
     class DescriptorSubRW : public DefaultDescriptor {
     public:
-        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) : DefaultDescriptor(hdr, ed_blkarr) {}
+        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : DefaultDescriptor(hdr, cblkarr) {}
         void read_struct_specifics_from(IOBase&) override {
             return; // 0 read
         }
         void write_struct_specifics_into(IOBase&) override {
             return; // 0 write
         }
-        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr) {
-            return std::make_unique<DescriptorSubRW>(hdr, ed_blkarr);
+        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) {
+            return std::make_unique<DescriptorSubRW>(hdr, cblkarr);
         }
     };
 
@@ -1181,7 +1181,7 @@ namespace {
 
         // Data block array: this will be the block array that the set will
         // use to access "content blocks" *and* to access its own
-        // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
+        // segment. In DescriptorSet's parlance, cblkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
         const auto blk_sz_order = d_blkarr.blk_sz_order();
@@ -1223,7 +1223,7 @@ namespace {
 
         // Data block array: this will be the block array that the set will
         // use to access "content blocks" *and* to access its own
-        // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
+        // segment. In DescriptorSet's parlance, cblkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
         const auto blk_sz_order = d_blkarr.blk_sz_order();

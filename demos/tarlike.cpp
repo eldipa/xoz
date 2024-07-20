@@ -86,9 +86,9 @@ public:
     // The type should be very well documented in a RFC or like.
     constexpr static uint16_t TYPE = 0x00ab;
 
-    FileMember(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr, const std::string& fname,
-               uint32_t file_sz, uint16_t fname_sz):
-            Descriptor(hdr, ed_blkarr), fname(fname), file_sz(file_sz), fname_sz(fname_sz) {}
+    FileMember(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, const std::string& fname, uint32_t file_sz,
+               uint16_t fname_sz):
+            Descriptor(hdr, cblkarr), fname(fname), file_sz(file_sz), fname_sz(fname_sz) {}
 
     // (4) create() method with user-defined signature.
     //
@@ -97,7 +97,7 @@ public:
     //
     // Because it is meant to be called by the user, it is likely to be used/modified
     // immediately so we return a pointer to FileMember and  not to Descriptor.
-    static std::unique_ptr<FileMember> create(const std::string& fpath, BlockArray& ed_blkarr) {
+    static std::unique_ptr<FileMember> create(const std::string& fpath, BlockArray& cblkarr) {
         // Let's open the file that we want to save in XOZ
         std::ifstream file(fpath, std::ios_base::in | std::ios_base::binary);
         if (!file) {
@@ -147,7 +147,7 @@ public:
         //
         // The alloc() method will return a Segment. A segment is a series of blocks numbers
         // that points to the allocated space.
-        Segment segm = ed_blkarr.allocator().alloc(total_alloc_sz);
+        Segment segm = cblkarr.allocator().alloc(total_alloc_sz);
 
         // The Descriptor API says that the segment stored in the header must be
         // inline-data ended.
@@ -162,7 +162,7 @@ public:
 
         // The blocks pointed by a segment are not necessary contiguous but we can see them
         // as such using an IOSegment (or 'io' object for short).
-        IOSegment io(ed_blkarr, segm);
+        IOSegment io(cblkarr, segm);
 
         // Now, copy the file content to the io object. Writing to the io will
         // write directly to xoz file.
@@ -197,7 +197,7 @@ public:
         };
 
         // Call the Descriptor constructor and build a FileMember object.
-        return std::make_unique<FileMember>(hdr, ed_blkarr, fname, file_sz, fname_sz);
+        return std::make_unique<FileMember>(hdr, cblkarr, fname, file_sz, fname_sz);
     }
 
     // (3)
@@ -209,9 +209,9 @@ public:
     // The signature of this method is defined and required by XOZ. It cannot be changed.
     // If you do, it will not compile when we add this function to the initialization
     // of the descriptor mapping (see main()).
-    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
+    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               [[maybe_unused]] RuntimeContext& rctx) {
-        return std::make_unique<FileMember>(hdr, ed_blkarr, "", 0, 0);
+        return std::make_unique<FileMember>(hdr, cblkarr, "", 0, 0);
     }
 
 public:

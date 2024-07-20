@@ -32,11 +32,11 @@ public:
      * to ensure that the content of the descriptor is updated so any calculation
      * of its size will be correct.
      * */
-    static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr);
+    static std::unique_ptr<Descriptor> load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr);
     void write_struct_into(IOBase& io, RuntimeContext& rctx);
 
-    static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io, RuntimeContext& rctx, BlockArray& ed_blkarr) {
-        return load_struct_from(io, rctx, ed_blkarr);
+    static std::unique_ptr<Descriptor> load_struct_from(IOBase&& io, RuntimeContext& rctx, BlockArray& cblkarr) {
+        return load_struct_from(io, rctx, cblkarr);
     }
     void write_struct_into(IOBase&& io, RuntimeContext& rctx) { return write_struct_into(io, rctx); }
 
@@ -47,7 +47,7 @@ public:
      *
      * The read pointer of io is left at the begin of the descriptor's internal data.
      * */
-    static struct header_t load_header_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr, bool& ex_type_used,
+    static struct header_t load_header_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr, bool& ex_type_used,
                                             uint32_t* checksum);
 
     /*
@@ -180,8 +180,8 @@ protected:
      * The constructor is meant for internal use and its subclasses because it exposes
      * too much its header.
      * */
-    Descriptor(const struct header_t& hdr, BlockArray& ed_blkarr):
-            hdr(hdr), ext(Extent::EmptyExtent()), ed_blkarr(ed_blkarr), owner_raw_ptr(nullptr), checksum(0) {}
+    Descriptor(const struct header_t& hdr, BlockArray& cblkarr):
+            hdr(hdr), ext(Extent::EmptyExtent()), cblkarr(cblkarr), owner_raw_ptr(nullptr), checksum(0) {}
 
     static void chk_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
@@ -191,8 +191,8 @@ protected:
      *
      * See load_struct_from and write_struct_into methods for more context.
      *
-     * Subclasses must *not* use the allocator of the ed_blkarr during the read
-     * because it may not be enabled by the moment. Subclasses can use the ed_blkarr
+     * Subclasses must *not* use the allocator of the cblkarr during the read
+     * because it may not be enabled by the moment. Subclasses can use the cblkarr
      * for reading/writing without problem.
      * */
     virtual void read_struct_specifics_from(IOBase& io) = 0;
@@ -292,10 +292,10 @@ private:
     Extent ext;
 
     // Block array that holds the content of the descriptor (if any).
-    BlockArray& ed_blkarr;
+    BlockArray& cblkarr;
 
 protected:
-    BlockArray& external_blkarr() { return ed_blkarr; }
+    BlockArray& external_blkarr() { return cblkarr; }
 
 private:
     /*

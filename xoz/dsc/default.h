@@ -20,9 +20,9 @@ private:
     std::vector<char> internal_data;
 
 public:
-    DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr);
+    DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr);
 
-    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& ed_blkarr,
+    static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               RuntimeContext& rctx);
 
 

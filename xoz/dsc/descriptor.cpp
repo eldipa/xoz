@@ -130,7 +130,7 @@ fail:
     }
 }
 
-struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr,
+struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr,
                                                          bool& ex_type_used, uint32_t* checksum) {
     uint32_t local_checksum = 0;
 
@@ -177,7 +177,7 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     uint32_t csize = (hi_csize << 15) | lo_csize;  // in bytes
 
-    Segment segm(ed_blkarr.blk_sz_order());
+    Segment segm(cblkarr.blk_sz_order());
     struct Descriptor::header_t hdr = {
             .own_content = own_content, .type = type, .id = 0, .isize = isize, .csize = csize, .segm = segm};
 
@@ -218,7 +218,7 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
     hdr.id = id;
 
     if (own_content) {
-        hdr.segm = Segment::load_struct_from(io, ed_blkarr.blk_sz_order(), Segment::EndMode::AnyEnd, uint32_t(-1),
+        hdr.segm = Segment::load_struct_from(io, cblkarr.blk_sz_order(), Segment::EndMode::AnyEnd, uint32_t(-1),
                                              &local_checksum);
     }
 
@@ -263,16 +263,16 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
     return hdr;
 }
 
-std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& ed_blkarr) {
+std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr) {
 
     uint32_t dsc_begin_pos = io.tell_rd();
 
     uint32_t checksum = 0;
     bool ex_type_used = false;
-    struct Descriptor::header_t hdr = load_header_from(io, rctx, ed_blkarr, ex_type_used, &checksum);
+    struct Descriptor::header_t hdr = load_header_from(io, rctx, cblkarr, ex_type_used, &checksum);
 
     descriptor_create_fn fn = rctx.descriptor_create_lookup(hdr.type);
-    std::unique_ptr<Descriptor> dsc = fn(hdr, ed_blkarr, rctx);
+    std::unique_ptr<Descriptor> dsc = fn(hdr, cblkarr, rctx);
 
     if (!dsc) {
         throw std::runtime_error((F() << "Subclass create for " << hdr << " returned a null pointer").str());
@@ -280,7 +280,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
 
     uint32_t idata_begin_pos = io.tell_rd();
     {
-        auto guard = ed_blkarr.allocator().block_all_alloc_dealloc_guard();  // cppcheck-suppress unreadVariable
+        auto guard = cblkarr.allocator().block_all_alloc_dealloc_guard();  // cppcheck-suppress unreadVariable
         dsc->read_struct_specifics_from(io);
     }
     uint32_t dsc_end_pos = io.tell_rd();
@@ -545,7 +545,7 @@ uint32_t Descriptor::calc_content_space_size() const { return hdr.own_content ? 
 
 void Descriptor::destroy() {
     if (hdr.own_content) {
-        ed_blkarr.allocator().dealloc(hdr.segm);
+        cblkarr.allocator().dealloc(hdr.segm);
     }
 }
 
