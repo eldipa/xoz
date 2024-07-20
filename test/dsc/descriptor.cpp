@@ -39,8 +39,8 @@ const size_t FP_SZ = 224;
 #define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, edata_sz, obj_data_sz) do {      \
     EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
     EXPECT_EQ((dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
-    EXPECT_EQ((dsc).calc_external_data_space_size(), (unsigned)(edata_sz));      \
-    EXPECT_EQ((dsc).calc_external_data_size(), (unsigned)(obj_data_sz));       \
+    EXPECT_EQ((dsc).calc_content_space_size(), (unsigned)(edata_sz));      \
+    EXPECT_EQ((dsc).content_size(), (unsigned)(obj_data_sz));       \
 } while (0)
 
 // Check that the serialization of the obj in fp match
@@ -92,7 +92,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -133,7 +133,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -176,7 +176,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -219,7 +219,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -262,7 +262,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -305,7 +305,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -375,7 +375,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -423,7 +423,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -471,7 +471,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -521,7 +521,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -570,7 +570,7 @@ namespace {
             .id = 0x7fffffff,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -618,7 +618,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -659,7 +659,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -700,7 +700,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -741,7 +741,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -782,7 +782,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -831,7 +831,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = 1,
+            .csize = 1,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -872,7 +872,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = (1 << 15) - 1,
+            .csize = (1 << 15) - 1,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -913,7 +913,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = (1 << 15),
+            .csize = (1 << 15),
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -954,7 +954,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = uint32_t(1 << 31) - 1,
+            .csize = uint32_t(1 << 31) - 1,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -995,7 +995,7 @@ namespace {
             .id = 1,
 
             .isize = 0,
-            .esize = 1,
+            .csize = 1,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -1038,7 +1038,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -1108,7 +1108,7 @@ namespace {
             .id = 15,
 
             .isize = 0,
-            .esize = 42,
+            .csize = 42,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -1134,7 +1134,7 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for writing descriptor's internal data of "
-                        "descriptor {id: 0x0000000f, type: 255, isize: 2, esize: 42, owns: 0}"
+                        "descriptor {id: 0x0000000f, type: 255, isize: 2, csize: 42, owns: 0}"
                         )
                     )
                 )
@@ -1155,7 +1155,7 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for reading descriptor's internal data of "
-                        "descriptor {id: 0x0000000f, type: 255, isize: 2, esize: 42, owns: 0}"
+                        "descriptor {id: 0x0000000f, type: 255, isize: 2, csize: 42, owns: 0}"
                         )
                     )
                 )
@@ -1194,7 +1194,7 @@ namespace {
             .id = 15,
 
             .isize = 0,
-            .esize = 42,
+            .csize = 42,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -1259,7 +1259,7 @@ namespace {
             .id = 0,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 
@@ -1282,7 +1282,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Descriptor id is zero in descriptor "
-                        "{id: 0x00000000, type: 255, isize: 0, esize: 0, owns: 0}"
+                        "{id: 0x00000000, type: 255, isize: 0, csize: 0, owns: 0}"
                         )
                     )
                 )
@@ -1312,7 +1312,7 @@ namespace {
                     HasSubstr(
                         "xoz file seems inconsistent/corrupt. "
                         "Descriptor id is zero, detected with partially loaded descriptor "
-                        "{id: 0x00000000, type: 255, isize: 0, esize: 0, owns: 0}"
+                        "{id: 0x00000000, type: 255, isize: 0, csize: 0, owns: 0}"
                         )
                     )
                 )
@@ -1361,7 +1361,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order())
         };
 

@@ -157,29 +157,29 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     uint8_t isize = uint8_t((uint8_t(hi_isize << 5) | lo_isize) << 1);  // in bytes
 
-    uint32_t lo_esize = 0, hi_esize = 0;
+    uint32_t lo_csize = 0, hi_csize = 0;
     if (own_edata) {
         uint16_t sizefield = io.read_u16_from_le();
 
         local_checksum += sizefield;
 
         bool large = read_bitsfield_from_u16<bool>(sizefield, MASK_LARGE_FLAG);
-        lo_esize = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_LO_ESIZE);
+        lo_csize = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_LO_ESIZE);
 
         if (large) {
             uint16_t largefield = io.read_u16_from_le();
 
             local_checksum += largefield;
 
-            hi_esize = read_bitsfield_from_u16<uint32_t>(largefield, MASK_HI_ESIZE);
+            hi_csize = read_bitsfield_from_u16<uint32_t>(largefield, MASK_HI_ESIZE);
         }
     }
 
-    uint32_t esize = (hi_esize << 15) | lo_esize;  // in bytes
+    uint32_t csize = (hi_csize << 15) | lo_csize;  // in bytes
 
     Segment segm(ed_blkarr.blk_sz_order());
     struct Descriptor::header_t hdr = {
-            .own_edata = own_edata, .type = type, .id = 0, .isize = isize, .esize = esize, .segm = segm};
+            .own_edata = own_edata, .type = type, .id = 0, .isize = isize, .csize = csize, .segm = segm};
 
     // ID of zero is not an error, it just means that the descriptor will have a temporal id
     // assigned in runtime.
@@ -224,8 +224,8 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     /* TODO
     const auto segm_sz = hdr.segm.calc_data_space_size(???);
-    if (segm_sz < hdr.esize) {
-        throw InconsistentXOZ(F() << "Descriptor claims at least " << hdr.esize << " bytes of external data but it has
+    if (segm_sz < hdr.csize) {
+        throw InconsistentXOZ(F() << "Descriptor claims at least " << hdr.csize << " bytes of content but it has
     allocated only " << segm_sz << ": " << hdr);
     }
     */
@@ -317,33 +317,33 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     // TODO test
     if (not hdr.segm.is_empty_space() and not hdr.own_edata) {
         throw WouldEndUpInconsistentXOZ(
-                F() << "Descriptor does not claim to be owner of external data but it has allocated a segment "
-                    << hdr.segm << "; " << hdr);
+                F() << "Descriptor does not claim to be owner of content but it has allocated a segment " << hdr.segm
+                    << "; " << hdr);
     }
 
     // TODO test
     if (hdr.own_edata and not hdr.segm.has_end_of_segment()) {
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims to be owner of external data but its segment "
-                                            << hdr.segm << "  has no explicit end; " << hdr);
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims to be owner of content but its segment " << hdr.segm
+                                            << "  has no explicit end; " << hdr);
     }
 
     // TODO test
-    if (hdr.esize and not hdr.own_edata) {
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.esize
-                                            << " bytes of external data but it is not an owner; " << hdr);
+    if (hdr.csize and not hdr.own_edata) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.csize
+                                            << " bytes of content but it is not an owner; " << hdr);
     }
 
-    if (is_esize_greater_than_allowed(hdr.esize)) {
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor esize is larger than allowed " << hdr);
+    if (is_csize_greater_than_allowed(hdr.csize)) {
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor csize is larger than allowed " << hdr);
     }
 
     uint32_t checksum = 0;
 
     /* TODO
     const auto segm_sz = hdr.segm.calc_data_space_size();
-    if (segm_sz < hdr.esize) {
+    if (segm_sz < hdr.csize) {
         assert(hdr.own_edata);
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.esize << " bytes of external data
+        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.csize << " bytes of content
     but it has allocated only " << segm_sz << ": " << hdr);
     }
     */
@@ -394,24 +394,24 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
         uint16_t sizefield = 0;
 
         // Write the sizefield and optionally the largefield
-        if (hdr.esize < (1 << 15)) {
+        if (hdr.csize < (1 << 15)) {
             write_bitsfield_into_u16(sizefield, false, MASK_LARGE_FLAG);
-            write_bitsfield_into_u16(sizefield, hdr.esize, MASK_LO_ESIZE);
+            write_bitsfield_into_u16(sizefield, hdr.csize, MASK_LO_ESIZE);
 
             io.write_u16_to_le(sizefield);
             checksum += sizefield;
         } else {
-            if (hdr.esize >= uint32_t(0x80000000)) {  // TODO test
+            if (hdr.csize >= uint32_t(0x80000000)) {  // TODO test
                 throw WouldEndUpInconsistentXOZ(F()
-                                                << "Descriptor external size is larger than the maximum representable ("
+                                                << "Descriptor content size is larger than the maximum representable ("
                                                 << uint32_t(0x80000000) << ") in " << hdr);
             }
 
             write_bitsfield_into_u16(sizefield, true, MASK_LARGE_FLAG);
-            write_bitsfield_into_u16(sizefield, hdr.esize, MASK_LO_ESIZE);
+            write_bitsfield_into_u16(sizefield, hdr.csize, MASK_LO_ESIZE);
 
             uint16_t largefield = 0;
-            write_bitsfield_into_u16(largefield, assert_u16(hdr.esize >> 15), MASK_HI_ESIZE);
+            write_bitsfield_into_u16(largefield, assert_u16(hdr.csize >> 15), MASK_HI_ESIZE);
 
             io.write_u16_to_le(sizefield);
             io.write_u16_to_le(largefield);
@@ -470,13 +470,13 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
 
 
     if (hdr.own_edata) {
-        if (hdr.esize < (1 << 15)) {
+        if (hdr.csize < (1 << 15)) {
             // sizefield
             struct_sz += 2;
         } else {
-            if (hdr.esize >= uint32_t(0x80000000)) {  // TODO test
+            if (hdr.csize >= uint32_t(0x80000000)) {  // TODO test
                 throw WouldEndUpInconsistentXOZ(F()
-                                                << "Descriptor external size is larger than the maximum representable ("
+                                                << "Descriptor content size is larger than the maximum representable ("
                                                 << uint32_t(0x80000000) << ") in " << hdr);
             }
 
@@ -511,7 +511,7 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
            << "id: " << xoz::log::hex(hdr.id) << ", type: " << hdr.type << ", isize: " << uint32_t(hdr.isize);
 
     if (hdr.own_edata) {
-        (*out) << ", esize: " << hdr.esize << ", owns: " << hdr.segm.calc_data_space_size() << "}"
+        (*out) << ", csize: " << hdr.csize << ", owns: " << hdr.segm.calc_data_space_size() << "}"
                << " " << hdr.segm;
     } else {
         (*out) << "}";
@@ -541,9 +541,7 @@ void Descriptor::chk_isize_fit_or_fail(bool has_id, const struct Descriptor::hea
     }
 }
 
-uint32_t Descriptor::calc_external_data_space_size() const {
-    return hdr.own_edata ? hdr.segm.calc_data_space_size() : 0;
-}
+uint32_t Descriptor::calc_content_space_size() const { return hdr.own_edata ? hdr.segm.calc_data_space_size() : 0; }
 
 void Descriptor::destroy() {
     if (hdr.own_edata) {

@@ -39,11 +39,11 @@ private:
     std::set<Descriptor*, by_id> to_add;
     std::set<Descriptor*, by_id> to_update;
 
-    // Descriptors in the to_remove set are not owned by the set but they were moments ago.
-    // The remotion can happen if the descriptor is explicitly deleted (erase) or it is moved
-    // to another set. In the first case, the current set was the last owner and the external data blocks
-    // are removed (see erase()); in the second case, the descriptor is still alive (in another set) so no external
-    // data block is deleted.
+    // Descriptors in <to_remove> are not owned by the set (this) but they *were* moments ago.
+    // The remotion could happen if the descriptor was explicitly deleted (erase) or it is was moved
+    // to another set. In the first case, the current set was the last owner and the data blocks owned
+    // by the removed descriptor were removed (see erase()); in the second case, the descriptor
+    // is still alive (in another set) so no data block was deleted.
     std::set<Extent, Extent::Compare> to_remove;
     std::set<std::shared_ptr<Descriptor>> to_destroy;
 
@@ -56,7 +56,7 @@ private:
     /*
      * <segm> is the segment that holds the descriptors of this set. The segment points to blocks
      * in the <sg_blkarr> block array that contains the header of the set and the descriptors
-     * of the set. These descriptors may point to "external" data blocks in
+     * of the set. These descriptors may point to "content" data blocks in
      * the <ed_blkarr> blocks array.
      *
      * The <st_blkarr> is the block array constructed from the segment and <sg_blkarr> used to alloc/dealloc
@@ -67,7 +67,7 @@ private:
      *
      *                                   <st_blkarr> of 2 bytes blks
      *        <segm>                     <sg_blkarr> of N bytes blks      <ed_blkarr> of M bytes blks
-     *   segment of the set                segment-pointed blocks          external data blocks
+     *   segment of the set                segment-pointed blocks          "content" data blocks
      *         +--+                              +-------+                      +--------+
      *         |  |                              |       |                      |        |
      *       extents  --------------------->    descriptors  ---------------->     data
@@ -114,11 +114,11 @@ public:
      * empty and create_set() will be immediately invoked.
      * Otherwise, load_set() will be immediately invoked.
      *
-     * For descriptors that own external data, the descriptor set will remove
+     * For descriptors that own content data, the descriptor set will remove
      * data blocks from ed_blkarr when the descriptor is removed from the set
      * (and it was not moved to another set).
      *
-     * Writes/additions/deletions of the content of these external data blocks are made by
+     * Writes/additions/deletions of the content of these data blocks are made by
      * the descriptors and not handled by the set.
      **/
     static std::unique_ptr<DescriptorSet> create(const Segment& segm, BlockArray& ed_blkarr, RuntimeContext& rctx);
@@ -189,14 +189,14 @@ public:
      *
      * When the descriptor set is written to the XOZ file, the deletion
      * of the descriptor from this set will take place. Because it is a move,
-     * no external data block is touch (the "new home" set will be responsible
+     * no descriptor's content data block is touch (the "new home" set will be responsible
      * of handling that).
      * */
     void move_out(uint32_t id, DescriptorSet& new_home);
     void move_out(uint32_t id, std::unique_ptr<DescriptorSet>& new_home);
 
     /*
-     * Erase the descriptor, including the deletion of its external data blocks (if any).
+     * Erase the descriptor, including the deletion of its content data blocks (if any).
      * The erase takes place when the set is written to the file.
      *
      * If the descriptor does not belong to the set, throw. An erased descriptor

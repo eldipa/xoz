@@ -78,8 +78,8 @@ const size_t FP_SZ = 224;
 #define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, edata_sz, obj_data_sz) do {      \
     EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
     EXPECT_EQ((dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
-    EXPECT_EQ((dsc).calc_external_data_space_size(), (unsigned)(edata_sz));      \
-    EXPECT_EQ((dsc).calc_external_data_size(), (unsigned)(obj_data_sz));       \
+    EXPECT_EQ((dsc).calc_content_space_size(), (unsigned)(edata_sz));      \
+    EXPECT_EQ((dsc).content_size(), (unsigned)(obj_data_sz));       \
 } while (0)
 
 #define XOZ_EXPECT_DSC_SERIALIZATION(blkarr, sg, data) do {         \
@@ -111,7 +111,7 @@ namespace {
         RuntimeContext rctx({});
 
         // Data block array: this will be the block array that the set will
-        // use to access "external data blocks" *and* to access its own
+        // use to access "content data blocks" *and* to access its own
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
         // But currently DescriptorSet only accept one single blkarray as parameter
         // so work for both purposes.
@@ -151,7 +151,7 @@ namespace {
         RuntimeContext rctx({});
 
         // Data block array: this will be the block array that the set will
-        // use to access "external data blocks" *and* to access its own
+        // use to access "content data blocks" *and* to access its own
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -207,7 +207,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -304,7 +304,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -389,7 +389,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -462,7 +462,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -536,7 +536,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -624,11 +624,11 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 130,
+            .csize = 130,
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment() // <-- allocation here
         };
 
-        // Check that the block array grew due the descriptor's external data (alloc 130 bytes)
+        // Check that the block array grew due the descriptor's content (alloc 130 bytes)
         // This requires 5 blocks, one for suballocation, with 1 subblocks allocated
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -651,7 +651,7 @@ namespace {
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6));
 
-        // Delete the descriptor: its external data blocks should be released too
+        // Delete the descriptor: its content blocks should be released too
         dset->erase(id1);
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
@@ -703,11 +703,11 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 130,
+            .csize = 130,
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment() // <-- allocation here
         };
 
-        // Check that the block array grew due the descriptor's external data (alloc 130 bytes)
+        // Check that the block array grew due the descriptor's content (alloc 130 bytes)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
@@ -773,7 +773,7 @@ namespace {
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 6 + 2));
 
 
-        // Delete the descriptor: its external data blocks should be released too
+        // Delete the descriptor: its content blocks should be released too
         dset2->erase(id1);
         dset2->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
@@ -820,7 +820,7 @@ namespace {
             .id = 0x0, // let the descriptor set assign a new id each
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -934,7 +934,7 @@ namespace {
             .id = 0x0, // let the descriptor set assign a new id each
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -1014,7 +1014,7 @@ namespace {
             .id = 0x0, // see above
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -1111,7 +1111,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -1180,7 +1180,7 @@ namespace {
         RuntimeContext rctx({});
 
         // Data block array: this will be the block array that the set will
-        // use to access "external data blocks" *and* to access its own
+        // use to access "content blocks" *and* to access its own
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1222,7 +1222,7 @@ namespace {
         RuntimeContext rctx({});
 
         // Data block array: this will be the block array that the set will
-        // use to access "external data blocks" *and* to access its own
+        // use to access "content blocks" *and* to access its own
         // segment. In DescriptorSet's parlance, ed_blkarr and sg_blkarr.
         VectorBlockArray d_blkarr(32);
         d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -1277,7 +1277,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -1353,7 +1353,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment()
         };
 
@@ -1374,9 +1374,9 @@ namespace {
         EXPECT_EQ(dset->segment().length(), (uint32_t)2); // room for the header + added descriptor
 
         // Check that we are using the expected block counts:
-        //  - floor(130 / 32) blocks for the external data
+        //  - floor(130 / 32) blocks for the content
         //  - 1 block for suballocation to hold:
-        //    - the remaining of the external data (1 subblock)
+        //    - the remaining of the content (1 subblock)
         //    - the descriptor set (8 subblock, 16 bytes in total)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -1432,7 +1432,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment()
         };
 
@@ -1453,9 +1453,9 @@ namespace {
         EXPECT_EQ(dset->segment().length(), (uint32_t)2); // room for the header + added descriptor
 
         // Check that we are using the expected block counts:
-        //  - floor(130 / 32) blocks for the external data
+        //  - floor(130 / 32) blocks for the content
         //  - 1 block for suballocation to hold:
-        //    - the remaining of the external data (1 subblock)
+        //    - the remaining of the content (1 subblock)
         //    - the descriptor set (8 subblock, 16 bytes in total)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
@@ -1496,7 +1496,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -1581,7 +1581,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -1668,7 +1668,7 @@ namespace {
         const auto blk_sz_order = d_blkarr_1.blk_sz_order();
 
         // Create set with two different block arrays, one for the descriptor set
-        // the other for the external data.
+        // the other for the content.
         Segment sg(blk_sz_order);
         auto dset = DescriptorSet::create(sg, d_blkarr_2, rctx);
 
@@ -1681,11 +1681,11 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr_1.blk_sz_order())
         };
 
-        // Descriptor uses the same block array for the external data than
+        // Descriptor uses the same block array for the content than
         // the set so it is OK.
         auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr_2);
         dset->add(std::move(dscptr));
@@ -1707,7 +1707,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "descriptor {id: 0x80000002, type: 250, isize: 0} "
-                        "claims to use a block array for external data at 0x"
+                        "claims to use a block array for content at 0x"
                         ),
                     HasSubstr(
                         " but the descriptor set is using one at 0x"
@@ -1740,7 +1740,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -1821,7 +1821,7 @@ namespace {
             .id = 0x80000001,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -1985,7 +1985,7 @@ namespace {
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -2161,7 +2161,7 @@ namespace {
             .id = 0x800000a1,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -2263,7 +2263,7 @@ namespace {
             .id = 0x800000a1,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -2435,7 +2435,7 @@ namespace {
             .id = 0x800000a1,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
@@ -2496,7 +2496,7 @@ namespace {
             .id = 0x0,
 
             .isize = 0,
-            .esize = 0,
+            .csize = 0,
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 

@@ -135,8 +135,8 @@ public:
         // In practice, the upper limit may be below this 1GB limit. This precise check is still missing in XOZ
         // and it may happen during the allocation.
         //
-        // The is_esize_greater_than_allowed only fails if it is larger than 1GB.
-        if (Descriptor::is_esize_greater_than_allowed(total_alloc_sz)) {
+        // The is_csize_greater_than_allowed only fails if it is larger than 1GB.
+        if (Descriptor::is_csize_greater_than_allowed(total_alloc_sz)) {
             throw std::runtime_error("File + file name is too large");
         }
 
@@ -191,7 +191,7 @@ public:
                 .id = 0x0,
 
                 .isize = xoz::assert_u8(sizeof(uint32_t) + sizeof(uint16_t)),
-                .esize = xoz::assert_u32(total_alloc_sz),
+                .csize = xoz::assert_u32(total_alloc_sz),
 
                 .segm = segm,  // the location of the content data (our file and file name)
         };
@@ -311,7 +311,7 @@ protected:
     // in any moment and the header needs to reflect the latest state.
     void update_header() override {
         hdr.segm.add_end_of_segment();
-        hdr.esize = hdr.segm.calc_data_space_size();
+        hdr.csize = hdr.segm.calc_data_space_size();
     }
 
     // (5)

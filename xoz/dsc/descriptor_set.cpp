@@ -33,7 +33,7 @@ std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockA
                                        .type = 0x01,
                                        .id = 0x00,
                                        .isize = 2,
-                                       .esize = segm.calc_data_space_size(),
+                                       .csize = segm.calc_data_space_size(),
                                        .segm = segm};
 
     hdr.segm.remove_inline_data();
@@ -396,7 +396,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         st_blkarr.allocator().dealloc_single_extent(ext);
     }
 
-    // Destroy (including dealloc any external blocks) now that their owners (descriptors) were erased
+    // Destroy (including dealloc any content's data blocks) now that their owners (descriptors) were erased
     for (const auto& dscptr: to_destroy) {
         dscptr->destroy();
     }
@@ -724,7 +724,7 @@ std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
 void DescriptorSet::fail_if_using_incorrect_blkarray(const Descriptor* dsc) const {
     assert(dsc != nullptr);
     if (std::addressof(dsc->ed_blkarr) != std::addressof(ed_blkarr)) {
-        throw std::runtime_error((F() << (*dsc) << " claims to use a block array for external data at " << std::hex
+        throw std::runtime_error((F() << (*dsc) << " claims to use a block array for content at " << std::hex
                                       << std::addressof(dsc->ed_blkarr) << " but the descriptor set is using one at "
                                       << std::hex << std::addressof(ed_blkarr))
                                          .str());
@@ -800,11 +800,11 @@ void DescriptorSet::update_header_no_recursive() {
     assert(count() == 0 or not does_require_write());
 
     if (count() == 0) {
-        // Second easiest case: the set is empty so we don't need to own any external data
+        // Second easiest case: the set is empty so we don't need to own any content
         // and instead we save the minimum bits in holder's private space to reconstruct
         // an empty set later.
         hdr.own_edata = false;
-        hdr.esize = 0;
+        hdr.csize = 0;
         hdr.segm = Segment::create_empty_zero_inline(ed_blkarr.blk_sz_order());
 
         hdr.isize = 4;  // 2 uint16 fields: the holder's and set's reserved fields
@@ -814,7 +814,7 @@ void DescriptorSet::update_header_no_recursive() {
         hdr.segm = segm;
         hdr.segm.add_end_of_segment();
         hdr.own_edata = true;
-        hdr.esize = hdr.segm.calc_data_space_size();
+        hdr.csize = hdr.segm.calc_data_space_size();
 
         hdr.isize = 2;  // 1 uint16 field: the holder's reserved field
     }

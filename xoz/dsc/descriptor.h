@@ -21,7 +21,7 @@ public:
         uint32_t id;
 
         uint8_t isize;   // in bytes
-        uint32_t esize;  // in bytes
+        uint32_t csize;  // in bytes
 
         Segment segm;  // data segment, only for own_edata descriptors
     };
@@ -76,17 +76,17 @@ public:
     uint32_t calc_internal_data_space_size() const { return hdr.isize; }
 
     // Return the size in bytes of that referenced by the segment and
-    // that represent the external data (not the descriptor's internal data).
+    // that represent the content of the descriptor (not the descriptor's internal data).
     //
-    // The size may be larger than calc_external_data_size() (the esize field in the descriptor
-    // header) if the descriptor has more space allocated than the declared in esize.
-    // In this sense, calc_external_data_space_size() is the
-    // total usable space while hdr.esize (or calc_external_data_size) is the used space.
+    // The size may be larger than content_size() (the csize field in the descriptor
+    // header) if the descriptor has more space allocated than the declared in csize.
+    // In this sense, calc_content_space_size() is the
+    // total usable space while hdr.csize (or content_size) is the used space.
     //
     // For non-owner descriptors returns always 0
-    uint32_t calc_external_data_space_size() const;
+    uint32_t calc_content_space_size() const;
 
-    uint32_t calc_external_data_size() const { return hdr.own_edata ? hdr.esize : 0; }
+    uint32_t content_size() const { return hdr.own_edata ? hdr.csize : 0; }
 
 public:
     virtual ~Descriptor() {}
@@ -155,12 +155,12 @@ public:  // public but it should be interpreted as an opaque section
     friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);
 
     /*
-     * Does the descriptor owns external data?
+     * Does the descriptor owns content?
      * */
     bool does_own_edata() const { return hdr.own_edata; }
 
     /*
-     * Return a const reference to the segment that points to the owned external
+     * Return a const reference to the segment that points to the owned content
      * data.
      * The segment is **undefined** if does_own_edata() returns false.
      * */
@@ -176,7 +176,7 @@ protected:
 
     /*
      * Descriptor's constructor with its header and a reference to the block array
-     * for external data.
+     * for content data.
      * The constructor is meant for internal use and its subclasses because it exposes
      * too much its header.
      * */
@@ -204,14 +204,14 @@ protected:
      * Subclasses must to do any deallocation and clean up because the descriptor
      * is about to be removed (destroyed).
      *
-     * By default this method dealloc any allocated block in the external block array
+     * By default this method dealloc any allocated block (content) in the block array
      * if the descriptor owns any.
      * */
     virtual void destroy();
 
     constexpr static inline bool is_isize_greater_than_allowed(uint8_t isize) { return isize > 127; }
 
-    constexpr static inline bool is_esize_greater_than_allowed(uint32_t esize) { return esize > 0x7fffffff; }
+    constexpr static inline bool is_csize_greater_than_allowed(uint32_t csize) { return csize > 0x7fffffff; }
 
     constexpr static inline bool is_id_temporal(const uint32_t id) { return bool(id & 0x80000000); }
 
@@ -221,8 +221,11 @@ protected:
      * Subclasses *must* call this method to notify that the instance had been modified
      * (aka, something changed in their this->hdr).
      *
-     * Subclasses does not need to notify about changes on the external data blocks
-     * as they are not written in the descriptor.
+     * Subclasses does not need to notify about changes on their content **unless**
+     * this involves changes in the inline-data of the segment that owns the content.
+     * If the segment has no inline-data or that part was not modified, changes
+     * in the rest of the content (rest of the blocks pointed by the segment) don't
+     * need to be notified as they are not written in the descriptor.
      *
      * Changes on the id() (this->hdr.id) must *not* be notified. The caller
      * should make such change via an operation on DescriptorSet that owns
@@ -288,7 +291,7 @@ private:
     // EmptyExtent if the descriptor was never loaded from disk.
     Extent ext;
 
-    // Block array that holds the external data of the descriptor (if any).
+    // Block array that holds the content of the descriptor (if any).
     BlockArray& ed_blkarr;
 
 protected:
