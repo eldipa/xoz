@@ -232,6 +232,7 @@ public:
         fname = new_fname;
         fname_sz = new_fname_sz;
 
+        // (10)
         notify_descriptor_changed();
     }
 
@@ -455,6 +456,7 @@ void list_files(std::shared_ptr<DescriptorSet>& dset) {
 
 void stats(const File& xfile) {
     // Writing a xfile to stdout will pretty print the statistics of the xoz file
+    // Check the documentation in the source code of File, BlockArray and SegmentAllocator.
     std::cout << xfile << "\n";
 }
 
