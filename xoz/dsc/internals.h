@@ -18,6 +18,9 @@
 
 #define EXTENDED_TYPE_VAL_THRESHOLD uint16_t(0x1ff)
 
+#define MASK_DSET_PSIZE uint16_t(0xf000)
+#define MASK_DSET_RESERVED uint16_t(0x0fff)
+
 namespace xoz::dsc::internals {
 
 template <typename map_iterator_t, typename descriptor_type = Descriptor>

@@ -34,6 +34,10 @@ public:
 public:
     const static uint16_t TYPE_RESERVED_THRESHOLD = 4;
 
+    const static uint16_t DSET_TYPE = 0x0001;
+    const static uint16_t DSET_SUBCLASS_MIN_TYPE = 0x01e0;
+    const static uint16_t DSET_SUBCLASS_MAX_TYPE = 0x01e0 + 2048;
+
 private:
     std::map<uint16_t, descriptor_create_fn> mapping;
 };

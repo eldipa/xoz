@@ -109,7 +109,18 @@ public:
      * While expensive, cast<T>(true) can be used to check the type of a descriptor.
      * */
     template <typename T>
+    T* cast(bool ret_null = false) const {
+        auto ptr = dynamic_cast<T*>(this);
+        if (!ptr and not ret_null) {
+            throw std::runtime_error("Descriptor cannot be dynamically down casted.");
+        }
+
+        return ptr;
+    }
+
+    template <typename T>
     T* cast(bool ret_null = false) {
+        // TODO implement this method in terms of its const version
         auto ptr = dynamic_cast<T*>(this);
         if (!ptr and not ret_null) {
             throw std::runtime_error("Descriptor cannot be dynamically down casted.");
@@ -149,6 +160,12 @@ public:
 
         return subcls_ptr;
     }
+
+    /*
+     * Return true if the concrete object is of type DescriptorSet or
+     * a subclass of it, othewise return false.
+     * */
+    bool is_descriptor_set() const;
 
 public:  // public but it should be interpreted as an opaque section
     friend void PrintTo(const struct header_t& hdr, std::ostream* out);
@@ -331,5 +348,7 @@ private:
                                           uint32_t idata_sz);
     static void chk_struct_footprint(bool is_read_op, IOBase& io, uint32_t dsc_begin, uint32_t dsc_end,
                                      const Descriptor* const dsc, bool ex_type_used);
+    static void chk_dset_type(bool is_read_op, const Descriptor* const dsc, const struct Descriptor::header_t& hdr,
+                              const RuntimeContext& rctx);
 };
 }  // namespace xoz

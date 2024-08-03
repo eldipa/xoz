@@ -21,6 +21,7 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
         st_blkarr(this->segm, sg_blkarr, 2),
         rctx(rctx),
         set_loaded(false),
+        psize(0),
         reserved(0),
         current_checksum(0),
         header_does_require_write(false),
@@ -29,11 +30,15 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
 std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockArray& blkarr, RuntimeContext& rctx) {
     assert(segm.inline_data_sz() == 0);
 
+    const uint16_t sflags = 0;
+
     struct Descriptor::header_t hdr = {.own_content = false,
                                        .type = 0x01,
                                        .id = 0x00,
-                                       .isize = 2,
-                                       .csize = segm.calc_data_space_size(),
+                                       // set some temporal size, we will update them
+                                       // at the end of the function calling update_header_no_recursive()
+                                       .isize = 0,
+                                       .csize = 0,
                                        .segm = segm};
 
     hdr.segm.remove_inline_data();
@@ -43,8 +48,11 @@ std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockA
     if (hdr.own_content) {
         dset->load_set();
     } else {
-        dset->create_set(0 /* TODO no other option */);
+        dset->create_set(sflags);
     }
+
+    // this call will make hdr.csize and hdr.isize to be correctly set
+    dset->update_header_no_recursive();
     return dset;
 }
 
@@ -55,7 +63,8 @@ std::unique_ptr<DescriptorSet> DescriptorSet::create(BlockArray& blkarr, Runtime
 
 std::unique_ptr<Descriptor> DescriptorSet::create(const struct Descriptor::header_t& hdr, BlockArray& blkarr,
                                                   RuntimeContext& rctx) {
-    assert(hdr.type == 0x01);
+    assert(hdr.type == rctx.DSET_TYPE or
+           (rctx.DSET_SUBCLASS_MIN_TYPE <= hdr.type and hdr.type <= rctx.DSET_SUBCLASS_MAX_TYPE));
 
     // The magic will happen in read_struct_specifics_from() where we do the real
     // read/load of the descriptor set.
@@ -758,8 +767,12 @@ void DescriptorSet::fail_if_not_allowed_to_add(const Descriptor* dsc) const {
 }
 
 void DescriptorSet::read_struct_specifics_from(IOBase& io) {
-    reserved = io.read_u16_from_le();
+    uint16_t field = io.read_u16_from_le();
 
+    psize = read_bitsfield_from_u16<uint8_t>(field, MASK_DSET_PSIZE);
+    reserved = read_bitsfield_from_u16<uint16_t>(field, MASK_DSET_RESERVED);
+
+    uint16_t sflags = 0;
     if (hdr.own_content) {
         // Easiest case: the holder's segment points to the set's blocks
         segm = hdr.segm;
@@ -771,7 +784,7 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     } else {
         // Second easiest case: the holder does not point to anything, the set
         // is empty. So build it from those bits.
-        [[maybe_unused]] auto _ = io.read_u16_from_le();
+        sflags = io.read_u16_from_le();
         segm = Segment::EmptySegment(cblkarr.blk_sz_order());
     }
 
@@ -781,17 +794,37 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     segm.remove_inline_data();
 
     if (not hdr.own_content) {
-        create_set(0 /* TODO remove this 0 */);
+        create_set(sflags);
     } else {
         // TODO this will trigger a recursive chain reaction of reads if the set has other holders
+        assert(sflags == 0);
         load_set();
+    }
+
+    if (psize) {
+        io.readall(pdata, assert_u32(psize << 1));
     }
 }
 
 void DescriptorSet::write_struct_specifics_into(IOBase& io) {
-    io.write_u16_to_le(reserved);
+    assert(pdata.size() == psize);
+    assert(psize <= 0xf);
+    assert((reserved & (~MASK_DSET_RESERVED)) == 0);
+
+    uint16_t field = 0;
+    write_bitsfield_into_u16(field, psize, MASK_DSET_PSIZE);
+    write_bitsfield_into_u16(field, reserved, MASK_DSET_RESERVED);
+    io.write_u16_to_le(field);
+
     if (count() == 0) {
+        assert(hdr.own_content == false);
         io.write_u16_to_le(0);
+    } else {
+        assert(hdr.own_content == true);
+    }
+
+    if (psize) {
+        io.writeall(pdata);
     }
 }
 
@@ -807,7 +840,8 @@ void DescriptorSet::update_header_no_recursive() {
         hdr.csize = 0;
         hdr.segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order());
 
-        hdr.isize = 4;  // 2 uint16 fields: the holder's and set's reserved fields
+        hdr.isize = 4;  // 2 uint16 fields: the set's first field and sflags fields
+
     } else {
         // Easiest case: the holder's segment is the set's segment. Nothing else is needed
         // except ensuring it has an end-of-segment because it is required by Descriptor
@@ -816,7 +850,11 @@ void DescriptorSet::update_header_no_recursive() {
         hdr.own_content = true;
         hdr.csize = hdr.segm.calc_data_space_size();
 
-        hdr.isize = 2;  // 1 uint16 field: the holder's reserved field
+        hdr.isize = 2;  // 1 uint16 field: the set's first field
+    }
+
+    if (psize) {
+        hdr.isize += assert_u8((psize << 1));
     }
 }
 

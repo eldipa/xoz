@@ -39,10 +39,16 @@ descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) 
             case 3:
                 throw std::runtime_error("Descriptor type 3 is reserved.");
         }
+
         static_assert(TYPE_RESERVED_THRESHOLD == 4);
+        static_assert(DSET_TYPE == 0x0001);
 
         // No definition for the given type, fallback to a default generic implementation
-        return DefaultDescriptor::create;
+        if (DSET_SUBCLASS_MIN_TYPE <= type and type <= DSET_SUBCLASS_MAX_TYPE) {
+            return DescriptorSet::create;
+        } else {
+            return DefaultDescriptor::create;
+        }
     }
 
     return it->second;

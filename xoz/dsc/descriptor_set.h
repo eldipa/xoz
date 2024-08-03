@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <vector>
 
 #include "xoz/alloc/segment_allocator.h"
 #include "xoz/blk/segment_block_array.h"
@@ -85,7 +86,15 @@ private:
 
     bool set_loaded;
 
-    uint16_t reserved;  // u16data (get/set)
+    /*
+     * Private data (and its size).
+     * Used to preserve fields from future versions of xoz.
+     * */
+    uint8_t psize;
+    std::vector<char> pdata;
+
+    uint16_t reserved;
+
     uint32_t current_checksum;
 
     /*
@@ -339,8 +348,6 @@ private:
     void create_set(uint16_t u16data = 0);
 
 public:
-    uint16_t /* private */ u16data() const { return this->reserved; }
-
     /*
      * Check if there is any change pending to be written (addition of new descriptors,
      * remotion, or update).

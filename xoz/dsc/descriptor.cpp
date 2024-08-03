@@ -130,6 +130,44 @@ fail:
     }
 }
 
+/*
+ * Check that we have a DescriptorSet or one of its subclasses when the hdr.type
+ * suggests that or we have something that is *not* a set when the hdr.type says so.
+ * */
+void Descriptor::chk_dset_type(bool is_read_op, const Descriptor* const dsc, const struct Descriptor::header_t& hdr,
+                               const RuntimeContext& rctx) {
+
+    const bool should_be_dset = (rctx.DSET_TYPE == hdr.type) or
+                                (rctx.DSET_SUBCLASS_MIN_TYPE <= hdr.type and hdr.type <= rctx.DSET_SUBCLASS_MAX_TYPE);
+    const bool is_descriptor_set = dsc->is_descriptor_set();
+
+    F errmsg;
+
+    if (should_be_dset and not is_descriptor_set) {
+        errmsg = std::move(
+                F() << "Subclass create for " << hdr
+                    << " returned a descriptor that is neither a DescriptorSet nor a subclass but such was expected.");
+        goto fail;
+    }
+
+    if (not should_be_dset and is_descriptor_set) {
+        errmsg = std::move(
+                F()
+                << "Subclass create for " << hdr
+                << " returned a descriptor that is either a DescriptorSet or a subclass but such was not expected.");
+        goto fail;
+    }
+
+    return;
+
+fail:
+    if (is_read_op) {
+        throw InconsistentXOZ(errmsg);
+    } else {
+        throw WouldEndUpInconsistentXOZ(errmsg);
+    }
+}
+
 struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr,
                                                          bool& ex_type_used, uint32_t* checksum) {
     uint32_t local_checksum = 0;
@@ -278,6 +316,8 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
         throw std::runtime_error((F() << "Subclass create for " << hdr << " returned a null pointer").str());
     }
 
+    chk_dset_type(true, dsc.get(), hdr, rctx);
+
     uint32_t idata_begin_pos = io.tell_rd();
     {
         auto guard = cblkarr.allocator().block_all_alloc_dealloc_guard();  // cppcheck-suppress unreadVariable
@@ -336,6 +376,8 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     if (is_csize_greater_than_allowed(hdr.csize)) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor csize is larger than allowed " << hdr);
     }
+
+    chk_dset_type(false, this, hdr, rctx);
 
     uint32_t checksum = 0;
 
@@ -554,4 +596,6 @@ void Descriptor::notify_descriptor_changed() {
         owner_raw_ptr->mark_as_modified(this->id());
     }
 }
+
+bool Descriptor::is_descriptor_set() const { return cast<const DescriptorSet>(true) != nullptr; }
 }  // namespace xoz
