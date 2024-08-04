@@ -2468,7 +2468,7 @@ namespace {
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(
-                        "DescriptorSet not loaded. Missed call to load_set()?"
+                        "DescriptorSet not loaded. Missed call to create_set()/load_set()?"
                         )
                     )
                 )

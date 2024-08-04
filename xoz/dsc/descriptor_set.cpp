@@ -696,7 +696,7 @@ std::shared_ptr<Descriptor> DescriptorSet::get(uint32_t id) {
 
 void DescriptorSet::fail_if_set_not_loaded() const {
     if (not set_loaded) {
-        throw std::runtime_error("DescriptorSet not loaded. Missed call to load_set()?");
+        throw std::runtime_error("DescriptorSet not loaded. Missed call to create_set()/load_set()?");
     }
 }
 
