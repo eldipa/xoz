@@ -2,6 +2,7 @@
 #include "xoz/segm/segment.h"
 #include "xoz/io/iospan.h"
 #include "xoz/dsc/descriptor.h"
+#include "xoz/dsc/descriptor_set.h"
 #include "xoz/dsc/default.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/file/runtime_context.h"
@@ -161,7 +162,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
-    TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithoutExtendedType) {
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxNonDSetTypeWithoutExtendedType) {
         RuntimeContext rctx({});
 
         std::vector<char> fp;
@@ -171,7 +172,7 @@ namespace {
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
-            .type = 0x1fe,
+            .type = 0x1e0 - 1,
 
             .id = 0x80000001,
 
@@ -195,7 +196,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "fe09 0102 0304"
+                "df09 0102 0304"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -204,7 +205,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
-    TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeWithExtendedType) {
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMaxTypeWithoutExtendedType) {
         RuntimeContext rctx({});
 
         std::vector<char> fp;
@@ -214,7 +215,49 @@ namespace {
 
         struct Descriptor::header_t hdr = {
             .own_content = false,
-            .type = 0x1ff,
+            .type = 0x01fe,
+
+            .id = 0x80000001,
+
+            .isize = 4,
+            .csize = 0,
+            .segm = Segment::EmptySegment(cblkarr.blk_sz_order())
+        };
+
+        DescriptorSet dsc(hdr, cblkarr, rctx);
+        dsc.create_set();
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc,
+                6, /* struct size */
+                4,   /* internal data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "fe09 0000 0000"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+    }
+
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMinNonDSetTypeWithExtendedType) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024);
+
+        struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = 0x1e0 + 2048 + 1,
 
             .id = 0x80000001,
 
@@ -238,7 +281,49 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff09 ff01 0102 0304"
+                "ff09 e109 0102 0304"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+    }
+
+    TEST(DescriptorTest, NoOwnsTempIdSomeDataMinTypeWithExtendedType) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024);
+
+        struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = 0x01ff,
+
+            .id = 0x80000001,
+
+            .isize = 4,
+            .csize = 0,
+            .segm = Segment::EmptySegment(cblkarr.blk_sz_order())
+        };
+
+        DescriptorSet dsc(hdr, cblkarr, rctx);
+        dsc.create_set();
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc,
+                8, /* struct size */
+                4,   /* internal data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff09 ff01 0000 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -644,7 +729,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithoutExtendedType) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxNonDSetTypeWithoutExtendedType) {
         RuntimeContext rctx({});
 
         std::vector<char> fp;
@@ -654,7 +739,7 @@ namespace {
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
-            .type = 0x1fe,
+            .type = 0x01e0 - 1,
 
             .id = 1,
 
@@ -676,7 +761,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "fe83 0100 0000 0000 00c0"
+                "df83 0100 0000 0000 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -685,7 +770,49 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinTypeWithExtendedType) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxTypeWithoutExtendedType) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024);
+
+        struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = 0x01fe,
+
+            .id = 0x80000001,
+
+            .isize = 4,
+            .csize = 0,
+            .segm = Segment::EmptySegment(cblkarr.blk_sz_order())
+        };
+
+        DescriptorSet dsc(hdr, cblkarr, rctx);
+        dsc.create_set();
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc,
+                6, /* struct size */
+                4,   /* internal data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "fe09 0000 0000"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+    }
+
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinNonDSetTypeWithExtendedType) {
         RuntimeContext rctx({});
 
         std::vector<char> fp;
@@ -695,7 +822,7 @@ namespace {
 
         struct Descriptor::header_t hdr = {
             .own_content = true,
-            .type = 0x1ff,
+            .type = 0x01e0 + 2048 + 1,
 
             .id = 1,
 
@@ -717,7 +844,49 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff83 0100 0000 0000 00c0 ff01"
+                "ff83 0100 0000 0000 00c0 e109"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+    }
+
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMinTypeWithExtendedType) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024);
+
+        struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = 0x01ff,
+
+            .id = 0x80000001,
+
+            .isize = 4,
+            .csize = 0,
+            .segm = Segment::EmptySegment(cblkarr.blk_sz_order())
+        };
+
+        DescriptorSet dsc(hdr, cblkarr, rctx);
+        dsc.create_set();
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(dsc,
+                8, /* struct size */
+                4,   /* internal data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff09 ff01 0000 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 

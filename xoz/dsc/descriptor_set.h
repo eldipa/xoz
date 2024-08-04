@@ -332,12 +332,12 @@ private:
     void clear_set_no_recursive();
     void destroy_no_recursive();
 
-private:
+public:
     /*
      * Load the set into memory. This must be called once to initialize the internal allocator
      * properly.
      * */
-    void load_set();
+    void /* testing */ load_set();
 
     /*
      * Create a new set (nothing is written to disk but there would be pending writes).
@@ -345,9 +345,8 @@ private:
      *
      * Note: u16data is an opaque argument to configure the set creation.
      * */
-    void create_set(uint16_t u16data = 0);
+    void /* testing */ create_set(uint16_t u16data = 0);
 
-public:
     /*
      * Check if there is any change pending to be written (addition of new descriptors,
      * remotion, or update).
