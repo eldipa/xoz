@@ -28,32 +28,7 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
         header_ext(Extent::EmptyExtent()) {}
 
 std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockArray& blkarr, RuntimeContext& rctx) {
-    assert(segm.inline_data_sz() == 0);
-
-    const uint16_t sflags = 0;
-
-    struct Descriptor::header_t hdr = {.own_content = false,
-                                       .type = 0x01,
-                                       .id = 0x00,
-                                       // set some temporal size, we will update them
-                                       // at the end of the function calling update_header_no_recursive()
-                                       .isize = 0,
-                                       .csize = 0,
-                                       .segm = segm};
-
-    hdr.segm.remove_inline_data();
-    hdr.own_content = hdr.segm.length() > 0;
-
-    auto dset = std::make_unique<DescriptorSet>(hdr, blkarr, rctx);
-    if (hdr.own_content) {
-        dset->load_set();
-    } else {
-        dset->create_set(sflags);
-    }
-
-    // this call will make hdr.csize and hdr.isize to be correctly set
-    dset->update_header_no_recursive();
-    return dset;
+    return create_subclass<DescriptorSet>(0x01, segm, blkarr, rctx);
 }
 
 std::unique_ptr<DescriptorSet> DescriptorSet::create(BlockArray& blkarr, RuntimeContext& rctx) {
@@ -828,7 +803,7 @@ void DescriptorSet::write_struct_specifics_into(IOBase& io) {
     }
 }
 
-void DescriptorSet::update_header_no_recursive() {
+void DescriptorSet::update_header() {
     // Make sure set to be 100% sync so we can know how much space its segment is owning
     assert(count() == 0 or not does_require_write());
 
@@ -858,10 +833,6 @@ void DescriptorSet::update_header_no_recursive() {
     }
 }
 
-void DescriptorSet::update_header() {
-    // it does not make sense to update the header recursively
-    update_header_no_recursive();
-}
 
 void DescriptorSet::release_free_space() {
     depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->release_free_space_no_recursive(); });
@@ -876,7 +847,7 @@ void DescriptorSet::full_sync_no_recursive(const bool release) {
     if (release) {
         release_free_space_no_recursive();
     }
-    update_header_no_recursive();
+    update_header();
 }
 
 void DescriptorSet::full_sync(const bool release) {

@@ -322,12 +322,13 @@ private:
 protected:
     void flush_writes() override;
     void release_free_space() override;
-    void update_header() override;
+
+public:
+    void /* internal */ update_header() override;
 
 private:
     void flush_writes_no_recursive();
     void release_free_space_no_recursive();
-    void update_header_no_recursive();
     void full_sync_no_recursive(const bool release);
     void clear_set_no_recursive();
     void destroy_no_recursive();
@@ -337,7 +338,7 @@ public:
      * Load the set into memory. This must be called once to initialize the internal allocator
      * properly.
      * */
-    void /* testing */ load_set();
+    void /* internal */ load_set();
 
     /*
      * Create a new set (nothing is written to disk but there would be pending writes).
@@ -345,7 +346,7 @@ public:
      *
      * Note: u16data is an opaque argument to configure the set creation.
      * */
-    void /* testing */ create_set(uint16_t u16data = 0);
+    void /* internal */ create_set(uint16_t u16data = 0);
 
     /*
      * Check if there is any change pending to be written (addition of new descriptors,
@@ -364,8 +365,41 @@ private:
     void fail_if_null(const Descriptor* dsc) const;
     void fail_if_duplicated_id(const Descriptor* dsc) const;
 
-private:
+protected:
     void read_struct_specifics_from(IOBase& io) override;
     void write_struct_specifics_into(IOBase& io) override;
+
+    template <class T>
+    static std::unique_ptr<T> create_subclass(const uint16_t dsc_type, const Segment& segm, BlockArray& cblkarr,
+                                              RuntimeContext& rctx) {
+        assert(segm.inline_data_sz() == 0);
+
+        const uint16_t sflags = 0;
+
+        struct Descriptor::header_t hdr = {.own_content = false,
+                                           .type = dsc_type,
+                                           .id = 0x00,
+                                           // set some temporal size, we will update them
+                                           // at the end of the function calling update_header()
+                                           .isize = 0,
+                                           .csize = 0,
+                                           .segm = segm};
+
+        hdr.segm.remove_inline_data();
+        hdr.own_content = hdr.segm.length() > 0;
+
+        auto dset = std::make_unique<T>(hdr, cblkarr, rctx);
+        assert(not dset->hdr.segm.has_end_of_segment());
+
+        if (dset->hdr.own_content) {
+            dset->load_set();
+        } else {
+            dset->create_set(sflags);
+        }
+
+        // this call will make hdr.csize and hdr.isize to be correctly set
+        dset->update_header();
+        return dset;
+    }
 };
 }  // namespace xoz
