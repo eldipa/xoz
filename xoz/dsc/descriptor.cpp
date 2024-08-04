@@ -242,9 +242,8 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
     } else if (has_id and id != 0) {
         auto ok = rctx.register_persistent_id(id);  // TODO test
         if (not ok) {
-            throw InconsistentXOZ(
-                    F() << "Descriptor persistent id already registered, a duplicated descriptor found somewhere else; "
-                        << hdr);
+            throw InconsistentXOZ(F() << "Descriptor persistent id " << id
+                                      << " already registered, a duplicated descriptor found somewhere else; " << hdr);
         }
 
     } else if (not has_id) {
