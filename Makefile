@@ -33,13 +33,13 @@ valgrind-relwithdebinfo: compile-relwithdebinfo
 all: debug release relwithdebinfo
 
 gdb-debug:
-	gdb -x .gdbinit --args ./build-debug/test/runtests
+	gdb -x .gdbinit --args ./build-debug/runtests
 
 gdb-release:
-	gdb -x .gdbinit --args ./build-release/test/runtests
+	gdb -x .gdbinit --args ./build-release/runtests
 
 gdb-relwithdebinfo:
-	gdb -x .gdbinit --args ./build-relwithdebinfo/test/runtests
+	gdb -x .gdbinit --args ./build-relwithdebinfo/runtests
 
 coverage: mirror
 	mkdir -p coverage/
