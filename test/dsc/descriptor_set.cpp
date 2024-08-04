@@ -2646,4 +2646,104 @@ namespace {
                 ""
                 );
     }
+
+    class AppDescriptorSet : public DescriptorSet {
+        public:
+        constexpr static uint16_t TYPE = 0x1ff;
+
+        static std::unique_ptr<AppDescriptorSet> create(const uint16_t cookie, const Segment& segm, BlockArray& cblkarr, RuntimeContext& rctx) {
+            auto dset = create_subclass<AppDescriptorSet>(AppDescriptorSet::TYPE, segm, cblkarr, rctx);
+            dset->cookie = cookie;
+            return dset;
+        }
+
+        static std::unique_ptr<AppDescriptorSet> create(const uint16_t cookie, BlockArray& cblkarr, RuntimeContext& rctx) {
+            const Segment segm = Segment::EmptySegment(cblkarr.blk_sz_order());
+            return AppDescriptorSet::create(cookie, segm, cblkarr, rctx);
+        }
+
+        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
+                                                  RuntimeContext& rctx) {
+            assert(hdr.type == AppDescriptorSet::TYPE);
+            auto dsc = std::make_unique<AppDescriptorSet>(hdr, cblkarr, rctx);
+            return dsc;
+        }
+
+        AppDescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, RuntimeContext& rctx) : DescriptorSet(hdr, cblkarr, rctx), cookie(0) {}
+
+        uint16_t get_cookie() const { return cookie; }
+
+        protected:
+        void read_struct_specifics_from(IOBase& io) override {
+            DescriptorSet::read_struct_specifics_from(io);
+            cookie = io.read_u16_from_le();
+        }
+
+        void write_struct_specifics_into(IOBase& io) override {
+            DescriptorSet::write_struct_specifics_into(io);
+            io.write_u16_to_le(cookie);
+        }
+
+        public:
+        void /* internal */ update_header() override {
+            DescriptorSet::update_header();
+            hdr.isize += 2; // count for app's own cookie
+        }
+
+        private:
+        uint16_t cookie;
+    };
+
+    TEST(DescriptorSetTest, SubclassDescriptorSet) {
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        RuntimeContext rctx({{0x01, DescriptorSet::create}, {AppDescriptorSet::TYPE, AppDescriptorSet::create}}, true);
+
+        VectorBlockArray d_blkarr(16);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        // Create the dset descriptor subclass of DescriptorSet
+        const uint16_t cookie = 0x4142;
+        auto dset = AppDescriptorSet::create(cookie, d_blkarr, rctx);
+        dset->id(rctx.request_temporal_id());
+
+        // Add a descriptor to the set
+        struct Descriptor::header_t hdr = {
+            .own_content = true,
+            .type = 0xfa,
+
+            .id = 0x0,
+
+            .isize = 0,
+            .csize = 0,
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+        };
+
+        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)10);
+
+        auto id1 = dset->add(std::move(dscptr), true);
+
+        // Write the dset to disk. This will trigger the write of the set.
+        dset->full_sync(false);
+        dset->write_struct_into(IOSpan(fp), rctx);
+
+        XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
+                "0000 fc42 fa82 0100 0000 0000 00c0 0000"
+                );
+
+        // Reset the runtime as we were loading the xoz file from scratch
+        rctx.reset();
+
+        // Load the dset again, check that it is mapped to the correct AppDescriptorSet subclass
+        auto dsetptr2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
+        auto dset2 = dsetptr2->cast<AppDescriptorSet>();
+
+        // Check
+        EXPECT_EQ(dset2->count(), (uint32_t)1);
+        EXPECT_EQ(dset2->get(id1)->get_owner(), std::addressof(*dset2));
+        EXPECT_EQ(dset2->get_cookie(), (uint16_t)0x4142);
+
+    }
 }
