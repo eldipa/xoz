@@ -36,6 +36,7 @@ uint32_t IOSpan::rw_operation(const bool is_read_op, char* data, const uint32_t 
         wr += rw_total_sz;
     }
 
+    chk_within_limits(is_read_op);
     return rw_total_sz;
 }
 }  // namespace xoz

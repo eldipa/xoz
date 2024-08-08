@@ -14,7 +14,8 @@
 
 
 namespace xoz {
-IOBase::IOBase(const uint32_t src_sz): src_sz(src_sz), rd(0), wr(0) {}
+IOBase::IOBase(const uint32_t src_sz):
+        src_sz(src_sz), rd_min(0), wr_min(0), rd_end(src_sz), wr_end(src_sz), rd(0), wr(0) {}
 
 void IOBase::rw_operation_exact_sz(const bool is_read_op, char* data, const uint32_t exact_sz) {
     const uint32_t remain_sz = is_read_op ? remain_rd() : remain_wr();
@@ -35,35 +36,71 @@ void IOBase::rw_operation_exact_sz(const bool is_read_op, char* data, const uint
     }
 }
 
-uint32_t IOBase::calc_seek(uint32_t pos, uint32_t cur, IOBase::Seekdir way) const {
+uint32_t IOBase::calc_seek(bool is_rd, uint32_t pos, uint32_t cur, IOBase::Seekdir way) const {
+    const uint32_t min_pos = is_rd ? rd_min : wr_min;
+    const uint32_t cur_end = is_rd ? rd_end : wr_end;
     switch (way) {
         case Seekdir::beg:
-            if (pos > src_sz) {
-                return src_sz;
+            if (pos > cur_end) {
+                return cur_end;
+            } else if (pos < min_pos) {
+                return min_pos;
             }
-
             return pos;
         case Seekdir::end:
-            if (pos > src_sz) {
-                return 0;
-            } else {
-                return src_sz - pos;
+            if (src_sz < pos or src_sz - pos < min_pos) {
+                return min_pos;
+            } else if (src_sz - pos > cur_end) {
+                return cur_end;
             }
+            return src_sz - pos;
         case Seekdir::fwd:
             cur = cur + pos;
-            if (cur < pos or cur > src_sz) {
-                return src_sz;  // overflow
+            if (cur < pos or cur > cur_end) {
+                return cur_end;  // overflow
             }
             return cur;
         case Seekdir::bwd:
-            if (cur < pos) {
-                return 0;  // underflow
+            if ((cur - min_pos) < pos) {
+                return min_pos;  // underflow
             }
             cur = cur - pos;
             return cur;
     }
     assert(0);
-    return 0;
+    return min_pos;
+}
+
+void IOBase::limit(bool is_rd, uint32_t min_pos, uint32_t new_sz) {
+    if (min_pos > src_sz) {
+        min_pos = src_sz;  // handle overflow of min pos outside the real src sz
+    }
+
+    uint32_t end_pos = src_sz;  // assume overflow of size
+    if (new_sz <= src_sz - min_pos) {
+        end_pos = min_pos + new_sz;  // ok, it doesn't overflow, correct the end pos
+    }
+
+    // Update the limits and put the rd|wr pointers within the new range
+    if (is_rd) {
+        rd_min = min_pos;
+        rd_end = end_pos;
+
+        if (rd < rd_min) {
+            rd = rd_min;
+        } else if (rd > end_pos) {
+            rd = end_pos;
+        }
+    } else {
+        wr_min = min_pos;
+        wr_end = end_pos;
+
+        if (wr < wr_min) {
+            wr = wr_min;
+        } else if (wr > end_pos) {
+            wr = end_pos;
+        }
+    }
 }
 
 uint32_t IOBase::chk_write_request_sizes(const std::vector<char>& data, const uint32_t sz) const {

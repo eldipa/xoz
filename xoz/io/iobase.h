@@ -138,18 +138,28 @@ public:
     enum Seekdir { beg = 0, end = 1, fwd = 2, bwd = 3 };
 
     void seek_rd(uint32_t pos, Seekdir way = Seekdir::beg) {
-        rd = calc_seek(pos, rd, way);
-        assert(rd <= src_sz);
+        rd = calc_seek(true, pos, rd, way);
+        chk_within_limits(true);
     }
 
     void seek_wr(uint32_t pos, Seekdir way = Seekdir::beg) {
-        wr = calc_seek(pos, wr, way);
-        assert(wr <= src_sz);
+        wr = calc_seek(false, pos, wr, way);
+        chk_within_limits(false);
     }
 
-    uint32_t remain_rd() const { return src_sz - rd; }
+    uint32_t remain_rd() const { return rd_end - rd; }
 
-    uint32_t remain_wr() const { return src_sz - wr; }
+    uint32_t remain_wr() const { return wr_end - wr; }
+
+    void limit_rd(uint32_t min_pos, uint32_t new_sz) { limit(true, min_pos, new_sz); }
+
+    void limit_wr(uint32_t min_pos, uint32_t new_sz) { limit(false, min_pos, new_sz); }
+
+    /*
+     * Limit the wr pointer to have 0 available space, making impossible to do any
+     * write at all.
+     * */
+    void limit_to_read_only() { limit(false, tell_wr(), 0); }
 
     uint16_t read_u16_from_le() {
         uint16_t num = 0;
@@ -214,8 +224,53 @@ public:
      * This RewindGuard object is handy to implement mechanism where
      * the io is rewind if something went wrong (exception) or leave
      * it unchanged otherwise.
+     *
+     * If the caller wants to combine auto_rewind() with auto_restore_limits(),
+     * it should call auto_rewind() first and auto_restore_limits() second otherwise
+     * the rewind will happen before restoring the limits and it may not work.
      * */
     RewindGuard auto_rewind() { return RewindGuard(*this); }
+
+
+    class RestoreLimitsGuard {
+    private:
+        IOBase& io;
+        uint32_t rd_min;
+        uint32_t rd_end;
+        uint32_t wr_min;
+        uint32_t wr_end;
+        bool disabled;
+
+    public:
+        explicit RestoreLimitsGuard(IOBase& io):
+                io(io), rd_min(io.rd_min), rd_end(io.rd_end), wr_min(io.wr_min), wr_end(io.wr_end), disabled(false) {}
+        ~RestoreLimitsGuard() {
+            if (not disabled) {
+                assert(rd_end >= rd_min);
+                assert(wr_end >= wr_min);
+                io.limit_rd(rd_min, rd_end - rd_min);
+                io.limit_wr(wr_min, wr_end - wr_min);
+            }
+        }
+
+        void dont_restore() { disabled = true; }
+
+        RestoreLimitsGuard(const RestoreLimitsGuard&) = delete;
+        RestoreLimitsGuard& operator=(const RestoreLimitsGuard&) = delete;
+    };
+
+    /*
+     * Create a RAII object that will restore the read/write limits to the values
+     * that the IO object has at the moment of this call.
+     *
+     * The object has a dont_restore() method that if called no limit will be
+     * restored.
+     *
+     * If the caller wants to combine auto_rewind() with auto_restore_limits(),
+     * it should call auto_rewind() first and auto_restore_limits() second otherwise
+     * the rewind will happen before restoring the limits and it may not work.
+     * */
+    RestoreLimitsGuard auto_restore_limits() { return RestoreLimitsGuard(*this); }
 
     /*
      * The given buffer must have enough space to hold max_data_sz bytes The operation
@@ -227,9 +282,15 @@ public:
     virtual uint32_t /* protected; --not public-- */ rw_operation(const bool is_read_op, char* data,
                                                                   const uint32_t data_sz) = 0;
 
-protected:
+private:
     const uint32_t src_sz;
 
+    uint32_t rd_min;
+    uint32_t wr_min;
+    uint32_t rd_end;
+    uint32_t wr_end;
+
+protected:
     uint32_t rd;
     uint32_t wr;
 
@@ -269,15 +330,39 @@ protected:
      *  - relative to cur position in backward direction (way == Seekdir::bwd)
      *
      * In any case if the calculated position goes beyond to the available space
-     * (src_sz), the returned position is clamp to src_sz (this means that on overflow
-     * the position returned is one-past the end of the available space).
+     * the returned position is clamp to nearest extreme in the available range.
+     * (this means that on underflow, the position returned is the minimum position;
+     * on overflow the position returned is one-past the end of the available space).
      *
      * For the case of underflows (positions past the begin), the position returned
-     * is 0.
+     * is [rd|wr]_min; for overflows, the position returned is [rd|rw]_end;
      *
-     * No error happen in both cases.
+     * Whatever this method operates with the read pointer or the write pointer,
+     * it depends on is_rd boolean (the value of the cur parameter)
+     *
+     * No error happen in any case. The current rd|wr pointer (cur parameter) must
+     * be within the rd|wr limits otherwise the computation is undefined.
      **/
-    uint32_t calc_seek(uint32_t pos, uint32_t cur, Seekdir way = Seekdir::beg) const;
+    uint32_t calc_seek(bool is_rd, uint32_t pos, uint32_t cur, Seekdir way = Seekdir::beg) const;
+
+    /*
+     * Set limits on the rd/rw pointers defining a minimum position and the available space
+     * from there (the new size).
+     * If is_rd, the limits apply to rd only; otherwise to rw only.
+     *
+     * If after applying the limits the current rd/rw pointer is outside the limits,
+     * perform a seek to move it inside the limits.
+     * */
+    void limit(bool is_rd, uint32_t min_pos, uint32_t new_sz);
+
+    /*
+     * Check that the rd/rw pointer is within the limits.
+     * */
+    bool is_within_limits(bool is_rd, uint32_t pos) const {
+        return is_rd ? (rd_min <= pos and pos <= rd_end) : (wr_min <= pos and pos <= wr_end);
+    }
+
+    void chk_within_limits(bool is_rd) const { assert(is_within_limits(is_rd, is_rd ? rd : wr)); }
 
     /*
      * Check that the request size for writing makes sense:
