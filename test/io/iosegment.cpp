@@ -25,6 +25,10 @@ using namespace ::xoz::alloc::internals;
     EXPECT_EQ(hexdump((blkarr).expose_mem_fp(), (at), (len)), (data));              \
 } while (0)
 
+#define XOZ_EXPECT_BUFFER_SERIALIZATION(buffer, at, len, data) do {           \
+    EXPECT_EQ(hexdump((buffer), (at), (len)), (data));              \
+} while (0)
+
 namespace {
     TEST(IOSegmentTest, OneBlock) {
 
@@ -1008,6 +1012,115 @@ namespace {
         EXPECT_EQ(sg.inline_data()[0], (char)0x42);
         EXPECT_EQ(sg.inline_data()[1], (char)0x42);
 
+    }
+
+    TEST(IOSegmentTest, LimitsOnReadWrite) {
+        auto blkarr_ptr = FileBlockArray::create_mem_based(8);
+        FileBlockArray& blkarr = *blkarr_ptr.get();
+
+        auto old_top_nr = blkarr.grow_by_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000"
+                );
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<char> rdbuf;
+
+        Segment sg(blkarr.blk_sz_order());
+        sg.add_extent(Extent(0, 2, false)); // 2 block of 8 bytes
+        sg.add_extent(Extent(2, 1, false)); // 1 block of 8 bytes
+        sg.set_inline_data({0, 0}); // plus 2 bytes of inline data
+
+        IOSegment iosg1(blkarr, sg);
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(26));
+
+        // Limit within a single 2-blocks extent
+        iosg1.limit_wr(1, 4);
+        iosg1.writeall(wrbuf, 4);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(5));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0041 4243 4400 0000 "
+                "0000 0000 0000 0000 "
+                "0000 0000 0000 0000"
+                );
+
+        // Limit within a single 1-block extent
+        iosg1.limit_wr(16, 4);
+        iosg1.writeall(wrbuf, 4);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(20));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0041 4243 4400 0000 "
+                "0000 0000 0000 0000 "
+                "4142 4344 0000 0000"
+                );
+
+        // Limit within the inline
+        iosg1.limit_wr(24, 1);
+        iosg1.writeall(wrbuf, 1);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(25));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(sg.inline_data(), 0, -1,
+                "4100"
+                );
+
+        // Limit within the inline (again)
+        iosg1.limit_wr(24, 3); // overflow
+        iosg1.seek_wr(24);
+        iosg1.writeall(wrbuf, 2);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(26));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(sg.inline_data(), 0, -1,
+                "4142"
+                );
+
+        // Limit covers two extents
+        iosg1.limit_wr(10, 10);
+        iosg1.seek_wr(10);
+        iosg1.writeall(wrbuf, 4);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(6));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(14));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0041 4243 4400 0000 "
+                "0000 4142 4344 0000 "
+                "4142 4344 0000 0000"
+                );
+
+        // Keep writing, this will cross the boundary between the extents
+        iosg1.writeall(wrbuf, 4);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(2));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(18));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0041 4243 4400 0000 "
+                "0000 4142 4344 4142 "
+                "4344 4344 0000 0000"
+                );
+
+        // Limit covers one extent and the inline section
+        iosg1.limit_wr(22, 4);
+        iosg1.writeall(wrbuf, 4);
+
+        EXPECT_EQ(iosg1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iosg1.tell_wr(), uint32_t(26));
+        XOZ_EXPECT_FILE_SERIALIZATION(blkarr, 0, -1,
+                "0041 4243 4400 0000 "
+                "0000 4142 4344 4142 "
+                "4344 4344 0000 4142"
+                );
+        XOZ_EXPECT_BUFFER_SERIALIZATION(sg.inline_data(), 0, -1,
+                "4344"
+                );
     }
 
 }

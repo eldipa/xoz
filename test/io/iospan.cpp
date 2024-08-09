@@ -731,4 +731,278 @@ namespace {
 
         EXPECT_EQ(wrbuf, rdbuf);
     }
+
+    TEST(IOSpanTest, LimitsOnReadWrite) {
+        std::vector<char> buf(8);
+
+        std::vector<char> wrbuf = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+        std::vector<char> rdbuf;
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(wrbuf);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(8));
+
+        // Limit for RW from position 2 to 2+4.
+        // Initially the rw pointer is beyond the allowed range so it is moved
+        // to one past the end of the new range: the position 6
+        iospan1.limit_wr(2, 4);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(6));
+
+        // No change on RD pointer/remaining
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(8));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(0));
+
+        // Limit for RD from position 1 to 1+1.
+        // Initially the rd pointer is behind the allowed range so it is moved
+        // to the begin of the new range: the position 1
+        iospan1.limit_rd(1, 1);
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(1));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(1));
+
+        // We can read the full range
+        iospan1.readall(rdbuf);
+        EXPECT_EQ(rdbuf.size(), (size_t)1);
+        EXPECT_EQ(rdbuf[0], (char)'B');
+
+        // For writing, we cannot write anything else: the rw is at the end already
+        EXPECT_THAT(
+            [&]() { iospan1.writeall(wrbuf); },  // try to write 8 bytes, but 0 is max and fail
+            ThrowsMessage<NotEnoughRoom>(
+                AllOf(
+                    HasSubstr("Requested 8 bytes but only 0 bytes are available. "
+                              "Write exact-byte-count operation at position 6 failed; "
+                              "detected before the write."
+                        )
+                    )
+                )
+        );
+
+        {
+            // Save the rd/wr pointers and limits to be restored at the end of the scope
+            auto rewind_guard = iospan1.auto_rewind();
+            auto restore_guard = iospan1.auto_restore_limits();
+
+            // Limits can be expanded/redefined
+            // New sizes larger than the real size are truncated to it (8 bytes in this case)
+            iospan1.limit_wr(0, uint32_t(-1));
+            EXPECT_EQ(iospan1.remain_wr(), uint32_t(2));
+            EXPECT_EQ(iospan1.tell_wr(), uint32_t(6));
+
+            iospan1.writeall(wrbuf, 1); // no throw
+            EXPECT_EQ(iospan1.tell_wr(), uint32_t(7)); // wr position is at 7
+
+            // Make the io read only
+            iospan1.limit_to_read_only();
+            EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+            EXPECT_EQ(iospan1.tell_wr(), uint32_t(7)); // wr position at 7 is preserved
+            EXPECT_THAT(
+                    [&]() { iospan1.writeall(wrbuf, 1); },  // try to write 1 bytes, but 0 is available and fail
+                    ThrowsMessage<NotEnoughRoom>(
+                        AllOf(
+                            HasSubstr("Requested 1 bytes but only 0 bytes are available. "
+                                "Write exact-byte-count operation at position 7 failed; "
+                                "detected before the write."
+                                )
+                            )
+                        )
+                    );
+        }
+
+        // Check that the pointers were rewinded and the limits restored
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(6));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(2));
+
+        iospan1.seek_wr(0);
+        iospan1.seek_rd(0);
+
+        // Restored to limit: min pos 2; size 4
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(4));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(2));
+
+        // Restored to limit: min pos 1; size 1
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(1));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(1));
+    }
+
+    TEST(IOSpanTest, SeekIsLimitAware) {
+        std::vector<char> buf(64);
+
+        IOSpan iospan1(buf);
+        iospan1.limit_wr(1, 60);
+        iospan1.limit_rd(10, 30);
+
+        // Initial positions
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(60));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(1));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(30));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(10));
+
+        // Read/write pointers are independent
+        iospan1.seek_wr(5);
+        iospan1.seek_rd(19);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(60-5+1));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(5));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(30-19+10));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(19));
+
+        {
+            auto rewind_guard = iospan1.auto_rewind();
+
+            // Past the end is clamp to the segment size by a lot
+            iospan1.seek_wr(64);
+            iospan1.seek_rd(65);
+            EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+            EXPECT_EQ(iospan1.tell_wr(), uint32_t(61));
+
+            EXPECT_EQ(iospan1.remain_rd(), uint32_t(0));
+            EXPECT_EQ(iospan1.tell_rd(), uint32_t(40));
+        }
+
+        // Past the end is clamp to the segment size
+        iospan1.seek_wr(62);
+        iospan1.seek_rd(40);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(61));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(40));
+
+        // Seek relative the current position in backward direction
+        iospan1.seek_wr(2, IOSpan::Seekdir::bwd);
+        iospan1.seek_rd(1, IOSpan::Seekdir::bwd);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(2));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(61 - 2));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(1));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(40 - 1));
+
+        // Seek relative the current position in backward direction (validate that it's relative)
+        iospan1.seek_wr(6, IOSpan::Seekdir::bwd);
+        iospan1.seek_rd(6, IOSpan::Seekdir::bwd);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(8));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(61 - 8));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(7));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(40 - 7));
+
+        {
+            auto rewind_guard = iospan1.auto_rewind();
+
+            // Past the end is clamp to the segment size by a lot
+            iospan1.seek_wr(61 - 8, IOSpan::Seekdir::bwd);
+            iospan1.seek_rd(65, IOSpan::Seekdir::bwd);
+            EXPECT_EQ(iospan1.remain_wr(), uint32_t(60));
+            EXPECT_EQ(iospan1.tell_wr(), uint32_t(1));
+
+            EXPECT_EQ(iospan1.remain_rd(), uint32_t(30));
+            EXPECT_EQ(iospan1.tell_rd(), uint32_t(10));
+        }
+
+        // Seek past the begin is set to 0; seek relative 0 does not change the pointer
+        iospan1.seek_wr(62, IOSpan::Seekdir::bwd);
+        iospan1.seek_rd(0, IOSpan::Seekdir::bwd);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(60));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(1));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(7));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(40 - 7));
+
+        // Seek relative the current position in forward direction
+        iospan1.seek_wr(4, IOSpan::Seekdir::fwd);
+        iospan1.seek_rd(4, IOSpan::Seekdir::fwd);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(60 - 4));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(4+1));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(7 - 4));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(40 - 7 + 4));
+
+        // Seek relative the current position in forward direction, again
+        iospan1.seek_wr(2, IOSpan::Seekdir::fwd);
+        iospan1.seek_rd(2, IOSpan::Seekdir::fwd);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(60 - 4 - 2));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(4+2+1));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(7 - 4 - 2));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(40 - 7 + 4 + 2));
+
+        {
+            auto rewind_guard = iospan1.auto_rewind();
+
+            // Past the end is clamp to the segment size by a lot
+            iospan1.seek_wr(64-7, IOSpan::Seekdir::fwd);
+            iospan1.seek_rd(30, IOSpan::Seekdir::fwd);
+            EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+            EXPECT_EQ(iospan1.tell_wr(), uint32_t(61));
+
+            EXPECT_EQ(iospan1.remain_rd(), uint32_t(0));
+            EXPECT_EQ(iospan1.tell_rd(), uint32_t(40));
+        }
+
+        // Seek relative the current position in forward direction, past the end
+        iospan1.seek_wr(59, IOSpan::Seekdir::fwd);
+        iospan1.seek_rd(2, IOSpan::Seekdir::fwd);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(61));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(40));
+
+        // Seek relative the end position
+        iospan1.seek_wr(0, IOSpan::Seekdir::end);
+        iospan1.seek_rd(0, IOSpan::Seekdir::end);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(61));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(40));
+
+        // Again
+        iospan1.seek_wr(4, IOSpan::Seekdir::end);
+        iospan1.seek_rd(4, IOSpan::Seekdir::end);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(1));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(64-4));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(0));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(40));
+
+        // Again
+        iospan1.seek_wr(6, IOSpan::Seekdir::end);
+        iospan1.seek_rd(30, IOSpan::Seekdir::end);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(3));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(64-6));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(6));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(64-30));
+
+        {
+            auto rewind_guard = iospan1.auto_rewind();
+
+            // Past the end is clamp to the begin
+            iospan1.seek_wr(66, IOSpan::Seekdir::end);
+            iospan1.seek_rd(65, IOSpan::Seekdir::end);
+            EXPECT_EQ(iospan1.remain_wr(), uint32_t(60));
+            EXPECT_EQ(iospan1.tell_wr(), uint32_t(1));
+
+            EXPECT_EQ(iospan1.remain_rd(), uint32_t(30));
+            EXPECT_EQ(iospan1.tell_rd(), uint32_t(10));
+        }
+
+        // Past the begin goes to the begin
+        iospan1.seek_wr(63, IOSpan::Seekdir::end);
+        iospan1.seek_rd(60, IOSpan::Seekdir::end);
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(60));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(1));
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(30));
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(10));
+    }
+
 }
