@@ -1423,18 +1423,37 @@ namespace {
         dsc2.set_data({1, 2});
         dsc2.write_struct_into(IOSpan(fp), rctx);
 
-        EXPECT_THAT(
-            ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr); }),
-            ThrowsMessage<InconsistentXOZ>(
-                AllOf(
-                    HasSubstr(
-                        "The descriptor subclass underflowed the read pointer and "
-                        "processed 0 bytes (left 2 bytes unprocessed of 2 bytes available) and "
-                        "left it at position 10 that it is before the end of the data section at position 12."
-                        )
-                    )
-                )
-        );
+        // Load a descriptor. Despite DescriptorSubRW does not read anything (see the class)
+        // and there are 2 bytes to be read (in the data and by isize), no error happen
+        // (not like in the case of write_struct_specifics_into).
+        auto dscptr3 = Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr);
+        auto dsc3 = dscptr3->cast<DescriptorSubRW>();
+
+        // Check that the "bogus" descriptor didn't read the data *but* nevertheless
+        // it carries it as the opaque data.
+        EXPECT_EQ(dsc3->get_data().size(), (uint32_t)0);
+        EXPECT_EQ(dsc3->get_future_idata()[0], (char)1);
+        EXPECT_EQ(dsc3->get_future_idata()[1], (char)2);
+
+        // Both the writing and the loading should preserve opaque data
+        XOZ_RESET_FP(fp, FP_SZ);
+        dsc3->write_struct_into(IOSpan(fp), rctx);
+
+        rctx.reset();
+        auto dscptr4 = Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr);
+        auto dsc4 = dscptr4->cast<DescriptorSubRW>();
+
+        // Check sizes
+        XOZ_EXPECT_SIZES(*dsc4,
+                2+4+2+2+2, /* struct size */
+                2,   /* internal data size */
+                0,  /* segment data size */
+                42  /* obj data size */
+                );
+
+        EXPECT_EQ(dsc4->get_data().size(), (uint32_t)0);
+        EXPECT_EQ(dsc4->get_future_idata()[0], (char)1);
+        EXPECT_EQ(dsc4->get_future_idata()[1], (char)2);
     }
 
     TEST(DescriptorTest, DescriptorWithExplicitZeroId) {

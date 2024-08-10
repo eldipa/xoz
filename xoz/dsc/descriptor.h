@@ -168,6 +168,8 @@ public:
      * */
     bool is_descriptor_set() const;
 
+    uint16_t /* for testing */ type() const { return hdr.type; }
+
 public:  // public but it should be interpreted as an opaque section
     friend void PrintTo(const struct header_t& hdr, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);

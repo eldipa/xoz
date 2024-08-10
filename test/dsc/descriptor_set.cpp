@@ -2730,6 +2730,13 @@ namespace {
                 "0000 fc42 fa82 0100 0000 0000 00c0 0000"
                 );
 
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                "ff89 0e00 0084 00f0 0080 0000 fc0f 00c0 "
+                "ff01 0000 " // AppDescriptorSet's TYPE
+                "4241" // cookie
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
+
         // Reset the runtime as we were loading the xoz file from scratch
         rctx.reset();
 
@@ -2740,7 +2747,57 @@ namespace {
         // Check
         EXPECT_EQ(dset2->count(), (uint32_t)1);
         EXPECT_EQ(dset2->get(id1)->get_owner(), std::addressof(*dset2));
+        EXPECT_EQ(dset2->is_descriptor_set(), (bool)true);
+        EXPECT_EQ(dset2->type(), (uint16_t)AppDescriptorSet::TYPE);
         EXPECT_EQ(dset2->get_cookie(), (uint16_t)0x4142);
 
+        // Pretend now to be an "older" version of the app where AppDescriptorSet didn't exist
+        // We should still loading it as a set (otherwise we would loose access to its descriptors)
+        RuntimeContext rctx2({{0x01, DescriptorSet::create}}, true);
+
+        // Load the dset again, check that it is mapped to DescriptorSet but not to AppDescriptorSet subclass
+        auto dsetptr3 = Descriptor::load_struct_from(IOSpan(fp), rctx2, d_blkarr);
+        auto dset3 = dsetptr3->cast<DescriptorSet>();
+        EXPECT_EQ(dsetptr3->cast<AppDescriptorSet>(true), (AppDescriptorSet*)nullptr);
+
+        // Check
+        EXPECT_EQ(dset3->count(), (uint32_t)1);
+        EXPECT_EQ(dset3->get(id1)->get_owner(), std::addressof(*dset3));
+        EXPECT_EQ(dset3->is_descriptor_set(), (bool)true);
+        EXPECT_EQ(dset3->type(), (uint16_t)AppDescriptorSet::TYPE); // AppDescriptorSet TYPE is preserved
+
+        // Make the "older" version of the app write the descriptor set.
+        // It is not aware of AppDescriptorSet class but it should preserve the data
+        // "from future versions of the app" (aka forward compatibility)
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        auto id2 = dset3->add(std::move(std::make_unique<DefaultDescriptor>(hdr, d_blkarr)), true);
+        dset3->full_sync(true);
+        dset3->write_struct_into(IOSpan(fp), rctx2);
+
+        XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
+                "0000 f985 fa82 0100 0000 0000 00c0 0000 fa82 0200 0000 0000 00c0 0000 0000 0000"
+                );
+
+        XOZ_EXPECT_SERIALIZATION(fp, *dset3,
+                "ff89 1800 0084 00f0 0080 0000 fc0f 0084 c0ff 00c0 "
+                "ff01 0000 " // AppDescriptorSet's TYPE
+                "4241" // cookie
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *dset3);
+
+        // Now, lets go to the future and make the "newer" version of the app,
+        // aware of AppDescriptorSet class, to load it. We should recover all including out cookie.
+        rctx.reset();
+        auto dsetptr4 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
+        auto dset4 = dsetptr4->cast<AppDescriptorSet>();
+
+        // Check
+        EXPECT_EQ(dset4->count(), (uint32_t)2);
+        EXPECT_EQ(dset4->get(id1)->get_owner(), std::addressof(*dset4));
+        EXPECT_EQ(dset4->get(id2)->get_owner(), std::addressof(*dset4));
+        EXPECT_EQ(dset4->is_descriptor_set(), (bool)true);
+        EXPECT_EQ(dset4->type(), (uint16_t)AppDescriptorSet::TYPE);
+        EXPECT_EQ(dset4->get_cookie(), (uint16_t)0x4142);
     }
 }
