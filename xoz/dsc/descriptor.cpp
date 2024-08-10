@@ -172,6 +172,10 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
                                                          bool& ex_type_used, uint32_t* checksum) {
     uint32_t local_checksum = 0;
 
+    // Make the io read-only during the execution of this method
+    [[maybe_unused]] auto guard = io.auto_restore_limits();
+    io.limit_to_read_only();
+
     uint16_t firstfield = io.read_u16_from_le();
 
     local_checksum += firstfield;
@@ -302,6 +306,10 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
 std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr) {
 
+    // Make the io read-only during the execution of this method
+    [[maybe_unused]] auto guard = io.auto_restore_limits();
+    io.limit_to_read_only();
+
     uint32_t dsc_begin_pos = io.tell_rd();
 
     uint32_t checksum = 0;
@@ -319,7 +327,10 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
 
     uint32_t idata_begin_pos = io.tell_rd();
     {
-        auto guard = cblkarr.allocator().block_all_alloc_dealloc_guard();  // cppcheck-suppress unreadVariable
+        [[maybe_unused]] auto alloc_guard = cblkarr.allocator().block_all_alloc_dealloc_guard();
+        [[maybe_unused]] auto limit_guard = io.auto_restore_limits();
+        io.limit_rd(idata_begin_pos, hdr.isize);
+
         dsc->read_struct_specifics_from(io);
     }
     uint32_t dsc_end_pos = io.tell_rd();
