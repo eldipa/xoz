@@ -1331,17 +1331,41 @@ namespace {
         );
     }
 
-    class DescriptorSubRW : public DefaultDescriptor {
+    class DescriptorSubRW : public Descriptor {
+    private:
+        std::vector<char> internal_data;
     public:
-        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : DefaultDescriptor(hdr, cblkarr) {}
+        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : Descriptor(hdr, cblkarr) {}
         void read_struct_specifics_from(IOBase&) override {
             return; // 0 read
         }
         void write_struct_specifics_into(IOBase&) override {
             return; // 0 write
         }
+        void update_header() override {
+            hdr.isize = assert_u8(internal_data.size() + future_idata_size());
+        }
+
         static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, [[maybe_unused]] RuntimeContext& rctx) {
             return std::make_unique<DescriptorSubRW>(hdr, cblkarr);
+        }
+
+        void set_data(const std::vector<char>& data) {
+            uint8_t isize = assert_u8(data.size());
+            assert(isize % 2 == 0);
+            assert(not is_isize_greater_than_allowed(isize));
+
+            internal_data = data;
+            notify_descriptor_changed();
+            update_header(); // no descriptor set that will call it so we need to call it ourselves
+        }
+
+        const std::vector<char>& get_data() const {
+            return internal_data;
+        }
+
+        const std::vector<char>& get_future_idata() const {
+            return future_idata;
         }
     };
 

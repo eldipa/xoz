@@ -1078,17 +1078,14 @@ namespace {
         EXPECT_EQ(rctx.is_registered(0xaff1), (bool)true);
     }
 
-    class DescriptorSubRW : public DefaultDescriptor {
+    class Dummy : public Descriptor {
     public:
-        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : DefaultDescriptor(hdr, cblkarr) {}
-        void read_struct_specifics_from(IOBase&) override {
-            return; // 0 read
-        }
-        void write_struct_specifics_into(IOBase&) override {
-            return; // 0 write
-        }
+        Dummy(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : Descriptor(hdr, cblkarr) {}
+        void read_struct_specifics_from(IOBase&) override {}
+        void write_struct_specifics_into(IOBase&) override {}
+        void update_header() override {}
         static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) {
-            return std::make_unique<DescriptorSubRW>(hdr, cblkarr);
+            return std::make_unique<Dummy>(hdr, cblkarr);
         }
     };
 
@@ -1130,7 +1127,7 @@ namespace {
         EXPECT_THAT(
             ensure_called_once([&]() {
                 [[maybe_unused]]
-                auto dscptr3 = dset->get<DescriptorSubRW>(id1);
+                auto dscptr3 = dset->get<Dummy>(id1);
                 }),
             ThrowsMessage<std::runtime_error>(
                 AllOf(
@@ -1143,7 +1140,7 @@ namespace {
 
         // Only if we pass ret_null = true, the failed cast will return null
         // and avoid throwing.
-        auto dscptr4 = dset->get<DescriptorSubRW>(id1, true);
+        auto dscptr4 = dset->get<Dummy>(id1, true);
         EXPECT_EQ((bool)dscptr4, (bool)false);
 
         // Getting a non-existing descriptor (id not found) is an error
@@ -1151,7 +1148,7 @@ namespace {
         EXPECT_THAT(
             ensure_called_once([&]() {
                 [[maybe_unused]]
-                auto dscptr3 = dset->get<DescriptorSubRW>(99);
+                auto dscptr3 = dset->get<Dummy>(99);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
@@ -1164,7 +1161,7 @@ namespace {
         EXPECT_THAT(
             ensure_called_once([&]() {
                 [[maybe_unused]]
-                auto dscptr3 = dset->get<DescriptorSubRW>(99, true);
+                auto dscptr3 = dset->get<Dummy>(99, true);
                 }),
             ThrowsMessage<std::invalid_argument>(
                 AllOf(
