@@ -16,9 +16,6 @@ namespace xoz {
  * */
 
 class DefaultDescriptor: public Descriptor {
-private:
-    std::vector<char> internal_data;
-
 public:
     DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr);
 
@@ -32,6 +29,8 @@ public:
      * In practice, nobody should be reading or modifying a DefaultDescriptor
      * because in theory this descriptor represent opaque unknown type
      * so the caller should have no idea how to use the data anyways.
+     *
+     * Do not use!!
      * */
     void set_data(const std::vector<char>& data);
 

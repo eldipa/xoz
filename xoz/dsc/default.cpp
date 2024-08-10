@@ -3,12 +3,12 @@
 namespace xoz {
 DefaultDescriptor::DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr):
         Descriptor(hdr, cblkarr) {
-    internal_data.resize(hdr.isize);
+    future_idata.resize(hdr.isize);
 }
 
-void DefaultDescriptor::read_struct_specifics_from(IOBase& io) { io.readall(internal_data, hdr.isize); }
+void DefaultDescriptor::read_struct_specifics_from([[maybe_unused]] IOBase& io) {}
 
-void DefaultDescriptor::write_struct_specifics_into(IOBase& io) { io.writeall(internal_data, hdr.isize); }
+void DefaultDescriptor::write_struct_specifics_into([[maybe_unused]] IOBase& io) {}
 
 std::unique_ptr<Descriptor> DefaultDescriptor::create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                                       [[maybe_unused]] RuntimeContext& rctx) {
@@ -31,9 +31,9 @@ void DefaultDescriptor::set_data(const std::vector<char>& data) {
     }
 
     hdr.isize = isize;
-    internal_data = data;
+    future_idata = data;
     notify_descriptor_changed();
 }
 
-const std::vector<char>& DefaultDescriptor::get_data() const { return internal_data; }
+const std::vector<char>& DefaultDescriptor::get_data() const { return future_idata; }
 }  // namespace xoz
