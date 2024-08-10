@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <vector>
 
 #include "xoz/ext/extent.h"
 #include "xoz/io/iobase.h"
@@ -252,6 +253,11 @@ protected:
     void notify_descriptor_changed();
 
 protected:
+    void read_future_idata(IOBase& io);
+    void write_future_idata(IOBase& io) const;
+    uint8_t future_idata_size() const;
+
+protected:
     /*
      * Subclass must update the content of this->hdr such
      * calc_struct_footprint_size() and calc_internal_data_space_size() reflect the updated
@@ -264,6 +270,9 @@ protected:
      * that.
      * If the caller wants it, it should call release_free_space() and flush_writes()
      * explicitly before calling update_header().
+     *
+     * When computing hdr.isize, update_header() *must* take into account the size
+     * returned by future_idata_size().
      * */
     virtual void update_header() = 0;
 
@@ -312,6 +321,14 @@ private:
     BlockArray& cblkarr;
 
 protected:
+    /*
+     * During the load_struct_from(), we may have a descriptor with isize
+     * of I but the subclass read less than I bytes (in read_struct_specifics_from())
+     * This could happen if the descriptor was written by a App version greater than
+     * the reader so those unread bytes must be preserved to avoid data losses.
+     * */
+    std::vector<char> future_idata;
+
     BlockArray& external_blkarr() { return cblkarr; }
 
 private:

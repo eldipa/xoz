@@ -294,6 +294,7 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
         throw InconsistentXOZ("");  // TODO
     }
 
+    // checksum descriptor subclass specific fields including future_idata
     local_checksum += inet_checksum(io, idata_begin_pos, dsc_end_pos);
 
     if (checksum) {
@@ -332,6 +333,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
         io.limit_rd(idata_begin_pos, hdr.isize);
 
         dsc->read_struct_specifics_from(io);
+        dsc->read_future_idata(io);
     }
     uint32_t dsc_end_pos = io.tell_rd();
 
@@ -492,13 +494,20 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     }
 
     uint32_t idata_begin_pos = io.tell_wr();
-    write_struct_specifics_into(io);
+    {
+        [[maybe_unused]] auto limit_guard = io.auto_restore_limits();
+        io.limit_wr(idata_begin_pos, hdr.isize);
+
+        write_struct_specifics_into(io);
+        write_future_idata(io);
+    }
     uint32_t dsc_end_pos = io.tell_wr();
 
     chk_rw_specifics_on_idata(false, io, idata_begin_pos, dsc_end_pos, hdr.isize);
     chk_struct_footprint(false, io, dsc_begin_pos, dsc_end_pos, this, ex_type_used);
     assert(dsc_end_pos == idata_begin_pos + hdr.isize);
 
+    // checksum descriptor subclass specific fields including future_idata
     checksum += inet_checksum(io, idata_begin_pos, dsc_end_pos);
     this->checksum = inet_to_u16(checksum);
 }
@@ -608,4 +617,13 @@ void Descriptor::notify_descriptor_changed() {
 }
 
 bool Descriptor::is_descriptor_set() const { return cast<const DescriptorSet>(true) != nullptr; }
+
+void Descriptor::read_future_idata(IOBase& io) {
+    future_idata.clear();
+    io.readall(future_idata);
+}
+
+void Descriptor::write_future_idata(IOBase& io) const { io.writeall(future_idata); }
+
+uint8_t Descriptor::future_idata_size() const { return assert_u8(future_idata.size()); }
 }  // namespace xoz
