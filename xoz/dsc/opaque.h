@@ -7,7 +7,7 @@
 
 namespace xoz {
 /*
- * Default descriptor: it is the most basic descriptor possible that just
+ * Opaque descriptor: it is the most basic descriptor possible that just
  * carries the data read from a XOZ file about a descriptor and writes into
  * the file without further interpretation.
  *
@@ -15,9 +15,9 @@ namespace xoz {
  * types.
  * */
 
-class DefaultDescriptor: public Descriptor {
+class OpaqueDescriptor: public Descriptor {
 public:
-    DefaultDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr);
+    OpaqueDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr);
 
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               RuntimeContext& rctx);
@@ -25,16 +25,16 @@ public:
 
 public:
     /*
-     * The set_data and get_data methods are mostly for testing.
+     * The set_idata and get_idata methods are mostly for testing.
      * In practice, nobody should be reading or modifying a DefaultDescriptor
      * because in theory this descriptor represent opaque unknown type
      * so the caller should have no idea how to use the data anyways.
      *
      * Do not use!!
      * */
-    void set_data(const std::vector<char>& data);
+    void /* private */ set_idata(const std::vector<char>& data);
 
-    const std::vector<char>& get_data() const;
+    const /* private */ std::vector<char>& get_idata() const;
 
 protected:
     void read_struct_specifics_from(IOBase& io) override;

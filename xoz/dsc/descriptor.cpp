@@ -6,9 +6,9 @@
 #include <utility>
 
 #include "xoz/blk/block_array.h"
-#include "xoz/dsc/default.h"
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/dsc/internals.h"
+#include "xoz/dsc/opaque.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/file/runtime_context.h"
 #include "xoz/log/format_string.h"

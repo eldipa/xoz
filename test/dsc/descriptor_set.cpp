@@ -4,7 +4,7 @@
 #include "xoz/segm/segment.h"
 #include "xoz/io/iospan.h"
 #include "xoz/dsc/descriptor.h"
-#include "xoz/dsc/default.h"
+#include "xoz/dsc/opaque.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/file/runtime_context.h"
 #include "xoz/blk/segment_block_array.h"
@@ -211,7 +211,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -252,8 +252,8 @@ namespace {
 
         // Retrieve the descriptor object, change it a little, mark it as modified
         // and check that the set correctly updated the content (serialization)
-        auto dscptr2 = dset->get<DefaultDescriptor>(id1);
-        dscptr2->set_data({'A', 'B'});
+        auto dscptr2 = dset->get<OpaqueDescriptor>(id1);
+        dscptr2->set_idata({'A', 'B'});
 
         dset->mark_as_modified(id1);
 
@@ -308,8 +308,8 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-        dscptr->set_data({'A', 'B'});
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
+        dscptr->set_idata({'A', 'B'});
 
         uint32_t id1 = dset->add(std::move(dscptr));
 
@@ -322,8 +322,8 @@ namespace {
         EXPECT_EQ(dset->does_require_write(), (bool)false);
 
         // Replace descriptor's data
-        auto dscptr2 = dset->get<DefaultDescriptor>(id1);
-        dscptr2->set_data({'C', 'D'});
+        auto dscptr2 = dset->get<OpaqueDescriptor>(id1);
+        dscptr2->set_idata({'C', 'D'});
 
         dset->mark_as_modified(id1);
 
@@ -333,7 +333,7 @@ namespace {
                 );
 
         // Grow descriptor's data
-        dscptr2->set_data({'A', 'B', 'C', 'D'});
+        dscptr2->set_idata({'A', 'B', 'C', 'D'});
 
         dset->mark_as_modified(id1);
 
@@ -344,7 +344,7 @@ namespace {
 
 
         // Shrink descriptor's data
-        dscptr2->set_data({'E', 'F'});
+        dscptr2->set_idata({'E', 'F'});
 
         dset->mark_as_modified(id1);
 
@@ -355,7 +355,7 @@ namespace {
 
 
         // Shrink descriptor's data to zero
-        dscptr2->set_data({});
+        dscptr2->set_idata({});
 
         dset->mark_as_modified(id1);
 
@@ -393,7 +393,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->get(id1)->get_owner(), std::addressof(*dset));
@@ -466,7 +466,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         dset->full_sync(false);
@@ -487,8 +487,8 @@ namespace {
                 );
 
         // Modify the descriptor living in dset
-        auto dscptr2 = dset->get<DefaultDescriptor>(id1);
-        dscptr2->set_data({'A', 'B'});
+        auto dscptr2 = dset->get<OpaqueDescriptor>(id1);
+        dscptr2->set_idata({'A', 'B'});
 
         dset->mark_as_modified(id1);
 
@@ -540,7 +540,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         dset->full_sync(false);
@@ -564,8 +564,8 @@ namespace {
         dset->move_out(id1, dset2);
 
         // Modify the descriptor living in dset2
-        auto dscptr2 = dset2->get<DefaultDescriptor>(id1);
-        dscptr2->set_data({'A', 'B'});
+        auto dscptr2 = dset2->get<OpaqueDescriptor>(id1);
+        dscptr2->set_idata({'A', 'B'});
 
         dset2->mark_as_modified(id1);
 
@@ -635,7 +635,7 @@ namespace {
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1));
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         dset->full_sync(false);
@@ -713,7 +713,7 @@ namespace {
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1));
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         dset->full_sync(false);
@@ -830,16 +830,16 @@ namespace {
             // the output determinisitc otherwise, if multiples descriptors
             // are pending to be added, there is no deterministic order
             // in which they will be written.
-            dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+            dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr));
             dset->full_sync(false);
 
-            auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-            dscptr2->set_data({'A', 'B'});
+            auto dscptr2 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
+            dscptr2->set_idata({'A', 'B'});
             uint32_t id2 = dset->add(std::move(dscptr2));
             dset->full_sync(false);
 
-            auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-            dscptr3->set_data({'C', 'D'});
+            auto dscptr3 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
+            dscptr3->set_idata({'C', 'D'});
             dset->add(std::move(dscptr3));
             dset->full_sync(false);
 
@@ -849,7 +849,7 @@ namespace {
             // all the descriptors are the same, it doesn't matter
             // the order and their output will still be deterministic.
             for (int i = 0; i < 2; ++i) {
-                dset2->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+                dset2->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr));
             }
             dset2->full_sync(false);
 
@@ -862,7 +862,7 @@ namespace {
             EXPECT_EQ(dset2->get(id2)->get_owner(), std::addressof(*dset2));
 
             for (int i = 0; i < 3; ++i) {
-                dset2->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+                dset2->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr));
             }
             dset2->full_sync(false);
         }
@@ -943,16 +943,16 @@ namespace {
             // are added *and* written; the last is added only
             // to test that even if still pending to be written
             // it can be accessed
-            dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+            dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr));
             dset->full_sync(false);
 
-            auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-            dscptr2->set_data({'A', 'B', 'C', 'D'});
+            auto dscptr2 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
+            dscptr2->set_idata({'A', 'B', 'C', 'D'});
             dset->add(std::move(dscptr2));
             dset->full_sync(false);
 
-            auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-            dscptr3->set_data({'C', 'D'});
+            auto dscptr3 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
+            dscptr3->set_idata({'C', 'D'});
             dset->add(std::move(dscptr3));
             // leave the set unwritten so dscptr3 is unwritten as well
         }
@@ -1020,33 +1020,33 @@ namespace {
 
         // Let the set assign a temporal id
         hdr.id = 0x0;
-        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr));
 
         // The set should honor our temporal id
         hdr.id = 0x81f11f1f;
-        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr));
 
         // Let the set assign a persistent id for us, even if the id is a temporal one
         hdr.id = 0x0;
-        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr), true);
+        dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr), true);
         hdr.id = 0x81f11f10;
-        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr), true);
+        dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr), true);
 
         // The set should honor our persistent id, even if assign_persistent_id is true
         hdr.id = 0xff1;
-        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr));
         hdr.id = 0xff2;
-        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr), true);
+        dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr), true);
 
         // Add a descriptor with a temporal id and then assign it a persistent id
         hdr.id = 0x80a0a0a0;
-        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr));
         dset->assign_persistent_id(hdr.id);
 
         // Add a descriptor with a persistent id and then assign it a persistent id
         // This should have no effect
         hdr.id = 0xaff1;
-        dset->add(std::make_unique<DefaultDescriptor>(hdr, d_blkarr));
+        dset->add(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr));
         dset->assign_persistent_id(hdr.id);
 
         // Let's collect all the ids
@@ -1112,7 +1112,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1120,7 +1120,7 @@ namespace {
 
         // Down cast to Descriptor subclass again
         // If the downcast works, cast<X> does neither throws nor return null
-        auto dscptr2 = dset->get<DefaultDescriptor>(id1);
+        auto dscptr2 = dset->get<OpaqueDescriptor>(id1);
         EXPECT_EQ((bool)dscptr2, (bool)true);
 
         // If the downcast fails, throw an exception (it does not return null either)
@@ -1278,7 +1278,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1304,7 +1304,7 @@ namespace {
                 );
 
         // Another descriptor but this time, do not write it
-        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr2 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         dset->add(std::move(dscptr2));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1354,7 +1354,7 @@ namespace {
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment()
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1433,7 +1433,7 @@ namespace {
             .segm = d_blkarr.allocator().alloc(130).add_end_of_segment()
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1497,7 +1497,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1534,7 +1534,7 @@ namespace {
                 );
 
         // Another descriptor, write it, then modify it but do not write it again
-        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr2 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         auto id2 = dset->add(std::move(dscptr2));
         dset->full_sync(false);
         dset->mark_as_modified(id2);
@@ -1582,7 +1582,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1619,7 +1619,7 @@ namespace {
                 );
 
         // Another descriptor, write it, then delete it but do not write it again
-        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr2 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         auto id2 = dset->add(std::move(dscptr2));
         dset->full_sync(false);
         dset->erase(id2);
@@ -1684,7 +1684,7 @@ namespace {
 
         // Descriptor uses the same block array for the content than
         // the set so it is OK.
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr_2);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr_2);
         dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1694,7 +1694,7 @@ namespace {
 
         // This descriptor uses other block array, which makes the add() to fail
         hdr.id += 1;
-        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr_1);
+        auto dscptr2 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr_1);
 
         EXPECT_THAT(
             ensure_called_once([&]() {
@@ -1741,7 +1741,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         auto id1 = dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1749,7 +1749,7 @@ namespace {
 
         // This descriptor uses the same id than the previous one
         // so the add should fail
-        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr2 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
 
         EXPECT_THAT(
             ensure_called_once([&]() {
@@ -1772,7 +1772,7 @@ namespace {
 
         // Create another descriptor with the same id and store it in a different set
         // No problem because the new set does not know about the former.
-        auto dscptr3 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr3 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
 
         Segment sg2(blk_sz_order);
         auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
@@ -1823,7 +1823,7 @@ namespace {
         };
 
         // Store 1 descriptor and write it
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         auto id1 = dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1833,7 +1833,7 @@ namespace {
 
         // Add another descriptor but do not write it.
         hdr.id += 1;
-        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr2 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         auto id2 = dset->add(std::move(dscptr2));
 
         EXPECT_EQ(dset->count(), (uint32_t)2);
@@ -1989,8 +1989,8 @@ namespace {
         // Add a bunch of descriptors
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
+            dscptr->set_idata({c, c});
 
             auto id = dset->add(std::move(dscptr), true);
             ids.push_back(id);
@@ -2012,8 +2012,8 @@ namespace {
         // Adding the erased descriptors back again
         for (size_t i = 4; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
+            dscptr->set_idata({c, c});
 
             auto id = dset->add(std::move(dscptr), true);
             ids[i] = id;
@@ -2023,8 +2023,8 @@ namespace {
         // Now expand the set even further
         for (size_t i = 10; i < ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
+            dscptr->set_idata({c, c});
 
             auto id = dset->add(std::move(dscptr), true);
             ids[i] = id;
@@ -2057,8 +2057,8 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < (int)ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = dset2->get<DefaultDescriptor>(ids[i]);
-            auto data = dscptr->get_data();
+            auto dscptr = dset2->get<OpaqueDescriptor>(ids[i]);
+            auto data = dscptr->get_idata();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
             EXPECT_EQ(data[1], (char)c);
@@ -2162,7 +2162,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
         dset->add(std::move(dscptr));
 
@@ -2264,7 +2264,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
         auto id1 = dset->add(std::move(dscptr));
 
@@ -2436,7 +2436,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
         dset->add(std::move(dscptr));
 
@@ -2497,10 +2497,10 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr1 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr1 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id1 = subdset->add(std::move(dscptr1));
 
-        auto dscptr2 = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr2 = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         uint32_t id2 = dset->add(std::move(dscptr2));
 
         // Add the subset to the main set
@@ -2717,7 +2717,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
         };
 
-        auto dscptr = std::make_unique<DefaultDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, d_blkarr);
         EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)10);
 
         auto id1 = dset->add(std::move(dscptr), true);
@@ -2771,7 +2771,7 @@ namespace {
         // "from future versions of the app" (aka forward compatibility)
         XOZ_RESET_FP(fp, FP_SZ);
 
-        auto id2 = dset3->add(std::move(std::make_unique<DefaultDescriptor>(hdr, d_blkarr)), true);
+        auto id2 = dset3->add(std::move(std::make_unique<OpaqueDescriptor>(hdr, d_blkarr)), true);
         dset3->full_sync(true);
         dset3->write_struct_into(IOSpan(fp), rctx2);
 

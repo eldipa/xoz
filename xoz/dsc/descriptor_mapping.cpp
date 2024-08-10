@@ -1,7 +1,7 @@
 #include "xoz/dsc/descriptor_mapping.h"
 
-#include "xoz/dsc/default.h"
 #include "xoz/dsc/descriptor_set.h"
+#include "xoz/dsc/opaque.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/log/format_string.h"
 
@@ -47,7 +47,7 @@ descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) 
         if (DSET_SUBCLASS_MIN_TYPE <= type and type <= DSET_SUBCLASS_MAX_TYPE) {
             return DescriptorSet::create;
         } else {
-            return DefaultDescriptor::create;
+            return OpaqueDescriptor::create;
         }
     }
 

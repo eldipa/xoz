@@ -1,6 +1,6 @@
 #include "xoz/file/file.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/dsc/default.h"
+#include "xoz/dsc/opaque.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -1560,8 +1560,8 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'D'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
             xfile.root()->full_sync(false);
@@ -1828,8 +1828,8 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
         }
@@ -2153,8 +2153,8 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
             xfile.root()->full_sync(false);
@@ -2525,8 +2525,8 @@ namespace {
 
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             auto id = xfile.root()->add(std::move(dscptr));
             ids.push_back(id);
@@ -2643,8 +2643,8 @@ namespace {
 
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             auto id = xfile.root()->add(std::move(dscptr), true);
             ids.push_back(id);
@@ -2956,8 +2956,8 @@ namespace {
 
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             auto id = xfile.root()->add(std::move(dscptr), true);
             ids.push_back(id);
@@ -3079,8 +3079,8 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = xfile2.root()->get<DefaultDescriptor>(ids[i]);
-            auto data = dscptr->get_data();
+            auto dscptr = xfile2.root()->get<OpaqueDescriptor>(ids[i]);
+            auto data = dscptr->get_idata();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
             EXPECT_EQ(data[1], (char)c);
@@ -3166,8 +3166,8 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < 4; ++i) {
             char c = char('A' + i);
-            auto dscptr = xfile3.root()->get<DefaultDescriptor>(ids[i]);
-            auto data = dscptr->get_data();
+            auto dscptr = xfile3.root()->get<OpaqueDescriptor>(ids[i]);
+            auto data = dscptr->get_idata();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
             EXPECT_EQ(data[1], (char)c);
@@ -3176,8 +3176,8 @@ namespace {
         // Now expand the trampoline adding the erased descriptors back again
         for (size_t i = 4; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile3.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile3.expose_block_array());
+            dscptr->set_idata({c, c});
 
             auto id = xfile3.root()->add(std::move(dscptr), true);
             ids[i] = id;
@@ -3281,8 +3281,8 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = xfile4.root()->get<DefaultDescriptor>(ids[i]);
-            auto data = dscptr->get_data();
+            auto dscptr = xfile4.root()->get<OpaqueDescriptor>(ids[i]);
+            auto data = dscptr->get_idata();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
             EXPECT_EQ(data[1], (char)c);
@@ -3291,8 +3291,8 @@ namespace {
         // Now expand even further
         for (size_t i = 10; i < ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile4.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile4.expose_block_array());
+            dscptr->set_idata({c, c});
 
             auto id = xfile4.root()->add(std::move(dscptr), true);
             ids[i] = id;
@@ -3466,8 +3466,8 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < (int)ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = xfile5.root()->get<DefaultDescriptor>(ids[i]);
-            auto data = dscptr->get_data();
+            auto dscptr = xfile5.root()->get<OpaqueDescriptor>(ids[i]);
+            auto data = dscptr->get_idata();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
             EXPECT_EQ(data[1], (char)c);
@@ -3497,8 +3497,8 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'D'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
             xfile.root()->full_sync(false);
@@ -3513,8 +3513,8 @@ namespace {
 
         auto dset = xfile.root()->get<DescriptorSet>(dset_id);
         for (char c = 'E'; c <= 'H'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             dset->add(std::move(dscptr));
             dset->full_sync(false);
@@ -3647,10 +3647,10 @@ namespace {
         // we need to find the new one)
         dset_id = 0;
         for (auto it = root_set2->cbegin(); it != root_set2->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(true);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
             if (dsc) {
-                EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-                EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+                EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+                EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
             } else {
                 auto dsc2 = (*it)->cast<DescriptorSet>(false); // throw if it is not a set as expected
                 dset_id = dsc2->id();
@@ -3663,9 +3663,9 @@ namespace {
         EXPECT_EQ(dset2->does_require_write(), (bool)false);
 
         for (auto it = dset2->cbegin(); it != dset2->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(false); // throw if it is not the expected class
-            EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-            EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(false); // throw if it is not the expected class
+            EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+            EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
         }
 
         // Check allocator stats: see that we correctly recovered the state of used/free blocks
@@ -3763,10 +3763,10 @@ namespace {
         // Same checks than made for xfile2 but this time for xfile3
         dset_id = 0;
         for (auto it = root_set3->cbegin(); it != root_set3->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(true);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
             if (dsc) {
-                EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-                EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+                EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+                EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
             } else {
                 auto dsc2 = (*it)->cast<DescriptorSet>(false); // throw if it is not a set as expected
                 dset_id = dsc2->id();
@@ -3779,9 +3779,9 @@ namespace {
         EXPECT_EQ(dset3->does_require_write(), (bool)false);
 
         for (auto it = dset3->cbegin(); it != dset3->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(false); // throw if it is not the expected class
-            EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-            EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(false); // throw if it is not the expected class
+            EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+            EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
         }
 
         // Check allocator stats: no change should had happen
@@ -3877,8 +3877,8 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'D'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
             xfile.root()->full_sync(false);
@@ -3899,8 +3899,8 @@ namespace {
 
         auto dset = xfile.root()->get<DescriptorSet>(dset_id);
         for (char c = 'E'; c <= 'H'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             dset->add(std::move(dscptr));
             dset->full_sync(false);
@@ -3908,8 +3908,8 @@ namespace {
 
         auto l2dset = dset->get<DescriptorSet>(l2dset_id);
         for (char c = 'I'; c <= 'K'; ++c) {
-            auto dscptr = std::make_unique<DefaultDescriptor>(hdr, xfile.expose_block_array());
-            dscptr->set_data({c, c});
+            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            dscptr->set_idata({c, c});
 
             l2dset->add(std::move(dscptr));
             l2dset->full_sync(false);
@@ -4055,10 +4055,10 @@ namespace {
         // we need to find the new one)
         dset_id = 0;
         for (auto it = root_set2->cbegin(); it != root_set2->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(true);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
             if (dsc) {
-                EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-                EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+                EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+                EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
             } else {
                 auto dsc2 = (*it)->cast<DescriptorSet>(false); // throw if it is not a set as expected
                 dset_id = dsc2->id();
@@ -4072,10 +4072,10 @@ namespace {
 
         l2dset_id = 0;
         for (auto it = dset2->cbegin(); it != dset2->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(true);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
             if (dsc) {
-                EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-                EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+                EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+                EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
             } else {
                 auto dsc2 = (*it)->cast<DescriptorSet>(false); // throw if it is not a set as expected
                 l2dset_id = dsc2->id();
@@ -4089,9 +4089,9 @@ namespace {
         EXPECT_EQ(l2dset2->does_require_write(), (bool)false);
 
         for (auto it = l2dset2->cbegin(); it != l2dset2->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(false); // throw if it is not the expected class
-            EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-            EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(false); // throw if it is not the expected class
+            EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+            EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
         }
 
         // Check allocator stats: expected to see the same values seen for <xfile>
@@ -4232,10 +4232,10 @@ namespace {
         // Same checks than made for xfile2 but this time for xfile3
         dset_id = 0;
         for (auto it = root_set3->cbegin(); it != root_set3->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(true);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
             if (dsc) {
-                EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-                EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+                EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+                EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
             } else {
                 auto dsc2 = (*it)->cast<DescriptorSet>(false); // throw if it is not a set as expected
                 dset_id = dsc2->id();
@@ -4249,10 +4249,10 @@ namespace {
 
         l2dset_id = 0;
         for (auto it = dset3->cbegin(); it != dset3->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(true);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
             if (dsc) {
-                EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-                EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+                EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+                EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
             } else {
                 auto dsc2 = (*it)->cast<DescriptorSet>(false); // throw if it is not a set as expected
                 l2dset_id = dsc2->id();
@@ -4266,9 +4266,9 @@ namespace {
         EXPECT_EQ(l2dset3->does_require_write(), (bool)false);
 
         for (auto it = l2dset3->cbegin(); it != l2dset3->cend(); ++it) {
-            auto dsc = (*it)->cast<DefaultDescriptor>(false); // throw if it is not the expected class
-            EXPECT_EQ(dsc->get_data().size(), (uint32_t)2);
-            EXPECT_EQ(dsc->get_data()[0], dsc->get_data()[1]);
+            auto dsc = (*it)->cast<OpaqueDescriptor>(false); // throw if it is not the expected class
+            EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
+            EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
         }
 
         // Check allocator stats: expected no change

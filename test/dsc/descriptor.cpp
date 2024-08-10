@@ -3,7 +3,7 @@
 #include "xoz/io/iospan.h"
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/descriptor_set.h"
-#include "xoz/dsc/default.h"
+#include "xoz/dsc/opaque.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/file/runtime_context.h"
 #include "xoz/blk/vector_block_array.h"
@@ -97,7 +97,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -138,8 +138,8 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data({1, 2, 3, 4}); // isize = 4
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
@@ -181,8 +181,8 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data({1, 2, 3, 4}); // isize = 4
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
@@ -266,8 +266,8 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data({1, 2, 3, 4}); // isize = 4
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
@@ -351,8 +351,8 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data({1, 2, 3, 4}); // isize = 4
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
@@ -394,8 +394,8 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data({1, 2, 3, 4}); // isize = 4
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata({1, 2, 3, 4}); // isize = 4
 
 
         // Check sizes
@@ -467,8 +467,8 @@ namespace {
         std::vector<char> data(64-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data(data); // isize = 64-2
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata(data); // isize = 64-2
 
 
         // Check sizes
@@ -515,8 +515,8 @@ namespace {
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data(data); // isize = 64
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata(data); // isize = 64
 
 
         // Check sizes
@@ -563,8 +563,8 @@ namespace {
         std::vector<char> data(128-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data(data); // isize = 128-2
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata(data); // isize = 128-2
 
 
         // Check sizes
@@ -613,8 +613,8 @@ namespace {
         std::vector<char> data(64-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data(data); // isize = 64-2
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata(data); // isize = 64-2
 
 
         // Check sizes
@@ -662,8 +662,8 @@ namespace {
         std::vector<char> data(64-2);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data(data); // isize = 64-2
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata(data); // isize = 64-2
 
 
         // Check sizes
@@ -707,7 +707,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -748,7 +748,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -831,7 +831,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -914,7 +914,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -958,8 +958,8 @@ namespace {
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data(data); // isize = 64
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata(data); // isize = 64
 
 
         // Check sizes
@@ -1004,7 +1004,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1045,7 +1045,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1086,7 +1086,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1127,7 +1127,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1170,7 +1170,7 @@ namespace {
 
         hdr.segm.set_inline_data({0x1, 0x2, 0x3});
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1211,8 +1211,8 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data({1, 2}); // isize = 2
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata({1, 2}); // isize = 2
 
 
         // Check sizes
@@ -1281,8 +1281,8 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
-        dsc.set_data({1, 2}); // isize = 2
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
+        dsc.set_idata({1, 2}); // isize = 2
 
 
         // Check sizes
@@ -1350,7 +1350,7 @@ namespace {
             return std::make_unique<DescriptorSubRW>(hdr, cblkarr);
         }
 
-        void set_data(const std::vector<char>& data) {
+        void set_idata(const std::vector<char>& data) {
             uint8_t isize = assert_u8(data.size());
             assert(isize % 2 == 0);
             assert(not is_isize_greater_than_allowed(isize));
@@ -1360,7 +1360,7 @@ namespace {
             update_header(); // no descriptor set that will call it so we need to call it ourselves
         }
 
-        const std::vector<char>& get_data() const {
+        const std::vector<char>& get_idata() const {
             return internal_data;
         }
 
@@ -1392,7 +1392,7 @@ namespace {
         };
 
         DescriptorSubRW dsc = DescriptorSubRW(hdr, cblkarr);
-        dsc.set_data({1, 2}); // isize = 2
+        dsc.set_idata({1, 2}); // isize = 2
 
 
         // Check sizes
@@ -1419,8 +1419,8 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Write a valid descriptor of data size 2
-        DefaultDescriptor dsc2 = DefaultDescriptor(hdr, cblkarr);
-        dsc2.set_data({1, 2});
+        OpaqueDescriptor dsc2 = OpaqueDescriptor(hdr, cblkarr);
+        dsc2.set_idata({1, 2});
         dsc2.write_struct_into(IOSpan(fp), rctx);
 
         // Load a descriptor. Despite DescriptorSubRW does not read anything (see the class)
@@ -1431,7 +1431,7 @@ namespace {
 
         // Check that the "bogus" descriptor didn't read the data *but* nevertheless
         // it carries it as the opaque data.
-        EXPECT_EQ(dsc3->get_data().size(), (uint32_t)0);
+        EXPECT_EQ(dsc3->get_idata().size(), (uint32_t)0);
         EXPECT_EQ(dsc3->get_future_idata()[0], (char)1);
         EXPECT_EQ(dsc3->get_future_idata()[1], (char)2);
 
@@ -1451,7 +1451,7 @@ namespace {
                 42  /* obj data size */
                 );
 
-        EXPECT_EQ(dsc4->get_data().size(), (uint32_t)0);
+        EXPECT_EQ(dsc4->get_idata().size(), (uint32_t)0);
         EXPECT_EQ(dsc4->get_future_idata()[0], (char)1);
         EXPECT_EQ(dsc4->get_future_idata()[1], (char)2);
     }
@@ -1475,7 +1475,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
         };
 
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1504,7 +1504,7 @@ namespace {
 
         // this will make the write_struct_into to set the has_id to true...
         hdr.id = 0xffff;
-        DefaultDescriptor dsc2 = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc2 = OpaqueDescriptor(hdr, cblkarr);
         dsc2.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_CHECKSUM(fp, dsc2); // check before the patch
 
@@ -1536,11 +1536,11 @@ namespace {
         // We repeat again has_id = true but we also make the descriptor very large so
         // we force to and id of 0 (because the temporal id is not stored)
         hdr.id = 0x80000001;
-        DefaultDescriptor dsc3 = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc3 = OpaqueDescriptor(hdr, cblkarr);
 
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
-        dsc3.set_data(data);
+        dsc3.set_idata(data);
 
         dsc3.write_struct_into(IOSpan(fp), rctx);
 
@@ -1578,21 +1578,21 @@ namespace {
         };
 
         // The concrete Descriptor subclass
-        DefaultDescriptor dsc = DefaultDescriptor(hdr, cblkarr);
+        OpaqueDescriptor dsc = OpaqueDescriptor(hdr, cblkarr);
 
         // Upper cast to Descriptor abstract class
         Descriptor* dsc2 = &dsc;
 
         // Down cast to Descriptor subclass again
         // If the downcast works, cast<X> does neither throws nor return null
-        DefaultDescriptor* dsc3 = dsc2->cast<DefaultDescriptor>();
-        EXPECT_NE(dsc3, (DefaultDescriptor*)nullptr);
+        OpaqueDescriptor* dsc3 = dsc2->cast<OpaqueDescriptor>();
+        EXPECT_NE(dsc3, (OpaqueDescriptor*)nullptr);
 
         // Paranoiac check: modifications through downcasted pointer are visible from
         // the original descriptor.
-        dsc3->set_data({'A', 'B'});
-        EXPECT_EQ(dsc.get_data()[0], (char)'A');
-        EXPECT_EQ(dsc.get_data()[1], (char)'B');
+        dsc3->set_idata({'A', 'B'});
+        EXPECT_EQ(dsc.get_idata()[0], (char)'A');
+        EXPECT_EQ(dsc.get_idata()[1], (char)'B');
 
         // If the downcast fails, throw an exception (it does not return null either)
         EXPECT_THAT(
