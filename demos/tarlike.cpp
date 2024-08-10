@@ -149,6 +149,9 @@ public:
         // that points to the allocated space.
         Segment segm = cblkarr.allocator().alloc(total_alloc_sz);
 
+        // TODO: talk somewhere how to make cdata/content backward/forward compatible
+        // like idata is (or xoz tries to)
+
         // The Descriptor API says that the segment stored in the header must be
         // inline-data ended.
         //
@@ -313,6 +316,21 @@ protected:
     void update_header() override {
         hdr.segm.add_end_of_segment();
         hdr.csize = hdr.segm.calc_data_space_size();
+
+        // the space needed for our fields
+        uint32_t isize = sizeof(uint32_t) + sizeof(uint16_t);
+
+        // To maintain forward/backward compatibility, xoz tracks any
+        // data beyond the specific fields of the FileMember class
+        // (data after the fields read in read_struct_specifics_from)
+        // This data is expected to be from future version of the App
+        // (imagine adding more fields to FileMember in a future version of tarlike)
+        // To preserve them we need to take it into account for the isize.
+        // (the reading/writing of that happens automatically by xoz)
+        isize += future_idata_size();
+
+        // Now, update hdr.isize
+        hdr.isize = xoz::assert_u8(isize);
     }
 
     // (5)
