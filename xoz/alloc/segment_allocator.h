@@ -110,7 +110,7 @@ public:
 
     Segment alloc(const uint32_t sz);
     Segment alloc(const uint32_t sz, const struct req_t& req);
-    void dealloc(const Segment& segm);
+    void dealloc(const Segment& segm, const bool zero_it = false);
 
     Extent alloc_single_extent(const uint32_t sz);
     void dealloc_single_extent(const Extent& ext);

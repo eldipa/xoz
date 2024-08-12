@@ -302,7 +302,7 @@ Extent SegmentAllocator::alloc_single_extent(const uint32_t sz) {
     return segm.exts().front();
 }
 
-void SegmentAllocator::dealloc(const Segment& segm) {
+void SegmentAllocator::dealloc(const Segment& segm, const bool zero_it) {
     fail_if_block_array_not_initialized();
     fail_if_allocator_not_initialized();
     fail_if_allocator_is_blocked();
@@ -310,6 +310,13 @@ void SegmentAllocator::dealloc(const Segment& segm) {
 
     TRACE_SECTION("D") << std::setw(5) << sz << " b" << TRACE_ENDL;
     TRACE_LINE << "* segment: " << segm << TRACE_ENDL;
+
+    if (zero_it) {
+        const char c = 0x00;
+
+        auto sg = segm;
+        IOSegment::fill_c(*_blkarr, sg, c, false);
+    }
 
 #if XOZ_TAINT_SEGM_DEALLOCATIONS
     {
@@ -359,6 +366,8 @@ void SegmentAllocator::realloc(Segment& segm, const uint32_t sz, const struct re
         return;
     }
 
+    const bool zero_it = true;  // TODO this should be a parameter
+
     const bool should_expand = (cur_sz < sz);
 
     std::vector<char> saved;
@@ -399,7 +408,7 @@ void SegmentAllocator::realloc(Segment& segm, const uint32_t sz, const struct re
             // now, perform a real deallocation of the tail.
             // the stats computed here will be compensated by the ones computed
             // in the earlier call to calc_ext_per_segm_stats
-            dealloc(tail);
+            dealloc(tail, zero_it);
 
             // drop the last extent (tail) and fake (stats only) an
             // allocation of the new segment
@@ -480,7 +489,7 @@ void SegmentAllocator::realloc(Segment& segm, const uint32_t sz, const struct re
 
                 // free the extents so the following alloc may have a chance of having
                 // a better performance
-                dealloc(to_free);
+                dealloc(to_free, zero_it);
                 to_free.clear();
 
                 segm.extend(alloc(saved_sz, req));
@@ -496,7 +505,7 @@ void SegmentAllocator::realloc(Segment& segm, const uint32_t sz, const struct re
 
         // Free any pending extent: (it may or may not be needed)
         if (to_free.ext_cnt() >= 1) {
-            dealloc(to_free);
+            dealloc(to_free, zero_it);
         }
     }
 }
