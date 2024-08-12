@@ -41,13 +41,18 @@ namespace {
     const uint8_t base_blkarr_blk_sz_order = 6;
     const uint32_t blkarr_blk_sz = 128;
 
-    TEST(SegmentBlockArrayTest64128, OneBlock) {
+    // NOTE: SegmentBlockArrayTest64128 is a parametrized test that will run for each
+    // possible flag for SegmentBlockArray that does not change the visible output
+    class SegmentBlockArrayTest64128 : public testing::TestWithParam<SegmentBlockArray::Flags> {
+    };
+
+    TEST_P(SegmentBlockArrayTest64128, OneBlock) {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order); // empty segment it will be interpreted as an empty block array below
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
 
         // Because sg is empty, the allocator() is empty. Note that if sg is not
         // empty it may not imply that it is fully allocated. Remember, the
@@ -100,14 +105,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest64128, OneBlockTwice) {
+    TEST_P(SegmentBlockArrayTest64128, OneBlockTwice) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -158,14 +163,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest64128, OneBlockCompletely) {
+    TEST_P(SegmentBlockArrayTest64128, OneBlockCompletely) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -222,14 +227,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest64128, TwoBlocks) {
+    TEST_P(SegmentBlockArrayTest64128, TwoBlocks) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(2);
@@ -275,7 +280,7 @@ namespace {
     }
 
 
-    TEST(SegmentBlockArrayTest64128, MaxBlocks) {
+    TEST_P(SegmentBlockArrayTest64128, MaxBlocks) {
 
         const auto max_blk_cnt = (1 << 16) - 1;
         const auto blk_sz = blkarr_blk_sz;
@@ -331,14 +336,14 @@ namespace {
     }
 
 
-    TEST(SegmentBlockArrayTest64128, ZeroBlocks) {
+    TEST_P(SegmentBlockArrayTest64128, ZeroBlocks) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -408,14 +413,14 @@ namespace {
     }
 
 
-    TEST(SegmentBlockArrayTest64128, ExtentOutOfBoundsSoFail) {
+    TEST_P(SegmentBlockArrayTest64128, ExtentOutOfBoundsSoFail) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -579,14 +584,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest64128, OneBlockButWriteLessBytes) {
+    TEST_P(SegmentBlockArrayTest64128, OneBlockButWriteLessBytes) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -624,14 +629,14 @@ namespace {
     }
 
 
-    TEST(SegmentBlockArrayTest64128, OneBlockButWriteAtOffset) {
+    TEST_P(SegmentBlockArrayTest64128, OneBlockButWriteAtOffset) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -682,14 +687,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest64128, OneBlockBoundary) {
+    TEST_P(SegmentBlockArrayTest64128, OneBlockBoundary) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Alloc 2 blocks but we will create an extent of 1.
@@ -808,7 +813,7 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest64128, ShrinkByDeallocExtents) {
+    TEST_P(SegmentBlockArrayTest64128, ShrinkByDeallocExtents) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -820,7 +825,7 @@ namespace {
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Grow once
@@ -1044,5 +1049,20 @@ namespace {
         EXPECT_EQ(sg.ext_cnt(), (uint32_t)0);
     }
 
+    INSTANTIATE_TEST_SUITE_P(
+            SegmentBlockArrayTest64128MultiFlags,
+            SegmentBlockArrayTest64128,
+            testing::Values(SegmentBlockArray::NONE, SegmentBlockArray::REALLOC_ON_GROW),
+            [](const testing::TestParamInfo<SegmentBlockArrayTest64128::ParamType>& info) {
+                switch (info.param) {
+                case SegmentBlockArray::NONE:
+                    return "ZeroFlags";
+                case SegmentBlockArray::REALLOC_ON_GROW:
+                    return "ReallocOnGrow";
+                default:
+                    throw "";
+                }
+            }
+            );
 }
 

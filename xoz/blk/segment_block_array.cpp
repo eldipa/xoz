@@ -25,9 +25,21 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t f
     // well because the allocator has the inline disabled (see default_req)
     // so we can merge/extend the segments (ours and the new one) flawless.
 
-    // Allocate a segment to extend the current one
-    auto additional_segm = bg_blkarr.allocator().alloc(grow_sz, default_req);
-    segm.extend(additional_segm);
+    // Realloc (expand) the current segment or allocate a new segment
+    // to extend the current one.
+    // The former is more efficient when there are
+    // several and tiny grows that incur in suballocations (by the bg allocator)
+    // because realloc() will try to deallocate those suballocations and reallocate
+    // a single larger one. The downside is this incurs in some copy of the data.
+    // The latter is less efficient but no copy happens.
+    uint32_t orig_sg_sz = segm.calc_data_space_size();
+    if (flags & REALLOC_ON_GROW) {
+        bg_blkarr.allocator().realloc(segm, orig_sg_sz + grow_sz, default_req);
+        assert(not segm.has_end_of_segment());
+    } else {
+        auto additional_segm = bg_blkarr.allocator().alloc(grow_sz, default_req);
+        segm.extend(additional_segm);
+    }
 
     // Create a new io segment because the underlying segment changed
     // (like when we need to create a new iterator if the container changed)
@@ -40,7 +52,7 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t f
     // a single tiny chunk for it but larger than it, hence, this translate
     // to having allocated more blocks than the initially requested/expected
     // fg_blk_cnt
-    uint32_t real_grow_sz = additional_segm.calc_data_space_size();
+    uint32_t real_grow_sz = segm.calc_data_space_size() - orig_sg_sz;
     uint16_t real_front_blk_cnt = bytes2blk_cnt(real_grow_sz);
     assert(real_grow_sz >= grow_sz);
     assert(real_front_blk_cnt >= fg_blk_cnt);
@@ -145,8 +157,8 @@ void SegmentBlockArray::impl_write(uint32_t blk_nr, uint32_t offset, char* buf, 
 }
 
 
-SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& bg_blkarr, uint32_t blk_sz):
-        BlockArray(), segm(segm), bg_blkarr(bg_blkarr) {
+SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& bg_blkarr, uint32_t blk_sz, uint32_t flags):
+        BlockArray(), segm(segm), bg_blkarr(bg_blkarr), flags(flags) {
     fail_if_bad_blk_sz(blk_sz);
     if (segm.inline_data_sz() != 0) {
         throw std::runtime_error("Segment cannot contain inline data to be used for SegmentBlockArray");

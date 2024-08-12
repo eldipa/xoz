@@ -18,7 +18,7 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
         segm(hdr.segm),
         sg_blkarr(blkarr),
         cblkarr(blkarr),
-        st_blkarr(this->segm, sg_blkarr, 2),
+        st_blkarr(this->segm, sg_blkarr, 2, 0),
         rctx(rctx),
         set_loaded(false),
         psize(0),

@@ -34,6 +34,8 @@ private:
 
     struct SegmentAllocator::req_t default_req;
 
+    uint32_t flags;
+
     uint32_t _impl_shrink_by_blocks(uint32_t fg_blk_cnt, bool release_blocks);
 
 public:
@@ -49,9 +51,11 @@ public:
      * The bg_blkarr must be previously initialized by the caller, with the extents of the segment marked as
      * allocated.
      * */
-    SegmentBlockArray(Segment& segm, BlockArray& bg_blkarr, uint32_t blk_sz);
+    SegmentBlockArray(Segment& segm, BlockArray& bg_blkarr, uint32_t blk_sz, uint32_t flags);
     ~SegmentBlockArray();
 
     const IOSegment& expose_mem_fp() const { return *bg_io.get(); }
+
+    enum Flags : uint32_t { NONE = 0, REALLOC_ON_GROW = 1 };
 };
 }  // namespace xoz

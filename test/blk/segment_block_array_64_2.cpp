@@ -48,13 +48,18 @@ namespace {
     const uint8_t base_blkarr_blk_sz_order = 6;
     const uint32_t blkarr_blk_sz = 2;
 
-    TEST(SegmentBlockArrayTest642, OneBlock) {
+    // NOTE: SegmentBlockArrayTest642 is a parametrized test that will run for each
+    // possible flag for SegmentBlockArray that does not change the visible output
+    class SegmentBlockArrayTest642 : public testing::TestWithParam<SegmentBlockArray::Flags> {
+    };
+
+    TEST_P(SegmentBlockArrayTest642, OneBlock) {
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order); // empty segment it will be interpreted as an empty block array below
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
 
         // Because sg is empty, the allocator() is empty. Note that if sg is not
         // empty it may not imply that it is fully allocated. Remember, the
@@ -101,14 +106,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest642, OneBlockTwice) {
+    TEST_P(SegmentBlockArrayTest642, OneBlockTwice) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -150,14 +155,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest642, OneBlockCompletely) {
+    TEST_P(SegmentBlockArrayTest642, OneBlockCompletely) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -202,14 +207,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest642, TwoBlocks) {
+    TEST_P(SegmentBlockArrayTest642, TwoBlocks) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(2);
@@ -241,7 +246,7 @@ namespace {
     }
 
 
-    TEST(SegmentBlockArrayTest642, MaxBlocks) {
+    TEST_P(SegmentBlockArrayTest642, MaxBlocks) {
 
         const auto max_blk_cnt = (1 << 16) - 1;
         const auto blk_sz = blkarr_blk_sz;
@@ -284,14 +289,14 @@ namespace {
     }
 
 
-    TEST(SegmentBlockArrayTest642, ZeroBlocks) {
+    TEST_P(SegmentBlockArrayTest642, ZeroBlocks) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -344,14 +349,14 @@ namespace {
     }
 
 
-    TEST(SegmentBlockArrayTest642, ExtentOutOfBoundsSoFail) {
+    TEST_P(SegmentBlockArrayTest642, ExtentOutOfBoundsSoFail) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -512,14 +517,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest642, OneBlockButWriteLessBytes) {
+    TEST_P(SegmentBlockArrayTest642, OneBlockButWriteLessBytes) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -551,14 +556,14 @@ namespace {
     }
 
 
-    TEST(SegmentBlockArrayTest642, OneBlockButWriteAtOffset) {
+    TEST_P(SegmentBlockArrayTest642, OneBlockButWriteAtOffset) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         auto old_top_nr = sg_blkarr.grow_by_blocks(1);
@@ -601,14 +606,14 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest642, OneBlockBoundary) {
+    TEST_P(SegmentBlockArrayTest642, OneBlockBoundary) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, GetParam());
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Alloc 2 blocks but we will create an extent of 1.
@@ -682,7 +687,8 @@ namespace {
                 );
     }
 
-    TEST(SegmentBlockArrayTest642, ShrinkByDeallocExtents) {
+    // NOTE: this is *not* a parametrized test and instead we test explicitly the NONE flag
+    TEST(SegmentBlockArrayTest642, ShrinkByDeallocExtentsNoneFlag) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
         base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
@@ -694,7 +700,7 @@ namespace {
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, SegmentBlockArray::NONE);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Grow once
@@ -976,5 +982,210 @@ namespace {
 
         EXPECT_EQ(sg.ext_cnt(), (uint32_t)0);
     }
+
+    // NOTE: this is *not* a parametrized test and instead we test explicitly the REALLOC_ON_GROW flag
+    TEST(SegmentBlockArrayTest642, ShrinkByDeallocExtentsReallocOnGrowFlag) {
+
+        VectorBlockArray base_blkarr(base_blkarr_blk_sz);
+        base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        // Pre-grow the base block array. This simplifies the reasoning of when
+        // an extent is added or not in the segment on calling sg_blkarr.grow_by_blocks
+        auto tmp = base_blkarr.allocator().alloc(16 * base_blkarr_blk_sz); // large enough
+        base_blkarr.allocator().dealloc(tmp); // TODO should grow_by_blocks add them to the fr alloc?
+
+        Segment sg(base_blkarr_blk_sz_order);
+
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, SegmentBlockArray::REALLOC_ON_GROW);
+        sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        // Grow once
+        auto old_top_nr = sg_blkarr.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)0);
+        XOZ_EXPECT_SIZES(sg,
+                4, // 1 extent (suballoc)
+                base_blkarr_subblk_sz * 1 // allocated space (measured in base array blk size)
+                );
+
+        // Because growing 1 blk makes grow the underlying array grow by 1/32 of a blk,
+        // we expect a new suballoc extent in the segment of length 1 subblks.
+        // Note that the capacity() is increased to 2 because this is the minimum that
+        // the underlying array can allocate 1/16 of a block
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)1);
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)1);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)2);
+
+        // Grow again. Because REALLOC_ON_GROW (and because the last extent was suballoc)
+        // we should *not* expect to add more extents to the segment but to do a realloc
+        old_top_nr = sg_blkarr.grow_by_blocks(3);
+        EXPECT_EQ(old_top_nr, (uint32_t)1);
+        XOZ_EXPECT_SIZES(sg,
+                4, // 1 extent (suballoc)
+                base_blkarr_subblk_sz * (1 + 1)
+                );
+
+        // Because growing 3 blks makes the capacity() to go to 4 (2/16 of a blk)
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)2);
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)4);
+
+        // Now shrink by 1 blk that implies dealloc of 1 subblks. Because the last extent has 1 subblks,
+        // no real shrink will happen.
+        sg_blkarr.shrink_by_blocks(1);
+        XOZ_EXPECT_SIZES(sg,
+                4, // 1 extent (suballoc)
+                base_blkarr_subblk_sz * (1 + 1)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)4);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)2);
+
+        // Grow by 1 and shrink by 1. See how the grow does not change the segment
+        // because it will use the pending-to-remove blk from the step above
+        old_top_nr = sg_blkarr.grow_by_blocks(1);
+        EXPECT_EQ(old_top_nr, (uint32_t)3);
+        XOZ_EXPECT_SIZES(sg,
+                4, // 1 extent (suballoc)
+                base_blkarr_subblk_sz * (1 + 1)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)4);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)2);
+
+        sg_blkarr.shrink_by_blocks(1);
+        XOZ_EXPECT_SIZES(sg,
+                4, // 1 extent (suballoc)
+                base_blkarr_subblk_sz * (1 + 1)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)3);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)3);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)4);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)2);
+
+        // Now shrink by 1 blk again.
+        sg_blkarr.shrink_by_blocks(1);
+        XOZ_EXPECT_SIZES(sg,
+                4, // 1 extent
+                base_blkarr_subblk_sz * (1 + 1)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)2);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)2);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)4);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)2);
+
+        // Grow again,
+        old_top_nr = sg_blkarr.grow_by_blocks(4);
+        EXPECT_EQ(old_top_nr, (uint32_t)2);
+        XOZ_EXPECT_SIZES(sg,
+                4, // 1 extent (suballoc)
+                base_blkarr_subblk_sz * (1 + 2)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)6);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)6);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)6);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)3);
+
+        // Now shrink by 2 blk. Because the last extent owns for 3 subblks, no real shrink
+        // will happen.
+        sg_blkarr.shrink_by_blocks(2);
+        XOZ_EXPECT_SIZES(sg,
+                4, // 1 extent (suballoc)
+                base_blkarr_subblk_sz * (1 + 2)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)6);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)3);
+
+        // Now we release_blocks: even if the last extent is for suballoc, we can do a split
+        // and release the blocks.
+        sg_blkarr.release_blocks();
+        XOZ_EXPECT_SIZES(sg,
+                4, // 1 extent (suballoc)
+                base_blkarr_subblk_sz * (1 + 1)
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)4);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)4);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)1);
+        EXPECT_EQ(sg.exts().back().is_suballoc(), true);
+        EXPECT_EQ(sg.exts().back().subblk_cnt(), (uint32_t)2);
+
+        // Shrink all, leave the array/segment empty
+        // Not release_blocks() is needed
+        sg_blkarr.shrink_by_blocks(4);
+        XOZ_EXPECT_SIZES(sg,
+                0, // 0 extent
+                0
+                );
+
+        EXPECT_EQ(sg_blkarr.begin_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.past_end_blk_nr(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)0);
+
+        EXPECT_EQ(sg.ext_cnt(), (uint32_t)0);
+    }
+
+    INSTANTIATE_TEST_SUITE_P(
+            SegmentBlockArrayTest642MultiFlags,
+            SegmentBlockArrayTest642,
+            testing::Values(SegmentBlockArray::NONE, SegmentBlockArray::REALLOC_ON_GROW),
+            [](const testing::TestParamInfo<SegmentBlockArrayTest642::ParamType>& info) {
+                switch (info.param) {
+                case SegmentBlockArray::NONE:
+                    return "ZeroFlags";
+                case SegmentBlockArray::REALLOC_ON_GROW:
+                    return "ReallocOnGrow";
+                default:
+                    throw "";
+                }
+            }
+            );
 }
 
