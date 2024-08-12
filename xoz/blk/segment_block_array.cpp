@@ -1,6 +1,7 @@
 #include "xoz/blk/segment_block_array.h"
 
 #include "xoz/blk/block_array.h"
+#include "xoz/blk/segment_block_array_flags.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/ext/extent.h"
 #include "xoz/io/iosegment.h"
@@ -33,7 +34,7 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t f
     // a single larger one. The downside is this incurs in some copy of the data.
     // The latter is less efficient but no copy happens.
     uint32_t orig_sg_sz = segm.calc_data_space_size();
-    if (flags & REALLOC_ON_GROW) {
+    if (flags & SG_BLKARR_REALLOC_ON_GROW) {
         bg_blkarr.allocator().realloc(segm, orig_sg_sz + grow_sz, default_req);
         assert(not segm.has_end_of_segment());
     } else {

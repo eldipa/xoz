@@ -55,7 +55,5 @@ public:
     ~SegmentBlockArray();
 
     const IOSegment& expose_mem_fp() const { return *bg_io.get(); }
-
-    enum Flags : uint32_t { NONE = 0, REALLOC_ON_GROW = 1 };
 };
 }  // namespace xoz

@@ -8,5 +8,6 @@ target_sources(xoz
     block_array.h
     file_block_array.h
     segment_block_array.h
+    segment_block_array_flags.h
     vector_block_array.h
     )

@@ -2,6 +2,7 @@
 #include "xoz/blk/segment_block_array.h"
 #include "xoz/ext/extent.h"
 #include "xoz/err/exceptions.h"
+#include "xoz/blk/segment_block_array_flags.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -43,7 +44,7 @@ namespace {
 
     // NOTE: SegmentBlockArrayTest6416 is a parametrized test that will run for each
     // possible flag for SegmentBlockArray that does not change the visible output
-    class SegmentBlockArrayTest6416 : public testing::TestWithParam<SegmentBlockArray::Flags> {
+    class SegmentBlockArrayTest6416 : public testing::TestWithParam<uint32_t> {
     };
 
 
@@ -707,7 +708,7 @@ namespace {
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, SegmentBlockArray::NONE);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, 0);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Grow once
@@ -989,7 +990,7 @@ namespace {
         EXPECT_EQ(sg.ext_cnt(), (uint32_t)0);
     }
 
-    // NOTE: this is *not* a parametrized test and instead we test explicitly the REALLOC_ON_GROW flag
+    // NOTE: this is *not* a parametrized test and instead we test explicitly the SG_BLKARR_REALLOC_ON_GROW flag
     TEST(SegmentBlockArrayTest6416, ShrinkByDeallocExtentsReallocOnGrowFlag) {
 
         VectorBlockArray base_blkarr(base_blkarr_blk_sz);
@@ -1002,7 +1003,7 @@ namespace {
 
         Segment sg(base_blkarr_blk_sz_order);
 
-        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, SegmentBlockArray::REALLOC_ON_GROW);
+        SegmentBlockArray sg_blkarr(sg, base_blkarr, blkarr_blk_sz, SG_BLKARR_REALLOC_ON_GROW);
         sg_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
 
         // Grow once
@@ -1024,7 +1025,7 @@ namespace {
         EXPECT_EQ(sg_blkarr.blk_cnt(), (uint32_t)1);
         EXPECT_EQ(sg_blkarr.capacity(), (uint32_t)1);
 
-        // Grow again. Because REALLOC_ON_GROW (and because the last extent was suballoc)
+        // Grow again. Because SG_BLKARR_REALLOC_ON_GROW (and because the last extent was suballoc)
         // we should *not* expect to add more extents to the segment but to do a realloc
         old_top_nr = sg_blkarr.grow_by_blocks(2);
         EXPECT_EQ(old_top_nr, (uint32_t)1);
@@ -1198,12 +1199,12 @@ namespace {
     INSTANTIATE_TEST_SUITE_P(
             SegmentBlockArrayTest6416MultiFlags,
             SegmentBlockArrayTest6416,
-            testing::Values(SegmentBlockArray::NONE, SegmentBlockArray::REALLOC_ON_GROW),
+            testing::Values(0, SG_BLKARR_REALLOC_ON_GROW),
             [](const testing::TestParamInfo<SegmentBlockArrayTest6416::ParamType>& info) {
                 switch (info.param) {
-                case SegmentBlockArray::NONE:
+                case 0:
                     return "ZeroFlags";
-                case SegmentBlockArray::REALLOC_ON_GROW:
+                case SG_BLKARR_REALLOC_ON_GROW:
                     return "ReallocOnGrow";
                 default:
                     throw "";

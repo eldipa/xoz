@@ -5,4 +5,5 @@ target_sources(xoz
     id_manager.h
     file.h
     runtime_context.h
+    runtime_config.h
     )

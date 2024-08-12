@@ -2,6 +2,7 @@
 #include "xoz/blk/segment_block_array.h"
 #include "xoz/ext/extent.h"
 #include "xoz/err/exceptions.h"
+#include "xoz/blk/segment_block_array_flags.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -43,7 +44,7 @@ namespace {
 
     // NOTE: SegmentBlockArrayTest64128 is a parametrized test that will run for each
     // possible flag for SegmentBlockArray that does not change the visible output
-    class SegmentBlockArrayTest64128 : public testing::TestWithParam<SegmentBlockArray::Flags> {
+    class SegmentBlockArrayTest64128 : public testing::TestWithParam<uint32_t> {
     };
 
     TEST_P(SegmentBlockArrayTest64128, OneBlock) {
@@ -1052,12 +1053,12 @@ namespace {
     INSTANTIATE_TEST_SUITE_P(
             SegmentBlockArrayTest64128MultiFlags,
             SegmentBlockArrayTest64128,
-            testing::Values(SegmentBlockArray::NONE, SegmentBlockArray::REALLOC_ON_GROW),
+            testing::Values(0, SG_BLKARR_REALLOC_ON_GROW),
             [](const testing::TestParamInfo<SegmentBlockArrayTest64128::ParamType>& info) {
                 switch (info.param) {
-                case SegmentBlockArray::NONE:
+                case 0:
                     return "ZeroFlags";
-                case SegmentBlockArray::REALLOC_ON_GROW:
+                case SG_BLKARR_REALLOC_ON_GROW:
                     return "ReallocOnGrow";
                 default:
                     throw "";
