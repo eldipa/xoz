@@ -12,12 +12,12 @@
 namespace xoz {
 struct File::preload_file_ctx_t File::dummy = {false, {0}};
 
-File::File(const DescriptorMapping& dmap, const char* fpath):
+File::File(const DescriptorMapping& dmap, const char* fpath, const struct runtime_config_t& runcfg):
         fpath(fpath),
         fblkarr(std::make_unique<FileBlockArray>(fpath, std::bind_front(File::preload_file, dummy))),
         closed(true),
         closing(false),
-        rctx(dmap),
+        rctx(dmap, runcfg),
         trampoline_segm(fblkarr->blk_sz_order()) {
     bootstrap_file();
     assert(not closed);
@@ -25,12 +25,12 @@ File::File(const DescriptorMapping& dmap, const char* fpath):
 }
 
 File::File(const DescriptorMapping& dmap, std::unique_ptr<FileBlockArray>&& fblkarr_,
-           const struct default_parameters_t& defaults, bool is_a_new_file):
+           const struct default_parameters_t& defaults, bool is_a_new_file, const struct runtime_config_t& runcfg):
         fpath(fblkarr_->get_file_path()),
         fblkarr(std::move(fblkarr_)),
         closed(true),
         closing(false),
-        rctx(dmap),
+        rctx(dmap, runcfg),
         trampoline_segm(fblkarr->blk_sz_order()) {
     if (is_a_new_file) {
         // The given file block array has a valid and open file but it is not initialized as
@@ -46,7 +46,7 @@ File::File(const DescriptorMapping& dmap, std::unique_ptr<FileBlockArray>&& fblk
 File::~File() { close(); }
 
 File File::create(const DescriptorMapping& dmap, const char* fpath, bool fail_if_exists,
-                  const struct default_parameters_t& defaults) {
+                  const struct default_parameters_t& defaults, const struct runtime_config_t& runcfg) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
     // the minimum block size (MIN_BLK_SZ) is an extra requirement of us
@@ -62,10 +62,11 @@ File File::create(const DescriptorMapping& dmap, const char* fpath, bool fail_if
 
     // We delegate the initialization of the new xoz file to the File constructor
     // that it should call init_new_file iff ctx.was_file_created
-    return File(dmap, std::move(fblkarr_ptr), defaults, ctx.was_file_created);
+    return File(dmap, std::move(fblkarr_ptr), defaults, ctx.was_file_created, runcfg);
 }
 
-File File::create_mem_based(const DescriptorMapping& dmap, const struct default_parameters_t& defaults) {
+File File::create_mem_based(const DescriptorMapping& dmap, const struct default_parameters_t& defaults,
+                            const struct runtime_config_t& runcfg) {
     // Check that the default block size is large enough and valid.
     // The same check will happen in FileBlockArray::create but we do it here because
     // the minimum block size (MIN_BLK_SZ) is an extra requirement of us
@@ -76,7 +77,7 @@ File File::create_mem_based(const DescriptorMapping& dmap, const struct default_
 
     // Memory based file block arrays (and therefore File too) are always created
     // empty and require an initialization (so is_a_new_file is always true)
-    return File(dmap, std::move(fblkarr_ptr), defaults, true);
+    return File(dmap, std::move(fblkarr_ptr), defaults, true, runcfg);
 }
 
 void File::bootstrap_file() {

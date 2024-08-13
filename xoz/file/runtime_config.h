@@ -1,4 +1,5 @@
 #pragma once
+#include "xoz/blk/segment_block_array_flags.h"
 
 namespace xoz {
 struct runtime_config_t {
@@ -16,4 +17,8 @@ struct runtime_config_t {
         const uint32_t sg_blkarr_flags;
     } dset;
 };
+
+constexpr static struct runtime_config_t DefaultRuntimeConfig = {
+        .dset = {.sg_blkarr_flags = SG_BLKARR_REALLOC_ON_GROW}};
+
 }  // namespace xoz

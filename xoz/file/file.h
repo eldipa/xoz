@@ -16,6 +16,7 @@
 #include "xoz/blk/file_block_array.h"
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/ext/extent.h"
+#include "xoz/file/runtime_config.h"
 #include "xoz/file/runtime_context.h"
 #include "xoz/segm/segment.h"
 
@@ -65,7 +66,8 @@ public:
     // or it contains an invalid xoz file, fail.
     //
     // To create a new xoz file, use File::create.
-    explicit File(const DescriptorMapping& dmap, const char* fpath);
+    explicit File(const DescriptorMapping& dmap, const char* fpath,
+                  const struct runtime_config_t& runcfg = DefaultRuntimeConfig);
 
     // Create a new xoz file in the given physical file.
     //
@@ -85,11 +87,13 @@ public:
     //
     // Only in this case the default parameters (def) will be used.
     static File create(const DescriptorMapping& dmap, const char* fpath, bool fail_if_exists = false,
-                       const struct default_parameters_t& defaults = DefaultsParameters);
+                       const struct default_parameters_t& defaults = DefaultsParameters,
+                       const struct runtime_config_t& runcfg = DefaultRuntimeConfig);
 
     // Like File::create but make the xoz file be memory based
     static File create_mem_based(const DescriptorMapping& dmap,
-                                 const struct default_parameters_t& defaults = DefaultsParameters);
+                                 const struct default_parameters_t& defaults = DefaultsParameters,
+                                 const struct runtime_config_t& runcfg = DefaultRuntimeConfig);
 
     /*
      * Close the xoz file and flush any pending write.
@@ -143,7 +147,7 @@ private:
      * is true.
      * */
     File(const DescriptorMapping& dmap, std::unique_ptr<FileBlockArray>&& fblkarr_ptr,
-         const struct default_parameters_t& defaults, bool is_a_new_file);
+         const struct default_parameters_t& defaults, bool is_a_new_file, const struct runtime_config_t& runcfg);
 
     /*
      * Initialize a xoz file: its block array, its allocator, any index and check for errors or inconsistencies.
