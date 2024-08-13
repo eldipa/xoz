@@ -1544,7 +1544,12 @@ namespace {
         DELETE("TrampolineNotRequired.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineNotRequired.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        const struct runtime_config_t runcfg = {
+            .dset = {
+                .sg_blkarr_flags = 0
+            }
+        };
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -1648,7 +1653,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile2(dmap, SCRATCH_HOME "TrampolineNotRequired.xoz");
+        File xfile2(dmap, SCRATCH_HOME "TrampolineNotRequired.xoz", runcfg);
 
         // We expect the file has grown
         EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -1724,7 +1729,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile3(dmap, SCRATCH_HOME "TrampolineNotRequired.xoz");
+        File xfile3(dmap, SCRATCH_HOME "TrampolineNotRequired.xoz", runcfg);
 
         // We expect the file has grown
         EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -2137,7 +2142,12 @@ namespace {
         DELETE("TrampolineRequired.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineRequired.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        const struct runtime_config_t runcfg = {
+            .dset = {
+                .sg_blkarr_flags = 0
+            }
+        };
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -2273,7 +2283,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile2(dmap, SCRATCH_HOME "TrampolineRequired.xoz");
+        File xfile2(dmap, SCRATCH_HOME "TrampolineRequired.xoz", runcfg);
 
         // The xfile.close() forced to allocate a trampoline so the blk array
         // should have one additional block
@@ -2387,7 +2397,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile3(dmap, SCRATCH_HOME "TrampolineRequired.xoz");
+        File xfile3(dmap, SCRATCH_HOME "TrampolineRequired.xoz", runcfg);
 
         // The xfile.close() forced to allocate a trampoline so the blk array
         // should have one additional block
@@ -2508,7 +2518,12 @@ namespace {
         DELETE("TrampolineRequiredButBeforeCloseItWasNotLongerRequired.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineRequiredButBeforeCloseItWasNotLongerRequired.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        const struct runtime_config_t runcfg = {
+            .dset = {
+                .sg_blkarr_flags = 0
+            }
+        };
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -2626,7 +2641,12 @@ namespace {
         DELETE("TrampolineRequiredThenCloseThenNotLongerRequired.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineRequiredThenCloseThenNotLongerRequired.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        const struct runtime_config_t runcfg = {
+            .dset = {
+                .sg_blkarr_flags = 0
+            }
+        };
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -2767,7 +2787,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile2(dmap, fpath);
+        File xfile2(dmap, fpath, runcfg);
 
         // The xfile.close() forced to allocate a trampoline so the blk array
         // should have one additional block
@@ -2852,7 +2872,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile3(dmap, fpath);
+        File xfile3(dmap, fpath, runcfg);
 
         // The xfile.close() forced to allocate a trampoline so the blk array
         // should have one additional block
@@ -2939,7 +2959,12 @@ namespace {
         DELETE("TrampolineRequiredOfDifferentSizes.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineRequiredOfDifferentSizes.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        const struct runtime_config_t runcfg = {
+            .dset = {
+                .sg_blkarr_flags = 0
+            }
+        };
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -3074,7 +3099,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile2(dmap, fpath);
+        File xfile2(dmap, fpath, runcfg);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
@@ -3161,7 +3186,7 @@ namespace {
                 );
 
 
-        File xfile3(dmap, fpath);
+        File xfile3(dmap, fpath, runcfg);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < 4; ++i) {
@@ -3276,7 +3301,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile4(dmap, fpath);
+        File xfile4(dmap, fpath, runcfg);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
@@ -3461,7 +3486,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile5(dmap, fpath);
+        File xfile5(dmap, fpath, runcfg);
 
         // Check that the set was loaded correctly
         for (int i = 0; i < (int)ids.size(); ++i) {
@@ -3481,7 +3506,12 @@ namespace {
         DELETE("TwoLevelDescriptorSets.xoz");
 
         const char* fpath = SCRATCH_HOME "TwoLevelDescriptorSets.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        const struct runtime_config_t runcfg = {
+            .dset = {
+                .sg_blkarr_flags = 0
+            }
+        };
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -3620,7 +3650,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile2(dmap, SCRATCH_HOME "TwoLevelDescriptorSets.xoz");
+        File xfile2(dmap, SCRATCH_HOME "TwoLevelDescriptorSets.xoz", runcfg);
 
         // We expect the file has grown
         EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -3739,7 +3769,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile3(dmap, SCRATCH_HOME "TwoLevelDescriptorSets.xoz");
+        File xfile3(dmap, SCRATCH_HOME "TwoLevelDescriptorSets.xoz", runcfg);
 
         // We expect the file has grown
         EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -3861,7 +3891,12 @@ namespace {
         DELETE("ThreeLevelDescriptorSets.xoz");
 
         const char* fpath = SCRATCH_HOME "ThreeLevelDescriptorSets.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        const struct runtime_config_t runcfg = {
+            .dset = {
+                .sg_blkarr_flags = 0
+            }
+        };
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -4028,7 +4063,7 @@ namespace {
                 // trailer
                 "454f 4600"
                 );
-        File xfile2(dmap, SCRATCH_HOME "ThreeLevelDescriptorSets.xoz");
+        File xfile2(dmap, SCRATCH_HOME "ThreeLevelDescriptorSets.xoz", runcfg);
 
         // We expect the file has grown
         EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -4208,7 +4243,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile3(dmap, SCRATCH_HOME "ThreeLevelDescriptorSets.xoz");
+        File xfile3(dmap, SCRATCH_HOME "ThreeLevelDescriptorSets.xoz", runcfg);
 
         // We expect the file has grown
         EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);

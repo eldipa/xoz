@@ -1368,7 +1368,7 @@ namespace {
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
-        EXPECT_EQ(dset->segment().length(), (uint32_t)2); // room for the header + added descriptor
+        EXPECT_EQ(dset->segment().length(), (uint32_t)1); // room for the header + added descriptor
 
         // Check that we are using the expected block counts:
         //  - floor(130 / 32) blocks for the content
@@ -1392,7 +1392,7 @@ namespace {
 
         // The set's segment is not empty because clear_set()+full_sync(false) does not
         // shrink (aka release) the segment by default
-        EXPECT_EQ(dset->segment().length(), (uint32_t)2);
+        EXPECT_EQ(dset->segment().length(), (uint32_t)1);
 
         // The caller must explicitly call full_sync(true).
         // We expect to see an empty segment as the header should had be removed too
@@ -1447,7 +1447,7 @@ namespace {
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
-        EXPECT_EQ(dset->segment().length(), (uint32_t)2); // room for the header + added descriptor
+        EXPECT_EQ(dset->segment().length(), (uint32_t)1); // room for the header + added descriptor
 
         // Check that we are using the expected block counts:
         //  - floor(130 / 32) blocks for the content
@@ -2176,7 +2176,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(*dset,
-                18,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
+                12,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
                 2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
                 10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
                 10   /* obj data size */
@@ -2187,7 +2187,7 @@ namespace {
                 "0184 0a00 "
 
                 // segment's extents
-                "0084 00f0 0080 0000 c00f "
+                "0084 c0ff "
 
                 // segment's inline
                 "00c0 "
@@ -2212,7 +2212,7 @@ namespace {
         XOZ_EXPECT_SET(dset2, 1, false);
 
         XOZ_EXPECT_SIZES(*dset2,
-                18,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
+                12,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
                 2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
                 10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
                 10   /* obj data size */
@@ -2223,7 +2223,7 @@ namespace {
                 "0184 0a00 "
 
                 // segment's extents
-                "0084 00f0 0080 0000 c00f "
+                "0084 c0ff "
 
                 // segment's inline
                 "00c0 "
@@ -2237,7 +2237,6 @@ namespace {
         // are the same
         XOZ_EXPECT_DESERIALIZATION(fp, *dset2, rctx, d_blkarr);
     }
-
 
     TEST(DescriptorSetTest, DscAddWriteClearWrite) {
         std::vector<char> fp;
@@ -2275,7 +2274,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(*dset,
-                18,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
+                12,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
                 2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
                 10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
                 10   /* obj data size */
@@ -2286,7 +2285,7 @@ namespace {
                 "0184 0a00 "
 
                 // segment's extents
-                "0084 00f0 0080 0000 c00f "
+                "0084 c0ff "
 
                 // segment's inline
                 "00c0 "
@@ -2522,7 +2521,7 @@ namespace {
         // because full_sync is recursive.
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0429 fa00 0184 0600 0084 00c0 0080 0000 0020 00c0 0000"
+                "0000 03a9 fa00 0184 0600 0084 00e0 00c0 0000"
                 );
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
                 "0000 fa00 fa00"
@@ -2552,7 +2551,7 @@ namespace {
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 // the set has only 1 desc (fa00), the rest is just padding
                 // that could be reclaimed
-                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
@@ -2626,7 +2625,7 @@ namespace {
         dset->full_sync(false);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0a28 0184 0600 0084 00c0 0080 0000 0020 00c0 0000 0000"
+                "0000 09a8 0184 0600 0084 00e0 00c0 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset2,
@@ -2731,7 +2730,7 @@ namespace {
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
-                "ff89 0e00 0084 00f0 0080 0000 fc0f 00c0 "
+                "ff89 0e00 0084 fcff 00c0 "
                 "ff01 0000 " // AppDescriptorSet's TYPE
                 "4241" // cookie
                 );
@@ -2776,11 +2775,11 @@ namespace {
         dset3->write_struct_into(IOSpan(fp), rctx2);
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
-                "0000 f985 fa82 0100 0000 0000 00c0 0000 fa82 0200 0000 0000 00c0 0000 0000 0000"
+                "0000 f985 fa82 0100 0000 0000 00c0 fa82 0200 0000 0000 00c0 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset3,
-                "ff89 1800 0084 00f0 0080 0000 fc0f 0084 c0ff 00c0 "
+                "ff89 1800 000c 0084 00ff 00c0 "
                 "ff01 0000 " // AppDescriptorSet's TYPE
                 "4241" // cookie
                 );
