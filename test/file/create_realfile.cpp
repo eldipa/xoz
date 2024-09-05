@@ -1807,7 +1807,7 @@ namespace {
     }
 
     // TODO: this test is disabled because the optimization of
-    // "fragmentation avoidance" is not implemented in DescriptorSet
+    // "preallocation" is not implemented in DescriptorSet
     // so doing a single full_sync ends up doing a lot of tiny
     // allocations anyways.
 #if 0

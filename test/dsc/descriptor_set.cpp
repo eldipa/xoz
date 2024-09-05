@@ -146,47 +146,6 @@ namespace {
                 );
     }
 
-#if 0
-    TEST(DescriptorSetTest, EmptySetNoDefaultConstruction) {
-        RuntimeContext rctx({});
-
-        // Data block array: this will be the block array that the set will
-        // use to access "content data blocks" *and* to access its own
-        // segment. In DescriptorSet's parlance, cblkarr and sg_blkarr.
-        VectorBlockArray d_blkarr(32);
-        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
-        const auto blk_sz_order = d_blkarr.blk_sz_order();
-
-        Segment sg(blk_sz_order);
-        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
-
-        dset->create_set(0x41);
-
-        // 0 descriptors by default, however the set requires a write because
-        // its header is pending of being written.
-        EXPECT_EQ(dset->count(), (uint32_t)0);
-        EXPECT_EQ(dset->does_require_write(), (bool)true);
-
-        // Write down the set: expected only its header with a 0x0000 checksum
-        dset->full_sync(false);
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "4100 4100"
-                );
-
-        // Load another set from the previous set's segment to see that
-        // both are consistent each other
-        auto dset2 = DescriptorSet::create(dset->segment(), d_blkarr, rctx);
-
-        // Header already written before, so no need to write it back (because it didn't change)
-        EXPECT_EQ(dset2->count(), (uint32_t)0);
-        EXPECT_EQ(dset2->does_require_write(), (bool)false);
-
-        dset2->full_sync(false);
-        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "4100 4100"
-                );
-    }
-#endif
 
     TEST(DescriptorSetTest, AddUpdateEraseDescriptor) {
         RuntimeContext rctx({});
@@ -2336,7 +2295,9 @@ namespace {
     }
 
 #if 0
-    // TODO
+    // The following test is disabled because we don't have a public constructor
+    // to set u16data/reserved data on dset creation.
+    // Currently we don't have a semantic for that data.
     TEST(DescriptorSetTest, DscEmptySetNonDefault) {
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
