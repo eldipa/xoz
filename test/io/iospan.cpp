@@ -1005,4 +1005,472 @@ namespace {
         EXPECT_EQ(iospan1.tell_rd(), uint32_t(10));
     }
 
+    TEST(IOSpanTest, CopyIntoSelfNoOverlap) {
+        std::vector<char> buf(256, 0); // zeros
+
+        std::vector<char> wrbuf(256);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..256
+        std::vector<char> rdbuf(256);
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(wrbuf, 64);
+
+        // Initial setup
+        iospan1.readall(rdbuf);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(rdbuf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        iospan1.seek_rd(0);
+        iospan1.seek_wr(128);
+
+        // Copy small: read starting from 0 writing starting from 128
+        iospan1.copy_into_self(32);
+
+        // rd/wr pointers are correctly 32 bytes after their initial positions
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(0 + 32));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(128 + 32));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Now, copy into the end of the io
+        iospan1.seek_rd(0);
+        iospan1.seek_wr(32, IOBase::Seekdir::end);
+        iospan1.copy_into_self(32);
+
+        // rd/wr pointers are correctly 32 bytes after their initial positions
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(0 + 32));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(256));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f"
+                );
+
+        // Now, copy from and into non-overlapping but very close areas
+        iospan1.seek_rd(32);
+        iospan1.seek_wr(32+32);
+        iospan1.copy_into_self(32);
+
+        // rd/wr pointers are correctly 32 bytes after their initial positions
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(32 + 32));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(32+32+32));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f"
+                );
+
+        // The same but the write zone is before the read zone
+        iospan1.seek_rd(32);
+        iospan1.seek_wr(0);
+        iospan1.copy_into_self(32);
+
+        // rd/wr pointers are correctly 32 bytes after their initial positions
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(32 + 32));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(32));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f"
+                );
+
+        // Test copy a large odd chunk
+        iospan1.seek_rd(0);
+        iospan1.seek_wr(128);
+        iospan1.copy_into_self(127); // leave one byte out of the 128 to use a weird size
+
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(0 + 127));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(128 + 127));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 001f"
+                );
+    }
+
+    TEST(IOSpanTest, CopyIntoSelfOverlap) {
+        std::vector<char> buf(256, 0); // zeros
+
+        std::vector<char> wrbuf(256);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..256
+        std::vector<char> rdbuf(256);
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(wrbuf, 64);
+
+        // Initial setup
+        iospan1.readall(rdbuf);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(rdbuf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        iospan1.seek_rd(0);
+        iospan1.seek_wr(16);
+
+        // Overlap 16 bytes of these 32; read area is before write area
+        iospan1.copy_into_self(32);
+
+        // rd/wr pointers are correctly 32 bytes after their initial positions
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(0 + 32));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(16 + 32));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 0001 0203 0405 0607 0809 0a0b 0c0d 0e0f "
+                "1011 1213 1415 1617 1819 1a1b 1c1d 1e1f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Let's write overlaps read
+        iospan1.seek_rd(32);
+        iospan1.seek_wr(16);
+
+        // Overlap 16 bytes of these 32; read area is after write area
+        iospan1.copy_into_self(32);
+
+        // rd/wr pointers are correctly 32 bytes after their initial positions
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(32 + 32));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(16 + 32));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "3031 3233 3435 3637 3839 3a3b 3c3d 3e3f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Test tiny overlap
+        iospan1.seek_rd(1);
+        iospan1.seek_wr(0);
+
+        iospan1.copy_into_self(2);
+
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(1 + 2));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(0 + 2));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0102 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "3031 3233 3435 3637 3839 3a3b 3c3d 3e3f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Test full overlap: expected no real copy and no change
+        iospan1.seek_rd(16);
+        iospan1.seek_wr(16);
+
+        iospan1.copy_into_self(32);
+
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(16 + 32));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(16 + 32));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0102 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "3031 3233 3435 3637 3839 3a3b 3c3d 3e3f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Test copy a medium chunk
+        iospan1.seek_rd(0);
+        iospan1.seek_wr(62);
+        iospan1.copy_into_self(64);
+
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(0 + 64));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(62 + 64));
+
+        // Read everything and check
+        iospan1.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "0102 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "3031 3233 3435 3637 3839 3a3b 3c3d 3e3f 3031 3233 3435 3637 3839 3a3b 3c3d 0102 "
+                "0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f 3031 "
+                "3233 3435 3637 3839 3a3b 3c3d 3e3f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+    }
+
+    TEST(IOSpanTest, CopyIntoOtherNoOverlap) {
+        std::vector<char> buf(256, 0); // zeros
+        std::vector<char> buf2(256, 0); // zeros
+
+        std::vector<char> wrbuf(256);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..256
+        std::vector<char> rdbuf(256);
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(wrbuf, 64);
+
+        IOSpan iospan2(buf2);
+
+        // Initial setup
+        iospan2.readall(rdbuf);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(rdbuf, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        iospan1.seek_rd(0);
+        iospan2.seek_wr(128);
+
+        // Copy small: read starting from 0 writing starting from 128
+        iospan1.copy_into(iospan2, 32);
+
+        // rd/wr pointers are correctly 32 bytes after their initial positions
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(0 + 32));
+        EXPECT_EQ(iospan2.tell_wr(), uint32_t(128 + 32));
+
+        // Read everything and check
+        iospan2.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf2, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        // Now, copy into the end of the io
+        iospan1.seek_rd(0);
+        iospan2.seek_wr(32, IOBase::Seekdir::end);
+        iospan1.copy_into(iospan2, 32);
+
+        // rd/wr pointers are correctly 32 bytes after their initial positions
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(0 + 32));
+        EXPECT_EQ(iospan2.tell_wr(), uint32_t(256));
+
+        // Read everything and check
+        iospan2.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf2, 0, -1,
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f"
+                );
+
+        // The same but the write zone is before the read zone
+        iospan1.seek_rd(32);
+        iospan2.seek_wr(0);
+        iospan1.copy_into(iospan2, 32);
+
+        // rd/wr pointers are correctly 32 bytes after their initial positions
+        EXPECT_EQ(iospan1.tell_rd(), uint32_t(32 + 32));
+        EXPECT_EQ(iospan2.tell_wr(), uint32_t(32));
+
+        // Read everything and check
+        iospan2.seek_rd(0);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf2, 0, -1,
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f"
+                );
+    }
+
+    TEST(IOSpanTest, CopyIntoSelfNotEnoughRoom) {
+        std::vector<char> buf(256, 0); // zeros
+
+        std::vector<char> wrbuf(256);
+        std::iota (std::begin(wrbuf), std::end(wrbuf), 0); // fill with 0..256
+        std::vector<char> rdbuf(256);
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(wrbuf, 64);
+
+        // Initial setup
+        iospan1.readall(rdbuf);
+        XOZ_EXPECT_BUFFER_SERIALIZATION(rdbuf, 0, -1,
+                "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
+                "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        iospan1.seek_rd(0);
+        iospan1.seek_wr(256);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(0));
+        EXPECT_THAT(
+                [&]() { iospan1.copy_into_self(1); },
+                ThrowsMessage<NotEnoughRoom>(
+                    AllOf(
+                        HasSubstr(
+                            "Requested 1 bytes but only 0 bytes are available. "
+                            "Copy into self IO 1 bytes from read position 0 (this/src) "
+                            "to write position 256 (dst) failed due not enough space "
+                            "to copy-into (dst:wr); detected before the copy even started."
+                            )
+                        )
+                    )
+                );
+
+        iospan1.seek_rd(127);
+        iospan1.seek_wr(0);
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(128+1));
+        EXPECT_THAT(
+                [&]() { iospan1.copy_into_self(128+2); },
+                ThrowsMessage<NotEnoughRoom>(
+                    AllOf(
+                        HasSubstr(
+                            "Requested 130 bytes but only 129 bytes are available. "
+                            "Copy into self IO 130 bytes from read position 127 (this/src) "
+                            "to write position 0 (dst) failed due not enough data "
+                            "to copy-from (src:rd); detected before the copy even started."
+                            )
+                        )
+                    )
+                );
+    }
+
+
+    TEST(IOSpanTest, CopyIntoOtherNotEnoughRoom) {
+        std::vector<char> buf(256, 0); // zeros
+        std::vector<char> buf2(256, 0); // zeros
+
+        IOSpan iospan1(buf);
+        IOSpan iospan2(buf2);
+
+        iospan1.seek_rd(0);
+        iospan2.seek_wr(256);
+
+        EXPECT_EQ(iospan2.remain_wr(), uint32_t(0));
+        EXPECT_THAT(
+                [&]() { iospan1.copy_into(iospan2, 1); },
+                ThrowsMessage<NotEnoughRoom>(
+                    AllOf(
+                        HasSubstr(
+                            "Requested 1 bytes but only 0 bytes are available. "
+                            "Copy into another IO 1 bytes from read position 0 (this/src) "
+                            "to write position 256 (dst) failed due not enough space "
+                            "to copy-into (dst:wr); detected before the copy even started."
+                            )
+                        )
+                    )
+                );
+
+        iospan1.seek_rd(127);
+        iospan2.seek_wr(0);
+
+        EXPECT_EQ(iospan1.remain_rd(), uint32_t(128+1));
+        EXPECT_THAT(
+                [&]() { iospan1.copy_into(iospan2, 128+2); },
+                ThrowsMessage<NotEnoughRoom>(
+                    AllOf(
+                        HasSubstr(
+                            "Requested 130 bytes but only 129 bytes are available. "
+                            "Copy into another IO 130 bytes from read position 127 (this/src) "
+                            "to write position 0 (dst) failed due not enough data "
+                            "to copy-from (src:rd); detected before the copy even started."
+                            )
+                        )
+                    )
+                );
+    }
 }

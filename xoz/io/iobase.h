@@ -273,6 +273,36 @@ public:
     RestoreLimitsGuard auto_restore_limits() { return RestoreLimitsGuard(*this); }
 
     /*
+     * Copy exact_sz bytes from the current rd position into the current wr position.
+     * Caller must call seek_rd/seek_wr to its desire to control the copy-from and copy-to
+     * locations.
+     * If there is not enough data to read or free space to write, an error will be thrown.
+     *
+     * The copy-from (src) and copy-to (dst) areas *can* overlap.
+     *
+     * After the copy, the rd and wr pointers are left at the current position
+     * (before the call) plus exact_sz.
+     *
+     * If an error happen during the copy, the content may had been partially copied
+     * and the rd and wr pointers are left in an unspecified state.
+     * */
+    void copy_into_self(const uint32_t exact_sz);
+
+    /*
+     * Like copy_into_self() but read from this (self) and writes into another io (dst).
+     *
+     * Both this (self) and dst *must* be io objects pointing to different areas
+     * (their segment must not overlap).
+     *
+     * After the copy, the rd and wr pointers are left at the current position
+     * (before the call) plus exact_sz.
+     *
+     * If an error happen during the copy, the content may had been partially copied
+     * and the rd and wr pointers are left in an unspecified state.
+     * */
+    void copy_into(IOBase& dst, const uint32_t exact_sz);
+
+    /*
      * The given buffer must have enough space to hold max_data_sz bytes The operation
      * will read/write up to max_data_sz bytes but it may less.
      *
@@ -383,6 +413,9 @@ protected:
     uint32_t chk_write_request_sizes(const std::vector<char>& data, const uint32_t sz) const;
     uint32_t chk_write_request_sizes(std::istream& input, const uint32_t sz) const;
     uint32_t chk_write_request_sizes(const uint64_t avail_sz, const uint32_t sz, const char* input_name) const;
+
+    void copy_into_self_from_start(const uint32_t exact_sz);
+    void copy_into_self_from_end(const uint32_t exact_sz);
 
 protected:
     virtual ~IOBase() {}

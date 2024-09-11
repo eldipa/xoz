@@ -12,6 +12,7 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/mem/bits.h"
 
+#define TMP_BUF_SZ 64
 
 namespace xoz {
 IOBase::IOBase(const uint32_t src_sz):
@@ -141,7 +142,7 @@ uint32_t IOBase::chk_write_request_sizes(const uint64_t avail_sz, const uint32_t
 
 void IOBase::fill(const char c, const uint32_t sz) {
     const auto hole = sz;
-    char pad[64];
+    char pad[TMP_BUF_SZ];
     memset(pad, c, sizeof(pad));
     for (unsigned batch = 0; batch < hole / sizeof(pad); ++batch) {
         writeall(pad, sizeof(pad));
@@ -303,5 +304,123 @@ void IOBase::rw_operation_exact_sz_iostream(std::ostream* const output, std::ist
                      << "]")
                         .str());
     }
+}
+
+void IOBase::copy_into_self(const uint32_t exact_sz) {
+    if (remain_rd() < exact_sz) {
+        throw NotEnoughRoom(exact_sz, remain_rd(),
+                            F() << "Copy into self IO " << exact_sz << " bytes from read position " << rd
+                                << " (this/src) to write position " << wr << " (dst) failed "
+                                << "due not enough data to copy-from (src:rd); "
+                                << "detected before the copy even started.");
+    }
+    if (remain_wr() < exact_sz) {
+        throw NotEnoughRoom(exact_sz, remain_wr(),
+                            F() << "Copy into self IO " << exact_sz << " bytes from read position " << rd
+                                << " (this/src) to write position " << wr << " (dst) failed "
+                                << "due not enough space to copy-into (dst:wr); "
+                                << "detected before the copy even started.");
+    }
+
+    if (rd == wr) {
+        // No copy, just move the pointers to simulate that something was done
+        seek_rd(exact_sz, Seekdir::fwd);
+        seek_wr(exact_sz, Seekdir::fwd);
+    } else if (rd < wr and wr < (rd + exact_sz)) {
+        // Overlap case 1: read buffer is before write buffer
+        // We need to copy from the end of the read buffer
+        copy_into_self_from_end(exact_sz);
+    } else {
+        // Two cases:
+        //  - Overlap case 2: read buffer is after write buffer
+        //  - No overlap
+        //
+        // In both cases we need to copy from the begin of the read buffer
+        copy_into_self_from_start(exact_sz);
+    }
+}
+
+void IOBase::copy_into(IOBase& dst, const uint32_t exact_sz) {
+    if (remain_rd() < exact_sz) {
+        throw NotEnoughRoom(exact_sz, remain_rd(),
+                            F() << "Copy into another IO " << exact_sz << " bytes from read position " << rd
+                                << " (this/src) to write position " << dst.wr << " (dst) failed "
+                                << "due not enough data to copy-from (src:rd); "
+                                << "detected before the copy even started.");
+    }
+    if (dst.remain_wr() < exact_sz) {
+        throw NotEnoughRoom(exact_sz, dst.remain_wr(),
+                            F() << "Copy into another IO " << exact_sz << " bytes from read position " << rd
+                                << " (this/src) to write position " << dst.wr << " (dst) failed "
+                                << "due not enough space to copy-into (dst:wr); "
+                                << "detected before the copy even started.");
+    }
+
+    char buf[TMP_BUF_SZ];
+
+    uint64_t remain = exact_sz;
+    while (remain) {
+        const auto chk_sz = assert_u32(std::min(sizeof(buf), remain));
+        readall(buf, chk_sz);
+        dst.writeall(buf, chk_sz);
+
+        remain -= chk_sz;
+    }
+
+    // Note: rw and wr pointers are left at the end of the read/written
+    // copied area as the method's do says.
+}
+
+void IOBase::copy_into_self_from_start(const uint32_t exact_sz) {
+
+    // Note: because in copy_into_self_from_start where we read from
+    // and where we write to may overlap, we *need* to copy what we read
+    // into a separated buffer and then write it back
+    // With the current IOBase API there is no other possibility but
+    // it is important to leave this documented just in case
+    char buf[TMP_BUF_SZ];
+
+    uint64_t remain = exact_sz;
+    while (remain) {
+        const auto chk_sz = assert_u32(std::min(sizeof(buf), remain));
+        readall(buf, chk_sz);
+        writeall(buf, chk_sz);
+
+        remain -= chk_sz;
+    }
+
+    // Note: rw and wr pointers are left at the end of the read/written
+    // copied area as the method's do says.
+}
+
+void IOBase::copy_into_self_from_end(const uint32_t exact_sz) {
+    // Note: because in copy_into_self_from_end where we read from
+    // and where we write to may overlap, we *need* to copy what we read
+    // into a separated buffer and then write it back
+    // See copy_into_self_from_start
+    char buf[TMP_BUF_SZ];
+
+    seek_rd(exact_sz, Seekdir::fwd);
+    seek_wr(exact_sz, Seekdir::fwd);
+
+    uint64_t remain = exact_sz;
+    while (remain) {
+        const auto chk_sz = assert_u32(std::min(sizeof(buf), remain));
+        seek_rd(chk_sz, Seekdir::bwd);
+        seek_wr(chk_sz, Seekdir::bwd);
+
+        readall(buf, chk_sz);
+        writeall(buf, chk_sz);
+
+        seek_rd(chk_sz, Seekdir::bwd);
+        seek_wr(chk_sz, Seekdir::bwd);
+        remain -= chk_sz;
+    }
+
+    // Note: we need to do these additional seeks so
+    // the rw and wr pointers are left at the end of the read/written
+    // copied area as the method's do says.
+    seek_rd(exact_sz, Seekdir::fwd);
+    seek_wr(exact_sz, Seekdir::fwd);
 }
 }  // namespace xoz
