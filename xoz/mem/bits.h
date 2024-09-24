@@ -4,6 +4,8 @@
 #include <cassert>
 #include <cstdint>
 
+#include "xoz/mem/asserts.h"
+
 namespace xoz {
 
 // Calculate the log2 of a uint16_t or uint32_t values
@@ -29,65 +31,6 @@ constexpr inline uint8_t u32_log2_floor(uint32_t x) { return uint8_t(32 - std::c
 
 [[nodiscard]] constexpr inline bool u32_fits_into_u16(uint32_t a) { return a == (uint16_t(a)); }
 
-/*
- * Perform a subtraction between the arguments:
- *  chk_subtraction(a, b) --> a - b
- *
- * The operation is defined for unsigned integers only.
- * If the operation would end up in an underflow (when a < b),
- * a DEBUG-assert will fail.
- * */
-template <typename Int>
-[[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<Int> and std::is_unsigned_v<Int>, Int>
-        assert_subtraction(const Int a, const Int b) noexcept {
-    assert("(a > b), subtraction will underflow" && (a >= b));
-    return a - b;
-}
-
-
-template <typename Dst, typename Src>
-[[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<Src> and std::is_integral_v<Dst>, Dst>
-        integral_cast_checked(const Src n) noexcept {
-    Dst m = static_cast<Dst>(n);
-    if constexpr (std::is_signed_v<Src> == std::is_signed_v<Dst>) {
-        // If both src and dst have the same "signedness" (both signed or both unsigned),
-        // we can see if we lost the value doing a comparison.
-        // We are relaying here that the compiler will the correct promotion
-        // to compare both
-        assert("integral cast failed" && (m == n));
-    } else {
-        // If the "signedness" differs, it means we are trying to cast a signed
-        // into an unsigned or viceversa. This is ok as long as both are
-        // non-negative integers otherwise a negative value cannot be represented
-        // by the other int type hence the integral_cast_checked fails.
-        if constexpr (std::is_signed_v<Src>) {
-            assert("integral cast failed" && (n >= 0));
-        } else {
-            assert("integral cast failed" && (m >= 0));
-        }
-    }
-    return m;
-}
-
-template <typename Src>
-[[nodiscard]] constexpr inline uint8_t assert_u8(const Src n) noexcept {
-    return integral_cast_checked<uint8_t>(n);
-}
-
-template <typename Src>
-[[nodiscard]] constexpr inline uint16_t assert_u16(const Src n) noexcept {
-    return integral_cast_checked<uint16_t>(n);
-}
-
-template <typename Src>
-[[nodiscard]] constexpr inline uint32_t assert_u32(const Src n) noexcept {
-    return integral_cast_checked<uint32_t>(n);
-}
-
-template <typename Src>
-[[nodiscard]] constexpr inline uint64_t assert_u64(const Src n) noexcept {
-    return integral_cast_checked<uint64_t>(n);
-}
 
 /*
  * Read the selected bits specified by mask from the given field. The value returned

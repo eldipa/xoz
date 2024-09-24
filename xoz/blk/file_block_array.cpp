@@ -41,7 +41,7 @@ std::tuple<uint32_t, uint16_t> FileBlockArray::impl_grow_by_blocks(uint16_t blk_
     // If not overflow happen, shifting by blk_sz_order() assuming 64 bits should not
     // overflow either
     uint64_t sz = uint64_t(past_end_blk_nr() + blk_cnt) << blk_sz_order();
-    may_grow_file_due_seek_phy(fp, integral_cast_checked<std::streamoff>(sz));
+    may_grow_file_due_seek_phy(fp, assert_integral_cast<std::streamoff>(sz));
 
     return {past_end_blk_nr(), blk_cnt};
 }
@@ -87,8 +87,8 @@ uint32_t FileBlockArray::impl_release_blocks() {
         uintmax_t remain = new_file_sz;
         while (remain) {
             const auto chk_sz = std::min(sizeof(buf), remain);
-            mem_fp.read(buf, integral_cast_checked<std::streamsize>(chk_sz));
-            alt_mem_fp.write(buf, integral_cast_checked<std::streamsize>(chk_sz));
+            mem_fp.read(buf, assert_integral_cast<std::streamsize>(chk_sz));
+            alt_mem_fp.write(buf, assert_integral_cast<std::streamsize>(chk_sz));
 
             remain -= chk_sz;
         }
@@ -298,7 +298,7 @@ void FileBlockArray::_extend_file_with_zeros(std::iostream& fp, uint64_t sz) {
 
     uint64_t remain = sz % 128;
     if (remain) {
-        fp.write(buf, integral_cast_checked<std::streamsize>(remain));
+        fp.write(buf, assert_integral_cast<std::streamsize>(remain));
     }
 }
 
@@ -376,7 +376,7 @@ void FileBlockArray::close() {
         // note: the seek relays on that the file fp was truncated to a size exactly
         // of the blocks in the array plus the header so we can write the trailer at the end
         fp.seekp(0, std::ios_base::end);
-        fp.write(trailer.data(), integral_cast_checked<std::streamsize>(trailer.size()));
+        fp.write(trailer.data(), assert_integral_cast<std::streamsize>(trailer.size()));
     }
 
     if (not is_mem_based()) {
@@ -408,7 +408,7 @@ void FileBlockArray::write_header(const char* buf, uint32_t exact_sz) {
     }
 
     fp.seekp(0);
-    fp.write(buf, integral_cast_checked<std::streamsize>(exact_sz));
+    fp.write(buf, assert_integral_cast<std::streamsize>(exact_sz));
 }
 
 void FileBlockArray::read_header(char* buf, uint32_t exact_sz) {

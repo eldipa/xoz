@@ -2,6 +2,7 @@ target_sources(xoz
     PRIVATE
     inet_checksum.cpp
     PUBLIC
+    asserts.h
     bits.h
     endianness.h
     inet_checksum.h
