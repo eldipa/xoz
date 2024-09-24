@@ -29,6 +29,22 @@ constexpr inline uint8_t u32_log2_floor(uint32_t x) { return uint8_t(32 - std::c
 
 [[nodiscard]] constexpr inline bool u32_fits_into_u16(uint32_t a) { return a == (uint16_t(a)); }
 
+/*
+ * Perform a subtraction between the arguments:
+ *  chk_subtraction(a, b) --> a - b
+ *
+ * The operation is defined for unsigned integers only.
+ * If the operation would end up in an underflow (when a < b),
+ * a DEBUG-assert will fail.
+ * */
+template <typename Int>
+[[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<Int> and std::is_unsigned_v<Int>, Int>
+        assert_subtraction(const Int a, const Int b) noexcept {
+    assert("(a > b), subtraction will underflow" && (a >= b));
+    return a - b;
+}
+
+
 template <typename Dst, typename Src>
 [[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<Src> and std::is_integral_v<Dst>, Dst>
         integral_cast_checked(const Src n) noexcept {
