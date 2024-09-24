@@ -1,5 +1,6 @@
 target_sources(xoz
     PRIVATE
+    asserts.cpp
     inet_checksum.cpp
     PUBLIC
     asserts.h
