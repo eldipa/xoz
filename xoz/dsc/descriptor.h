@@ -322,7 +322,6 @@ private:
     // Block array that holds the content of the descriptor (if any).
     BlockArray& cblkarr;
 
-protected:
     /*
      * During the load_struct_from(), we may have a descriptor with isize
      * of I but the subclass read less than I bytes (in read_struct_specifics_from())
@@ -331,6 +330,7 @@ protected:
      * */
     std::vector<char> future_idata;
 
+protected:
     BlockArray& external_blkarr() { return cblkarr; }
 
 private:

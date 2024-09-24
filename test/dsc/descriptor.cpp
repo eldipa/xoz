@@ -1363,10 +1363,6 @@ namespace {
         const std::vector<char>& get_idata() const {
             return internal_data;
         }
-
-        const std::vector<char>& get_future_idata() const {
-            return future_idata;
-        }
     };
 
     TEST(DescriptorTest, DescriptorReadOrWriteLess) {
@@ -1429,15 +1425,17 @@ namespace {
         auto dscptr3 = Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr);
         auto dsc3 = dscptr3->cast<DescriptorSubRW>();
 
-        // Check that the "bogus" descriptor didn't read the data *but* nevertheless
-        // it carries it as the opaque data.
+        // Check that the "bogus" descriptor didn't read the data
         EXPECT_EQ(dsc3->get_idata().size(), (uint32_t)0);
-        EXPECT_EQ(dsc3->get_future_idata()[0], (char)1);
-        EXPECT_EQ(dsc3->get_future_idata()[1], (char)2);
 
         // Both the writing and the loading should preserve opaque data
         XOZ_RESET_FP(fp, FP_SZ);
+
+        // Check the write preserve the opaque data
         dsc3->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, *dsc3,
+                "ff86 0f00 0000 2a00 00c0 0102"
+                );
 
         rctx.reset();
         auto dscptr4 = Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr);
@@ -1452,8 +1450,13 @@ namespace {
                 );
 
         EXPECT_EQ(dsc4->get_idata().size(), (uint32_t)0);
-        EXPECT_EQ(dsc4->get_future_idata()[0], (char)1);
-        EXPECT_EQ(dsc4->get_future_idata()[1], (char)2);
+
+        // Check the read and write preserve the opaque data
+        XOZ_RESET_FP(fp, FP_SZ);
+        dsc4->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, *dsc4,
+                "ff86 0f00 0000 2a00 00c0 0102"
+                );
     }
 
     TEST(DescriptorTest, DescriptorWithExplicitZeroId) {
