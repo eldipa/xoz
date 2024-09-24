@@ -14,26 +14,4 @@ std::unique_ptr<Descriptor> OpaqueDescriptor::create(const struct Descriptor::he
                                                      [[maybe_unused]] RuntimeContext& rctx) {
     return std::make_unique<OpaqueDescriptor>(hdr, cblkarr);
 }
-
-void OpaqueDescriptor::set_idata(const std::vector<char>& data) {
-    // chk for overflow
-    if (data.size() > uint8_t(-1)) {
-        throw "";
-    }
-
-    auto isize = uint8_t(data.size());
-    if (isize % 2 != 0) {
-        throw "";
-    }
-
-    if (is_isize_greater_than_allowed(isize)) {
-        throw "";
-    }
-
-    hdr.isize = isize;
-    future_idata = data;
-    notify_descriptor_changed();
-}
-
-const std::vector<char>& OpaqueDescriptor::get_idata() const { return future_idata; }
 }  // namespace xoz

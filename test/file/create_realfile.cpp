@@ -1,6 +1,6 @@
 #include "xoz/file/file.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/dsc/opaque.h"
+#include "xoz/dsc/plain.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -1539,7 +1539,7 @@ namespace {
     }
 
     TEST(FileTest, TrampolineNotRequired) {
-        DescriptorMapping dmap({});
+        DescriptorMapping dmap({{0xfa, PlainDescriptor::create}});
 
         DELETE("TrampolineNotRequired.xoz");
 
@@ -1565,7 +1565,7 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'D'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
@@ -1812,7 +1812,7 @@ namespace {
     // allocations anyways.
 #if 0
     TEST(FileTest, TrampolineNotRequiredDueFewWrites) {
-        DescriptorMapping dmap({});
+        DescriptorMapping dmap({{0xfa, PlainDescriptor::create}});
 
         DELETE("TrampolineNotRequiredDueFewWrites.xoz");
 
@@ -1833,7 +1833,7 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
@@ -2137,7 +2137,7 @@ namespace {
 #endif
 
     TEST(FileTest, TrampolineRequired) {
-        DescriptorMapping dmap({});
+        DescriptorMapping dmap({{0xfa, PlainDescriptor::create}});
 
         DELETE("TrampolineRequired.xoz");
 
@@ -2163,7 +2163,7 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
@@ -2513,7 +2513,7 @@ namespace {
     }
 
     TEST(FileTest, TrampolineRequiredButBeforeCloseItWasNotLongerRequired) {
-        DescriptorMapping dmap({});
+        DescriptorMapping dmap({{0xfa, PlainDescriptor::create}});
 
         DELETE("TrampolineRequiredButBeforeCloseItWasNotLongerRequired.xoz");
 
@@ -2540,7 +2540,7 @@ namespace {
 
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             auto id = xfile.root()->add(std::move(dscptr));
@@ -2636,7 +2636,7 @@ namespace {
     }
 
     TEST(FileTest, TrampolineRequiredThenCloseThenNotLongerRequired) {
-        DescriptorMapping dmap({});
+        DescriptorMapping dmap({{0xfa, PlainDescriptor::create}});
 
         DELETE("TrampolineRequiredThenCloseThenNotLongerRequired.xoz");
 
@@ -2663,7 +2663,7 @@ namespace {
 
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             auto id = xfile.root()->add(std::move(dscptr), true);
@@ -2954,7 +2954,7 @@ namespace {
     }
 
     TEST(FileTest, TrampolineRequiredOfDifferentSizes) {
-        DescriptorMapping dmap({});
+        DescriptorMapping dmap({{0xfa, PlainDescriptor::create}});
 
         DELETE("TrampolineRequiredOfDifferentSizes.xoz");
 
@@ -2981,7 +2981,7 @@ namespace {
 
         std::vector<uint32_t> ids;
         for (char c = 'A'; c <= 'Z'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             auto id = xfile.root()->add(std::move(dscptr), true);
@@ -3104,7 +3104,7 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = xfile2.root()->get<OpaqueDescriptor>(ids[i]);
+            auto dscptr = xfile2.root()->get<PlainDescriptor>(ids[i]);
             auto data = dscptr->get_idata();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3191,7 +3191,7 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < 4; ++i) {
             char c = char('A' + i);
-            auto dscptr = xfile3.root()->get<OpaqueDescriptor>(ids[i]);
+            auto dscptr = xfile3.root()->get<PlainDescriptor>(ids[i]);
             auto data = dscptr->get_idata();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3201,7 +3201,7 @@ namespace {
         // Now expand the trampoline adding the erased descriptors back again
         for (size_t i = 4; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile3.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile3.expose_block_array());
             dscptr->set_idata({c, c});
 
             auto id = xfile3.root()->add(std::move(dscptr), true);
@@ -3306,7 +3306,7 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < 10; ++i) {
             char c = char('A' + i);
-            auto dscptr = xfile4.root()->get<OpaqueDescriptor>(ids[i]);
+            auto dscptr = xfile4.root()->get<PlainDescriptor>(ids[i]);
             auto data = dscptr->get_idata();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3316,7 +3316,7 @@ namespace {
         // Now expand even further
         for (size_t i = 10; i < ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile4.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile4.expose_block_array());
             dscptr->set_idata({c, c});
 
             auto id = xfile4.root()->add(std::move(dscptr), true);
@@ -3491,7 +3491,7 @@ namespace {
         // Check that the set was loaded correctly
         for (int i = 0; i < (int)ids.size(); ++i) {
             char c = char('A' + i);
-            auto dscptr = xfile5.root()->get<OpaqueDescriptor>(ids[i]);
+            auto dscptr = xfile5.root()->get<PlainDescriptor>(ids[i]);
             auto data = dscptr->get_idata();
             EXPECT_EQ(data.size(), (size_t)2);
             EXPECT_EQ(data[0], (char)c);
@@ -3501,7 +3501,7 @@ namespace {
 
 
     TEST(FileTest, TwoLevelDescriptorSets) {
-        DescriptorMapping dmap({});
+        DescriptorMapping dmap({{0xfa, PlainDescriptor::create}});
 
         DELETE("TwoLevelDescriptorSets.xoz");
 
@@ -3527,7 +3527,7 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'D'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
@@ -3543,7 +3543,7 @@ namespace {
 
         auto dset = xfile.root()->get<DescriptorSet>(dset_id);
         for (char c = 'E'; c <= 'H'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             dset->add(std::move(dscptr));
@@ -3677,7 +3677,7 @@ namespace {
         // we need to find the new one)
         dset_id = 0;
         for (auto it = root_set2->cbegin(); it != root_set2->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
+            auto dsc = (*it)->cast<PlainDescriptor>(true);
             if (dsc) {
                 EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
                 EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
@@ -3693,7 +3693,7 @@ namespace {
         EXPECT_EQ(dset2->does_require_write(), (bool)false);
 
         for (auto it = dset2->cbegin(); it != dset2->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(false); // throw if it is not the expected class
+            auto dsc = (*it)->cast<PlainDescriptor>(false); // throw if it is not the expected class
             EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
             EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
         }
@@ -3793,7 +3793,7 @@ namespace {
         // Same checks than made for xfile2 but this time for xfile3
         dset_id = 0;
         for (auto it = root_set3->cbegin(); it != root_set3->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
+            auto dsc = (*it)->cast<PlainDescriptor>(true);
             if (dsc) {
                 EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
                 EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
@@ -3809,7 +3809,7 @@ namespace {
         EXPECT_EQ(dset3->does_require_write(), (bool)false);
 
         for (auto it = dset3->cbegin(); it != dset3->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(false); // throw if it is not the expected class
+            auto dsc = (*it)->cast<PlainDescriptor>(false); // throw if it is not the expected class
             EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
             EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
         }
@@ -3886,7 +3886,7 @@ namespace {
     }
 
     TEST(FileTest, ThreeLevelDescriptorSets) {
-        DescriptorMapping dmap({});
+        DescriptorMapping dmap({{0xfa, PlainDescriptor::create}});
 
         DELETE("ThreeLevelDescriptorSets.xoz");
 
@@ -3912,7 +3912,7 @@ namespace {
         };
 
         for (char c = 'A'; c <= 'D'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             xfile.root()->add(std::move(dscptr));
@@ -3934,7 +3934,7 @@ namespace {
 
         auto dset = xfile.root()->get<DescriptorSet>(dset_id);
         for (char c = 'E'; c <= 'H'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             dset->add(std::move(dscptr));
@@ -3943,7 +3943,7 @@ namespace {
 
         auto l2dset = dset->get<DescriptorSet>(l2dset_id);
         for (char c = 'I'; c <= 'K'; ++c) {
-            auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+            auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
             dscptr->set_idata({c, c});
 
             l2dset->add(std::move(dscptr));
@@ -4090,7 +4090,7 @@ namespace {
         // we need to find the new one)
         dset_id = 0;
         for (auto it = root_set2->cbegin(); it != root_set2->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
+            auto dsc = (*it)->cast<PlainDescriptor>(true);
             if (dsc) {
                 EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
                 EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
@@ -4107,7 +4107,7 @@ namespace {
 
         l2dset_id = 0;
         for (auto it = dset2->cbegin(); it != dset2->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
+            auto dsc = (*it)->cast<PlainDescriptor>(true);
             if (dsc) {
                 EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
                 EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
@@ -4124,7 +4124,7 @@ namespace {
         EXPECT_EQ(l2dset2->does_require_write(), (bool)false);
 
         for (auto it = l2dset2->cbegin(); it != l2dset2->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(false); // throw if it is not the expected class
+            auto dsc = (*it)->cast<PlainDescriptor>(false); // throw if it is not the expected class
             EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
             EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
         }
@@ -4267,7 +4267,7 @@ namespace {
         // Same checks than made for xfile2 but this time for xfile3
         dset_id = 0;
         for (auto it = root_set3->cbegin(); it != root_set3->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
+            auto dsc = (*it)->cast<PlainDescriptor>(true);
             if (dsc) {
                 EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
                 EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
@@ -4284,7 +4284,7 @@ namespace {
 
         l2dset_id = 0;
         for (auto it = dset3->cbegin(); it != dset3->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(true);
+            auto dsc = (*it)->cast<PlainDescriptor>(true);
             if (dsc) {
                 EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
                 EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
@@ -4301,7 +4301,7 @@ namespace {
         EXPECT_EQ(l2dset3->does_require_write(), (bool)false);
 
         for (auto it = l2dset3->cbegin(); it != l2dset3->cend(); ++it) {
-            auto dsc = (*it)->cast<OpaqueDescriptor>(false); // throw if it is not the expected class
+            auto dsc = (*it)->cast<PlainDescriptor>(false); // throw if it is not the expected class
             EXPECT_EQ(dsc->get_idata().size(), (uint32_t)2);
             EXPECT_EQ(dsc->get_idata()[0], dsc->get_idata()[1]);
         }

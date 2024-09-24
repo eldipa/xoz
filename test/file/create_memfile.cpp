@@ -1,6 +1,6 @@
 #include "xoz/file/file.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/dsc/opaque.h"
+#include "xoz/dsc/plain.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -184,7 +184,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
 
-        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+        auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
         dscptr->set_idata({'A', 'B'});
 
         xfile.root()->add(std::move(dscptr));
@@ -268,7 +268,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
 
-        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+        auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
         dscptr->set_idata({'A', 'B'});
 
         // Add a descriptor to the set but do not write the set. Let xfile.close() to do it.
@@ -350,7 +350,7 @@ namespace {
             .segm = Segment::create_empty_zero_inline(blk_sz_order)
         };
 
-        auto dscptr = std::make_unique<OpaqueDescriptor>(hdr, xfile.expose_block_array());
+        auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
         dscptr->set_idata({'A', 'B'});
 
         // Add a descriptor to the set and write it.

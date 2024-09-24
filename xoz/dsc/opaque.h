@@ -12,7 +12,7 @@ namespace xoz {
  * the file without further interpretation.
  *
  * It is meant to be used by XOZ to load and write descriptors of unknown
- * types.
+ * types, hence, it has not a specified type.
  * */
 
 class OpaqueDescriptor: public Descriptor {
@@ -21,20 +21,6 @@ public:
 
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               RuntimeContext& rctx);
-
-
-public:
-    /*
-     * The set_idata and get_idata methods are mostly for testing.
-     * In practice, nobody should be reading or modifying a DefaultDescriptor
-     * because in theory this descriptor represent opaque unknown type
-     * so the caller should have no idea how to use the data anyways.
-     *
-     * Do not use!!
-     * */
-    void /* private */ set_idata(const std::vector<char>& data);
-
-    const /* private */ std::vector<char>& get_idata() const;
 
 protected:
     void read_struct_specifics_from(IOBase& io) override;
