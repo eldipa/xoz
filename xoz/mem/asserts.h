@@ -22,7 +22,7 @@ void abort_execution();
 
 #define xoz_internals__assert_annotated(msg, cond, file, line, func)      \
     do {                                                                  \
-        if (cond) {                                                       \
+        if (!(cond)) {                                                    \
             internals::print_error((msg), #cond, (file), (line), (func)); \
             internals::abort_execution();                                 \
         }                                                                 \
