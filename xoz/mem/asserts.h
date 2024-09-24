@@ -3,6 +3,7 @@
 #include <bit>
 #include <cassert>
 #include <cstdint>
+#include <ios>
 
 #ifndef NDEBUG
 #include <cstdio>
@@ -117,5 +118,15 @@ template <typename Src>
 template <typename Src>
 [[nodiscard]] constexpr inline uint64_t assert_u64(const Src n) noexcept {
     return assert_integral_cast<uint64_t>(n);
+}
+
+template <typename Src>
+[[nodiscard]] constexpr inline std::streamsize assert_streamsize(const Src n) noexcept {
+    return assert_integral_cast<std::streamsize>(n);
+}
+
+template <typename Src>
+[[nodiscard]] constexpr inline std::streamsize assert_streamoff(const Src n) noexcept {
+    return assert_integral_cast<std::streamoff>(n);
 }
 }  // namespace xoz
