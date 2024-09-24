@@ -50,6 +50,12 @@ public:
     IOSegment dup() const;
 
     /*
+     * Move allowed.
+     * */
+    IOSegment(IOSegment&&) = default;
+    IOSegment& operator=(IOSegment&&) = default;
+
+    /*
      * Similar to IOBase::fill, this class method fill_c fills the data space pointed
      * by the segment in the given block array with a single byte c.
      *
