@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "xoz/mem/asserts.h"
+#include "xoz/mem/casts.h"
 
 namespace xoz {
 

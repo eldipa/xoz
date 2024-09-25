@@ -5,6 +5,7 @@ target_sources(xoz
     PUBLIC
     asserts.h
     bits.h
+    casts.h
     endianness.h
     inet_checksum.h
     )
