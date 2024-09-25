@@ -1,5 +1,7 @@
 #pragma once
 
+#include "xoz/mem/asserts.h"
+
 namespace xoz {
 
 namespace internals {
@@ -32,6 +34,23 @@ template <typename UInt>
 [[nodiscard]] constexpr inline bool test_u64_add(uint64_t a, uint64_t b) {
     return internals::test_unsigned_int_add<uint64_t>(a, b);
 }
+
+
+namespace internals {
+/*
+ * Return (a - b) and check that the result is still representable by the same unsigned Src type.
+ * (aka, remains positive)
+ * */
+template <typename UInt>
+[[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<UInt> and std::is_unsigned_v<UInt>, UInt>
+        unsigned_int_sub_is_nonneg_annotated(const UInt a, const UInt b, const char* file, unsigned int line,
+                                             const char* func) {
+    xoz_internals__assert_annotated("op went negative", (a >= b), file, line, func);
+    return a - b;
+}
+}  // namespace internals
+
+#define assert_u32_sub_nonneg(a, b) internals::unsigned_int_sub_is_nonneg_annotated(a, b, __FILE__, __LINE__, __func__)
 
 namespace internals {
 /*
