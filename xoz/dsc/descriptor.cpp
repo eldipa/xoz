@@ -12,8 +12,8 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/file/runtime_context.h"
 #include "xoz/log/format_string.h"
-#include "xoz/mem/bits.h"
 #include "xoz/mem/inet_checksum.h"
+#include "xoz/mem/integer_ops.h"
 
 
 namespace xoz {
@@ -180,10 +180,10 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     local_checksum += firstfield;
 
-    bool own_content = read_bitsfield_from_u16<bool>(firstfield, MASK_OWN_CONTENT_FLAG);
-    uint8_t lo_isize = read_bitsfield_from_u16<uint8_t>(firstfield, MASK_LO_ISIZE);
-    bool has_id = read_bitsfield_from_u16<bool>(firstfield, MASK_HAS_ID_FLAG);
-    uint16_t type = read_bitsfield_from_u16<uint16_t>(firstfield, MASK_TYPE);
+    bool own_content = assert_read_bits_from_u16(bool, firstfield, MASK_OWN_CONTENT_FLAG);
+    uint8_t lo_isize = assert_read_bits_from_u16(uint8_t, firstfield, MASK_LO_ISIZE);
+    bool has_id = assert_read_bits_from_u16(bool, firstfield, MASK_HAS_ID_FLAG);
+    uint16_t type = assert_read_bits_from_u16(uint16_t, firstfield, MASK_TYPE);
 
     uint32_t id = 0;
     uint8_t hi_isize = 0;
@@ -193,8 +193,8 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
         local_checksum += inet_checksum(idfield);
 
-        hi_isize = read_bitsfield_from_u32<uint8_t>(idfield, MASK_HI_ISIZE);
-        id = read_bitsfield_from_u32<uint32_t>(idfield, MASK_ID);
+        hi_isize = assert_read_bits_from_u32(uint8_t, idfield, MASK_HI_ISIZE);
+        id = assert_read_bits_from_u32(uint32_t, idfield, MASK_ID);
     }
 
     uint8_t isize = uint8_t((uint8_t(hi_isize << 5) | lo_isize) << 1);  // in bytes
@@ -205,15 +205,15 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
         local_checksum += sizefield;
 
-        bool large = read_bitsfield_from_u16<bool>(sizefield, MASK_LARGE_FLAG);
-        lo_csize = read_bitsfield_from_u16<uint32_t>(sizefield, MASK_LO_CSIZE);
+        bool large = assert_read_bits_from_u16(bool, sizefield, MASK_LARGE_FLAG);
+        lo_csize = assert_read_bits_from_u16(uint32_t, sizefield, MASK_LO_CSIZE);
 
         if (large) {
             uint16_t largefield = io.read_u16_from_le();
 
             local_checksum += largefield;
 
-            hi_csize = read_bitsfield_from_u16<uint32_t>(largefield, MASK_HI_CSIZE);
+            hi_csize = assert_read_bits_from_u16(uint32_t, largefield, MASK_HI_CSIZE);
         }
     }
 
@@ -408,14 +408,14 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
 
     uint16_t firstfield = 0;
 
-    write_bitsfield_into_u16(firstfield, hdr.own_content, MASK_OWN_CONTENT_FLAG);
-    write_bitsfield_into_u16(firstfield, assert_u16(hdr.isize >> 1), MASK_LO_ISIZE);
-    write_bitsfield_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
+    assert_write_bits_into_u16(firstfield, hdr.own_content, MASK_OWN_CONTENT_FLAG);
+    assert_write_bits_into_u16(firstfield, assert_u16(hdr.isize >> 1), MASK_LO_ISIZE);
+    assert_write_bits_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
     if (hdr.type < EXTENDED_TYPE_VAL_THRESHOLD) {
-        write_bitsfield_into_u16(firstfield, hdr.type, MASK_TYPE);
+        assert_write_bits_into_u16(firstfield, hdr.type, MASK_TYPE);
     } else {
-        write_bitsfield_into_u16(firstfield, EXTENDED_TYPE_VAL_THRESHOLD, MASK_TYPE);
+        assert_write_bits_into_u16(firstfield, EXTENDED_TYPE_VAL_THRESHOLD, MASK_TYPE);
     }
 
     // Write the first field
@@ -427,16 +427,16 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     if (has_id) {
         uint32_t idfield = 0;
         bool hi_dsize_msb = hdr.isize >> (1 + 5);  // discard 5 lower bits of isize
-        write_bitsfield_into_u32(idfield, hi_dsize_msb, MASK_HI_ISIZE);
+        assert_write_bits_into_u32(idfield, hi_dsize_msb, MASK_HI_ISIZE);
 
         if (is_id_temporal(hdr.id)) {
             // for temporal ids we are not required to have an idfield unless
             // we have to write hi_dsize_msb too.
             // so if we are here, hi_dsize_msb must be 1.
             assert(hi_dsize_msb);
-            write_bitsfield_into_u32(idfield, uint32_t(0), MASK_ID);
+            assert_write_bits_into_u32(idfield, uint32_t(0), MASK_ID);
         } else {
-            write_bitsfield_into_u32(idfield, hdr.id, MASK_ID);
+            assert_write_bits_into_u32(idfield, hdr.id, MASK_ID);
         }
 
         io.write_u32_to_le(idfield);
@@ -449,8 +449,8 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
 
         // Write the sizefield and optionally the largefield
         if (hdr.csize < (1 << 15)) {
-            write_bitsfield_into_u16(sizefield, false, MASK_LARGE_FLAG);
-            write_bitsfield_into_u16(sizefield, hdr.csize, MASK_LO_CSIZE);
+            assert_write_bits_into_u16(sizefield, false, MASK_LARGE_FLAG);
+            assert_write_bits_into_u16(sizefield, hdr.csize, MASK_LO_CSIZE);
 
             io.write_u16_to_le(sizefield);
             checksum += sizefield;
@@ -461,11 +461,11 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
                                                 << uint32_t(0x80000000) << ") in " << hdr);
             }
 
-            write_bitsfield_into_u16(sizefield, true, MASK_LARGE_FLAG);
-            write_bitsfield_into_u16(sizefield, hdr.csize, MASK_LO_CSIZE);
+            assert_write_bits_into_u16(sizefield, true, MASK_LARGE_FLAG);
+            assert_write_bits_into_u16(sizefield, hdr.csize, MASK_LO_CSIZE);
 
             uint16_t largefield = 0;
-            write_bitsfield_into_u16(largefield, assert_u16(hdr.csize >> 15), MASK_HI_CSIZE);
+            assert_write_bits_into_u16(largefield, assert_u16(hdr.csize >> 15), MASK_HI_CSIZE);
 
             io.write_u16_to_le(sizefield);
             io.write_u16_to_le(largefield);

@@ -744,8 +744,8 @@ void DescriptorSet::fail_if_not_allowed_to_add(const Descriptor* dsc) const {
 void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     uint16_t field = io.read_u16_from_le();
 
-    psize = read_bitsfield_from_u16<uint8_t>(field, MASK_DSET_PSIZE);
-    reserved = read_bitsfield_from_u16<uint16_t>(field, MASK_DSET_RESERVED);
+    psize = assert_read_bits_from_u16(uint8_t, field, MASK_DSET_PSIZE);
+    reserved = assert_read_bits_from_u16(uint16_t, field, MASK_DSET_RESERVED);
 
     uint16_t sflags = 0;
     if (hdr.own_content) {
@@ -787,8 +787,8 @@ void DescriptorSet::write_struct_specifics_into(IOBase& io) {
     assert((reserved & (~MASK_DSET_RESERVED)) == 0);
 
     uint16_t field = 0;
-    write_bitsfield_into_u16(field, psize, MASK_DSET_PSIZE);
-    write_bitsfield_into_u16(field, reserved, MASK_DSET_RESERVED);
+    assert_write_bits_into_u16(field, psize, MASK_DSET_PSIZE);
+    assert_write_bits_into_u16(field, reserved, MASK_DSET_RESERVED);
     io.write_u16_to_le(field);
 
     if (count() == 0) {

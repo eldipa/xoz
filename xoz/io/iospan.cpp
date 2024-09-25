@@ -6,7 +6,8 @@
 #include <cstring>
 #include <vector>
 
-#include "xoz/mem/bits.h"
+#include "xoz/mem/asserts.h"
+#include "xoz/mem/casts.h"
 
 namespace xoz {
 IOSpan::IOSpan(std::span<char> dataspan): IOBase(assert_u32(dataspan.size())), dataspan(dataspan) {

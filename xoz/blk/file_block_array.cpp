@@ -7,7 +7,8 @@
 #include <utility>
 
 #include "xoz/err/exceptions.h"
-#include "xoz/mem/bits.h"
+#include "xoz/mem/asserts.h"
+#include "xoz/mem/casts.h"
 
 namespace xoz {
 FileBlockArray::FileBlockArray(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr):

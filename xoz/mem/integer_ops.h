@@ -32,4 +32,60 @@ template <typename UInt>
 [[nodiscard]] constexpr inline bool test_u64_add(uint64_t a, uint64_t b) {
     return internals::test_unsigned_int_add<uint64_t>(a, b);
 }
+
+namespace internals {
+/*
+ * Read the selected bits specified by mask from the given field. The value returned
+ * is cast to the return type T.
+ *
+ * Note: mask must be non-zero.
+ * */
+template <typename Dst, typename Src>
+[[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<Src> and std::is_integral_v<Dst> and
+                                                                 std::is_unsigned_v<Src> and std::is_unsigned_v<Dst>,
+                                                         Dst>
+        assert_read_bits_annotated(const Src field, const Src mask, const char* file, unsigned int line,
+                                   const char* func) {
+    xoz_internals__assert_annotated("bad mask", mask, file, line, func);
+    int shift = std::countr_zero(mask);
+
+    const Src v1 = assert_integral_cast_annotated<Src>(((field & mask) >> shift), file, line, func);
+    return assert_integral_cast_annotated<Dst>(v1, file, line, func);
+}
+
+/*
+ * Write the value of type T into the selected bits specified by mask of the given field.
+ *
+ * Note: mask must be non-zero.
+ * */
+template <typename Dst, typename Src>
+[[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<Src> and std::is_integral_v<Dst> and
+                                                                 std::is_unsigned_v<Src> and std::is_unsigned_v<Dst>,
+                                                         void>
+        assert_write_bits_annotated(Dst& field, const Src val, const Dst mask, const char* file, unsigned int line,
+                                    const char* func) {
+    xoz_internals__assert_annotated("bad mask", mask, file, line, func);
+    int shift = std::countr_zero(mask);
+    field |= assert_integral_cast_annotated<Dst>((val << shift) & mask, file, line, func);
+}
+}  // namespace internals
+
+
+#define assert_read_bits_from_u16(dst_type, field, mask) \
+    internals::assert_read_bits_annotated<dst_type, uint16_t>((field), (mask), __FILE__, __LINE__, __func__)
+#define assert_read_bits_from_u32(dst_type, field, mask) \
+    internals::assert_read_bits_annotated<dst_type, uint32_t>((field), (mask), __FILE__, __LINE__, __func__)
+
+#define assert_write_bits_into_u16(field, val, mask) \
+    internals::assert_write_bits_annotated<uint16_t>((field), (val), (mask), __FILE__, __LINE__, __func__)
+#define assert_write_bits_into_u32(field, val, mask) \
+    internals::assert_write_bits_annotated<uint32_t>((field), (val), (mask), __FILE__, __LINE__, __func__)
+
+
+// Calculate the log2 of a uint16_t or uint32_t values
+[[nodiscard]] constexpr inline uint8_t u16_log2_floor(uint16_t x) { return uint8_t(16 - std::countl_zero(x) - 1); }
+constexpr inline uint8_t u32_log2_floor(uint32_t x) { return uint8_t(32 - std::countl_zero(x) - 1); }
+
+[[nodiscard]] constexpr inline uint8_t u16_count_bits(uint16_t x) { return uint8_t(std::popcount(x)); }
+
 }  // namespace xoz

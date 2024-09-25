@@ -6,7 +6,8 @@
 
 #include "xoz/alloc/segment_allocator.h"
 #include "xoz/ext/extent.h"
-#include "xoz/mem/bits.h"
+#include "xoz/mem/asserts.h"
+#include "xoz/mem/casts.h"
 
 namespace xoz {
 class BlockArray {

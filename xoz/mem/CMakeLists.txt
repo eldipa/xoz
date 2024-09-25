@@ -4,7 +4,6 @@ target_sources(xoz
     inet_checksum.cpp
     PUBLIC
     asserts.h
-    bits.h
     casts.h
     endianness.h
     inet_checksum.h

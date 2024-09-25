@@ -10,7 +10,8 @@
 #include <vector>
 
 #include "xoz/err/exceptions.h"
-#include "xoz/mem/bits.h"
+#include "xoz/mem/asserts.h"
+#include "xoz/mem/casts.h"
 
 #define TMP_BUF_SZ 64
 

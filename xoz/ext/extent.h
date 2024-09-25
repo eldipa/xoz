@@ -5,8 +5,7 @@
 #include <iostream>
 #include <vector>
 
-#include "xoz/mem/asserts.h"
-#include "xoz/mem/bits.h"
+#include "xoz/mem/casts.h"
 #include "xoz/mem/integer_ops.h"
 
 namespace xoz {
