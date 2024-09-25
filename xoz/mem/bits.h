@@ -15,23 +15,6 @@ constexpr inline uint8_t u32_log2_floor(uint32_t x) { return uint8_t(32 - std::c
 
 [[nodiscard]] constexpr inline uint8_t u16_count_bits(uint16_t x) { return uint8_t(std::popcount(x)); }
 
-[[nodiscard]] constexpr inline bool u16_add_will_overflow(uint16_t a, uint16_t b) {
-    uint16_t tmp = a + b;
-    return tmp < a;
-}
-
-[[nodiscard]] constexpr inline bool u32_add_will_overflow(uint32_t a, uint32_t b) {
-    uint32_t tmp = a + b;
-    return tmp < a;
-}
-
-[[nodiscard]] constexpr inline bool u64_add_will_overflow(uint64_t a, uint64_t b) {
-    uint64_t tmp = a + b;
-    return tmp < a;
-}
-
-[[nodiscard]] constexpr inline bool u32_fits_into_u16(uint32_t a) { return a == (uint16_t(a)); }
-
 
 /*
  * Read the selected bits specified by mask from the given field. The value returned

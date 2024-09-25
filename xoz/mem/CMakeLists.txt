@@ -8,4 +8,5 @@ target_sources(xoz
     casts.h
     endianness.h
     inet_checksum.h
+    integer_ops.h
     )

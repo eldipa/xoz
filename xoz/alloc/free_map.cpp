@@ -5,6 +5,7 @@
 
 #include "xoz/err/exceptions.h"
 #include "xoz/log/trace.h"
+#include "xoz/mem/integer_ops.h"
 
 #define TRACE TRACE_ON(0x01)
 
@@ -228,7 +229,7 @@ void FreeMap::dealloc(const Extent& ext) {
     Extent coalesced = ext;
 
     if (next_fr_it != end_it and coalesced.past_end_blk_nr() == blk_nr_of(next_fr_it)) {
-        if (not u16_add_will_overflow(blk_cnt_of(next_fr_it), coalesced.blk_cnt())) {
+        if (not test_u16_add(blk_cnt_of(next_fr_it), coalesced.blk_cnt())) {
             coalesced.expand_by(blk_cnt_of(next_fr_it));
             coalesced_with_next = true;  // then, next_fr_it must be removed
             TRACE << "next:" << Extent(blk_nr_of(next_fr_it), blk_cnt_of(next_fr_it), false) << "  " << TRACE_FLUSH;
@@ -240,7 +241,7 @@ void FreeMap::dealloc(const Extent& ext) {
         ++next_fr_it;
 
         if ((blk_nr_of(prev_fr_it) + blk_cnt_of(prev_fr_it)) == coalesced.blk_nr()) {
-            if (not u16_add_will_overflow(blk_cnt_of(prev_fr_it), coalesced.blk_cnt())) {
+            if (not test_u16_add(blk_cnt_of(prev_fr_it), coalesced.blk_cnt())) {
                 // trace *before* modifying prev_fr_it
                 TRACE << "prev:" << Extent(blk_nr_of(prev_fr_it), blk_cnt_of(prev_fr_it), false) << "  " << TRACE_FLUSH;
 

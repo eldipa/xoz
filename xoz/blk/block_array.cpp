@@ -8,6 +8,8 @@
 
 #include "xoz/err/exceptions.h"
 #include "xoz/ext/extent.h"
+#include "xoz/mem/asserts.h"
+#include "xoz/mem/integer_ops.h"
 
 namespace xoz {
 void BlockArray::initialize_block_array(uint32_t blk_sz, uint32_t begin_blk_nr, uint32_t past_end_blk_nr) {
@@ -79,8 +81,8 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
     if (blk_cnt == 0)
         throw std::runtime_error("alloc of 0 blocks is not allowed");
 
-    assert(not u32_add_will_overflow(_past_end_blk_nr, blk_cnt));
-    assert(not u32_add_will_overflow(_real_past_end_blk_nr, blk_cnt));
+    xoz_assert("add overflow", not test_u32_add(_past_end_blk_nr, blk_cnt));
+    xoz_assert("add overflow", not test_u32_add(_real_past_end_blk_nr, blk_cnt));
 
     assert(_begin_blk_nr <= _past_end_blk_nr);
     assert(_past_end_blk_nr <= _real_past_end_blk_nr);
@@ -107,8 +109,8 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
     auto [blk_nr, real_blk_cnt] = impl_grow_by_blocks(req_blk_cnt);
     assert(real_blk_cnt >= req_blk_cnt);
 
-    assert(not u32_add_will_overflow(_past_end_blk_nr, real_blk_cnt));
-    assert(not u32_add_will_overflow(_real_past_end_blk_nr, real_blk_cnt));
+    xoz_assert("add overflow", not test_u32_add(_past_end_blk_nr, real_blk_cnt));
+    xoz_assert("add overflow", not test_u32_add(_real_past_end_blk_nr, real_blk_cnt));
 
     // update the pointers
     _real_past_end_blk_nr += real_blk_cnt;

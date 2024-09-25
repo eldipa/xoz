@@ -5,7 +5,9 @@
 #include <iostream>
 #include <vector>
 
+#include "xoz/mem/asserts.h"
 #include "xoz/mem/bits.h"
+#include "xoz/mem/integer_ops.h"
 
 namespace xoz {
 // An extent can have 2 mutually exclusive interpretations:
@@ -94,7 +96,7 @@ public:
 
     inline void expand_by(uint16_t cnt) {
         assert(not is_suballoc());
-        assert(not u16_add_will_overflow(_blk_cnt, cnt));
+        xoz_assert("add overflows", not test_u16_add(_blk_cnt, cnt));
         _blk_cnt += cnt;
     }
 
