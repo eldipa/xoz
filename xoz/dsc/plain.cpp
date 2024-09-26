@@ -3,7 +3,7 @@
 namespace xoz {
 PlainDescriptor::PlainDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr):
         Descriptor(hdr, cblkarr) {
-    idata.resize(hdr.isize);
+    idata.resize(hdr.isize);  // TODO is this correct?
 }
 
 void PlainDescriptor::read_struct_specifics_from(IOBase& io) { io.readall(idata); }
