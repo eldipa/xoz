@@ -38,6 +38,17 @@ template <typename UInt>
 
 namespace internals {
 /*
+ * Return (a + b) and check that the result didn't wrap around/overflow.
+ * */
+template <typename UInt>
+[[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<UInt> and std::is_unsigned_v<UInt>, UInt>
+        unsigned_int_add_nowrap_annotated(const UInt a, const UInt b, const char* file, unsigned int line,
+                                          const char* func) {
+    xoz_internals__assert_annotated("add wrapped around", internals::test_unsigned_int_add<UInt>(a, b), file, line,
+                                    func);
+    return a + b;
+}
+/*
  * Return (a - b) and check that the result is still representable by the same unsigned Src type.
  * (aka, remains positive)
  * */
@@ -45,12 +56,20 @@ template <typename UInt>
 [[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<UInt> and std::is_unsigned_v<UInt>, UInt>
         unsigned_int_sub_is_nonneg_annotated(const UInt a, const UInt b, const char* file, unsigned int line,
                                              const char* func) {
-    xoz_internals__assert_annotated("op went negative", (a >= b), file, line, func);
+    xoz_internals__assert_annotated("sub went negative", (a >= b), file, line, func);
     return a - b;
 }
 }  // namespace internals
 
-#define assert_u32_sub_nonneg(a, b) internals::unsigned_int_sub_is_nonneg_annotated(a, b, __FILE__, __LINE__, __func__)
+
+#define assert_u32_add_nowrap(a, b) \
+    internals::unsigned_int_add_nowrap_annotated<uint32_t>(a, b, __FILE__, __LINE__, __func__)
+
+#define assert_u8_sub_nonneg(a, b) \
+    internals::unsigned_int_sub_is_nonneg_annotated<uint8_t>(a, b, __FILE__, __LINE__, __func__)
+#define assert_u32_sub_nonneg(a, b) \
+    internals::unsigned_int_sub_is_nonneg_annotated<uint32_t>(a, b, __FILE__, __LINE__, __func__)
+
 
 namespace internals {
 /*
