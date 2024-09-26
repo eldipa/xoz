@@ -35,7 +35,6 @@ void PlainDescriptor::set_idata(const std::vector<char>& data) {
         throw "";
     }
 
-    hdr.isize = isize;  // TODO missing future_idata
     idata = data;
     notify_descriptor_changed();
 }

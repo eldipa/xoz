@@ -140,6 +140,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata({1, 2, 3, 4}); // isize = 4
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -183,6 +184,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata({1, 2, 3, 4}); // isize = 4
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -268,6 +270,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata({1, 2, 3, 4}); // isize = 4
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -353,6 +356,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata({1, 2, 3, 4}); // isize = 4
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -396,6 +400,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata({1, 2, 3, 4}); // isize = 4
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -469,6 +474,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata(data); // isize = 64-2
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -517,6 +523,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata(data); // isize = 64
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -565,6 +572,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata(data); // isize = 128-2
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -615,6 +623,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata(data); // isize = 64-2
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -664,6 +673,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata(data); // isize = 64-2
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -708,6 +718,7 @@ namespace {
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -749,6 +760,7 @@ namespace {
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -832,6 +844,7 @@ namespace {
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -915,6 +928,7 @@ namespace {
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -960,6 +974,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata(data); // isize = 64
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -1005,6 +1020,7 @@ namespace {
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1046,6 +1062,7 @@ namespace {
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1087,6 +1104,7 @@ namespace {
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1128,6 +1146,7 @@ namespace {
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1171,6 +1190,7 @@ namespace {
         hdr.segm.set_inline_data({0x1, 0x2, 0x3});
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1213,6 +1233,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata({1, 2}); // isize = 2
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -1283,6 +1304,7 @@ namespace {
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
         dsc.set_idata({1, 2}); // isize = 2
+        dsc.full_sync(false);
 
 
         // Check sizes
@@ -1417,6 +1439,7 @@ namespace {
         // Write a valid descriptor of data size 2
         PlainDescriptor dsc2 = PlainDescriptor(hdr, cblkarr);
         dsc2.set_idata({1, 2});
+        dsc2.full_sync(false);
         dsc2.write_struct_into(IOSpan(fp), rctx);
 
         // Load a descriptor. Despite DescriptorSubRW does not read anything (see the class)
@@ -1479,6 +1502,7 @@ namespace {
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -1508,6 +1532,7 @@ namespace {
         // this will make the write_struct_into to set the has_id to true...
         hdr.id = 0xffff;
         PlainDescriptor dsc2 = PlainDescriptor(hdr, cblkarr);
+        dsc2.full_sync(false);
         dsc2.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_CHECKSUM(fp, dsc2); // check before the patch
 
@@ -1544,6 +1569,7 @@ namespace {
         std::vector<char> data(64);
         std::iota (std::begin(data), std::end(data), 0); // fill with numbers
         dsc3.set_idata(data);
+        dsc3.full_sync(false);
 
         dsc3.write_struct_into(IOSpan(fp), rctx);
 
@@ -1582,6 +1608,7 @@ namespace {
 
         // The concrete Descriptor subclass
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        dsc.full_sync(false);
 
         // Upper cast to Descriptor abstract class
         Descriptor* dsc2 = &dsc;
