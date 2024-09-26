@@ -328,7 +328,7 @@ public:
     void /* internal */ update_header() override;
 
 private:
-    void flush_writes_no_recursive();
+    void flush_writes_no_recursive(const bool release);
     void release_free_space_no_recursive();
     void full_sync_no_recursive(const bool release);
     void clear_set_no_recursive();

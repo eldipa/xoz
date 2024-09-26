@@ -222,7 +222,24 @@ void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
     io.fill(0, st_blkarr.blk2bytes(ext.blk_cnt()));
 }
 
-void DescriptorSet::flush_writes_no_recursive() {
+void DescriptorSet::flush_writes_no_recursive(const bool release) {
+    // While the caller is wanting to flush any pending write of the set,
+    // this is tricky because there maybe pending writes in the descriptors of the set.
+    // But calling flush_writes on them is not enough, we need their headers/sizes
+    // to be updated (update_header()) and, if this flush_writes_no_recursive is
+    // part of a full_sync on the set, we want to release the descriptors's space
+    // before even writing the set.
+    // So a flush_writes_no_recursive on the set is triggering a full_sync
+    // on each descriptor.
+    //
+    // TODO detect modifications to to_update/to_add during this
+    for (auto dsc: to_update) {
+        dsc->full_sync(release);
+    }
+    for (auto dsc: to_add) {
+        dsc->full_sync(release);
+    }
+
     // TODO this will trigger a recursive chain reaction of writes if the set has other sets
     auto io = IOSegment(sg_blkarr, segm);
     write_modified_descriptors(io);
@@ -233,6 +250,8 @@ bool DescriptorSet::does_require_write() const {
     return header_does_require_write or to_add.size() != 0 or to_remove.size() != 0 or to_update.size() != 0;
 }
 
+// Precondition: the descriptors in to_add and to_update must be full-sync'd
+// before calling this.
 void DescriptorSet::write_modified_descriptors(IOBase& io) {
     if (segm.length() == 0 and count() > 0) {
         assert(header_ext == Extent::EmptyExtent());
@@ -262,7 +281,6 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // and we re-add it later
     std::list<Extent> pending;
     for (const auto dsc: to_update) {
-        dsc->update_header();
         uint32_t cur_dsc_sz = dsc->calc_struct_footprint_size();
         uint32_t alloc_dsc_sz = st_blkarr.blk2bytes(dsc->ext.blk_cnt());
 
@@ -392,7 +410,6 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // from that pre-allocated space.
     // This should reduce the fragmentation of the set's segment making it much smaller
     for (const auto dsc: to_add) {
-        dsc->update_header();
         dsc->ext = st_blkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
     }
 
@@ -456,6 +473,9 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 }
 
 void DescriptorSet::release_free_space_no_recursive() {
+    // Release any free space of the set. The release of free space on each
+    // descriptor is handled during the flush_writes_no_recursive before
+    // flushing the writes of the set.
     if (count() == 0 and header_ext != Extent::EmptyExtent()) {
         st_blkarr.allocator().dealloc_single_extent(header_ext);
         header_ext = Extent::EmptyExtent();
@@ -847,11 +867,11 @@ void DescriptorSet::release_free_space() {
 }
 
 void DescriptorSet::flush_writes() {
-    depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->flush_writes_no_recursive(); });
+    depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->flush_writes_no_recursive(false); });
 }
 
 void DescriptorSet::full_sync_no_recursive(const bool release) {
-    flush_writes_no_recursive();
+    flush_writes_no_recursive(release);
     if (release) {
         release_free_space_no_recursive();
     }
