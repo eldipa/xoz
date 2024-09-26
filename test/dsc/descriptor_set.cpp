@@ -912,6 +912,7 @@ namespace {
 
             auto dscptr3 = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
             dscptr3->set_idata({'C', 'D'});
+            dscptr3->full_sync(false); // ensure we get the correct sizes (for testing)
             dset->add(std::move(dscptr3));
             // leave the set unwritten so dscptr3 is unwritten as well
         }
