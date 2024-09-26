@@ -626,4 +626,15 @@ void Descriptor::read_future_idata(IOBase& io) {
 void Descriptor::write_future_idata(IOBase& io) const { io.writeall(future_idata); }
 
 uint8_t Descriptor::future_idata_size() const { return assert_u8(future_idata.size()); }
+
+void Descriptor::update_header() {
+    uint8_t user_isize = assert_u8_sub_nonneg(hdr.isize, future_idata_size());
+    uint32_t user_csize = assert_u32_sub_nonneg(hdr.csize, 0);  // TODO
+
+    update_sizes(user_isize, user_csize);
+
+    hdr.isize = user_isize + future_idata_size();  // TODO check
+    hdr.csize = user_csize + 0;                    // TODO
+}
+
 }  // namespace xoz

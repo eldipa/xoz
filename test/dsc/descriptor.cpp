@@ -1342,8 +1342,8 @@ namespace {
         void write_struct_specifics_into(IOBase&) override {
             return; // 0 write
         }
-        void update_header() override {
-            hdr.isize = assert_u8(internal_data.size() + future_idata_size());
+        void update_sizes(uint8_t& isize, [[maybe_unused]] uint32_t& csize) override {
+            isize = assert_u8(internal_data.size());
         }
 
         static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, [[maybe_unused]] RuntimeContext& rctx) {

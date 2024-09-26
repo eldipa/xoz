@@ -839,6 +839,8 @@ void DescriptorSet::update_header() {
     hdr.isize = assert_u8(isize);
 }
 
+void DescriptorSet::update_sizes([[maybe_unused]] uint8_t& isize, [[maybe_unused]] uint32_t& csize) { throw "no"; }
+
 
 void DescriptorSet::release_free_space() {
     depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->release_free_space_no_recursive(); });

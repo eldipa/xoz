@@ -313,7 +313,7 @@ protected:
     // This is *mandatory*: you need to keep updated
     // the header's attributes because a descriptor may be written to disk
     // in any moment and the header needs to reflect the latest state.
-    void update_header() override {
+    void XXXupdate_header() /* TODO */ {
         hdr.segm.add_end_of_segment();
         hdr.csize = hdr.segm.calc_data_space_size();
 
@@ -331,6 +331,11 @@ protected:
 
         // Now, update hdr.isize
         hdr.isize = xoz::assert_u8(isize);
+    }
+
+    void update_sizes(uint8_t& isize, uint32_t& csize) override {
+        isize = xoz::assert_u8(sizeof(uint32_t) + sizeof(uint16_t));
+        csize = xoz::assert_u32_add_nowrap(file_sz, fname_sz);
     }
 
     // (5)

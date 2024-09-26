@@ -229,6 +229,7 @@ protected:
      * */
     virtual void destroy();
 
+    // TODO change this
     constexpr static inline bool is_isize_greater_than_allowed(uint8_t isize) { return isize > 127; }
 
     constexpr static inline bool is_csize_greater_than_allowed(uint32_t csize) { return csize > 0x7fffffff; }
@@ -254,9 +255,11 @@ protected:
      * */
     void notify_descriptor_changed();
 
-protected:
+private:
     void read_future_idata(IOBase& io);
     void write_future_idata(IOBase& io) const;
+
+protected:
     uint8_t future_idata_size() const;
 
 protected:
@@ -276,7 +279,12 @@ protected:
      * When computing hdr.isize, update_header() *must* take into account the size
      * returned by future_idata_size().
      * */
-    virtual void update_header() = 0;
+    virtual void update_header();
+
+    /*
+     * Update the current size of internal data and content respectively.
+     * */
+    virtual void update_sizes(uint8_t& isize, uint32_t& csize) = 0;
 
     /*
      * Subclass must release any free/unused space allocated by the descriptor

@@ -1042,7 +1042,7 @@ namespace {
         Dummy(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : Descriptor(hdr, cblkarr) {}
         void read_struct_specifics_from(IOBase&) override {}
         void write_struct_specifics_into(IOBase&) override {}
-        void update_header() override {}
+        void update_sizes([[maybe_unused]] uint8_t& isize, [[maybe_unused]] uint32_t& csize) override { }
         static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) {
             return std::make_unique<Dummy>(hdr, cblkarr);
         }

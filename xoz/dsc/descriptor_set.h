@@ -322,6 +322,7 @@ private:
 protected:
     void flush_writes() override;
     void release_free_space() override;
+    void update_sizes(uint8_t& isize, uint32_t& csize) override;
 
 public:
     void /* internal */ update_header() override;

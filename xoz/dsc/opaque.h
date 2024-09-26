@@ -25,6 +25,6 @@ public:
 protected:
     void read_struct_specifics_from(IOBase& io) override;
     void write_struct_specifics_into(IOBase& io) override;
-    void update_header() override {}
+    void update_sizes(uint8_t& isize, uint32_t& csize) override;
 };
 }  // namespace xoz
