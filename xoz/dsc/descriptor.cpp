@@ -12,9 +12,13 @@
 #include "xoz/err/exceptions.h"
 #include "xoz/file/runtime_context.h"
 #include "xoz/log/format_string.h"
+#include "xoz/mem/asserts.h"
 #include "xoz/mem/inet_checksum.h"
 #include "xoz/mem/integer_ops.h"
 
+namespace {
+const uint32_t RESIZE_CONTENT_MEM_COPY_THRESHOLD_SZ = 1 << 20;  // 1 MB
+}
 
 namespace xoz {
 /*
@@ -346,6 +350,8 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
     assert(dsc_end_pos == idata_begin_pos + hdr.isize);
     dsc->checksum = inet_to_u16(checksum);
 
+    dsc->update_sizes_of_header(true);
+
     return dsc;
 }
 
@@ -627,14 +633,166 @@ void Descriptor::write_future_idata(IOBase& io) const { io.writeall(future_idata
 
 uint8_t Descriptor::future_idata_size() const { return assert_u8(future_idata.size()); }
 
-void Descriptor::update_header() {
-    uint8_t user_isize = assert_u8_sub_nonneg(hdr.isize, future_idata_size());
-    uint32_t user_csize = assert_u32_sub_nonneg(hdr.csize, 0);  // TODO
+void Descriptor::update_header() { update_sizes_of_header(false); }
 
-    update_sizes(user_isize, user_csize);
+void Descriptor::update_sizes_of_header(bool called_from_load) {
+    uint8_t cur_isize = assert_u8_sub_nonneg(hdr.isize, future_idata_size());
+    uint32_t cur_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
 
-    hdr.isize = user_isize + future_idata_size();  // TODO check
-    hdr.csize = user_csize + 0;                    // TODO
+    update_sizes(cur_isize, cur_csize);
+
+    // If update_sizes_of_header is being called from the loading of the descriptor,
+    // this is the first call and the only moment where we can know how much content
+    // belongs to the current version of the subclass descriptor and how much
+    // to the 'future' version.
+    if (called_from_load) {
+        future_content_size = assert_u32_sub_nonneg(hdr.csize, cur_csize);
+    }
+
+    // TODO checks
+    cur_isize = assert_u8_add_nowrap(cur_isize, future_idata_size());
+    cur_csize = assert_u32_add_nowrap(cur_csize, future_content_size);
+    // assert cur_csize == 0 then hdr.own_content is false (and similar)
+
+    hdr.isize = cur_isize;
+    hdr.csize = cur_csize;
+}
+
+void Descriptor::resize_content(uint32_t content_new_sz) {
+    // No previous content and nothing to grow, then skip (no change)
+    if (not hdr.own_content and content_new_sz == 0) {
+        xoz_assert("invariant", future_content_size == 0);
+        xoz_assert("invariant", hdr.csize == 0);
+        return;
+    }
+
+    // Caller wants some space for the (new) content
+    if (not hdr.own_content) {
+        xoz_assert("invariant", future_content_size == 0);
+        xoz_assert("invariant", content_new_sz == 0);
+
+        hdr.segm = cblkarr.allocator().alloc(content_new_sz);
+        hdr.segm.add_end_of_segment();
+        hdr.own_content = true;
+
+        xoz_assert("allocated less than requested", hdr.segm.calc_data_space_size() >= content_new_sz);
+
+        // Save the caller's content_new_sz, not the real size of the segment.
+        // This reflects correctly what the descriptor owns, the rest (padding)
+        // is for "performance" reasons of the allocator.
+        // We need to be *very* strict in the value of csize because we will use
+        // it to know if there is future content or not and we *don't* want
+        // to treat padding as future content (hence future_content_size = 0).
+        hdr.csize = content_new_sz;
+        return;
+    }
+
+    // We own some content but the caller does not want it
+    // and we don't have any future data to preserve so we dealloc
+    if (content_new_sz == 0 and future_content_size == 0) {
+        xoz_assert("invariant", hdr.own_content);
+
+        cblkarr.allocator().dealloc(hdr.segm);
+        hdr.segm.remove_inline_data();
+        hdr.segm.clear();
+        hdr.own_content = false;
+
+        hdr.csize = 0;
+        future_content_size = 0;
+        return;
+    }
+
+    uint32_t csize_new = content_new_sz + future_content_size;
+    if (hdr.csize < csize_new) {
+        // The content is expanding.
+        //
+        // Perform the realloc
+        cblkarr.allocator().realloc(hdr.segm, csize_new);
+
+        // Copy from the io content the future content at the end of the io
+        auto content_io = get_content_io();
+        content_io.seek_rd(assert_u32_sub_nonneg(hdr.csize, future_content_size), IOBase::Seekdir::beg);
+        content_io.seek_wr(future_content_size, IOBase::Seekdir::end);
+        content_io.copy_into_self(future_content_size);
+
+    } else if (hdr.csize > csize_new) {
+        // The content is shrinking, we need to copy outside the future content,
+        // do the realloc (shrink) and copy the future back.
+        //
+        // We can copy the future content into memory iff is small enough,
+        // otherwise we go to disk.
+        if (future_content_size < RESIZE_CONTENT_MEM_COPY_THRESHOLD_SZ) {
+            // The future_content size is small enough, copy it into memory
+            std::vector<char> future_data;
+            future_data.reserve(future_content_size);
+            {
+                auto content_io = get_content_io();
+                content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
+                content_io.readall(future_data);
+            }
+
+            // Perform the realloc
+            cblkarr.allocator().realloc(hdr.segm, csize_new);
+
+            // Copy back the future data
+            {
+                auto content_io = get_content_io();  // hdr.segm changed, get a new io
+                content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
+                content_io.writeall(future_data);
+            }
+
+        } else {
+            // The future_content size is too large, copy it into disk
+            auto future_sg = cblkarr.allocator().alloc(future_content_size);
+            auto future_io = IOSegment(cblkarr, future_sg);
+            {
+                auto content_io = get_content_io();
+                content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
+                content_io.copy_into(future_io, future_content_size);
+            }
+
+            // Perform the realloc
+            cblkarr.allocator().realloc(hdr.segm, csize_new);
+
+            // Copy back the future data
+            {
+                auto content_io = get_content_io();  // hdr.segm changed, get a new io
+                content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
+                future_io.seek_rd(0);
+                future_io.copy_into(content_io, future_content_size);
+            }
+        }
+    } /* else { neither shrink nor expand, leave it as is } */
+    hdr.segm.add_end_of_segment();
+
+    xoz_assert("allocated less than requested", hdr.segm.calc_data_space_size() >= csize_new);
+    hdr.csize = csize_new;
+}
+
+IOSegment Descriptor::get_content_io() {
+    if (not hdr.own_content) {
+        // Descriptors without a content don't fail on get_content_io and instead
+        // return an empty io.
+        // This is to simplify the case where the descriptor *has* a non-empty segment
+        // but it is full of future data so the descriptor "does not have" content.
+        auto sg = Segment::EmptySegment(cblkarr.blk_sz_order());
+        auto io = IOSegment(cblkarr, sg);
+
+        io.limit_rd(0, 0);
+        io.limit_wr(0, 0);
+        return io;
+    }
+
+    // Hide from the caller the future_content
+    //
+    // Note: if get_content_io() is called from read_struct_specifics_from,
+    // by that time future_content_size is not set yet and it will default to 0
+    auto caller_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
+
+    auto io = IOSegment(cblkarr, hdr.segm);
+    io.limit_rd(0, caller_csize);
+    io.limit_wr(0, caller_csize);
+    return io;
 }
 
 }  // namespace xoz

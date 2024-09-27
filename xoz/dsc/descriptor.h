@@ -6,6 +6,7 @@
 
 #include "xoz/ext/extent.h"
 #include "xoz/io/iobase.h"
+#include "xoz/io/iosegment.h"
 #include "xoz/segm/segment.h"
 
 namespace xoz {
@@ -201,7 +202,12 @@ protected:
      * too much its header.
      * */
     Descriptor(const struct header_t& hdr, BlockArray& cblkarr):
-            hdr(hdr), ext(Extent::EmptyExtent()), cblkarr(cblkarr), owner_raw_ptr(nullptr), checksum(0) {}
+            hdr(hdr),
+            ext(Extent::EmptyExtent()),
+            cblkarr(cblkarr),
+            future_content_size(0),
+            owner_raw_ptr(nullptr),
+            checksum(0) {}
 
     static void chk_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
@@ -214,6 +220,15 @@ protected:
      * Subclasses must *not* use the allocator of the cblkarr during the read
      * because it may not be enabled by the moment. Subclasses can use the cblkarr
      * for reading/writing without problem.
+     *
+     * Note: calling get_content_io() is allowed however the io returned may
+     * yield more data than the descriptor should access, located at the end.
+     * Subclasses must *not* assume than the size of the io is the size of
+     * subclasses' content: subclasses *must* encode their content size
+     * in either the idata or at the begin of the content.
+     *
+     * Note: after read_struct_specifics_from() finishes, the update_sizes() should
+     * return valid and meaningful sizes.
      * */
     virtual void read_struct_specifics_from(IOBase& io) = 0;
     virtual void write_struct_specifics_into(IOBase& io) = 0;
@@ -308,6 +323,8 @@ protected:
      * */
     virtual void flush_writes() {}
 
+    void update_sizes_of_header(bool called_from_load);
+
 private:
     /*
      * No copy nor move constructors/assign operators
@@ -341,6 +358,25 @@ private:
 protected:
     BlockArray& external_blkarr() { return cblkarr; }
 
+    uint32_t future_content_size;  // TODO, protected/private? not initialized
+
+    /*
+     * Resize the content space to have the given size. If no content
+     * exists before, a new space is allocated, otherwise a resize happen.
+     *
+     * The method will preserve any 'future' content behind the scene
+     * storing it at the end of the content space in additional space.
+     * This does not affect the free space requested: if the caller requested
+     * a resize of N bytes, N bytes will get.
+     *
+     * A resize of 0 bytes may dealloc the space.
+     * It it the correct way to disown the content and free space, however
+     * the space may not be fully released if the descriptor has 'future' content.
+     * */
+    void resize_content(uint32_t content_new_sz);
+
+    IOSegment get_content_io();
+
 private:
     /*
      * Raw pointer to the set that owns this descriptor. There is at most one owner.
@@ -369,7 +405,6 @@ public:
      * */
     uint16_t /* internal */ checksum;
 
-public:
 private:
     static void chk_rw_specifics_on_idata(bool is_read_op, IOBase& io, uint32_t idata_begin, uint32_t subclass_end,
                                           uint32_t idata_sz);

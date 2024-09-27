@@ -844,7 +844,7 @@ void DescriptorSet::update_header() {
         hdr.segm = segm;
         hdr.segm.add_end_of_segment();
         hdr.own_content = true;
-        hdr.csize = hdr.segm.calc_data_space_size();
+        hdr.csize = hdr.segm.calc_data_space_size();  // TODO "subclass-managed"
 
         isize = 2;  // 1 uint16 field: the set's first field
     }
@@ -859,7 +859,23 @@ void DescriptorSet::update_header() {
     hdr.isize = assert_u8(isize);
 }
 
-void DescriptorSet::update_sizes([[maybe_unused]] uint8_t& isize, [[maybe_unused]] uint32_t& csize) { throw "no"; }
+void DescriptorSet::update_sizes(uint8_t& isize, uint32_t& csize) {
+    // Make sure set to be 100% sync so we can know how much space its segment is owning
+    assert(count() == 0 or not does_require_write());
+
+    if (count() == 0) {
+        isize = 4;  // 2 uint16 fields: the set's first field and sflags fields
+        csize = 0;
+
+    } else {
+        isize = 2;  // 1 uint16 field: the set's first field
+        csize = hdr.segm.calc_data_space_size();
+    }
+
+    if (psize) {
+        isize = assert_u8_add_nowrap(isize, assert_u8((psize << 1)));
+    }
+}
 
 
 void DescriptorSet::release_free_space() {
