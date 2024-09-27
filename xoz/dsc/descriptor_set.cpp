@@ -768,9 +768,9 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     reserved = assert_read_bits_from_u16(uint16_t, field, MASK_DSET_RESERVED);
 
     uint16_t sflags = 0;
-    if (hdr.own_content) {
+    if (does_own_content()) {
         // Easiest case: the holder's segment points to the set's blocks
-        segm = hdr.segm;
+        segm = content_segment_ref();
 
         if (segm.inline_data_sz() != 0) {
             throw InconsistentXOZ(F() << "Unexpected non-zero inline data in segment for descriptor set.");
@@ -788,7 +788,7 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     // Remove it before creating the set.
     segm.remove_inline_data();
 
-    if (not hdr.own_content) {
+    if (not does_own_content()) {
         create_set(sflags);
     } else {
         // TODO this will trigger a recursive chain reaction of reads if the set has other holders
@@ -812,10 +812,10 @@ void DescriptorSet::write_struct_specifics_into(IOBase& io) {
     io.write_u16_to_le(field);
 
     if (count() == 0) {
-        assert(hdr.own_content == false);
+        assert(does_own_content() == false);
         io.write_u16_to_le(0);
     } else {
-        assert(hdr.own_content == true);
+        assert(does_own_content() == true);
     }
 
     if (psize) {
