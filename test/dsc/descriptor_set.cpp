@@ -2870,9 +2870,9 @@ namespace {
         }
 
         public:
-        void /* internal */ update_header() override {
-            DescriptorSet::update_header();
-            hdr.isize += 2; // count for app's own cookie
+        void /* internal */ update_sizes(uint8_t& isize, uint32_t& csize) override {
+            DescriptorSet::update_sizes(isize, csize);
+            isize += 2; // count for app's own cookie
         }
 
         private:

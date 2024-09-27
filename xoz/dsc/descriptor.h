@@ -194,9 +194,10 @@ public:  // public but it should be interpreted as an opaque section
 
     friend class DescriptorSet;
 
-protected:
+private:
     struct header_t hdr;
 
+protected:
     /*
      * Descriptor's constructor with its header and a reference to the block array
      * for content data.
