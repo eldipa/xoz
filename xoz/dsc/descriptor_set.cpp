@@ -823,40 +823,22 @@ void DescriptorSet::write_struct_specifics_into(IOBase& io) {
     }
 }
 
-void DescriptorSet::update_header() {
+bool DescriptorSet::update_content_segment(Segment& segm) {
     // Make sure set to be 100% sync so we can know how much space its segment is owning
     assert(count() == 0 or not does_require_write());
 
-    uint32_t isize = 0;
     if (count() == 0) {
         // Second easiest case: the set is empty so we don't need to own any content
         // and instead we save the minimum bits in holder's private space to reconstruct
         // an empty set later.
-        hdr.own_content = false;
-        hdr.csize = 0;
-        hdr.segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order());
-
-        isize = 4;  // 2 uint16 fields: the set's first field and sflags fields
+        return false;
 
     } else {
         // Easiest case: the holder's segment is the set's segment. Nothing else is needed
         // except ensuring it has an end-of-segment because it is required by Descriptor
-        hdr.segm = segm;
-        hdr.segm.add_end_of_segment();
-        hdr.own_content = true;
-        hdr.csize = hdr.segm.calc_data_space_size();  // TODO "subclass-managed"
-
-        isize = 2;  // 1 uint16 field: the set's first field
+        segm = this->segm;
+        return true;
     }
-
-    if (psize) {
-        isize += assert_u8((psize << 1));
-    }
-
-    isize += future_idata_size();
-
-    // Save the isize
-    hdr.isize = assert_u8(isize);
 }
 
 void DescriptorSet::update_sizes(uint8_t& isize, uint32_t& csize) {
@@ -869,7 +851,7 @@ void DescriptorSet::update_sizes(uint8_t& isize, uint32_t& csize) {
 
     } else {
         isize = 2;  // 1 uint16 field: the set's first field
-        csize = hdr.segm.calc_data_space_size();
+        csize = segm.calc_data_space_size();
     }
 
     if (psize) {

@@ -295,6 +295,7 @@ protected:
      * returned by future_idata_size().
      * */
     virtual void update_header();
+    virtual bool update_content_segment(Segment& segm);
 
     /*
      * Update the current size of internal data and content respectively.

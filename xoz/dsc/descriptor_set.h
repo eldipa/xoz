@@ -323,9 +323,7 @@ protected:
     void flush_writes() override;
     void release_free_space() override;
     void update_sizes(uint8_t& isize, uint32_t& csize) override;
-
-public:
-    void /* internal */ update_header() override;
+    bool update_content_segment(Segment& segm) override;
 
 private:
     void flush_writes_no_recursive(const bool release);

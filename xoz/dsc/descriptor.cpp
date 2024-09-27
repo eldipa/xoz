@@ -633,7 +633,18 @@ void Descriptor::write_future_idata(IOBase& io) const { io.writeall(future_idata
 
 uint8_t Descriptor::future_idata_size() const { return assert_u8(future_idata.size()); }
 
-void Descriptor::update_header() { update_sizes_of_header(false); }
+void Descriptor::update_header() {
+    bool own_content = update_content_segment(hdr.segm);
+
+    hdr.own_content = own_content;
+    if (not own_content) {
+        hdr.segm = Segment::EmptySegment(cblkarr.blk_sz_order());
+    }
+    hdr.segm.add_end_of_segment();
+
+    // Order is important: update segment, then update sizes
+    update_sizes_of_header(false);
+}
 
 void Descriptor::update_sizes_of_header(bool called_from_load) {
     uint8_t cur_isize = assert_u8_sub_nonneg(hdr.isize, future_idata_size());
@@ -657,6 +668,8 @@ void Descriptor::update_sizes_of_header(bool called_from_load) {
     hdr.isize = cur_isize;
     hdr.csize = cur_csize;
 }
+
+bool Descriptor::update_content_segment([[maybe_unused]] Segment& segm) { return hdr.own_content; }
 
 void Descriptor::resize_content(uint32_t content_new_sz) {
     // No previous content and nothing to grow, then skip (no change)
