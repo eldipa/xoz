@@ -276,8 +276,6 @@ protected:
 private:
     void read_future_idata(IOBase& io);
     void write_future_idata(IOBase& io) const;
-
-protected:
     uint8_t future_idata_size() const;
 
 protected:
