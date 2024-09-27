@@ -233,6 +233,20 @@ void DescriptorSet::flush_writes_no_recursive(const bool release) {
     // on each descriptor.
     //
     // TODO detect modifications to to_update/to_add during this
+    //
+    // TODO Imagine the following:
+    //
+    // rootset --> dset1 --> dset2 --> d2
+    //       \---> d3   \---> d1
+    //
+    // On rootset.full_sync(), this works recursively calling full_sync_no_recursive()
+    // on dset2, dset1 and rootset in that order.
+    //
+    // For the flush phase of dset2, d2.full_sync() is called, then dset2.write_modified_descriptors
+    // (all good so far)
+    // For the flush phase of dset1, dset2.full_sync() is called which triggers the recursive call
+    // again. There is no "double write" (in theory) because each dset checks does_require_write()
+    // but the tree of dsets is scanned N^2
     for (auto dsc: to_update) {
         dsc->full_sync(release);
     }
@@ -240,7 +254,6 @@ void DescriptorSet::flush_writes_no_recursive(const bool release) {
         dsc->full_sync(release);
     }
 
-    // TODO this will trigger a recursive chain reaction of writes if the set has other sets
     auto io = IOSegment(sg_blkarr, segm);
     write_modified_descriptors(io);
 }
