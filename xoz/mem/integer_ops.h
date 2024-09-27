@@ -44,7 +44,7 @@ template <typename UInt>
 [[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<UInt> and std::is_unsigned_v<UInt>, UInt>
         unsigned_int_add_nowrap_annotated(const UInt a, const UInt b, const char* file, unsigned int line,
                                           const char* func) {
-    xoz_internals__assert_annotated("add wrapped around", internals::test_unsigned_int_add<UInt>(a, b), file, line,
+    xoz_internals__assert_annotated("add wrapped around", not internals::test_unsigned_int_add<UInt>(a, b), file, line,
                                     func);
     return a + b;
 }
@@ -62,6 +62,8 @@ template <typename UInt>
 }  // namespace internals
 
 
+#define assert_u8_add_nowrap(a, b) \
+    internals::unsigned_int_add_nowrap_annotated<uint8_t>(a, b, __FILE__, __LINE__, __func__)
 #define assert_u32_add_nowrap(a, b) \
     internals::unsigned_int_add_nowrap_annotated<uint32_t>(a, b, __FILE__, __LINE__, __func__)
 
