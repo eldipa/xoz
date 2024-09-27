@@ -647,26 +647,41 @@ void Descriptor::update_header() {
 }
 
 void Descriptor::update_sizes_of_header(bool called_from_load) {
-    uint8_t cur_isize = assert_u8_sub_nonneg(hdr.isize, future_idata_size());
-    uint32_t cur_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
+    uint64_t cur_isize = assert_u8_sub_nonneg(hdr.isize, future_idata_size());
+    uint64_t cur_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
 
     update_sizes(cur_isize, cur_csize);
+
+    // TODO replace by runtime checks and not asserts because the subclass may
+    // not know about the future sizes
+    cur_isize = assert_u64_add_nowrap(cur_isize, future_idata_size());
+    cur_csize = assert_u64_add_nowrap(cur_csize, future_content_size);
+
+    if (is_isize_greater_than_allowed(cur_isize)) {
+        throw "";  // TODO
+    }
+
+    if (is_csize_greater_than_allowed(cur_csize)) {
+        throw "";  // TODO
+    }
+
+    if (cur_isize % 2 != 0) {
+        throw "";  // TODO
+    }
 
     // If update_sizes_of_header is being called from the loading of the descriptor,
     // this is the first call and the only moment where we can know how much content
     // belongs to the current version of the subclass descriptor and how much
     // to the 'future' version.
     if (called_from_load) {
-        future_content_size = assert_u32_sub_nonneg(hdr.csize, cur_csize);
+        future_content_size = assert_u32_sub_nonneg(hdr.csize, assert_u32(cur_csize));
     }
 
-    // TODO checks
-    cur_isize = assert_u8_add_nowrap(cur_isize, future_idata_size());
-    cur_csize = assert_u32_add_nowrap(cur_csize, future_content_size);
-    // assert cur_csize == 0 then hdr.own_content is false (and similar)
+    hdr.isize = assert_u8(cur_isize);
+    hdr.csize = assert_u32(cur_csize);
 
-    hdr.isize = cur_isize;
-    hdr.csize = cur_csize;
+    // TODO more checks
+    // assert cur_csize == 0 then hdr.own_content is false (and similar)
 }
 
 bool Descriptor::update_content_segment([[maybe_unused]] Segment& segm) { return hdr.own_content; }

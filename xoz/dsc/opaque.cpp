@@ -8,7 +8,7 @@ void OpaqueDescriptor::read_struct_specifics_from([[maybe_unused]] IOBase& io) {
 
 void OpaqueDescriptor::write_struct_specifics_into([[maybe_unused]] IOBase& io) {}
 
-void OpaqueDescriptor::update_sizes([[maybe_unused]] uint8_t& isize, [[maybe_unused]] uint32_t& csize) {
+void OpaqueDescriptor::update_sizes([[maybe_unused]] uint64_t& isize, [[maybe_unused]] uint64_t& csize) {
     // OpaqueDescriptor should not modify neither its internal data nor its content so
     // their sizes are unmodified.
 }

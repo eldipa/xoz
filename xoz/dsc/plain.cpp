@@ -10,8 +10,7 @@ void PlainDescriptor::read_struct_specifics_from(IOBase& io) { io.readall(idata)
 
 void PlainDescriptor::write_struct_specifics_into(IOBase& io) { io.writeall(idata); }
 
-void PlainDescriptor::update_sizes(uint8_t& isize, [[maybe_unused]] uint32_t& csize) {
-    // PlainDescriptor does not have any content so csize is left unmodified.
+void PlainDescriptor::update_sizes(uint64_t& isize, [[maybe_unused]] uint64_t& csize) {
     isize = assert_u8(idata.size());
 }
 

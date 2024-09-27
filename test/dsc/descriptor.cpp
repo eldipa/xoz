@@ -1364,7 +1364,7 @@ namespace {
         void write_struct_specifics_into(IOBase&) override {
             return; // 0 write
         }
-        void update_sizes(uint8_t& isize, [[maybe_unused]] uint32_t& csize) override {
+        void update_sizes(uint64_t& isize, [[maybe_unused]] uint64_t& csize) override {
             isize = assert_u8(internal_data.size());
         }
 

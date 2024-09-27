@@ -322,7 +322,7 @@ private:
 protected:
     void flush_writes() override;
     void release_free_space() override;
-    void update_sizes(uint8_t& isize, uint32_t& csize) override;
+    void update_sizes(uint64_t& isize, uint64_t& csize) override;
     bool update_content_segment(Segment& segm) override;
 
 private:

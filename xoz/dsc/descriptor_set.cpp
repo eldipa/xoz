@@ -854,7 +854,7 @@ bool DescriptorSet::update_content_segment(Segment& segm) {
     }
 }
 
-void DescriptorSet::update_sizes(uint8_t& isize, uint32_t& csize) {
+void DescriptorSet::update_sizes(uint64_t& isize, uint64_t& csize) {
     // Make sure set to be 100% sync so we can know how much space its segment is owning
     assert(count() == 0 or not does_require_write());
 
@@ -868,7 +868,7 @@ void DescriptorSet::update_sizes(uint8_t& isize, uint32_t& csize) {
     }
 
     if (psize) {
-        isize = assert_u8_add_nowrap(isize, assert_u8((psize << 1)));
+        isize = assert_u64_add_nowrap(isize, assert_u8((psize << 1)));
     }
 }
 

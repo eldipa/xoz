@@ -248,9 +248,9 @@ protected:
     virtual void destroy();
 
     // TODO change this
-    constexpr static inline bool is_isize_greater_than_allowed(uint8_t isize) { return isize > 127; }
+    constexpr static inline bool is_isize_greater_than_allowed(uint64_t isize) { return isize > 127; }
 
-    constexpr static inline bool is_csize_greater_than_allowed(uint32_t csize) { return csize > 0x7fffffff; }
+    constexpr static inline bool is_csize_greater_than_allowed(uint64_t csize) { return csize > 0x7fffffff; }
 
     constexpr static inline bool is_id_temporal(const uint32_t id) { return bool(id & 0x80000000); }
 
@@ -301,7 +301,7 @@ protected:
     /*
      * Update the current size of internal data and content respectively.
      * */
-    virtual void update_sizes(uint8_t& isize, uint32_t& csize) = 0;
+    virtual void update_sizes(uint64_t& isize, uint64_t& csize) = 0;
 
     /*
      * Subclass must release any free/unused space allocated by the descriptor
