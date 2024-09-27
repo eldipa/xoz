@@ -88,6 +88,8 @@ public:
     // For non-owner descriptors returns always 0
     uint32_t calc_content_space_size() const;
 
+    // Return the content size including any future content.
+    // If the descriptor does not own content, return 0
     uint32_t content_size() const { return hdr.own_content ? hdr.csize : 0; }
 
 public:
