@@ -66,6 +66,8 @@ template <typename UInt>
     internals::unsigned_int_add_nowrap_annotated<uint8_t>(a, b, __FILE__, __LINE__, __func__)
 #define assert_u32_add_nowrap(a, b) \
     internals::unsigned_int_add_nowrap_annotated<uint32_t>(a, b, __FILE__, __LINE__, __func__)
+#define assert_u64_add_nowrap(a, b) \
+    internals::unsigned_int_add_nowrap_annotated<uint64_t>(a, b, __FILE__, __LINE__, __func__)
 
 #define assert_u8_sub_nonneg(a, b) \
     internals::unsigned_int_sub_is_nonneg_annotated<uint8_t>(a, b, __FILE__, __LINE__, __func__)
