@@ -21,6 +21,7 @@ using ::testing::ThrowsMessage;
 using ::testing::AllOf;
 
 using ::testing_xoz::PlainDescriptor;
+using ::testing_xoz::PlainWithContentDescriptor;
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::are_all_zeros;
@@ -75,6 +76,30 @@ const size_t FP_SZ = 224;
     dsc2_ptr->write_struct_into(IOSpan(buf2), (rctx));                           \
     checksum3 = dsc2_ptr->checksum;                                      \
     EXPECT_EQ((fp), buf2);                                               \
+    EXPECT_EQ(checksum2, checksum3);                                     \
+} while (0)
+
+#define XOZ_EXPECT_DESERIALIZATION_v2(fp, dsc, rctx, cblkarr) do {                         \
+    std::vector<char> buf2;                                              \
+    XOZ_RESET_FP(buf2, FP_SZ);                                           \
+    uint32_t checksum2 = 0;                                              \
+    uint32_t checksum3 = 0;                                              \
+                                                                         \
+    uint32_t sz1 = (dsc).calc_struct_footprint_size();                   \
+    auto d1 = hexdump((fp), 0, sz1);                                      \
+                                                                         \
+    auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (cblkarr));   \
+    checksum2 = dsc2_ptr->checksum;                                      \
+    dsc2_ptr->checksum = 0;                                              \
+                                                                         \
+    uint32_t sz2 = dsc2_ptr->calc_struct_footprint_size();               \
+    EXPECT_EQ(sz1, sz2);                                                 \
+                                                                         \
+    dsc2_ptr->write_struct_into(IOSpan(buf2), (rctx));                   \
+    checksum3 = dsc2_ptr->checksum;                                      \
+    auto d2 = hexdump(buf2, 0, sz1);                                      \
+                                                                         \
+    EXPECT_EQ(d1, d2);                                                   \
     EXPECT_EQ(checksum2, checksum3);                                     \
 } while (0)
 
@@ -1644,5 +1669,170 @@ namespace {
         // and avoid throwing.
         DescriptorSubRW* dsc5 = dsc2->cast<DescriptorSubRW>(true);
         EXPECT_EQ(dsc5, (DescriptorSubRW*)nullptr);
+    }
+
+    TEST(DescriptorTest, ContentData) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024);
+        cblkarr.allocator().initialize_with_nothing_allocated();
+
+        struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = 0xff,
+
+            .id = 0x80000001,
+
+            .isize = 0,
+            .csize = 0,
+            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+        };
+
+        PlainWithContentDescriptor dsc = PlainWithContentDescriptor(hdr, cblkarr);
+
+        // Check sizes: no content for now
+        XOZ_EXPECT_SIZES(dsc,
+                2, /* struct size */
+                0,   /* internal data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump: no content for now
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff00"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+
+        // Add for the first time some content. This should kick a allocation.
+        // Call full_sync() to get accurate sizes.
+        dsc.set_content({'A'});
+        dsc.full_sync(false);
+
+        // Check sizes: no content for now
+        XOZ_EXPECT_SIZES(dsc,
+                10, // struct size: 6 of header + 4 of idata
+                4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
+                1,  // segment data size: 'A'
+                1   // obj data size: 'A'
+                );
+
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff88 0100 41c1 0100 0000" // Note the 0x41 there: the content is stored within the segment
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+
+        // Set a larger content: This should kick a reallocation
+        dsc.set_content({'A', 'B'});
+        dsc.full_sync(false);
+
+        // Check sizes: no content for now
+        XOZ_EXPECT_SIZES(dsc,
+                12, // struct size: 8 of header + 4 of idata
+                4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
+                2,  // segment data size: 'AB'
+                2   // obj data size: 'AB'
+                );
+
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff88 0200 00c2 4142 0200 0000"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+
+        // Set an even larger content: This should kick a reallocation *and* the content
+        // will not longer being stored in the segment (inline section)
+        dsc.set_content({'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'});
+        dsc.full_sync(false);
+
+        // Check sizes: no content for now
+        XOZ_EXPECT_SIZES(dsc,
+                14, // struct size: 10 of header + 4 of idata
+                4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
+                64,  // segment data size: 1/16 of a block size (1 single subblock)
+                10   // obj data size: 'ABCDEFGHIJ'
+                );
+
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff88 0a00 0084 0080 00c0 0a00 0000"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+
+        // check content
+        EXPECT_EQ(hexdump(dsc.get_content()),
+                "4142 4344 4546 4748 494a"
+                );
+
+        // Set to a smaller content: This should kick a reallocation (shrink)
+        dsc.set_content({'G', 'H', 'I', 'J'});
+        dsc.full_sync(false);
+
+        // Check sizes: no content for now
+        XOZ_EXPECT_SIZES(dsc,
+                14, // struct size: 10 of header + 4 of idata
+                4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
+                4,  // segment data size: 1/16 of a block size (1 single subblock)
+                4   // obj data size: 'ABCDEFGHIJ'
+                );
+
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                "ff88 0400 00c4 4748 494a 0400 0000" // use inline again
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+
+        // Delete the content: This should kick a deallocation.
+        dsc.del_content();
+        dsc.full_sync(false);
+
+        // Check sizes: no content for now
+        XOZ_EXPECT_SIZES(dsc,
+                2, /* struct size */
+                0,   /* internal data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump: no content for now
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        EXPECT_EQ(hexdump((fp), 0, (dsc).calc_struct_footprint_size()),
+                "ff00"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION_v2(fp, dsc, rctx, cblkarr);
+
+        // Delete the content again: This should be a no-op
+        dsc.del_content();
+        dsc.full_sync(false);
+
+        // Check sizes: no content for now
+        XOZ_EXPECT_SIZES(dsc,
+                2, /* struct size */
+                0,   /* internal data size */
+                0,  /* segment data size */
+                0  /* obj data size */
+                );
+
+        // Write and check the dump: no content for now
+        dsc.write_struct_into(IOSpan(fp), rctx);
+        EXPECT_EQ(hexdump((fp), 0, (dsc).calc_struct_footprint_size()),
+                "ff00"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, dsc);
+        XOZ_EXPECT_DESERIALIZATION_v2(fp, dsc, rctx, cblkarr);
     }
 }
