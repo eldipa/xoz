@@ -76,6 +76,7 @@ void PlainWithContentDescriptor::set_content(const std::vector<char>& content) {
 
     auto io = get_content_io();
     io.writeall(content);
+    notify_descriptor_changed();
 }
 
 const std::vector<char> PlainWithContentDescriptor::get_content() /* TODO const */ {
@@ -86,7 +87,10 @@ const std::vector<char> PlainWithContentDescriptor::get_content() /* TODO const 
     return content;
 }
 
-void PlainWithContentDescriptor::del_content() { resize_content(0); }
+void PlainWithContentDescriptor::del_content() {
+    resize_content(0);
+    notify_descriptor_changed();
+}
 
 uint32_t PlainWithContentDescriptor::optional_field_size() const {
     return assert_u32(does_own_content() ? sizeof(uint32_t) : 0);
