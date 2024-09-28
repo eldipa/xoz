@@ -320,8 +320,6 @@ private:
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
 
 protected:
-    void flush_writes() override;
-    void release_free_space() override;
     void update_sizes(uint64_t& isize, uint64_t& csize) override;
     bool update_content_segment(Segment& segm) override;
 
@@ -331,6 +329,12 @@ private:
     void full_sync_no_recursive(const bool release);
     void clear_set_no_recursive();
     void destroy_no_recursive();
+
+    // Override these only to make them fail.
+    // Callers (including Descriptor parent class) should not call them
+    // and instead they should call full_sync().
+    void flush_writes() override;
+    void release_free_space() override;
 
 public:
     /*

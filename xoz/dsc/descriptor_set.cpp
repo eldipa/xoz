@@ -223,35 +223,25 @@ void DescriptorSet::zeros(IOBase& io, const Extent& ext) {
 }
 
 void DescriptorSet::flush_writes_no_recursive(const bool release) {
-    // While the caller is wanting to flush any pending write of the set,
-    // this is tricky because there maybe pending writes in the descriptors of the set.
-    // But calling flush_writes on them is not enough, we need their headers/sizes
-    // to be updated (update_header()) and, if this flush_writes_no_recursive is
-    // part of a full_sync on the set, we want to release the descriptors's space
-    // before even writing the set.
-    // So a flush_writes_no_recursive on the set is triggering a full_sync
-    // on each descriptor.
+    // Full-sync the members of the set that are not set themselves first.
+    // This ensures that we are not doing any recursive call and that
+    // the set (this object) will have their members updated and
+    // (and calling write_modified_descriptors will be meaningful).
+    //
+    // For members that are sets, full_sync_no_recursive should had been
+    // called for them first (see full_sync implementation that does this
+    // by traveling the tree of set in a depth-first fashion)
     //
     // TODO detect modifications to to_update/to_add during this
-    //
-    // TODO Imagine the following:
-    //
-    // rootset --> dset1 --> dset2 --> d2
-    //       \---> d3   \---> d1
-    //
-    // On rootset.full_sync(), this works recursively calling full_sync_no_recursive()
-    // on dset2, dset1 and rootset in that order.
-    //
-    // For the flush phase of dset2, d2.full_sync() is called, then dset2.write_modified_descriptors
-    // (all good so far)
-    // For the flush phase of dset1, dset2.full_sync() is called which triggers the recursive call
-    // again. There is no "double write" (in theory) because each dset checks does_require_write()
-    // but the tree of dsets is scanned N^2
     for (auto dsc: to_update) {
-        dsc->full_sync(release);
+        if (not dsc->is_descriptor_set()) {
+            dsc->full_sync(release);
+        }
     }
     for (auto dsc: to_add) {
-        dsc->full_sync(release);
+        if (not dsc->is_descriptor_set()) {
+            dsc->full_sync(release);
+        }
     }
 
     auto io = IOSegment(sg_blkarr, segm);
@@ -872,17 +862,9 @@ void DescriptorSet::update_sizes(uint64_t& isize, uint64_t& csize) {
     }
 }
 
-
-void DescriptorSet::release_free_space() {
-    depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->release_free_space_no_recursive(); });
-}
-
-void DescriptorSet::flush_writes() {
-    depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->flush_writes_no_recursive(false); });
-}
-
 void DescriptorSet::full_sync_no_recursive(const bool release) {
     flush_writes_no_recursive(release);
+
     if (release) {
         release_free_space_no_recursive();
     }
@@ -900,4 +882,8 @@ void DescriptorSet::clear_set() {
 void DescriptorSet::destroy() {
     depth_first_for_each_set(*this, [](DescriptorSet* dset) { dset->destroy_no_recursive(); });
 }
+
+
+void DescriptorSet::flush_writes() { xoz_assert("bad call", false); }
+void DescriptorSet::release_free_space() { xoz_assert("bad call", false); }
 }  // namespace xoz
