@@ -30,7 +30,7 @@ void PlainDescriptor::set_idata(const std::vector<char>& data) {
         throw "";
     }
 
-    if (is_isize_greater_than_allowed(isize)) {
+    if (not does_hdr_isize_fit(isize)) {
         throw "";
     }
 

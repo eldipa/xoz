@@ -212,7 +212,7 @@ protected:
             owner_raw_ptr(nullptr),
             checksum(0) {}
 
-    static void chk_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
+    static void chk_hdr_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
     /* Subclasses must override these methods to read/write specific data
      * from/into the iobase (xoz file) where the read/write pointer of io object
@@ -248,9 +248,9 @@ protected:
     virtual void destroy();
 
     // TODO change this
-    constexpr static inline bool is_isize_greater_than_allowed(uint64_t isize) { return isize > 127; }
+    constexpr static inline bool does_hdr_isize_fit(uint64_t hdr_isize) { return hdr_isize <= 127; }
 
-    constexpr static inline bool is_csize_greater_than_allowed(uint64_t csize) { return csize > 0x7fffffff; }
+    constexpr static inline bool does_hdr_csize_fit(uint64_t hdr_csize) { return hdr_csize <= 0x7fffffff; }
 
     constexpr static inline bool is_id_temporal(const uint32_t id) { return bool(id & 0x80000000); }
 

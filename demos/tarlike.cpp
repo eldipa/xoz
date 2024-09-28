@@ -135,8 +135,8 @@ public:
         // In practice, the upper limit may be below this 1GB limit. This precise check is still missing in XOZ
         // and it may happen during the allocation.
         //
-        // The is_csize_greater_than_allowed only fails if it is larger than 1GB.
-        if (Descriptor::is_csize_greater_than_allowed(total_alloc_sz)) {
+        // The does_hdr_csize_fit only fails if it is larger than 1GB.
+        if (not Descriptor::does_hdr_csize_fit(total_alloc_sz)) {
             throw std::runtime_error("File + file name is too large");
         }
 

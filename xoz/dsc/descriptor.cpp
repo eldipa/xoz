@@ -364,7 +364,7 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     }
 
     // TODO
-    if (is_isize_greater_than_allowed(hdr.isize)) {
+    if (not does_hdr_isize_fit(hdr.isize)) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor isize is larger than allowed " << hdr);
     }
 
@@ -391,7 +391,7 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
                                             << " bytes of content but it is not an owner; " << hdr);
     }
 
-    if (is_csize_greater_than_allowed(hdr.csize)) {
+    if (not does_hdr_csize_fit(hdr.csize)) {
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor csize is larger than allowed " << hdr);
     }
 
@@ -429,7 +429,7 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     checksum += firstfield;
 
     // Write the second, if present
-    chk_isize_fit_or_fail(has_id, hdr);
+    chk_hdr_isize_fit_or_fail(has_id, hdr);
     if (has_id) {
         uint32_t idfield = 0;
         bool hi_dsize_msb = hdr.isize >> (1 + 5);  // discard 5 lower bits of isize
@@ -530,7 +530,7 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
 
     // Write the idfield if present
     bool has_id = is_id_persistent(hdr.id) or hdr.isize >= (32 << 1);
-    chk_isize_fit_or_fail(has_id, hdr);
+    chk_hdr_isize_fit_or_fail(has_id, hdr);
     if (has_id) {
         struct_sz += 4;
     }
@@ -594,7 +594,7 @@ std::ostream& operator<<(std::ostream& out, const Descriptor& dsc) {
 
 void PrintTo(const Descriptor& dsc, std::ostream* out) { PrintTo(dsc.hdr, out); }
 
-void Descriptor::chk_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr) {
+void Descriptor::chk_hdr_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr) {
     if (has_id) {
         if (hdr.isize >= (64 << 1)) {
             throw WouldEndUpInconsistentXOZ(F() << "Descriptor isize is larger than the maximum representable ("
@@ -647,25 +647,25 @@ void Descriptor::update_header() {
 }
 
 void Descriptor::update_sizes_of_header(bool called_from_load) {
-    uint64_t cur_isize = assert_u8_sub_nonneg(hdr.isize, future_idata_size());
-    uint64_t cur_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
+    uint64_t present_isize = assert_u8_sub_nonneg(hdr.isize, future_idata_size());
+    uint64_t present_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
 
-    update_sizes(cur_isize, cur_csize);
+    update_sizes(present_isize, present_csize);
 
     // TODO replace by runtime checks and not asserts because the subclass may
     // not know about the future sizes
-    cur_isize = assert_u64_add_nowrap(cur_isize, future_idata_size());
-    cur_csize = assert_u64_add_nowrap(cur_csize, future_content_size);
+    uint64_t hdr_isize = assert_u64_add_nowrap(present_isize, future_idata_size());
+    uint64_t hdr_csize = assert_u64_add_nowrap(present_csize, future_content_size);
 
-    if (is_isize_greater_than_allowed(cur_isize)) {
+    if (not does_hdr_isize_fit(hdr_isize)) {
         throw "";  // TODO
     }
 
-    if (is_csize_greater_than_allowed(cur_csize)) {
+    if (not does_hdr_csize_fit(hdr_csize)) {
         throw "";  // TODO
     }
 
-    if (cur_isize % 2 != 0) {
+    if (hdr_isize % 2 != 0) {
         throw "";  // TODO
     }
 
@@ -674,11 +674,11 @@ void Descriptor::update_sizes_of_header(bool called_from_load) {
     // belongs to the current version of the subclass descriptor and how much
     // to the 'future' version.
     if (called_from_load) {
-        future_content_size = assert_u32_sub_nonneg(hdr.csize, assert_u32(cur_csize));
+        future_content_size = assert_u32_sub_nonneg(hdr.csize, assert_u32(hdr_csize));
     }
 
-    hdr.isize = assert_u8(cur_isize);
-    hdr.csize = assert_u32(cur_csize);
+    hdr.isize = assert_u8(hdr_isize);
+    hdr.csize = assert_u32(hdr_csize);
 
     // TODO more checks
     // assert cur_csize == 0 then hdr.own_content is false (and similar)

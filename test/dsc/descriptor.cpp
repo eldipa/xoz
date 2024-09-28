@@ -1375,7 +1375,7 @@ namespace {
         void set_idata(const std::vector<char>& data) {
             uint8_t isize = assert_u8(data.size());
             assert(isize % 2 == 0);
-            assert(not is_isize_greater_than_allowed(isize));
+            assert(does_hdr_isize_fit(isize));
 
             internal_data = data;
             notify_descriptor_changed();
