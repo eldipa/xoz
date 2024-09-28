@@ -80,17 +80,17 @@ public:
     // Return the size in bytes of that referenced by the segment and
     // that represent the content of the descriptor (not the descriptor's internal data).
     //
-    // The size may be larger than content_size() (the csize field in the descriptor
+    // The size may be larger than get_hdr_csize() (the csize field in the descriptor
     // header) if the descriptor has more space allocated than the declared in csize.
     // In this sense, calc_content_space_size() is the
-    // total usable space while hdr.csize (or content_size) is the used space.
+    // total usable space while hdr.csize (or get_hdr_csize) is the used space.
     //
     // For non-owner descriptors returns always 0
     uint32_t calc_content_space_size() const;
 
     // Return the content size including any future content.
     // If the descriptor does not own content, return 0
-    uint32_t content_size() const { return hdr.own_content ? hdr.csize : 0; }
+    uint32_t get_hdr_csize() const { return hdr.own_content ? hdr.csize : 0; }
 
 public:
     virtual ~Descriptor() {}

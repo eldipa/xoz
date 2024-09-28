@@ -79,7 +79,7 @@ const size_t FP_SZ = 224;
     EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
     EXPECT_EQ((dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
     EXPECT_EQ((dsc).calc_content_space_size(), (unsigned)(cdata_sz));      \
-    EXPECT_EQ((dsc).content_size(), (unsigned)(obj_data_sz));       \
+    EXPECT_EQ((dsc).get_hdr_csize(), (unsigned)(obj_data_sz));       \
 } while (0)
 
 #define XOZ_EXPECT_DSC_SERIALIZATION(blkarr, sg, data) do {         \
