@@ -2626,8 +2626,7 @@ namespace {
 
         void set_idata(const std::vector<char>& data) {
             uint8_t isize = assert_u8(data.size());
-            assert(isize % 2 == 0);
-            assert(does_hdr_isize_fit(isize));
+            assert(does_present_isize_fit(isize));
 
             defer_idata = data;
             notify_descriptor_changed();

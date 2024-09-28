@@ -839,4 +839,24 @@ IOSegment Descriptor::get_content_io() {
     return io;
 }
 
+bool Descriptor::does_present_isize_fit(uint64_t present_isize) const {
+    if (not is_u64_add_ok(present_isize, future_idata_size())) {
+        return false;
+    }
+
+    uint64_t hdr_isize = assert_u64_add_nowrap(present_isize, future_idata_size());
+
+    return does_hdr_isize_fit(hdr_isize) and hdr_isize % 2 == 0;
+}
+
+bool Descriptor::does_present_csize_fit(uint64_t present_csize) const {
+    if (not is_u64_add_ok(present_csize, future_content_size)) {
+        return false;
+    }
+
+    uint64_t hdr_csize = assert_u64_add_nowrap(present_csize, future_content_size);
+
+    return does_hdr_isize_fit(hdr_csize);
+}
+
 }  // namespace xoz

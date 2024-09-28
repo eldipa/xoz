@@ -247,14 +247,18 @@ protected:
      * */
     virtual void destroy();
 
-    // TODO change this
-    constexpr static inline bool does_hdr_isize_fit(uint64_t hdr_isize) { return hdr_isize <= 127; }
-
-    constexpr static inline bool does_hdr_csize_fit(uint64_t hdr_csize) { return hdr_csize <= 0x7fffffff; }
-
     constexpr static inline bool is_id_temporal(const uint32_t id) { return bool(id & 0x80000000); }
 
     constexpr static inline bool is_id_persistent(const uint32_t id) { return not Descriptor::is_id_temporal(id); }
+
+    /*
+     * Return if the given isize/csize for the present version of the descriptor fits
+     * or not into the header.
+     * These methods take into account the isize/csize for any future version of
+     * the descriptor.
+     * */
+    bool does_present_isize_fit(uint64_t present_isize) const;
+    bool does_present_csize_fit(uint64_t present_csize) const;
 
     /*
      * Subclasses *must* call this method to notify that the instance had been modified
@@ -414,5 +418,8 @@ private:
                                      const Descriptor* const dsc, bool ex_type_used);
     static void chk_dset_type(bool is_read_op, const Descriptor* const dsc, const struct Descriptor::header_t& hdr,
                               const RuntimeContext& rctx);
+
+    constexpr static inline bool does_hdr_isize_fit(uint64_t hdr_isize) { return hdr_isize <= 127; }
+    constexpr static inline bool does_hdr_csize_fit(uint64_t hdr_csize) { return hdr_csize <= 0x7fffffff; }
 };
 }  // namespace xoz

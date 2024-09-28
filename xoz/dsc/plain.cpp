@@ -21,16 +21,7 @@ std::unique_ptr<Descriptor> PlainDescriptor::create(const struct Descriptor::hea
 
 void PlainDescriptor::set_idata(const std::vector<char>& data) {
     // chk for overflow
-    if (data.size() > uint8_t(-1)) {
-        throw "";
-    }
-
-    auto isize = uint8_t(data.size());
-    if (isize % 2 != 0) {
-        throw "";
-    }
-
-    if (not does_hdr_isize_fit(isize)) {
+    if (not does_present_isize_fit(data.size())) {
         throw "";
     }
 
