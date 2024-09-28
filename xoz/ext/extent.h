@@ -95,7 +95,7 @@ public:
 
     inline void expand_by(uint16_t cnt) {
         assert(not is_suballoc());
-        xoz_assert("add overflows", not test_u16_add(_blk_cnt, cnt));
+        xoz_assert("add overflows", is_u16_add_ok(_blk_cnt, cnt));
         _blk_cnt += cnt;
     }
 
