@@ -713,7 +713,7 @@ void Descriptor::resize_content(uint32_t content_new_sz) {
     // Caller wants some space for the (new) content
     if (not hdr.own_content) {
         xoz_assert("invariant", future_content_size == 0);
-        xoz_assert("invariant", content_new_sz == 0);
+        xoz_assert("invariant", hdr.csize == 0);
 
         hdr.segm = cblkarr.allocator().alloc(content_new_sz);
         hdr.segm.add_end_of_segment();
