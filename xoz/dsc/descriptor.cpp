@@ -338,6 +338,8 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
 
         dsc->read_struct_specifics_from(io);
         dsc->read_future_idata(io);
+
+        xoz_assert("load future idata odd size", dsc->future_idata_size() % 2 == 0);
     }
     uint32_t dsc_end_pos = io.tell_rd();
 
@@ -652,22 +654,39 @@ void Descriptor::update_sizes_of_header(bool called_from_load) {
 
     update_sizes(present_isize, present_csize);
 
-    // TODO replace by runtime checks and not asserts because the subclass may
-    // not know about the future sizes
+    if (not is_u64_add_ok(present_isize, future_idata_size())) {
+        throw WouldEndUpInconsistentXOZ(F()
+                                        << "Updated isize for present version overflows with isize for future version; "
+                                        << "they are respectively " << present_isize << " and " << future_idata_size());
+    }
+
+    if (not is_u64_add_ok(present_csize, future_content_size)) {
+        throw WouldEndUpInconsistentXOZ(F()
+                                        << "Updated csize for present version overflows with csize for future version; "
+                                        << "they are respectively " << present_csize << " and " << future_content_size);
+    }
+
+    if (present_isize % 2 != 0) {
+        throw WouldEndUpInconsistentXOZ(F() << "Updated isize for present version (" << present_isize << ") "
+                                            << "is an odd number (it must be even).");
+    }
+
     uint64_t hdr_isize = assert_u64_add_nowrap(present_isize, future_idata_size());
     uint64_t hdr_csize = assert_u64_add_nowrap(present_csize, future_content_size);
 
     if (not does_hdr_isize_fit(hdr_isize)) {
-        throw "";  // TODO
+        throw WouldEndUpInconsistentXOZ(F() << "Updated isize for present version (" << present_isize << ") "
+                                            << "plus isize for future version (" << future_idata_size() << ") "
+                                            << "does not fit in the header");
     }
 
     if (not does_hdr_csize_fit(hdr_csize)) {
-        throw "";  // TODO
+        throw WouldEndUpInconsistentXOZ(F() << "Updated csize for present version (" << present_csize << ") "
+                                            << "plus csize for future version (" << future_content_size << ") "
+                                            << "does not fit in the header");
     }
 
-    if (hdr_isize % 2 != 0) {
-        throw "";  // TODO
-    }
+    xoz_assert("odd hdr isize", hdr_isize % 2 == 0);
 
     // If update_sizes_of_header is being called from the loading of the descriptor,
     // this is the first call and the only moment where we can know how much content
@@ -679,9 +698,6 @@ void Descriptor::update_sizes_of_header(bool called_from_load) {
 
     hdr.isize = assert_u8(hdr_isize);
     hdr.csize = assert_u32(hdr_csize);
-
-    // TODO more checks
-    // assert cur_csize == 0 then hdr.own_content is false (and similar)
 }
 
 bool Descriptor::update_content_segment([[maybe_unused]] Segment& segm) { return hdr.own_content; }
