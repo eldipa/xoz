@@ -3,7 +3,7 @@
 #include "xoz/io/iospan.h"
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/descriptor_set.h"
-#include "xoz/dsc/plain.h"
+#include "test/plain.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/file/runtime_context.h"
 #include "xoz/blk/vector_block_array.h"
@@ -19,6 +19,8 @@
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 using ::testing::AllOf;
+
+using ::testing_xoz::PlainDescriptor;
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::are_all_zeros;

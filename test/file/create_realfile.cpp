@@ -1,6 +1,6 @@
 #include "xoz/file/file.h"
 #include "xoz/err/exceptions.h"
-#include "xoz/dsc/plain.h"
+#include "test/plain.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -16,6 +16,8 @@ using ::testing::ThrowsMessage;
 using ::testing::AllOf;
 
 #define DELETE(X) system("rm -f '" SCRATCH_HOME X "'")
+
+using ::testing_xoz::PlainDescriptor;
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::file2mem;
