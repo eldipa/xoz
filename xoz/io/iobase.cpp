@@ -17,9 +17,13 @@
 
 namespace xoz {
 IOBase::IOBase(const uint32_t src_sz):
-        src_sz(src_sz), rd_min(0), wr_min(0), rd_end(src_sz), wr_end(src_sz), rd(0), wr(0) {}
+        src_sz(src_sz), rd_min(0), wr_min(0), rd_end(src_sz), wr_end(src_sz), read_only(false), rd(0), wr(0) {}
 
 void IOBase::rw_operation_exact_sz(const bool is_read_op, char* data, const uint32_t exact_sz) {
+    if (read_only and not is_read_op) {
+        throw std::runtime_error("Write operation is not allowed, io is read-only.");
+    }
+
     const uint32_t remain_sz = is_read_op ? remain_rd() : remain_wr();
     if (remain_sz < exact_sz) {
         throw NotEnoughRoom(exact_sz, remain_sz,
@@ -223,6 +227,10 @@ void IOBase::rw_operation_exact_sz_iostream(std::ostream* const output, std::ist
         iostr = output;
     } else {
         iostr = input;
+    }
+
+    if (read_only and not is_read_op) {
+        throw std::runtime_error("Write operation is not allowed, io is read-only.");
     }
 
     // Disable any IO exception by the moment

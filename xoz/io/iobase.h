@@ -161,6 +161,17 @@ public:
      * */
     void limit_to_read_only() { limit(false, tell_wr(), 0); }
 
+    /*
+     * Like limit_to_read_only(), make impossible to do any write at all.
+     * However, with limit_to_read_only(), the restriction can be removed
+     * calling limit_wr or similar.
+     * With turn_read_only(), the read-only restriction is permanent.
+     * */
+    void turn_read_only() {
+        limit_to_read_only();
+        read_only = true;
+    }
+
     uint16_t read_u16_from_le() {
         uint16_t num = 0;
         readall(reinterpret_cast<char*>(&num), sizeof(num));
@@ -319,6 +330,8 @@ private:
     uint32_t wr_min;
     uint32_t rd_end;
     uint32_t wr_end;
+
+    bool read_only;
 
 protected:
     uint32_t rd;
