@@ -89,6 +89,7 @@ const std::vector<char> PlainWithContentDescriptor::get_content() /* TODO const 
 
 void PlainWithContentDescriptor::del_content() {
     resize_content(0);
+    content_size = 0;
     notify_descriptor_changed();
 }
 
