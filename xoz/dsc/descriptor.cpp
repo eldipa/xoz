@@ -654,6 +654,19 @@ void Descriptor::update_sizes_of_header(bool called_from_load) {
 
     update_sizes(present_isize, present_csize);
 
+    // If update_sizes_of_header is being called from the loading of the descriptor,
+    // this is the first call and the only moment where we can know how much content
+    // belongs to the current version of the subclass descriptor and how much
+    // to the 'future' version.
+    if (called_from_load) {
+        // We can deduce future_content_size but not future_idata_size. The reason is that
+        // the subclass can add fields changing the future_idata_size at any time
+        // however it cannot change the content because allocation is disabled during
+        // the loading of the descriptor (hopefully)
+        future_content_size = assert_u32_sub_nonneg(hdr.csize, assert_u32(present_csize));
+    }
+
+    // Sanity checks
     if (not is_u64_add_ok(present_isize, future_idata_size())) {
         throw WouldEndUpInconsistentXOZ(F()
                                         << "Updated isize for present version overflows with isize for future version; "
@@ -687,14 +700,6 @@ void Descriptor::update_sizes_of_header(bool called_from_load) {
     }
 
     xoz_assert("odd hdr isize", hdr_isize % 2 == 0);
-
-    // If update_sizes_of_header is being called from the loading of the descriptor,
-    // this is the first call and the only moment where we can know how much content
-    // belongs to the current version of the subclass descriptor and how much
-    // to the 'future' version.
-    if (called_from_load) {
-        future_content_size = assert_u32_sub_nonneg(hdr.csize, assert_u32(hdr_csize));
-    }
 
     hdr.isize = assert_u8(hdr_isize);
     hdr.csize = assert_u32(hdr_csize);
