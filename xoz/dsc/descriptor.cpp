@@ -759,7 +759,7 @@ void Descriptor::resize_content(uint32_t content_new_sz) {
         cblkarr.allocator().realloc(hdr.segm, csize_new);
 
         // Copy from the io content the future content at the end of the io
-        auto content_io = get_content_io();
+        auto content_io = get_allocated_content_io();
         content_io.seek_rd(assert_u32_sub_nonneg(hdr.csize, future_content_size), IOBase::Seekdir::beg);
         content_io.seek_wr(future_content_size, IOBase::Seekdir::end);
         content_io.copy_into_self(future_content_size);
@@ -775,7 +775,7 @@ void Descriptor::resize_content(uint32_t content_new_sz) {
             std::vector<char> future_data;
             future_data.reserve(future_content_size);
             {
-                auto content_io = get_content_io();
+                auto content_io = get_allocated_content_io();
                 content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
                 content_io.readall(future_data);
             }
@@ -785,8 +785,8 @@ void Descriptor::resize_content(uint32_t content_new_sz) {
 
             // Copy back the future data
             {
-                auto content_io = get_content_io();  // hdr.segm changed, get a new io
-                content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
+                auto content_io = get_allocated_content_io();  // hdr.segm changed, get a new io
+                content_io.seek_wr(future_content_size, IOBase::Seekdir::end);
                 content_io.writeall(future_data);
             }
 
@@ -795,7 +795,7 @@ void Descriptor::resize_content(uint32_t content_new_sz) {
             auto future_sg = cblkarr.allocator().alloc(future_content_size);
             auto future_io = IOSegment(cblkarr, future_sg);
             {
-                auto content_io = get_content_io();
+                auto content_io = get_allocated_content_io();
                 content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
                 content_io.copy_into(future_io, future_content_size);
             }
@@ -805,8 +805,8 @@ void Descriptor::resize_content(uint32_t content_new_sz) {
 
             // Copy back the future data
             {
-                auto content_io = get_content_io();  // hdr.segm changed, get a new io
-                content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
+                auto content_io = get_allocated_content_io();  // hdr.segm changed, get a new io
+                content_io.seek_wr(future_content_size, IOBase::Seekdir::end);
                 future_io.seek_rd(0);
                 future_io.copy_into(content_io, future_content_size);
             }
@@ -818,7 +818,7 @@ void Descriptor::resize_content(uint32_t content_new_sz) {
     hdr.csize = csize_new;
 }
 
-IOSegment Descriptor::get_content_io() {
+IOSegment Descriptor::get_allocated_content_io() {
     if (not hdr.own_content) {
         // Descriptors without a content don't fail on get_content_io and instead
         // return an empty io.
@@ -832,13 +832,18 @@ IOSegment Descriptor::get_content_io() {
         return io;
     }
 
+    return IOSegment(cblkarr, hdr.segm);
+}
+
+IOSegment Descriptor::get_content_io() {
     // Hide from the caller the future_content
     //
     // Note: if get_content_io() is called from read_struct_specifics_from,
     // by that time future_content_size is not set yet and it will default to 0
     auto present_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
 
-    auto io = IOSegment(cblkarr, hdr.segm);
+    auto io = get_allocated_content_io();
+
     io.limit_rd(0, present_csize);
     io.limit_wr(0, present_csize);
     return io;
@@ -861,7 +866,7 @@ bool Descriptor::does_present_csize_fit(uint64_t present_csize) const {
 
     uint64_t hdr_csize = assert_u64_add_nowrap(present_csize, future_content_size);
 
-    return does_hdr_isize_fit(hdr_csize);
+    return does_hdr_csize_fit(hdr_csize);
 }
 
 }  // namespace xoz

@@ -381,7 +381,14 @@ protected:
      * */
     void resize_content(uint32_t content_new_sz);
 
+    /*
+     * Get content return the present version's content while get_allocated_content_io()
+     * returns the whole content allocated (including future data).
+     *
+     * Subclasses should use get_content_io() only.
+     * */
     IOSegment get_content_io();
+    IOSegment get_allocated_content_io();
 
 private:
     /*
