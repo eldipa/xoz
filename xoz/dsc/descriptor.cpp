@@ -836,11 +836,11 @@ IOSegment Descriptor::get_content_io() {
     //
     // Note: if get_content_io() is called from read_struct_specifics_from,
     // by that time future_content_size is not set yet and it will default to 0
-    auto caller_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
+    auto present_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
 
     auto io = IOSegment(cblkarr, hdr.segm);
-    io.limit_rd(0, caller_csize);
-    io.limit_wr(0, caller_csize);
+    io.limit_rd(0, present_csize);
+    io.limit_wr(0, present_csize);
     return io;
 }
 
