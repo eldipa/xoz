@@ -86,9 +86,54 @@ public:
     // The type should be very well documented in a RFC or like.
     constexpr static uint16_t TYPE = 0x00ab;
 
-    FileMember(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, const std::string& fname, uint32_t file_sz,
-               uint16_t fname_sz):
-            Descriptor(hdr, cblkarr), fname(fname), file_sz(file_sz), fname_sz(fname_sz) {}
+    FileMember(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, const std::string& fpath):
+            Descriptor(hdr, cblkarr) {
+        // Get from the path the filename (fname) and
+        // calculate its size (fname_sz) and the size of the file (file_sz).
+        // Leave the file open, we will use it soon.
+        std::ifstream file = init_attributes(fpath);
+
+        // We're going to store the file content and file name in the "content" section.
+        // First, let's see how much do we need:
+        auto content_alloc_sz = fname_sz + file_sz;
+
+        // Check that we can actually store all the data calling does_present_csize_fit.
+        //
+        // Strictly speaking the maximum size of data that we could save in XOZ is 1GB (minus 1 byte)
+        // but in practice depends of the block size (smaller block sizes will force to reduce the maximum)
+        // and how much fragmentation we tolerate (how large the Segment will become).
+        // In practice, the upper limit may be below this 1GB limit. This precise check is still missing in XOZ
+        // and it may happen during the allocation.
+        if (not does_present_csize_fit(content_alloc_sz)) {
+            throw std::runtime_error("File + file name is too large");
+        }
+
+        // We allocate the required amount of bytes to hold the content.
+        //
+        // XOZ will do all the necessary things to find enough space without fragmenting
+        // to much the xoz file or spreading the content too much.
+        // If the xoz file is too small, it will grow automatically.
+        resize_content(content_alloc_sz);
+
+        // The xoz allocator (called in the resize_content above) works in terms
+        // of Segments, a discontinuous series of extents (blocks)
+        // Working with the allocator, the BlockArray and the Segments is hard.
+        //
+        // XOZ offers a better way: an 'io' object (IOSegment in this case)
+        // to see the entire space (the content) as a contiguous byte string
+        // very similar to a C++ file.
+        auto io = get_content_io();
+
+        // Now, copy the file content to the io object. Writing to the io will
+        // write directly to xoz file.
+        io.writeall(file);
+
+        // Then, write the file name (no null will be stored)
+        // Note how the 'io' works as a C++ file: we did a write and that automatically
+        // moved the 'write pointer' so the second write (this one) took place
+        // immediately after the former.
+        io.writeall(fname.c_str(), fname_sz);
+    }
 
     // (4) create() method with user-defined signature.
     //
@@ -98,91 +143,6 @@ public:
     // Because it is meant to be called by the user, it is likely to be used/modified
     // immediately so we return a pointer to FileMember and  not to Descriptor.
     static std::unique_ptr<FileMember> create(const std::string& fpath, BlockArray& cblkarr) {
-        // Let's open the file that we want to save in XOZ
-        std::ifstream file(fpath, std::ios_base::in | std::ios_base::binary);
-        if (!file) {
-            throw std::runtime_error("File could not be open");
-        }
-
-        // We want to store the content of the file in XOZ so we need to measure how much
-        // space do we need.
-        auto begin = file.tellg();
-        file.seekg(0, std::ios_base::end);
-
-        // cppcheck-suppress shadowVariable
-        uint32_t file_sz = xoz::assert_u32(file.tellg() - begin);
-
-        file.seekg(0);  // rewind
-
-        // Also, we would like to store the name of the file
-        // cppcheck-suppress shadowVariable
-        std::string fname = std::filesystem::path(fpath).filename().string();
-        uint16_t fname_sz = xoz::assert_u16(fname.size());  // cppcheck-suppress shadowVariable
-
-        // Each descriptor has two areas to store data: the "internal" section embedded in the
-        // descriptor structure and the "content" section.
-        //
-        // The "internal" section is for small things that are frequently updated; the "content"
-        // section is for very large, less frequently updated data.
-        //
-        // We're going to store the file content and file name in the "content" section.
-        // First, let's see how much do we need:
-        auto total_alloc_sz = fname_sz + file_sz;
-
-        // Strictly speaking the maximum size of data that we could save in XOZ is 1GB (minus 1 byte)
-        // but in practice depends of the block size (smaller block sizes will force to reduce the maximum)
-        // and how much fragmentation we tolerate (how large the Segment will become).
-        // In practice, the upper limit may be below this 1GB limit. This precise check is still missing in XOZ
-        // and it may happen during the allocation.
-        //
-        // The does_present_csize_fit only fails if it is larger than 1GB.
-        if (not Descriptor::does_present_csize_fit(total_alloc_sz)) {
-            throw std::runtime_error("File + file name is too large");
-        }
-
-        // We take the "content" data block array's allocator and we allocate the required amount
-        // of bytes. XOZ will do all the necessary things to find enough space without fragmenting
-        // to much the xoz file or spreading the content too much.
-        // If the xoz file is too small, it will grow automatically.
-        //
-        // The alloc() method will return a Segment. A segment is a series of blocks numbers
-        // that points to the allocated space.
-        Segment segm = cblkarr.allocator().alloc(total_alloc_sz);
-
-        // TODO: talk somewhere how to make cdata/content backward/forward compatible
-        // like idata is (or xoz tries to)
-
-        // The Descriptor API says that the segment stored in the header must be
-        // inline-data ended.
-        //
-        // By default when we call alloc() we get inline-data ended segments
-        // (in particular, part of the content that we wrote in the writeall() call above
-        // was stored in this inline-data section).
-        //
-        // Nevertheless, it does not hurt to ensure that the segment ends with a inline-data
-        // section.
-        segm.add_end_of_segment();
-
-        // The blocks pointed by a segment are not necessary contiguous but we can see them
-        // as such using an IOSegment (or 'io' object for short).
-        IOSegment io(cblkarr, segm);
-
-        // Now, copy the file content to the io object. Writing to the io will
-        // write directly to xoz file.
-        io.writeall(file);
-
-        // Then, write the file name (no null will be stored)
-        io.writeall(fname.c_str(), fname_sz);
-
-        // We said earlier than there are two store areas: the "internal" and the "content"
-        // sections.
-        //
-        // We plan to store in the "internal" section the sizes of the file as uint32_t
-        // and its name as uint16_t (6 bytes in total).
-        //
-        // The write is made in write_struct_specifics_into, no here, but we need
-        // to declare the total size in the 'isize' field.
-
         struct header_t hdr = {
                 // The descriptor owns content data so we set this to True
                 .own_content = true,
@@ -193,14 +153,16 @@ public:
                 // to the descriptor set (6)
                 .id = 0x0,
 
-                .isize = xoz::assert_u8(sizeof(uint32_t) + sizeof(uint16_t)),
-                .csize = xoz::assert_u32(total_alloc_sz),
+                .isize = 0,  // TODO, is this necessary? xoz::assert_u8(sizeof(uint32_t) + sizeof(uint16_t)),
+                .csize = 0,  // TODO, is this necessary? xoz::assert_u32(content_alloc_sz),
 
-                .segm = segm,  // the location of the content data (our file and file name)
+                .segm = Segment::EmptySegment(
+                        cblkarr.blk_sz_order()),  // TODO is this necessary? segm,  // the location of the content data
+                                                  // (our file and file name)
         };
 
-        // Call the Descriptor constructor and build a FileMember object.
-        return std::make_unique<FileMember>(hdr, cblkarr, fname, file_sz, fname_sz);
+        // Call the Descriptor constructor and build a FileMember descriptor.
+        return std::make_unique<FileMember>(hdr, cblkarr, fpath);
     }
 
     // (3)
@@ -214,8 +176,13 @@ public:
     // of the descriptor mapping (see main()).
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               [[maybe_unused]] RuntimeContext& rctx) {
-        return std::make_unique<FileMember>(hdr, cblkarr, "", 0, 0);
+        return std::make_unique<FileMember>(hdr, cblkarr);
     }
+
+    // Note: this constructor should be private. However, my compiler complains that
+    // making this private, the static member function above cannot access (when it should)
+    FileMember(const struct Descriptor::header_t& hdr, BlockArray& cblkarr):
+            Descriptor(hdr, cblkarr), fname(""), file_sz(0), fname_sz(0) {}
 
 public:
     // (7)
@@ -225,10 +192,14 @@ public:
     void set_fname(const std::string& new_fname) {
         uint16_t new_fname_sz = xoz::assert_u16(new_fname.size());
 
-        external_blkarr().allocator().realloc(hdr.segm, file_sz + new_fname_sz);
-        hdr.segm.add_end_of_segment();
+        // Do a resize of the content. Note that this will destroy the
+        // information at the end of the content section if the content
+        // is being shrinking.
+        //
+        // Thankfully, the file name is at the end anyways.
+        resize_content(file_sz + new_fname_sz);
 
-        IOSegment io(external_blkarr(), hdr.segm);
+        auto io = get_content_io();
         io.seek_wr(file_sz);
         io.writeall(new_fname.c_str(), new_fname_sz);
 
@@ -255,14 +226,9 @@ public:
             throw std::runtime_error("File could not be open");
         }
 
-        // Create an IO object to read from the xoz file and write
-        // the file contents. We use hdr.segm that contains the Segment (aka blocks)
-        // that hold the data.
-        // We use the "content" data block array, the same that we used to store the file
-        // in the create() method (4).
-        IOSegment io(external_blkarr(), hdr.segm);
-
         // Read the file content and dump it into f
+        // The file is at the begin of the content section so we don't need to do a seek_rd
+        auto io = get_content_io();
         io.readall(f, file_sz);
     }
 
@@ -279,27 +245,50 @@ protected:
     // As we did in (4), we expect to read or write the size of the file and file name sizes.
     // Again, more complex structures could be read/written here (if they fit).
     //
-    // Note: the content of the "internal" section *must* by a multiple of 2 and it must
+    // Note 1: the content of the "internal" section *must* by a multiple of 2 and it must
     // be below up to a maximum of 127 bytes.
+    //
+    // Failing to do this will trigger an exception.
+    //
+    // Note 2: while you can read the content section,
+    // you *must not write* it or resize it.
+    // This is because de descriptors dimensions are still under construction during
+    // the read_struct_specifics_from() and write_struct_specifics_into()
+    //
+    // Failing to do this may not trigger any exception but it could leave data corrupted.
     void read_struct_specifics_from(IOBase& io) override {
         file_sz = io.read_u32_from_le();
         fname_sz = io.read_u16_from_le();
 
-        // We *can* read from the "content" section if we want
-        // Here, we read and put in memory the file name but we
-        // left the file content unread in disk.
-        //
-        // To read from the "content" section, we create another IO
-        // with the header's segment
-        IOSegment ioe(external_blkarr(), hdr.segm);
+        auto content_io = get_content_io();
+        content_io.turn_read_only();  // not necessary, just a safe check for us
 
         // The file name is stored immediately after the file content
         // so we seek to that position
-        ioe.seek_rd(file_sz);
+        content_io.seek_rd(file_sz);
 
         // Read the string
         std::vector<char> buf(fname_sz);
-        ioe.readall(buf);
+
+        // The following is forward-compatible. We *know* the size of the file name
+        // and we read only that.
+        //
+        // Instead, we *could* just read to the end of the io (doing io.readall(buf))
+        // because the file name is at the end of the content section **but** this is
+        // only true for the current version of TarLike.
+        // A future version could add more stuff and then, reading that xoz file
+        // with an older version of TarLike (like ours), it will read more things
+        // than the file name.
+        //
+        // So it is always safer to work with explicit sizes.
+        //
+        // After the call to read_struct_specifics_from() is done,
+        // the get_content_io() will always be limited to the sections that
+        // the current version suppose to know and any "data from future versions"
+        // will be hidden.
+        // But during read_struct_specifics_from(), the descriptor's dimensions
+        // are not complete known and we need to be extra careful here.
+        content_io.readall(buf, fname_sz);
         fname.assign(buf.data(), fname_sz);
     }
 
@@ -308,34 +297,17 @@ protected:
         io.write_u16_to_le(fname_sz);
     }
 
-    // (2) Update this->hdr
+    // (2)
     //
-    // This is *mandatory*: you need to keep updated
-    // the header's attributes because a descriptor may be written to disk
-    // in any moment and the header needs to reflect the latest state.
-    void XXXupdate_header() /* TODO */ {
-        hdr.segm.add_end_of_segment();
-        hdr.csize = hdr.segm.calc_data_space_size();
-
-        // the space needed for our fields
-        uint32_t isize = sizeof(uint32_t) + sizeof(uint16_t);
-
-        // To maintain forward/backward compatibility, xoz tracks any
-        // data beyond the specific fields of the FileMember class
-        // (data after the fields read in read_struct_specifics_from)
-        // This data is expected to be from future version of the App
-        // (imagine adding more fields to FileMember in a future version of tarlike)
-        // To preserve them we need to take it into account for the isize.
-        // (the reading/writing of that happens automatically by xoz)
-        isize += future_idata_size();
-
-        // Now, update hdr.isize
-        hdr.isize = xoz::assert_u8(isize);
-    }
-
-    void update_sizes(uint8_t& isize, uint32_t& csize) override {
-        isize = xoz::assert_u8(sizeof(uint32_t) + sizeof(uint16_t));
-        csize = xoz::assert_u32_add_nowrap(file_sz, fname_sz);
+    // Update the interna and content sizes. The method receives
+    // the current sizes by reference so we can change them in-place.
+    //
+    // The sizes are uint64_t so we don't need to worry about
+    // a casual overflow or wrap. The xoz library however, will
+    // perform the checks for us.
+    void update_sizes(uint64_t& isize, uint64_t& csize) override {
+        isize = sizeof(uint32_t) + sizeof(uint16_t);
+        csize = file_sz + fname_sz;
     }
 
     // (5)
@@ -344,25 +316,45 @@ protected:
     // It should be called once by xoz.
     // By this moment, the descriptor is "effectively" being removed from the file.
     //
-    // Subclasses may override this to do any clean up like, typically, deallocating
-    // the segment.
-    void destroy() override {
-        // Dealloc/free the segment that contains the file so the space
-        // can be used by other descriptors
-        //
-        // xoz considers any space not explicitly owned by a descriptor
-        // as free so if for some reason we "forget" to dealloc our segment,
-        // the space will be considered free on the next reopen of the xoz file.
-        // It is a kind of garbage collection.
-        if (hdr.segm.length() > 0) {
-            external_blkarr().allocator().dealloc(hdr.segm);
-        }
-    }
+    // Subclasses may override this to do any custom clean up.
+    // By default, Descriptor::destroy() deallocates the content (the segment).
+    //
+    // xoz considers any space not explicitly owned by a descriptor
+    // as free so if for some reason we "forget" to dealloc our segment,
+    // the space will be considered free on the next reopen of the xoz file.
+    // It is a kind of garbage collection.
+    void destroy() override { Descriptor::destroy(); }
 
 private:
     std::string fname;
     uint32_t file_sz;
     uint16_t fname_sz;
+
+    std::ifstream init_attributes(const std::string& fpath) {
+        // Let's open the file that we want to save in XOZ
+        std::ifstream file(fpath, std::ios_base::in | std::ios_base::binary);
+        if (!file) {
+            throw std::runtime_error("File could not be open");
+        }
+
+        // We want to store the content of the file in XOZ so we need to measure how much
+        // space do we need.
+        auto begin = file.tellg();
+        file.seekg(0, std::ios_base::end);
+
+        this->file_sz = xoz::assert_u32(file.tellg() - begin);
+
+        file.seekg(0);  // rewind
+
+        // Also, we would like to store the name of the file
+        this->fname = std::filesystem::path(fpath).filename().string();
+        this->fname_sz = xoz::assert_u16(fname.size());
+
+        return file;
+    }
+
+    // friend std::unique_ptr<Descriptor> FileMember::create(const struct Descriptor::header_t& hdr, BlockArray&
+    // cblkarr, RuntimeContext& rctx);
 };
 
 
@@ -609,6 +601,5 @@ int main(int argc, char* argv[]) {
         // we may end up with a corrupted file.
         xfile.panic_close();
     }
-
     return ret;
 }
