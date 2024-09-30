@@ -232,6 +232,8 @@ public:
         io.readall(f, file_sz);
     }
 
+    uint64_t get_total_size() const { return fname_sz + file_sz; }
+
 protected:
     // (1)
     //
@@ -469,10 +471,24 @@ void list_files(std::shared_ptr<DescriptorSet>& dset) {
     }
 }
 
-void stats(const File& xfile) {
+void stats(const File& xfile, std::shared_ptr<DescriptorSet>& dset) {
     // Writing a xfile to stdout will pretty print the statistics of the xoz file
     // Check the documentation in the source code of File, BlockArray and SegmentAllocator.
     std::cout << xfile << "\n";
+
+    // Now we print tarlike-specific metrics
+    uint64_t data_sz = 0;
+    uint64_t fcount = 0;
+    for (auto it = dset->begin(); it != dset->end(); ++it) {
+        auto f = (*it)->cast<FileMember>();
+        data_sz += f->get_total_size();
+        ++fcount;
+    }
+
+    std::cout << "Tarlike:\n"
+              << "- file count: " << fcount << "\n"
+              << "- data size:  " << std::fixed << std::setprecision(2) << (double(data_sz) / (1024.0)) << " kb\n"
+              << "\n";
 }
 
 void print_usage() {
@@ -575,7 +591,7 @@ int main(int argc, char* argv[]) {
                     ret = -2;
                     break;
                 }
-                stats(xfile);
+                stats(xfile, dset);
                 break;
             default:
                 std::cerr << "Unknown command.\n";
