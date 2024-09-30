@@ -206,9 +206,9 @@ protected:
      * */
     Descriptor(const struct header_t& hdr, BlockArray& cblkarr):
             hdr(hdr),
+            future_content_size(0),
             ext(Extent::EmptyExtent()),
             cblkarr(cblkarr),
-            future_content_size(0),
             owner_raw_ptr(nullptr),
             checksum(0) {}
 
@@ -281,6 +281,8 @@ private:
     void read_future_idata(IOBase& io);
     void write_future_idata(IOBase& io) const;
     uint8_t future_idata_size() const;
+
+    uint32_t future_content_size;
 
 protected:
     /*
@@ -363,8 +365,6 @@ private:
 
 protected:
     BlockArray& external_blkarr() { return cblkarr; }
-
-    uint32_t future_content_size;  // TODO, protected/private? not initialized
 
     /*
      * Resize the content space to have the given size. If no content
