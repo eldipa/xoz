@@ -21,6 +21,12 @@ public:
      * */
     static void fail_if_bad_blk_sz(uint32_t blk_sz, uint32_t min_subblk_sz = 0, uint32_t min_blk_sz = 0);
 
+    /*
+     * How many blocks we consider "as margin" in case of reaching too close to
+     * the hard limit of exhausting the block numbers.
+     * */
+    constexpr static unsigned BLK_NR_EXHAUST = Extent::MAX_BLK_NR - 32;
+
 protected:
     /*
      * Initialize the array of blocks of positive size <blk_sz>, with the blocks <begin_blk_nr>
@@ -354,6 +360,8 @@ public:
         uint64_t grow_expand_capacity_call_cnt;
         uint64_t shrink_call_cnt;
         uint64_t release_call_cnt;
+
+        uint32_t blk_nr_exhaust;
     };
 
     struct stats_t stats() const;

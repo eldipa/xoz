@@ -89,6 +89,7 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
 
     ++_grow_call_cnt;
 
+    // TODO check overflow in the entire of this method
     if (_real_past_end_blk_nr - _past_end_blk_nr >= blk_cnt) {
         // no need to grow, we can reuse the slack space
         uint32_t blk_nr = _past_end_blk_nr;
@@ -104,6 +105,10 @@ uint32_t BlockArray::grow_by_blocks(uint16_t blk_cnt) {
     //  - _real_past_end_blk_nr - _past_end_blk_nr < blk_cnt so fits in a uint16_t
     //    and the (blk_cnt - ...) does not underflow.
     uint16_t req_blk_cnt = blk_cnt - uint16_t(_real_past_end_blk_nr - _past_end_blk_nr);
+
+    if (_real_past_end_blk_nr + req_blk_cnt >= BLK_NR_EXHAUST) {
+        throw WouldEndUpInconsistentXOZ("block array is too large, block numbers are exhausted.");
+    }
 
     ++_grow_expand_capacity_call_cnt;
     auto [blk_nr, real_blk_cnt] = impl_grow_by_blocks(req_blk_cnt);
@@ -349,7 +354,9 @@ struct BlockArray::stats_t BlockArray::stats() const {
                          .grow_call_cnt = _grow_call_cnt,
                          .grow_expand_capacity_call_cnt = _grow_expand_capacity_call_cnt,
                          .shrink_call_cnt = _shrink_call_cnt,
-                         .release_call_cnt = _release_call_cnt};
+                         .release_call_cnt = _release_call_cnt,
+
+                         .blk_nr_exhaust = BLK_NR_EXHAUST - _real_past_end_blk_nr};
 
     return st;
 }
@@ -381,7 +388,8 @@ void PrintTo(const BlockArray& blkarr, std::ostream* out) {
            << "Capacity:          " << std::setfill(' ') << std::setw(12) << st.capacity << " blocks, "
            << st.capacity_blk_sz_kb << " kb\n"
            << "Total:             " << std::setfill(' ') << std::setw(12) << st.total_blk_cnt << " blocks, "
-           << st.total_blk_sz_kb << " kb\n";
+           << st.total_blk_sz_kb << " kb\n"
+           << "Exhaust:           " << std::setfill(' ') << std::setw(12) << st.blk_nr_exhaust << " blocks\n";
 
     out->flags(ioflags);
 }

@@ -208,13 +208,12 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     seek_read_phy(fp, 0, std::ios_base::end);
     auto tmp_fp_sz = fp.tellg() - fp_begin;
 
-    // TODO signed or unsigned check?, probably we should go a little less like INT32_MAX-blk_sz()
-    if (tmp_fp_sz >= INT32_MAX) {
+    // TODO signed or unsigned check?, probably we should go a little less like INT64_MAX-blk_sz()
+    if (tmp_fp_sz >= INT64_MAX) {
         throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");  // TODO exceptions
     }
 
     assert(tmp_fp_sz >= 0);
-    uint32_t fp_sz = uint32_t(tmp_fp_sz);
 
     {
         // Use these as initial values
@@ -238,6 +237,12 @@ void FileBlockArray::open_internal(const char* fpath, std::stringstream&& mem, u
     fail_if_bad_blk_sz(blk_sz);
     fail_if_bad_blk_nr(begin_blk_nr);
 
+    // TODO signed or unsigned check?, probably we should go a little less like INT64_MAX-blk_sz()
+    if (tmp_fp_sz / blk_sz >= BLK_NR_EXHAUST) {
+        throw OpenXOZError(fpath, "the file is huge, it cannot be handled by xoz.");  // TODO exceptions
+    }
+
+    uint32_t fp_sz = assert_u32(tmp_fp_sz);
 
     uint32_t past_end_blk_nr = fp_sz / blk_sz;  // truncate to integer
     if (begin_blk_nr > past_end_blk_nr) {
