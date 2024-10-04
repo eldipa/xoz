@@ -212,6 +212,14 @@ protected:
             owner_raw_ptr(nullptr),
             checksum(0) {}
 
+    Descriptor(const uint16_t type, BlockArray& cblkarr):
+            hdr(create_header(type, cblkarr)),
+            future_content_size(0),
+            ext(Extent::EmptyExtent()),
+            cblkarr(cblkarr),
+            owner_raw_ptr(nullptr),
+            checksum(0) {}
+
     static void chk_hdr_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
     /* Subclasses must override these methods to read/write specific data
@@ -428,5 +436,7 @@ private:
 
     constexpr static inline bool does_hdr_isize_fit(uint64_t hdr_isize) { return hdr_isize <= 127; }
     constexpr static inline bool does_hdr_csize_fit(uint64_t hdr_csize) { return hdr_csize <= 0x7fffffff; }
+
+    static struct Descriptor::header_t create_header(const uint16_t type, const BlockArray& cblkarr);
 };
 }  // namespace xoz

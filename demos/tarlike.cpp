@@ -86,54 +86,6 @@ public:
     // The type should be very well documented in a RFC or like.
     constexpr static uint16_t TYPE = 0x00ab;
 
-    FileMember(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, const std::string& fpath):
-            Descriptor(hdr, cblkarr) {
-        // Get from the path the filename (fname) and
-        // calculate its size (fname_sz) and the size of the file (file_sz).
-        // Leave the file open, we will use it soon.
-        std::ifstream file = init_attributes(fpath);
-
-        // We're going to store the file content and file name in the "content" section.
-        // First, let's see how much do we need:
-        auto content_alloc_sz = fname_sz + file_sz;
-
-        // Check that we can actually store all the data calling does_present_csize_fit.
-        //
-        // Strictly speaking the maximum size of data that we could save in XOZ is 1GB (minus 1 byte)
-        // but in practice depends of the block size (smaller block sizes will force to reduce the maximum)
-        // and how much fragmentation we tolerate (how large the Segment will become).
-        // In practice, the upper limit may be below this 1GB limit. This precise check is still missing in XOZ
-        // and it may happen during the allocation.
-        if (not does_present_csize_fit(content_alloc_sz)) {
-            throw std::runtime_error("File + file name is too large");
-        }
-
-        // We allocate the required amount of bytes to hold the content.
-        //
-        // XOZ will do all the necessary things to find enough space without fragmenting
-        // to much the xoz file or spreading the content too much.
-        // If the xoz file is too small, it will grow automatically.
-        resize_content(content_alloc_sz);
-
-        // The xoz allocator (called in the resize_content above) works in terms
-        // of Segments, a discontinuous series of extents (blocks)
-        // Working with the allocator, the BlockArray and the Segments is hard.
-        //
-        // XOZ offers a better way: an 'io' object (IOSegment in this case)
-        // to see the entire space (the content) as a contiguous byte string
-        // very similar to a C++ file.
-        auto io = get_content_io();
-
-        // Now, copy the file content to the io object. Writing to the io will
-        // write directly to xoz file.
-        io.writeall(file);
-
-        // Then, write the file name (no null will be stored)
-        // Note how the 'io' works as a C++ file: we did a write and that automatically
-        // moved the 'write pointer' so the second write (this one) took place
-        // immediately after the former.
-        io.writeall(fname.c_str(), fname_sz);
-    }
 
     // (4) create() method with user-defined signature.
     //
@@ -143,26 +95,8 @@ public:
     // Because it is meant to be called by the user, it is likely to be used/modified
     // immediately so we return a pointer to FileMember and  not to Descriptor.
     static std::unique_ptr<FileMember> create(const std::string& fpath, BlockArray& cblkarr) {
-        struct header_t hdr = {
-                // The descriptor owns content data so we set this to True
-                .own_content = true,
-                .type = TYPE,
-
-                // Each descriptor has an id, either a temporal id or a persistent id.
-                // If we put 0x0, XOZ will assign an id for us when the descriptor is added
-                // to the descriptor set (6)
-                .id = 0x0,
-
-                .isize = 0,  // TODO, is this necessary? xoz::assert_u8(sizeof(uint32_t) + sizeof(uint16_t)),
-                .csize = 0,  // TODO, is this necessary? xoz::assert_u32(content_alloc_sz),
-
-                .segm = Segment::EmptySegment(
-                        cblkarr.blk_sz_order()),  // TODO is this necessary? segm,  // the location of the content data
-                                                  // (our file and file name)
-        };
-
         // Call the Descriptor constructor and build a FileMember descriptor.
-        return std::make_unique<FileMember>(hdr, cblkarr, fpath);
+        return std::unique_ptr<FileMember>(new FileMember(cblkarr, fpath));
     }
 
     // (3)
@@ -176,13 +110,8 @@ public:
     // of the descriptor mapping (see main()).
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               [[maybe_unused]] RuntimeContext& rctx) {
-        return std::make_unique<FileMember>(hdr, cblkarr);
+        return std::unique_ptr<FileMember>(new FileMember(hdr, cblkarr));
     }
-
-    // Note: this constructor should be private. However, my compiler complains that
-    // making this private, the static member function above cannot access (when it should)
-    FileMember(const struct Descriptor::header_t& hdr, BlockArray& cblkarr):
-            Descriptor(hdr, cblkarr), fname(""), file_sz(0), fname_sz(0) {}
 
 public:
     // (7)
@@ -357,6 +286,58 @@ private:
 
     // friend std::unique_ptr<Descriptor> FileMember::create(const struct Descriptor::header_t& hdr, BlockArray&
     // cblkarr, RuntimeContext& rctx);
+
+
+    FileMember(const struct Descriptor::header_t& hdr, BlockArray& cblkarr):
+            Descriptor(hdr, cblkarr), fname(""), file_sz(0), fname_sz(0) {}
+
+    FileMember(BlockArray& cblkarr, const std::string& fpath): Descriptor(TYPE, cblkarr) {
+        // Get from the path the filename (fname) and
+        // calculate its size (fname_sz) and the size of the file (file_sz).
+        // Leave the file open, we will use it soon.
+        std::ifstream file = init_attributes(fpath);
+
+        // We're going to store the file content and file name in the "content" section.
+        // First, let's see how much do we need:
+        auto content_alloc_sz = fname_sz + file_sz;
+
+        // Check that we can actually store all the data calling does_present_csize_fit.
+        //
+        // Strictly speaking the maximum size of data that we could save in XOZ is 1GB (minus 1 byte)
+        // but in practice depends of the block size (smaller block sizes will force to reduce the maximum)
+        // and how much fragmentation we tolerate (how large the Segment will become).
+        // In practice, the upper limit may be below this 1GB limit. This precise check is still missing in XOZ
+        // and it may happen during the allocation.
+        if (not does_present_csize_fit(content_alloc_sz)) {
+            throw std::runtime_error("File + file name is too large");
+        }
+
+        // We allocate the required amount of bytes to hold the content.
+        //
+        // XOZ will do all the necessary things to find enough space without fragmenting
+        // to much the xoz file or spreading the content too much.
+        // If the xoz file is too small, it will grow automatically.
+        resize_content(content_alloc_sz);
+
+        // The xoz allocator (called in the resize_content above) works in terms
+        // of Segments, a discontinuous series of extents (blocks)
+        // Working with the allocator, the BlockArray and the Segments is hard.
+        //
+        // XOZ offers a better way: an 'io' object (IOSegment in this case)
+        // to see the entire space (the content) as a contiguous byte string
+        // very similar to a C++ file.
+        auto io = get_content_io();
+
+        // Now, copy the file content to the io object. Writing to the io will
+        // write directly to xoz file.
+        io.writeall(file);
+
+        // Then, write the file name (no null will be stored)
+        // Note how the 'io' works as a C++ file: we did a write and that automatically
+        // moved the 'write pointer' so the second write (this one) took place
+        // immediately after the former.
+        io.writeall(fname.c_str(), fname_sz);
+    }
 };
 
 

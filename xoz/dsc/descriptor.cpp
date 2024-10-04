@@ -869,4 +869,16 @@ bool Descriptor::does_present_csize_fit(uint64_t present_csize) const {
     return does_hdr_csize_fit(hdr_csize);
 }
 
+struct Descriptor::header_t Descriptor::create_header(const uint16_t type, const BlockArray& cblkarr) {
+    struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = type,
+            .id = 0x0,
+            .isize = 0,
+            .csize = 0,
+            .segm = Segment::EmptySegment(cblkarr.blk_sz_order()),
+    };
+
+    return hdr;
+}
 }  // namespace xoz
