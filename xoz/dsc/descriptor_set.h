@@ -362,11 +362,16 @@ public:
      * */
     bool /* testing */ does_require_write() const;
 
+    uint64_t /* internal */ count_descriptors_external_references() const;
+
 private:
     void fail_if_set_not_loaded() const;
     void fail_if_using_incorrect_blkarray(const Descriptor* dsc) const;
     void fail_if_null(const Descriptor* dsc) const;
     void fail_if_duplicated_id(const Descriptor* dsc) const;
+
+    void chk_if_any_descriptor_has_external_references() const;
+    void chk_if_descriptor_has_external_references(const std::shared_ptr<Descriptor>& dscptr) const;
 
 protected:
     void read_struct_specifics_from(IOBase& io) override;

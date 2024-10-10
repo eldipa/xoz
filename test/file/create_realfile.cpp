@@ -1548,7 +1548,9 @@ namespace {
         const char* fpath = SCRATCH_HOME "TrampolineNotRequired.xoz";
         const struct runtime_config_t runcfg = {
             .dset = {
-                .sg_blkarr_flags = 0
+                .sg_blkarr_flags = 0,
+
+                .on_external_ref_action = 0,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -2146,7 +2148,9 @@ namespace {
         const char* fpath = SCRATCH_HOME "TrampolineRequired.xoz";
         const struct runtime_config_t runcfg = {
             .dset = {
-                .sg_blkarr_flags = 0
+                .sg_blkarr_flags = 0,
+
+                .on_external_ref_action = 0,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -2522,7 +2526,9 @@ namespace {
         const char* fpath = SCRATCH_HOME "TrampolineRequiredButBeforeCloseItWasNotLongerRequired.xoz";
         const struct runtime_config_t runcfg = {
             .dset = {
-                .sg_blkarr_flags = 0
+                .sg_blkarr_flags = 0,
+
+                .on_external_ref_action = 0,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -2645,7 +2651,9 @@ namespace {
         const char* fpath = SCRATCH_HOME "TrampolineRequiredThenCloseThenNotLongerRequired.xoz";
         const struct runtime_config_t runcfg = {
             .dset = {
-                .sg_blkarr_flags = 0
+                .sg_blkarr_flags = 0,
+
+                .on_external_ref_action = 0,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -2963,7 +2971,9 @@ namespace {
         const char* fpath = SCRATCH_HOME "TrampolineRequiredOfDifferentSizes.xoz";
         const struct runtime_config_t runcfg = {
             .dset = {
-                .sg_blkarr_flags = 0
+                .sg_blkarr_flags = 0,
+
+                .on_external_ref_action = 0,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -3510,7 +3520,9 @@ namespace {
         const char* fpath = SCRATCH_HOME "TwoLevelDescriptorSets.xoz";
         const struct runtime_config_t runcfg = {
             .dset = {
-                .sg_blkarr_flags = 0
+                .sg_blkarr_flags = 0,
+
+                .on_external_ref_action = 0,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -3895,7 +3907,9 @@ namespace {
         const char* fpath = SCRATCH_HOME "ThreeLevelDescriptorSets.xoz";
         const struct runtime_config_t runcfg = {
             .dset = {
-                .sg_blkarr_flags = 0
+                .sg_blkarr_flags = 0,
+
+                .on_external_ref_action = 0,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);

@@ -558,6 +558,12 @@ void DescriptorSet::move_out(uint32_t id, std::unique_ptr<DescriptorSet>& new_ho
 void DescriptorSet::erase(uint32_t id) {
     fail_if_set_not_loaded();
     auto dscptr = get_owned_dsc_or_fail(id);
+
+    // If the user has a shared ptr to the descriptor, it is bad.
+    // We plan to delete descriptor's content in impl_remove so this
+    // would lead to a "dangling" or "use-after-free" situation.
+    // Fail hard and fast.
+    chk_if_descriptor_has_external_references(dscptr);
     impl_remove(dscptr, false);
 }
 
@@ -607,6 +613,7 @@ void DescriptorSet::impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved)
 
 void DescriptorSet::clear_set_no_recursive() {
     fail_if_set_not_loaded();
+    chk_if_any_descriptor_has_external_references();
     for (const auto& p: owned) {
         auto dscptr = p.second;
         auto dsc = dscptr.get();
@@ -628,6 +635,7 @@ void DescriptorSet::clear_set_no_recursive() {
 
 void DescriptorSet::destroy_no_recursive() {
     fail_if_set_not_loaded();
+    chk_if_any_descriptor_has_external_references();
 
     // Clear this set but not children's: those will be cleared
     // on the destroy() call on them
@@ -886,4 +894,55 @@ void DescriptorSet::destroy() {
 
 void DescriptorSet::flush_writes() { xoz_assert("bad call", false); }
 void DescriptorSet::release_free_space() { xoz_assert("bad call", false); }
+
+uint64_t DescriptorSet::count_descriptors_external_references() const {
+    uint64_t cnt = 0;
+    for (const auto& p: owned) {
+        auto dscptr = p.second;
+        xoz_assert("owned descriptor has shared ptr of count 0", dscptr.use_count() >= 1);
+
+        // don't count ourselves
+        cnt += assert_u64(dscptr.use_count()) - 1;
+    }
+
+    return cnt;
+}
+
+void DescriptorSet::chk_if_any_descriptor_has_external_references() const {
+    if (rctx.runcfg.dset.on_external_ref_action == DSET_ON_EXTERNAL_REF_PASS) {
+        return;
+    }
+
+    for (const auto& p: owned) {
+        auto dscptr = p.second;
+        chk_if_descriptor_has_external_references(dscptr);
+    }
+}
+
+void DescriptorSet::chk_if_descriptor_has_external_references(const std::shared_ptr<Descriptor>& dscptr) const {
+    xoz_assert("owned descriptor has shared ptr of count 0", dscptr.use_count() >= 1);
+
+    if (rctx.runcfg.dset.on_external_ref_action == DSET_ON_EXTERNAL_REF_PASS) {
+        return;
+    }
+
+    // don't count ourselves
+    if (dscptr.use_count() == 1) {
+        return;
+    }
+
+    auto msg = (F() << (*dscptr) << " is still being externally referenced " << (dscptr.use_count() - 1)
+                    << " times beside the reference of its owner set " << (*this))
+                       .str();
+
+    switch (rctx.runcfg.dset.on_external_ref_action) {
+        case DSET_ON_EXTERNAL_REF_WARN:
+            std::cerr << msg << '\n';  // TODO log
+            break;
+        case DSET_ON_EXTERNAL_REF_FAIL:
+            throw std::runtime_error(msg);
+        default:
+            xoz_assert("unsupported flag", false);
+    }
+}
 }  // namespace xoz

@@ -1,0 +1,5 @@
+#pragma once
+
+#define DSET_ON_EXTERNAL_REF_PASS uint32_t(0x00000000)
+#define DSET_ON_EXTERNAL_REF_FAIL uint32_t(0x00000001)
+#define DSET_ON_EXTERNAL_REF_WARN uint32_t(0x00000002)
