@@ -31,7 +31,8 @@ namespace xoz {
 namespace internals {
 template <typename Dst, typename Src>
 [[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<Src> and std::is_integral_v<Dst>, Dst>
-        assert_integral_cast_annotated(const Src n, const char* file, unsigned int line, const char* func) noexcept {
+        assert_integral_cast_annotated(const Src n, [[maybe_unused]] const char* file,
+                                       [[maybe_unused]] unsigned int line, [[maybe_unused]] const char* func) noexcept {
     Dst m = static_cast<Dst>(n);
     if constexpr (std::is_signed_v<Src> == std::is_signed_v<Dst>) {
         // If both src and dst have the same "signedness" (both signed or both unsigned),
@@ -52,6 +53,7 @@ template <typename Dst, typename Src>
     }
     return m;
 }
+
 }  // namespace internals
 
 #define assert_u8(n) internals::assert_integral_cast_annotated<uint8_t>(n, __FILE__, __LINE__, __func__)

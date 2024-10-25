@@ -405,7 +405,7 @@ protected:
         return is_rd ? (rd_min <= pos and pos <= rd_end) : (wr_min <= pos and pos <= wr_end);
     }
 
-    void chk_within_limits(bool is_rd) const { assert(is_within_limits(is_rd, is_rd ? rd : wr)); }
+    void chk_within_limits([[maybe_unused]] bool is_rd) const { assert(is_within_limits(is_rd, is_rd ? rd : wr)); }
 
     /*
      * Check that the request size for writing makes sense:

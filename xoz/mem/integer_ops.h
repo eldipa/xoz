@@ -42,8 +42,8 @@ namespace internals {
  * */
 template <typename UInt>
 [[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<UInt> and std::is_unsigned_v<UInt>, UInt>
-        unsigned_int_add_nowrap_annotated(const UInt a, const UInt b, const char* file, unsigned int line,
-                                          const char* func) {
+        unsigned_int_add_nowrap_annotated(const UInt a, const UInt b, [[maybe_unused]] const char* file,
+                                          [[maybe_unused]] unsigned int line, [[maybe_unused]] const char* func) {
     xoz_internals__assert_annotated("add wrapped around", internals::is_unsigned_int_add_ok<UInt>(a, b), file, line,
                                     func);
     return a + b;
@@ -54,8 +54,8 @@ template <typename UInt>
  * */
 template <typename UInt>
 [[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<UInt> and std::is_unsigned_v<UInt>, UInt>
-        unsigned_int_sub_is_nonneg_annotated(const UInt a, const UInt b, const char* file, unsigned int line,
-                                             const char* func) {
+        unsigned_int_sub_is_nonneg_annotated(const UInt a, const UInt b, [[maybe_unused]] const char* file,
+                                             [[maybe_unused]] unsigned int line, [[maybe_unused]] const char* func) {
     xoz_internals__assert_annotated("sub went negative", (a >= b), file, line, func);
     return a - b;
 }
@@ -86,8 +86,8 @@ template <typename Dst, typename Src>
 [[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<Src> and std::is_integral_v<Dst> and
                                                                  std::is_unsigned_v<Src> and std::is_unsigned_v<Dst>,
                                                          Dst>
-        assert_read_bits_annotated(const Src field, const Src mask, const char* file, unsigned int line,
-                                   const char* func) {
+        assert_read_bits_annotated(const Src field, const Src mask, [[maybe_unused]] const char* file,
+                                   [[maybe_unused]] unsigned int line, [[maybe_unused]] const char* func) {
     xoz_internals__assert_annotated("bad mask", mask, file, line, func);
     int shift = std::countr_zero(mask);
 
@@ -104,8 +104,8 @@ template <typename Dst, typename Src>
 [[nodiscard]] constexpr inline typename std::enable_if_t<std::is_integral_v<Src> and std::is_integral_v<Dst> and
                                                                  std::is_unsigned_v<Src> and std::is_unsigned_v<Dst>,
                                                          void>
-        assert_write_bits_annotated(Dst& field, const Src val, const Dst mask, const char* file, unsigned int line,
-                                    const char* func) {
+        assert_write_bits_annotated(Dst& field, const Src val, const Dst mask, [[maybe_unused]] const char* file,
+                                    [[maybe_unused]] unsigned int line, [[maybe_unused]] const char* func) {
     xoz_internals__assert_annotated("bad mask", mask, file, line, func);
     int shift = std::countr_zero(mask);
     field |= assert_integral_cast_annotated<Dst>((val << shift) & mask, file, line, func);
