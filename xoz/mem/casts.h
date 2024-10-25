@@ -1,5 +1,6 @@
 #pragma once
 
+#include <climits>
 #include <ios>
 
 #include "xoz/mem/asserts.h"
@@ -60,5 +61,31 @@ template <typename Dst, typename Src>
 
 #define assert_streamsize(n) internals::assert_integral_cast_annotated<std::streamsize>(n, __FILE__, __LINE__, __func__)
 #define assert_streamoff(n) internals::assert_integral_cast_annotated<std::streamoff>(n, __FILE__, __LINE__, __func__)
+
+/*
+ * The as_char_ptr() and as_u8_ptr() are casts between char and uint8_t.
+ * These work under the "reasonable" assumtion that a char is a 8-bits byte.
+ * God protect us if that is not true!
+ * */
+// TODO on modern C++, reinterpret_cast *is* a constexpr so we should tag them as such
+[[nodiscard]] /*constexpr*/ inline char* as_char_ptr(uint8_t* p) noexcept {
+    static_assert(sizeof(char) == sizeof(uint8_t) and CHAR_BIT == 8);
+    return reinterpret_cast<char*>(p);
+}
+
+[[nodiscard]] /*constexpr*/ inline const char* as_char_ptr(const uint8_t* p) noexcept {
+    static_assert(sizeof(char) == sizeof(uint8_t) and CHAR_BIT == 8);
+    return reinterpret_cast<const char*>(p);
+}
+
+[[nodiscard]] /*constexpr*/ inline uint8_t* as_u8_ptr(char* p) noexcept {
+    static_assert(sizeof(char) == sizeof(uint8_t) and CHAR_BIT == 8);
+    return reinterpret_cast<uint8_t*>(p);
+}
+
+[[nodiscard]] /*constexpr*/ inline const uint8_t* as_u8_ptr(const char* p) noexcept {
+    static_assert(sizeof(char) == sizeof(uint8_t) and CHAR_BIT == 8);
+    return reinterpret_cast<const uint8_t*>(p);
+}
 
 }  // namespace xoz

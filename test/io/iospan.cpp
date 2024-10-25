@@ -1,5 +1,6 @@
 #include "xoz/io/iospan.h"
 #include "xoz/err/exceptions.h"
+#include "xoz/mem/casts.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -42,6 +43,36 @@ namespace {
 
         IOSpan iospan2(buf);
         iospan2.readall(rdbuf, 4);
+
+        EXPECT_EQ(rdbuf.size(), (size_t)4);
+        EXPECT_EQ(iospan2.remain_rd(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan2.tell_rd(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        EXPECT_EQ(wrbuf, rdbuf);
+    }
+
+    TEST(IOSpanTest, SmallChunkUInt8) {
+        std::vector<char> buf(64);
+
+        std::vector<uint8_t> wrbuf = {'A', 'B', 'C', 'D'};
+        std::vector<uint8_t> rdbuf(4); // preallocate space, it's needed when using the ptr interface
+
+        IOSpan iospan1(buf);
+        iospan1.writeall(as_char_ptr(wrbuf.data()), 4);
+
+        EXPECT_EQ(iospan1.remain_wr(), uint32_t(64 - 4));
+        EXPECT_EQ(iospan1.tell_wr(), uint32_t(4));
+        XOZ_EXPECT_BUFFER_SERIALIZATION(buf, 0, -1,
+                "4142 4344 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                );
+
+        IOSpan iospan2(buf);
+        iospan2.readall(as_char_ptr(rdbuf.data()), 4);
 
         EXPECT_EQ(rdbuf.size(), (size_t)4);
         EXPECT_EQ(iospan2.remain_rd(), uint32_t(64 - 4));
