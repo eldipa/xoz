@@ -2627,6 +2627,7 @@ namespace {
         }
 
         void set_idata(const std::vector<char>& data) {
+            [[maybe_unused]]
             uint8_t isize = assert_u8(data.size());
             assert(does_present_isize_fit(isize));
 
