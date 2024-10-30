@@ -2480,6 +2480,9 @@ namespace {
         auto xsubdset = dset->get<DescriptorSet>(id3);
         EXPECT_EQ(xsubdset->count(), (uint32_t)1);
         EXPECT_EQ(xsubdset->get(id1)->get_owner(), std::addressof(*xsubdset));
+        EXPECT_EQ(dset->find(id1)->get_owner(), std::addressof(*xsubdset));
+        EXPECT_EQ(dset->find(id2)->get_owner(), std::addressof(*dset));
+        EXPECT_EQ(dset->find(id3)->get_owner(), std::addressof(*dset));
 
         // Write down the set: we expect to see all the descriptors of dset and xsubdset
         // because full_sync is recursive.

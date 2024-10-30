@@ -247,6 +247,25 @@ public:
         return ptr;
     }
 
+    /*
+     * Like get(), find() searches for the descriptor with the given id
+     * except that the search is not limited to the current set but also
+     * to any subset.
+     *
+     * If no descriptor has the given id, this method throws.
+     * */
+    std::shared_ptr<Descriptor> find(uint32_t id);
+
+    template <typename T>
+    std::shared_ptr<T> find(uint32_t id, bool ret_null = false) {
+        auto ptr = std::dynamic_pointer_cast<T>(this->find(id));
+        if (!ptr and not ret_null) {
+            throw std::runtime_error("Descriptor cannot be dynamically down casted.");
+        }
+
+        return ptr;
+    }
+
     typedef xoz::dsc::internals::DescriptorIterator<std::map<uint32_t, std::shared_ptr<Descriptor>>::iterator>
             dsc_iterator_t;
     typedef xoz::dsc::internals::DescriptorIterator<std::map<uint32_t, std::shared_ptr<Descriptor>>::const_iterator>
