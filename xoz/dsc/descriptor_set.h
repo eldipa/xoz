@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <type_traits>
 #include <vector>
 
 #include "xoz/alloc/segment_allocator.h"
@@ -236,7 +237,6 @@ public:
      * */
     std::shared_ptr<Descriptor> get(uint32_t id);
 
-
     template <typename T>
     std::shared_ptr<T> get(uint32_t id, bool ret_null = false) {
         auto ptr = std::dynamic_pointer_cast<T>(this->get(id));
@@ -258,8 +258,15 @@ public:
     inline const_dsc_iterator_t cbegin() const { return xoz::dsc::internals::DescriptorIterator(owned.cbegin()); }
     inline const_dsc_iterator_t cend() const { return xoz::dsc::internals::DescriptorIterator(owned.cend()); }
 
+    /*
+     * Travel through the links between descriptor sets and call
+     * the given function fn on each set in a depth-first order.
+     *
+     * If the function fn returns a boolean, it if it returns true,
+     * the iteration stops immediately.
+     * */
     template <class Fn>
-    static void depth_first_for_each_set(DescriptorSet& root, Fn fn) {
+    static bool depth_first_for_each_set(DescriptorSet& root, Fn fn) {
         std::deque<DescriptorSet*> to_explore;
         to_explore.push_back(&root);
 
@@ -268,7 +275,17 @@ public:
                 auto dset = to_explore.back();
 
                 if (dset->visited or dset->children.empty()) {
-                    fn(dset);
+                    using ret_type = std::invoke_result<decltype(fn), DescriptorSet*>::type;
+                    if constexpr (std::is_same<ret_type, void>::value) {
+                        fn(dset);
+                    } else {
+                        bool should_stop = fn(dset);
+                        if (should_stop) {
+                            // Ensure any 'visited' set has the flag unset before exiting
+                            std::for_each(to_explore.begin(), to_explore.end(), [](auto e) { e->visited = false; });
+                            return true;  // signal that we returned earlier
+                        }
+                    }
                     dset->visited = false;
                     to_explore.pop_back();
                 } else {
@@ -279,6 +296,7 @@ public:
                                   [&to_explore](auto e) { to_explore.push_back(e); });
                 }
             }
+            return false;
         } catch (...) {
             // Ensure any 'visited' set has the flag unset before keep propagating the exception
             std::for_each(to_explore.begin(), to_explore.end(), [](auto e) { e->visited = false; });
