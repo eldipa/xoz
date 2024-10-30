@@ -372,8 +372,6 @@ private:
     std::vector<char> future_idata;
 
 protected:
-    BlockArray& external_blkarr() { return cblkarr; }
-
     /*
      * Resize the content space to have the given size. If no content
      * exists before, a new space is allocated, otherwise a resize happen.
