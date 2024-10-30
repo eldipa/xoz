@@ -161,6 +161,11 @@ private:
     std::list<Segment> collect_allocated_segments_of_descriptors() const;
 
     /*
+     * Call on_after_load to all the descriptors.
+     * */
+    void notify_load_to_all_descriptors();
+
+    /*
      * Initialize freshly new xoz file backed by an allocated but empty file block array.
      * The array must have allocated space in its header but otherwise nothing else is assumed.
      * This method will perform special write operations to initialize the xoz file

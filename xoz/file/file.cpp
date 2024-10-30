@@ -98,6 +98,11 @@ void File::bootstrap_file() {
     // With this, we can do alloc/dealloc and the File is fully operational.
     fblkarr->allocator().initialize_from_allocated(allocated);
 
+    // Now that the root set, its subsets and all descriptors were loaded
+    // and the allocator is fully operational, let the descriptors know
+    // that we are ready
+    notify_load_to_all_descriptors();
+
     closed = false;
 }
 
@@ -117,6 +122,14 @@ std::list<Segment> File::collect_allocated_segments_of_descriptors() const {
     });
 
     return allocated;
+}
+
+void File::notify_load_to_all_descriptors() {
+    DescriptorSet::depth_first_for_each_set(*root_set, [this](DescriptorSet* s) {
+        for (auto it = s->begin(); it != s->end(); ++it) {
+            (*it)->on_after_load(root_set);
+        }
+    });
 }
 
 struct File::stats_t File::stats() const {

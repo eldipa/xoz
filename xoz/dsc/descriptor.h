@@ -14,6 +14,8 @@ class RuntimeContext;
 class DescriptorSet;
 class BlockArray;
 
+class File;
+
 class Descriptor {
 public:
     struct header_t {
@@ -193,6 +195,7 @@ public:  // public but it should be interpreted as an opaque section
     }
 
     friend class DescriptorSet;
+    friend class File;
 
 private:
     struct header_t hdr;
@@ -245,6 +248,13 @@ protected:
     virtual void write_struct_specifics_into(IOBase& io) = 0;
     void read_struct_specifics_from(IOBase&& io) { read_struct_specifics_from(io); }
     void write_struct_specifics_into(IOBase&& io) { write_struct_specifics_into(io); }
+
+    /*
+     * Method called once all the descriptors were loaded.
+     * Use this to access freely to other descriptors via finding them
+     * from the root of the sets.
+     * */
+    virtual void on_after_load([[maybe_unused]] std::shared_ptr<DescriptorSet> root) {}
 
     /*
      * Subclasses must to do any deallocation and clean up because the descriptor
