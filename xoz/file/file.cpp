@@ -88,7 +88,7 @@ void File::bootstrap_file() {
     read_and_check_header_and_trailer();
 
     // Scan which extents/segments are allocated so we can initialize the allocator.
-    auto allocated = scan_descriptor_sets();
+    auto allocated = collect_allocated_segments_of_descriptors();
 
     // Add the trampoline segment, if any
     if (trampoline_segm.length()) {
@@ -103,7 +103,7 @@ void File::bootstrap_file() {
 
 const std::stringstream& File::expose_mem_fp() const { return fblkarr->expose_mem_fp(); }
 
-std::list<Segment> File::scan_descriptor_sets() {
+std::list<Segment> File::collect_allocated_segments_of_descriptors() const {
     std::list<Segment> allocated;
     allocated.push_back(root_set->segment());
 

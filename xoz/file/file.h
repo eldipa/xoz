@@ -158,7 +158,7 @@ private:
      * Scan the descriptor sets from the root set to the bottom of the tree.
      * Collect all the segments that are allocated by all the descriptors and descriptor sets.
      * */
-    std::list<Segment> scan_descriptor_sets();
+    std::list<Segment> collect_allocated_segments_of_descriptors() const;
 
     /*
      * Initialize freshly new xoz file backed by an allocated but empty file block array.
