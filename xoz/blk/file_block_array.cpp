@@ -10,6 +10,10 @@
 #include "xoz/mem/asserts.h"
 #include "xoz/mem/casts.h"
 
+namespace {
+const char ZEROS[1024] = {0};
+}
+
 namespace xoz {
 FileBlockArray::FileBlockArray(const char* fpath, uint32_t blk_sz, uint32_t begin_blk_nr):
         BlockArray(), fpath(fpath), fp(disk_fp), closed(true), closing(false) {
@@ -130,11 +134,10 @@ void FileBlockArray::may_grow_file_due_seek_phy(std::ostream& fp, std::streamoff
         // memory-based files.
         if ((ref_pos + offset) > end_pos) {
             const auto hole = assert_u64((ref_pos + offset) - end_pos);
-            const char zeros[16] = {0};  // TODO chg buffer size to 128
-            for (unsigned batch = 0; batch < hole / sizeof(zeros); ++batch) {
-                fp.write(zeros, sizeof(zeros));
+            for (unsigned batch = 0; batch < hole / sizeof(ZEROS); ++batch) {
+                fp.write(ZEROS, sizeof(ZEROS));
             }
-            fp.write(zeros, hole % sizeof(zeros));
+            fp.write(ZEROS, hole % sizeof(ZEROS));
         }
 
         // restore the pointer
