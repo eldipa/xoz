@@ -169,7 +169,7 @@ public:
 
     /*
      * Return true if the concrete object is of type DescriptorSet or
-     * a subclass of it, othewise return false.
+     * a subclass of it, otherwise return false.
      * */
     bool is_descriptor_set() const;
 
