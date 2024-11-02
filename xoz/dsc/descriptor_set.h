@@ -225,6 +225,14 @@ public:
     /*
      * Assign a persistent id to the given descriptor and return the new id.
      * (the old id become useless).
+     *
+     * If the descriptor with id (parameter) is not found, raise an error.
+     * If the descriptor has a persistent id (this means that the parameter is
+     * a persistent id), do nothing (except possibly check that the persistent
+     * id is registered).
+     * Otherwise, request a new persistent id and assign it to the descriptor.
+     *
+     * Return the new descriptor id.
      * */
     uint32_t assign_persistent_id(uint32_t id);
 

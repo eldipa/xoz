@@ -689,7 +689,12 @@ uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
         add_s(dscptr, true);
         dscptr->ext = ext_copy;
     } else {
-        rctx.register_persistent_id(id);
+        xoz_assert("Persistent id is not registered.", rctx.is_registered(id));
+        // We used to call rctx.register_persistent_id(id) here but I think that this
+        // would be hiding a bug that happen before reaching here: any persistent
+        // id should had been registered from the start, hence the xoz_assert above.
+        // The only case I could think that we may have un-registered persistent ids
+        // is for testing.
     }
 
     return dscptr->hdr.id;
