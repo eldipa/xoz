@@ -705,26 +705,6 @@ std::shared_ptr<Descriptor> DescriptorSet::get(uint32_t id) {
     return get_owned_dsc_or_fail(id);
 }
 
-std::shared_ptr<Descriptor> DescriptorSet::find(uint32_t id) {
-    fail_if_set_not_loaded();
-    std::shared_ptr<Descriptor> dsc;
-    depth_first_for_each_set(*this, [&dsc, id](DescriptorSet* s) {
-        if (not s->owned.contains(id)) {
-            return false;
-        }
-
-        dsc = s->get(id);
-        return true;
-    });
-
-    if (not dsc) {
-        throw std::invalid_argument(
-                (F() << "Descriptor " << xoz::log::hex(id) << " does not belong to any set.").str());
-    }
-
-    return dsc;
-}
-
 void DescriptorSet::fail_if_set_not_loaded() const {
     if (not set_loaded) {
         throw std::runtime_error("DescriptorSet not loaded. Missed call to create_set()/load_set()?");
@@ -732,7 +712,7 @@ void DescriptorSet::fail_if_set_not_loaded() const {
 }
 
 std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
-    if (not owned.contains(id)) {
+    if (not this->contains(id)) {
         throw std::invalid_argument(
                 (F() << "Descriptor " << xoz::log::hex(id) << " does not belong to the set.").str());
     }
@@ -760,6 +740,8 @@ std::shared_ptr<Descriptor> DescriptorSet::get_owned_dsc_or_fail(uint32_t id) {
 
     return dscptr;
 }
+
+bool DescriptorSet::contains(uint32_t id) const { return owned.contains(id); }
 
 void DescriptorSet::fail_if_using_incorrect_blkarray(const Descriptor* dsc) const {
     assert(dsc != nullptr);
