@@ -172,6 +172,18 @@ public:
         read_only = true;
     }
 
+    uint8_t read_u8_from_le() {
+        uint8_t num = 0;
+        readall(reinterpret_cast<char*>(&num), sizeof(num));
+
+        return u8_from_le(num);
+    }
+
+    void write_u8_to_le(uint8_t num) {
+        num = u8_to_le(num);
+        writeall(reinterpret_cast<char*>(&num), sizeof(num));
+    }
+
     uint16_t read_u16_from_le() {
         uint16_t num = 0;
         readall(reinterpret_cast<char*>(&num), sizeof(num));
