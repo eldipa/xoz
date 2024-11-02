@@ -141,8 +141,8 @@ fail:
 void Descriptor::chk_dset_type(bool is_read_op, const Descriptor* const dsc, const struct Descriptor::header_t& hdr,
                                const RuntimeContext& rctx) {
 
-    const bool should_be_dset = (rctx.DSET_TYPE == hdr.type) or
-                                (rctx.DSET_SUBCLASS_MIN_TYPE <= hdr.type and hdr.type <= rctx.DSET_SUBCLASS_MAX_TYPE);
+    const bool should_be_dset = (rctx.dmap.DSET_TYPE == hdr.type) or (rctx.dmap.DSET_SUBCLASS_MIN_TYPE <= hdr.type and
+                                                                      hdr.type <= rctx.dmap.DSET_SUBCLASS_MAX_TYPE);
     const bool is_descriptor_set = dsc->is_descriptor_set();
 
     F errmsg;
@@ -237,7 +237,7 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
             //
             // In this context, the id should be a temporal one and not an error
             assert(hi_isize != 0);
-            id = rctx.request_temporal_id();
+            id = rctx.idmgr.request_temporal_id();
         } else {
             // No ok. The has_id was set but it was not because the hi_isize was required
             // so it should because the descriptor has a persistent id but such cannot
@@ -248,7 +248,7 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
             throw InconsistentXOZ(F() << "Descriptor id is zero, detected with partially loaded " << hdr);
         }
     } else if (has_id and id != 0) {
-        auto ok = rctx.register_persistent_id(id);  // TODO test
+        auto ok = rctx.idmgr.register_persistent_id(id);  // TODO test
         if (not ok) {
             throw InconsistentXOZ(F() << "Descriptor persistent id " << id
                                       << " already registered, a duplicated descriptor found somewhere else; " << hdr);
@@ -256,7 +256,7 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     } else if (not has_id) {
         assert(id == 0);
-        id = rctx.request_temporal_id();
+        id = rctx.idmgr.request_temporal_id();
     }
 
     assert(id != 0);
@@ -321,7 +321,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
     bool ex_type_used = false;
     struct Descriptor::header_t hdr = load_header_from(io, rctx, cblkarr, ex_type_used, &checksum);
 
-    descriptor_create_fn fn = rctx.descriptor_create_lookup(hdr.type);
+    descriptor_create_fn fn = rctx.dmap.descriptor_create_lookup(hdr.type);
     std::unique_ptr<Descriptor> dsc = fn(hdr, cblkarr, rctx);
 
     if (!dsc) {

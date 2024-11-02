@@ -402,7 +402,7 @@ void File::init_new_file(const struct default_parameters_t& defaults) {
     root_set = DescriptorSet::create(*fblkarr.get(), rctx);
 
     // Ensure that the descriptor set has a valid id.
-    root_set->id(rctx.request_temporal_id());
+    root_set->id(rctx.idmgr.request_temporal_id());
 
 
     // Write any pending write (it should be a few if any due the initialization

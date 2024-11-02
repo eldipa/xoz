@@ -1032,12 +1032,12 @@ namespace {
                 );
 
         // check that all the persistent ids were registered
-        EXPECT_EQ(rctx.is_registered(1), (bool)true);
-        EXPECT_EQ(rctx.is_registered(2), (bool)true);
-        EXPECT_EQ(rctx.is_registered(0xff1), (bool)true);
-        EXPECT_EQ(rctx.is_registered(0xff2), (bool)true);
-        EXPECT_EQ(rctx.is_registered(0xff3), (bool)true);
-        EXPECT_EQ(rctx.is_registered(0xaff1), (bool)true);
+        EXPECT_EQ(rctx.idmgr.is_registered(1), (bool)true);
+        EXPECT_EQ(rctx.idmgr.is_registered(2), (bool)true);
+        EXPECT_EQ(rctx.idmgr.is_registered(0xff1), (bool)true);
+        EXPECT_EQ(rctx.idmgr.is_registered(0xff2), (bool)true);
+        EXPECT_EQ(rctx.idmgr.is_registered(0xff3), (bool)true);
+        EXPECT_EQ(rctx.idmgr.is_registered(0xaff1), (bool)true);
     }
 
     class Dummy : public Descriptor {
@@ -2013,7 +2013,7 @@ namespace {
 
         // Load another set from the previous set's segment to see that
         // both are consistent each other
-        rctx.reset();
+        rctx.idmgr.reset();
         auto dset2 = DescriptorSet::create(dset->segment(), d_blkarr, rctx);
 
         // Check that the set was loaded correctly
@@ -2038,7 +2038,7 @@ namespace {
 
         // Create the dset descriptor
         auto dset = DescriptorSet::create(d_blkarr, rctx);
-        dset->id(rctx.request_temporal_id());
+        dset->id(rctx.idmgr.request_temporal_id());
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
@@ -2110,7 +2110,7 @@ namespace {
 
         // Create the dset descriptor
         auto dset = DescriptorSet::create(d_blkarr, rctx);
-        dset->id(rctx.request_temporal_id());
+        dset->id(rctx.idmgr.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
@@ -2211,7 +2211,7 @@ namespace {
 
         // Create the dset descriptor
         auto dset = DescriptorSet::create(d_blkarr, rctx);
-        dset->id(rctx.request_temporal_id());
+        dset->id(rctx.idmgr.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
@@ -2312,7 +2312,7 @@ namespace {
 
         // Create the dset descriptor. Use a non-zero u16data
         auto dset = DescriptorSet::create(d_blkarr, rctx, 0x41);
-        dset->id(rctx.request_temporal_id());
+        dset->id(rctx.idmgr.request_temporal_id());
 
         // 0 descriptors by default, however the set requires a write because
         // its header is pending of being written.
@@ -2385,7 +2385,7 @@ namespace {
 
         // Create the dset descriptor
         auto dset = DescriptorSet::create(d_blkarr, rctx);
-        dset->id(rctx.request_temporal_id());
+        dset->id(rctx.idmgr.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
@@ -2896,7 +2896,7 @@ namespace {
         // Create the dset descriptor subclass of DescriptorSet
         const uint16_t cookie = 0x4142;
         auto dset = AppDescriptorSet::create(cookie, d_blkarr, rctx);
-        dset->id(rctx.request_temporal_id());
+        dset->id(rctx.idmgr.request_temporal_id());
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
@@ -2931,7 +2931,7 @@ namespace {
         XOZ_EXPECT_CHECKSUM(fp, *dset);
 
         // Reset the runtime as we were loading the xoz file from scratch
-        rctx.reset();
+        rctx.idmgr.reset();
 
         // Load the dset again, check that it is mapped to the correct AppDescriptorSet subclass
         auto dsetptr2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
@@ -2981,7 +2981,7 @@ namespace {
 
         // Now, lets go to the future and make the "newer" version of the app,
         // aware of AppDescriptorSet class, to load it. We should recover all including out cookie.
-        rctx.reset();
+        rctx.idmgr.reset();
         auto dsetptr4 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
         auto dset4 = dsetptr4->cast<AppDescriptorSet>();
 

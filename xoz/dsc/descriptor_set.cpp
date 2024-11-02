@@ -38,8 +38,8 @@ std::unique_ptr<DescriptorSet> DescriptorSet::create(BlockArray& blkarr, Runtime
 
 std::unique_ptr<Descriptor> DescriptorSet::create(const struct Descriptor::header_t& hdr, BlockArray& blkarr,
                                                   RuntimeContext& rctx) {
-    assert(hdr.type == rctx.DSET_TYPE or
-           (rctx.DSET_SUBCLASS_MIN_TYPE <= hdr.type and hdr.type <= rctx.DSET_SUBCLASS_MAX_TYPE));
+    assert(hdr.type == rctx.dmap.DSET_TYPE or
+           (rctx.dmap.DSET_SUBCLASS_MIN_TYPE <= hdr.type and hdr.type <= rctx.dmap.DSET_SUBCLASS_MAX_TYPE));
 
     // The magic will happen in read_struct_specifics_from() where we do the real
     // read/load of the descriptor set.
@@ -499,18 +499,18 @@ uint32_t DescriptorSet::add(std::unique_ptr<Descriptor> dscptr, bool assign_pers
 void DescriptorSet::add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id) {
     fail_if_not_allowed_to_add(dscptr.get());
 
-    if (rctx.is_persistent(dscptr->id())) {
-        rctx.register_persistent_id(dscptr->id());
+    if (rctx.idmgr.is_persistent(dscptr->id())) {
+        rctx.idmgr.register_persistent_id(dscptr->id());
     }
 
     if (assign_persistent_id) {
-        if (dscptr->id() == 0 or rctx.is_temporal(dscptr->id())) {
-            dscptr->hdr.id = rctx.request_persistent_id();
+        if (dscptr->id() == 0 or rctx.idmgr.is_temporal(dscptr->id())) {
+            dscptr->hdr.id = rctx.idmgr.request_persistent_id();
         }
     }
 
     if (dscptr->id() == 0) {
-        dscptr->hdr.id = rctx.request_temporal_id();
+        dscptr->hdr.id = rctx.idmgr.request_temporal_id();
     }
 
     // own it
@@ -680,7 +680,7 @@ uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
     fail_if_set_not_loaded();
     auto dscptr = get_owned_dsc_or_fail(id);
 
-    if (rctx.is_temporal(id)) {
+    if (rctx.idmgr.is_temporal(id)) {
         owned.erase(id);
 
         auto ext_copy = dscptr->ext;
@@ -689,7 +689,7 @@ uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
         add_s(dscptr, true);
         dscptr->ext = ext_copy;
     } else {
-        xoz_assert("Persistent id is not registered.", rctx.is_registered(id));
+        xoz_assert("Persistent id is not registered.", rctx.idmgr.is_registered(id));
         // We used to call rctx.register_persistent_id(id) here but I think that this
         // would be hiding a bug that happen before reaching here: any persistent
         // id should had been registered from the start, hence the xoz_assert above.

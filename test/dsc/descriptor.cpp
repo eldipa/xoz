@@ -454,7 +454,7 @@ namespace {
         // is shorter because ex_type is not needed.
         std::vector<char> buf2;
         XOZ_RESET_FP(buf2, FP_SZ);
-        rctx.reset(0x80000001);
+        rctx.idmgr.reset(0x80000001);
 
         auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr);
 
@@ -1288,7 +1288,7 @@ namespace {
         );
 
         XOZ_RESET_FP(fp, FP_SZ);
-        rctx.reset(0x80000001); // ensure that the descriptor loaded will have the same id than 'dsc'
+        rctx.idmgr.reset(0x80000001); // ensure that the descriptor loaded will have the same id than 'dsc'
 
         // Write a valid descriptor of data size 2
         dsc.write_struct_into(IOSpan(fp), rctx);
@@ -1487,7 +1487,7 @@ namespace {
                 "ff86 0f00 0000 2a00 00c0 0102"
                 );
 
-        rctx.reset();
+        rctx.idmgr.reset();
         auto dscptr4 = Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr);
         auto dsc4 = dscptr4->cast<DescriptorSubRW>();
 
@@ -1586,7 +1586,7 @@ namespace {
         );
 
         XOZ_RESET_FP(fp, FP_SZ);
-        rctx.reset(0x80000001); // ensure that the descriptor loaded will have the same id than 'dsc3'
+        rctx.idmgr.reset(0x80000001); // ensure that the descriptor loaded will have the same id than 'dsc3'
 
         // We repeat again has_id = true but we also make the descriptor very large so
         // we force to and id of 0 (because the temporal id is not stored)
