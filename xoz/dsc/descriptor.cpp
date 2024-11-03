@@ -715,6 +715,12 @@ void Descriptor::resize_content(uint32_t content_new_sz) {
         return;
     }
 
+    if (not does_present_csize_fit(content_new_sz)) {
+        throw WouldEndUpInconsistentXOZ(F() << "The new content size (" << content_new_sz << ") "
+                                            << "plus the size from the future version (" << future_content_size << ") "
+                                            << "does not fit in the header.");
+    }
+
     // Caller wants some space for the (new) content
     if (not hdr.own_content) {
         xoz_assert("invariant", future_content_size == 0);
