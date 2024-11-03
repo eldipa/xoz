@@ -35,6 +35,11 @@ public:
     const static uint16_t TYPE_RESERVED_THRESHOLD = 4;
 
     const static uint16_t DSET_TYPE = 0x0001;
+
+    /*
+     * Any subclass that wants to be a subclass of DescriptorSet *must*
+     * have a descriptor type within this range.
+     * */
     const static uint16_t DSET_SUBCLASS_MIN_TYPE = 0x01e0;
     const static uint16_t DSET_SUBCLASS_MAX_TYPE = 0x01e0 + 2048;
 

@@ -58,6 +58,14 @@ public:
         return persistent_ids.contains(id);
     }
 
+    void unregister_persistent_id(uint32_t id) {
+        if (not is_registered(id)) {
+            throw std::runtime_error("Persistent id was never registered.");
+        }
+
+        persistent_ids.erase(id);
+    }
+
 private:
     uint32_t next_temporal_id;
 
