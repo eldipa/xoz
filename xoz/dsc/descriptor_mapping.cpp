@@ -2,6 +2,7 @@
 
 #include "xoz/dsc/descriptor_set.h"
 #include "xoz/dsc/opaque.h"
+#include "xoz/dsc/private.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/log/format_string.h"
 
@@ -13,10 +14,13 @@ DescriptorMapping::DescriptorMapping(const std::map<uint16_t, descriptor_create_
             throw std::runtime_error((F() << "Descriptor mapping for type " << type << " is null.").str());
         }
 
-        if (not override_reserved and type < TYPE_RESERVED_THRESHOLD) {
-            throw std::runtime_error((F() << "Descriptor mapping for type " << type
-                                          << " is reserved for internal use and cannot be overridden.")
-                                             .str());
+        if ((RESERVED_CORE_MIN_TYPE <= type and type <= RESERVED_CORE_MAX_TYPE) or
+            (RESERVED_METADATA_MIN_TYPE <= type and type <= RESERVED_METADATA_MAX_TYPE)) {
+            if (not override_reserved) {
+                throw std::runtime_error((F() << "Descriptor mapping for type " << type
+                                              << " is reserved for internal use and cannot be overridden.")
+                                                 .str());
+            }
         }
     }
 
@@ -29,19 +33,19 @@ descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) 
     auto it = mapping.find(type);
     if (it == mapping.end()) {
         // Is the descriptor one of the defined by xoz?
-        switch (type) {
-            case 0:
-                throw std::runtime_error("Descriptor type 0 is reserved.");
-            case 1:
-                return DescriptorSet::create;
-            case 2:
-                throw std::runtime_error("Descriptor type 2 is reserved.");
-            case 3:
-                throw std::runtime_error("Descriptor type 3 is reserved.");
+        if (RESERVED_CORE_MIN_TYPE <= type and type <= RESERVED_CORE_MAX_TYPE) {
+            switch (type) {
+                case 1:
+                    static_assert(DSET_TYPE == 0x0001);
+                    return DescriptorSet::create;
+                default:
+                    return PrivateDescriptor::create;
+            }
         }
 
-        static_assert(TYPE_RESERVED_THRESHOLD == 4);
-        static_assert(DSET_TYPE == 0x0001);
+        if (RESERVED_METADATA_MIN_TYPE <= type and type <= RESERVED_METADATA_MAX_TYPE) {
+            return PrivateDescriptor::create;
+        }
 
         // No definition for the given type, fallback to a default generic implementation
         if (DSET_SUBCLASS_MIN_TYPE <= type and type <= DSET_SUBCLASS_MAX_TYPE) {

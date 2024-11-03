@@ -32,7 +32,15 @@ public:
     descriptor_create_fn descriptor_create_lookup(uint16_t type) const;
 
 public:
-    const static uint16_t TYPE_RESERVED_THRESHOLD = 4;
+    /*
+     * Reserved range of type numbers.
+     * This are used internally by xoz library.
+     * */
+    const static uint16_t RESERVED_CORE_MIN_TYPE = 0x0000;
+    const static uint16_t RESERVED_CORE_MAX_TYPE = 0x0000 + 4;
+
+    const static uint16_t RESERVED_METADATA_MIN_TYPE = 0x09e0;
+    const static uint16_t RESERVED_METADATA_MAX_TYPE = 0x09e0 + 32;
 
     const static uint16_t DSET_TYPE = 0x0001;
 
