@@ -42,8 +42,6 @@ public:
     const static uint16_t RESERVED_METADATA_MIN_TYPE = 0x09e0;
     const static uint16_t RESERVED_METADATA_MAX_TYPE = 0x09e0 + 32;
 
-    const static uint16_t DSET_TYPE = 0x0001;
-
     /*
      * Any subclass that wants to be a subclass of DescriptorSet *must*
      * have a descriptor type within this range.

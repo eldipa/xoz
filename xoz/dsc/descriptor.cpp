@@ -141,7 +141,7 @@ fail:
 void Descriptor::chk_dset_type(bool is_read_op, const Descriptor* const dsc, const struct Descriptor::header_t& hdr,
                                const RuntimeContext& rctx) {
 
-    const bool should_be_dset = (rctx.dmap.DSET_TYPE == hdr.type) or (rctx.dmap.DSET_SUBCLASS_MIN_TYPE <= hdr.type and
+    const bool should_be_dset = (DescriptorSet::TYPE == hdr.type) or (rctx.dmap.DSET_SUBCLASS_MIN_TYPE <= hdr.type and
                                                                       hdr.type <= rctx.dmap.DSET_SUBCLASS_MAX_TYPE);
     const bool is_descriptor_set = dsc->is_descriptor_set();
 

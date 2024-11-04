@@ -38,7 +38,7 @@ std::unique_ptr<DescriptorSet> DescriptorSet::create(BlockArray& blkarr, Runtime
 
 std::unique_ptr<Descriptor> DescriptorSet::create(const struct Descriptor::header_t& hdr, BlockArray& blkarr,
                                                   RuntimeContext& rctx) {
-    assert(hdr.type == rctx.dmap.DSET_TYPE or
+    assert(hdr.type == TYPE or
            (rctx.dmap.DSET_SUBCLASS_MIN_TYPE <= hdr.type and hdr.type <= rctx.dmap.DSET_SUBCLASS_MAX_TYPE));
 
     // The magic will happen in read_struct_specifics_from() where we do the real

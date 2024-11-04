@@ -35,8 +35,7 @@ descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) 
         // Is the descriptor one of the defined by xoz?
         if (RESERVED_CORE_MIN_TYPE <= type and type <= RESERVED_CORE_MAX_TYPE) {
             switch (type) {
-                case 1:
-                    static_assert(DSET_TYPE == 0x0001);
+                case DescriptorSet::TYPE:
                     return DescriptorSet::create;
                 default:
                     return PrivateDescriptor::create;

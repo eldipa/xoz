@@ -110,6 +110,8 @@ private:
     Extent header_ext;
 
 public:
+    constexpr static uint16_t TYPE = 0x0001;
+
     /*
      * Create a descriptor set.
      * The segment is where the descriptor set lives. It must be a segment
