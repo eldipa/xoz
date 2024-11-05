@@ -16,7 +16,8 @@ DescriptorMapping::DescriptorMapping(const std::map<uint16_t, descriptor_create_
         }
 
         if ((RESERVED_CORE_MIN_TYPE <= type and type <= RESERVED_CORE_MAX_TYPE) or
-            (RESERVED_METADATA_MIN_TYPE <= type and type <= RESERVED_METADATA_MAX_TYPE)) {
+            (RESERVED_METADATA_MIN_TYPE <= type and type <= RESERVED_METADATA_MAX_TYPE) or type == RESERVED_LAST_TYPE or
+            type == RESERVED_ZERO_TYPE) {
             if (not override_reserved) {
                 throw std::runtime_error((F() << "Descriptor mapping for type " << type
                                               << " is reserved for internal use and cannot be overridden.")
@@ -36,6 +37,10 @@ descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) 
         // Is the descriptor one of the defined by xoz?
         if (RESERVED_CORE_MIN_TYPE <= type and type <= RESERVED_CORE_MAX_TYPE) {
             switch (type) {
+                case RESERVED_ZERO_TYPE:
+                    throw std::runtime_error((F() << "Descriptor mapping for type " << type
+                                                  << " is reserved and should not be present or used.")
+                                                     .str());
                 case DescriptorSet::TYPE:
                     return DescriptorSet::create;
                 default:
