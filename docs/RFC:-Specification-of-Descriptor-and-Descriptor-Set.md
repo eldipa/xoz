@@ -76,6 +76,13 @@ This RFC defines some types:
     application defined but their implementation must be subclasses of
     the *descriptor set* class.
 
+ - `type` in between 0x01bf and 0x01bf + 32 (both inclusive) are
+    private of the xoz library.
+
+ - `type` 0x0001 is a *descriptor set*.
+ -
+ - `type` 0x0002 and 0x003 are reserved.
+
 ## Descriptors that own content
 
 The `struct descriptor_t` can refer either to a descriptor
