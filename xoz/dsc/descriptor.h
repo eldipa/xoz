@@ -139,6 +139,9 @@ public:
      * Dynamically downcast a unique pointer to Descriptor (<base_ptr>)
      * to an unique pointer to the given concrete subclass T.
      *
+     * Once cast() returns, the former base_ptr loose the ownership of the Descriptor
+     * and such will be owned by the returned unique pointer.
+     *
      * See the instance method cast<T>() documentation about the ret_null parameter.
      * Regardless of the value of ret_null, if the provided base_ptr is null, raise
      * an exception.
@@ -165,6 +168,31 @@ public:
         base_ptr.release();
 
         return subcls_ptr;
+    }
+
+    /*
+     * Dynamically downcast a shared pointer to Descriptor (<base_ptr>)
+     * to a shared pointer to the given concrete subclass T.
+     *
+     * The former base_ptr does *not* loose the shared ownership of the Descriptor
+     * so once cast() returns, both base_ptr and the returned pointer points to the
+     * same Descriptor instance.
+     * */
+    template <typename T>
+    static std::shared_ptr<T> cast(const std::shared_ptr<Descriptor>& base_ptr, bool ret_null = false) {
+        if (!base_ptr) {
+            throw std::runtime_error("Pointer to descriptor (base class) cannot be null.");
+        }
+
+        // To keep the shared ownership between the base_ptr and the returned pointer,
+        // we must use dynamic_pointer_cast.
+        // Creating a shared_ptr<T> from the raw pointer of base_ptr will *not* make
+        // the trick.
+        std::shared_ptr<T> ret = std::dynamic_pointer_cast<T, Descriptor>(base_ptr);
+        if (not ret and not ret_null) {
+            throw std::runtime_error("Descriptor cannot be dynamically down casted.");
+        }
+        return ret;
     }
 
     /*
