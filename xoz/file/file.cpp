@@ -496,6 +496,8 @@ void File::load_root_set(struct file_header_t& hdr) {
         auto dsc = DescriptorSet::load_struct_from(root_io, rctx, fblkarr_ref);
         root_set = Descriptor::cast<DescriptorSet>(dsc);
     }
+
+    load_private_metadata_from_root_set();
 }
 
 void File::write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flags) {
@@ -576,6 +578,32 @@ void File::update_trampoline_space() {
         trampoline_segm.add_end_of_segment();
 
         assert(trampoline_segm.calc_struct_footprint_size() <= HEADER_ROOT_SET_SZ);
+    }
+}
+
+void File::load_private_metadata_from_root_set() {
+    xoz_assert("IDMappingDescriptor already loaded", not idmap);
+    std::shared_ptr<IDMappingDescriptor> idmap_tmp;
+
+    for (auto it = root_set->begin(); it != root_set->end(); ++it) {
+        idmap_tmp = Descriptor::cast<IDMappingDescriptor>(*it, true);
+        if (idmap_tmp) {
+            if (not idmap) {
+                idmap = idmap_tmp;
+            } else {
+                throw InconsistentXOZ("IDMappingDescriptor (index data) found duplicated.");
+            }
+        }
+    }
+
+    if (not idmap) {
+        auto dsc = IDMappingDescriptor::create(*fblkarr);
+        if (rctx.runcfg.file.add_missing_id_mapping_to_root_set) {
+            auto id = root_set->add(std::move(dsc));
+            idmap = root_set->get<IDMappingDescriptor>(id);
+        } else {
+            idmap = std::shared_ptr<IDMappingDescriptor>(std::move(dsc));
+        }
     }
 }
 

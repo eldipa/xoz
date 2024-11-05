@@ -29,9 +29,21 @@ struct runtime_config_t {
          * */
         const uint32_t on_external_ref_action;
     } dset;
+
+    struct {
+        /*
+         * If the private IDMappingDescriptor is missing in the root set,
+         * add a new one. Otherwise, don't.
+         *
+         * This is mostly for testing purposes. In general you want to have
+         * always an IDMappingDescriptor.
+         * */
+        const bool add_missing_id_mapping_to_root_set;
+    } file;
 };
 
 constexpr static struct runtime_config_t DefaultRuntimeConfig = {
-        .dset = {.sg_blkarr_flags = SG_BLKARR_REALLOC_ON_GROW, .on_external_ref_action = DSET_ON_EXTERNAL_REF_PASS}};
+        .dset = {.sg_blkarr_flags = SG_BLKARR_REALLOC_ON_GROW, .on_external_ref_action = DSET_ON_EXTERNAL_REF_PASS},
+        .file = {.add_missing_id_mapping_to_root_set = true}};
 
 }  // namespace xoz

@@ -15,6 +15,7 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/blk/file_block_array.h"
 #include "xoz/dsc/descriptor_set.h"
+#include "xoz/dsc/id_mapping.h"
 #include "xoz/ext/extent.h"
 #include "xoz/file/runtime_config.h"
 #include "xoz/file/runtime_context.h"
@@ -54,6 +55,8 @@ private:
 
     Segment trampoline_segm;
     std::shared_ptr<DescriptorSet> root_set;
+
+    std::shared_ptr<IDMappingDescriptor> idmap;
 
     uint32_t feature_flags_compat;
     uint32_t feature_flags_incompat;
@@ -331,6 +334,12 @@ private:
     void load_root_set(struct file_header_t& hdr);
     void write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& flag);
     void update_trampoline_space();
+
+    /*
+     * Load the private metadata (if any) from the root descriptor set.
+     * This includes the index.
+     * */
+    void load_private_metadata_from_root_set();
 
 private:
     static void check_header_magic(struct file_header_t& hdr);

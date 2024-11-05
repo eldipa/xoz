@@ -35,8 +35,14 @@ namespace {
     // that the .xoz file was created and it is non-empty.
     TEST(FileTest, MemCreateNewUsingDefaults) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
-        File xfile = File::create_mem_based(dmap);
+        File xfile = File::create_mem_based(dmap, File::DefaultsParameters, runcfg);
 
         // Check xoz file's parameters
         // Because we didn't specified anything on File::create, it
@@ -98,12 +104,18 @@ namespace {
 
     TEST(FileTest, MemCreateNotUsingDefaults) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         // Custom non-default parameters
         struct File::default_parameters_t gp = {
             .blk_sz = 256
         };
-        File xfile = File::create_mem_based(dmap, gp);
+        File xfile = File::create_mem_based(dmap, gp, runcfg);
 
         EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(xfile.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -169,8 +181,14 @@ namespace {
 
     TEST(FileTest, MemCreateAddDescThenExpandExplicitWrite) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
-        File xfile = File::create_mem_based(dmap);
+        File xfile = File::create_mem_based(dmap, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -253,8 +271,14 @@ namespace {
 
     TEST(FileTest, MemCreateAddDescThenExpandImplicitWrite) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
-        File xfile = File::create_mem_based(dmap);
+        File xfile = File::create_mem_based(dmap, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -335,8 +359,14 @@ namespace {
 
     TEST(FileTest, MemCreateThenExpandThenRevertExpectShrinkOnClose) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
-        File xfile = File::create_mem_based(dmap);
+        File xfile = File::create_mem_based(dmap, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -422,6 +452,12 @@ namespace {
 
     TEST(FileTest, MemCreateTooSmallBlockSize) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         // Too small
         struct File::default_parameters_t gp = {
@@ -429,7 +465,7 @@ namespace {
         };
 
         EXPECT_THAT(
-            [&]() { File::create_mem_based(dmap, gp); },
+            [&]() { File::create_mem_based(dmap, gp, runcfg); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("The minimum block size is 128 but given 64.")

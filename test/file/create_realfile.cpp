@@ -43,11 +43,17 @@ namespace {
     // that the .xoz file was created and it is non-empty.
     TEST(FileTest, CreateNewUsingDefaults) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateNewUsingDefaults.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateNewUsingDefaults.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
 
         // Check xoz file's parameters
         // Because we didn't specified anything on File::create, it
@@ -109,6 +115,12 @@ namespace {
 
     TEST(FileTest, CreateNewNotUsingDefaults) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateNewNotUsingDefaults.xoz");
 
@@ -118,7 +130,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateNewNotUsingDefaults.xoz";
-        File xfile = File::create(dmap, fpath, true, gp);
+        File xfile = File::create(dmap, fpath, true, gp, runcfg);
 
         // Check xoz file's parameters
         // Because we didn't specified anything on File::create, it
@@ -187,14 +199,20 @@ namespace {
 
     TEST(FileTest, CreateNewUsingDefaultsThenOpen) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateNewUsingDefaultsThenOpen.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz";
-        File new_xfile = File::create(dmap, fpath, true);
+        File new_xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
         new_xfile.close();
 
-        File xfile(dmap, SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz");
+        File xfile(dmap, SCRATCH_HOME "CreateNewUsingDefaultsThenOpen.xoz", runcfg);
 
         // Check xoz file's parameters
         // Because we didn't specified anything on File::create, it
@@ -258,6 +276,12 @@ namespace {
 
     TEST(FileTest, CreateNotUsingDefaultsThenOpen) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateNotUsingDefaultsThenOpen.xoz");
 
@@ -267,7 +291,7 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz";
-        File new_xfile = File::create(dmap, fpath, true, gp);
+        File new_xfile = File::create(dmap, fpath, true, gp, runcfg);
 
         // Check xoz file's parameters after create
         EXPECT_EQ(new_xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -330,7 +354,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz");
+        File xfile(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpen.xoz", runcfg);
 
         // Check xoz file's parameters after open
         EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -396,6 +420,12 @@ namespace {
 
     TEST(FileTest, CreateNotUsingDefaultsThenOpenCloseOpen) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
 
@@ -405,17 +435,17 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz";
-        File new_xfile = File::create(dmap, fpath, true, gp);
+        File new_xfile = File::create(dmap, fpath, true, gp, runcfg);
         new_xfile.close();
 
         {
-            File xfile(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
+            File xfile(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz", runcfg);
 
             // Close and reopen again
             xfile.close();
         }
 
-        File xfile(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz");
+        File xfile(dmap, SCRATCH_HOME "CreateNotUsingDefaultsThenOpenCloseOpen.xoz", runcfg);
 
         // Check xoz file's parameters after open
         EXPECT_EQ(xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -481,6 +511,12 @@ namespace {
 
     TEST(FileTest, CreateThenRecreateAndOverride) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateThenRecreateAndOverride.xoz");
 
@@ -490,12 +526,12 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateAndOverride.xoz";
-        File new_xfile = File::create(dmap, fpath, true, gp);
+        File new_xfile = File::create(dmap, fpath, true, gp, runcfg);
         new_xfile.close();
 
         // Create again with fail_if_exists == False so it will not fail
         // because the file already exists but instead it will open it
-        File xfile = File::create(dmap, SCRATCH_HOME "CreateThenRecreateAndOverride.xoz", false);
+        File xfile = File::create(dmap, SCRATCH_HOME "CreateThenRecreateAndOverride.xoz", false, File::DefaultsParameters, runcfg);
 
         // Check xoz file's parameters after open
         // Because the second File::create *did not* create a fresh
@@ -564,6 +600,12 @@ namespace {
 
     TEST(FileTest, CreateThenRecreateButFail) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateThenRecreateButFail.xoz");
 
@@ -573,13 +615,13 @@ namespace {
         };
 
         const char* fpath = SCRATCH_HOME "CreateThenRecreateButFail.xoz";
-        File new_xfile = File::create(dmap, fpath, true, gp);
+        File new_xfile = File::create(dmap, fpath, true, gp, runcfg);
         new_xfile.close();
 
         // Create again with fail_if_exists == True so it **will** fail
         // because the file already exists but instead it will open it
         EXPECT_THAT(
-            [&]() { File::create(dmap, SCRATCH_HOME "CreateThenRecreateButFail.xoz", true); },
+            [&]() { File::create(dmap, SCRATCH_HOME "CreateThenRecreateButFail.xoz", true, File::DefaultsParameters, runcfg); },
             ThrowsMessage<OpenXOZError>(
                 AllOf(
                     HasSubstr("the file already exist and FileBlockArray::create is configured to not override it")
@@ -590,7 +632,7 @@ namespace {
         // Try to open it again, this time with fail_if_exists == False.
         // Check that the previous failed creation **did not** corrupted the original
         // file
-        File xfile = File::create(dmap, SCRATCH_HOME "CreateThenRecreateButFail.xoz", false);
+        File xfile = File::create(dmap, SCRATCH_HOME "CreateThenRecreateButFail.xoz", false, File::DefaultsParameters, runcfg);
 
         // Check xoz file's parameters after open
         // Because the second File::create *did not* create a fresh
@@ -659,11 +701,17 @@ namespace {
 
     TEST(FileTest, CreateThenExpandByAlloc) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateThenExpandByAlloc.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandByAlloc.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
 
         const auto blk_sz = xfile.expose_block_array().blk_sz();
 
@@ -727,7 +775,7 @@ namespace {
 
         // We open the same file. We expect the xfile's blk array to have
         // the same size as the previous one.
-        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandByAlloc.xoz", runcfg);
 
         EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -776,7 +824,7 @@ namespace {
 
         // We open the same file again. We expect the xfile's blk array to have
         // the same size as the previous one after the shrink (0 blks in total)
-        File xfile3(dmap, SCRATCH_HOME "CreateThenExpandByAlloc.xoz");
+        File xfile3(dmap, SCRATCH_HOME "CreateThenExpandByAlloc.xoz", runcfg);
 
         EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -824,11 +872,17 @@ namespace {
 
     TEST(FileTest, CreateThenExpandByBlkArrGrow) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateThenExpandByBlkArrGrow.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
 
         // The xoz file by default has 1 block so adding 3 more
         // will yield 4 blocks in total
@@ -891,7 +945,7 @@ namespace {
                 );
 
         // Open the file again. We expect to see that the file grew.
-        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz", runcfg);
 
         EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -939,7 +993,7 @@ namespace {
 
         // We open the same file again. We expect the xfile's blk array to have
         // the same size as the previous one after the shrink (0 blks in total)
-        File xfile3(dmap, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz");
+        File xfile3(dmap, SCRATCH_HOME "CreateThenExpandByBlkArrGrow.xoz", runcfg);
 
         EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -987,11 +1041,17 @@ namespace {
 
     TEST(FileTest, CreateThenExpandThenRevertByAlloc) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateThenExpandThenRevertByAlloc.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
 
         const auto blk_sz = xfile.expose_block_array().blk_sz();
 
@@ -1055,7 +1115,7 @@ namespace {
                 );
 
         // Reopen.
-        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandThenRevertByAlloc.xoz", runcfg);
 
         EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -1103,11 +1163,17 @@ namespace {
 
     TEST(FileTest, CreateThenExpandThenRevertByBlkArrGrow) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateThenExpandThenRevertByBlkArrGrow.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
 
         // The xoz file by default has 1 block so adding 3 more
         // will yield 4 blocks in total
@@ -1166,7 +1232,7 @@ namespace {
                 );
 
         // Reopen.
-        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandThenRevertByBlkArrGrow.xoz", runcfg);
 
         EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)1);
@@ -1213,11 +1279,17 @@ namespace {
 
     TEST(FileTest, CreateThenExpandCloseThenShrink) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateThenExpandCloseThenShrink.xoz");
 
         const char* fpath = SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
 
         const auto blk_sz = xfile.expose_block_array().blk_sz();
 
@@ -1282,7 +1354,7 @@ namespace {
         // Reopen the file. The block array will have the same geometry but
         // the allocator will know that the allocated blocks (sg1) are not owned
         // by anyone
-        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
+        File xfile2(dmap, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz", runcfg);
 
         EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(xfile2.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -1347,7 +1419,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile3(dmap, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz");
+        File xfile3(dmap, SCRATCH_HOME "CreateThenExpandCloseThenShrink.xoz", runcfg);
 
         EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
         EXPECT_EQ(xfile3.expose_block_array().past_end_blk_nr(), (uint32_t)10);
@@ -1413,6 +1485,12 @@ namespace {
 
     TEST(FileTest, CreateTooSmallBlockSize) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("CreateTooSmallBlockSize.xoz");
 
@@ -1423,7 +1501,7 @@ namespace {
 
         const char* fpath = SCRATCH_HOME "CreateTooSmallBlockSize.xoz";
         EXPECT_THAT(
-            [&]() { File::create(dmap, fpath, true, gp); },
+            [&]() { File::create(dmap, fpath, true, gp, runcfg); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("The minimum block size is 128 but given 64.")
@@ -1434,11 +1512,17 @@ namespace {
 
     TEST(FileTest, OpenTooSmallBlockSize) {
         DescriptorMapping dmap({});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("OpenTooSmallBlockSize.xoz");
 
         const char* fpath = SCRATCH_HOME "OpenTooSmallBlockSize.xoz";
-        File new_xfile = File::create(dmap, fpath, true);
+        File new_xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
 
         // Check xoz file's parameters after create
         EXPECT_EQ(new_xfile.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -1530,7 +1614,7 @@ namespace {
 
         // Open, this should fail
         EXPECT_THAT(
-            [&]() { File xfile(dmap, SCRATCH_HOME "OpenTooSmallBlockSize.xoz"); },
+            [&]() { File xfile(dmap, SCRATCH_HOME "OpenTooSmallBlockSize.xoz", runcfg); },
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr("block size order 6 is out of range [7 to 16] (block sizes of 128 to 64K)")
@@ -1551,6 +1635,9 @@ namespace {
                 .sg_blkarr_flags = 0,
 
                 .on_external_ref_action = 0,
+            },
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -1817,11 +1904,17 @@ namespace {
 #if 0
     TEST(FileTest, TrampolineNotRequiredDueFewWrites) {
         DescriptorMapping dmap({{0xfa, PlainDescriptor::create}});
+        const struct runtime_config_t runcfg = {
+            .dset = DefaultRuntimeConfig.dset,
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
+            }
+        };
 
         DELETE("TrampolineNotRequiredDueFewWrites.xoz");
 
         const char* fpath = SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz";
-        File xfile = File::create(dmap, fpath, true);
+        File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
         const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
@@ -1948,7 +2041,7 @@ namespace {
                 "454f 4600"
                 );
 
-        File xfile2(dmap, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
+        File xfile2(dmap, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz", runcfg);
 
         // We expect the file has grown
         EXPECT_EQ(xfile2.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -2043,7 +2136,7 @@ namespace {
                 );
 
 
-        File xfile3(dmap, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz");
+        File xfile3(dmap, SCRATCH_HOME "TrampolineNotRequiredDueFewWrites.xoz", runcfg);
 
         // We expect the file has grown
         EXPECT_EQ(xfile3.expose_block_array().begin_blk_nr(), (uint32_t)1);
@@ -2151,6 +2244,9 @@ namespace {
                 .sg_blkarr_flags = 0,
 
                 .on_external_ref_action = 0,
+            },
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -2529,6 +2625,9 @@ namespace {
                 .sg_blkarr_flags = 0,
 
                 .on_external_ref_action = 0,
+            },
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -2654,6 +2753,9 @@ namespace {
                 .sg_blkarr_flags = 0,
 
                 .on_external_ref_action = 0,
+            },
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -2974,6 +3076,9 @@ namespace {
                 .sg_blkarr_flags = 0,
 
                 .on_external_ref_action = 0,
+            },
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -3523,6 +3628,9 @@ namespace {
                 .sg_blkarr_flags = 0,
 
                 .on_external_ref_action = 0,
+            },
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -3910,6 +4018,9 @@ namespace {
                 .sg_blkarr_flags = 0,
 
                 .on_external_ref_action = 0,
+            },
+            .file = {
+                .add_missing_id_mapping_to_root_set = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
