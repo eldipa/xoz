@@ -21,6 +21,10 @@ std::unique_ptr<Descriptor> IDMappingDescriptor::create(const struct Descriptor:
     return std::unique_ptr<IDMappingDescriptor>(new IDMappingDescriptor(hdr, cblkarr));
 }
 
+std::unique_ptr<IDMappingDescriptor> IDMappingDescriptor::create(BlockArray& cblkarr) {
+    return std::unique_ptr<IDMappingDescriptor>(new IDMappingDescriptor(cblkarr));
+}
+
 uint32_t IDMappingDescriptor::calculate_store_mapping_size(const std::map<std::string, uint32_t>& id_by_name) const {
     uint32_t sz = 0;
     for (auto const& [name, id]: id_by_name) {

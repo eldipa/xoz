@@ -16,6 +16,8 @@ public:
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               RuntimeContext& rctx);
 
+    static std::unique_ptr<IDMappingDescriptor> create(BlockArray& cblkarr);
+
     /*
      * Store/load the entire mapping.
      * */
