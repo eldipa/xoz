@@ -258,6 +258,23 @@ public:
      * to let the DescriptorSet know about the changes.
      *
      * If no descriptor has the given id, this method throws.
+     *
+     * Note: the application may opt to keep a copy of the id and call get()
+     * to get the descriptor as many times as it wants *or* to do it once
+     * and keep the shared pointer.
+     *
+     * Both are fine: xoz ensures that while the xoz file is open, the ids
+     * (persistent or temporal) and the shared pointer will remain pointing
+     * to the correct descriptor.
+     *
+     * If the application wants to access very frequently to the descriptor,
+     * keeping a shared pointer may be faster than calling get() every time.
+     * The downside is that a shared pointer occupies more space and may
+     * prevent xoz to do optimizations on descriptor that are otherwise inaccesible.
+     *
+     * Keeping an id may require less space at the expenses of a lookup.
+     * The advantage may disappear if the application needs to keep a shared pointer
+     * to the set needed to do the lookup.
      * */
     std::shared_ptr<Descriptor> get(uint32_t id);
 
