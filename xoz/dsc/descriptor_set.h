@@ -7,6 +7,7 @@
 #include <memory>
 #include <set>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "xoz/alloc/segment_allocator.h"
@@ -190,8 +191,21 @@ public:
      * when the unique_ptr<> is pointing to a parent/base class (like Descriptor is).
      * Sorry.
      *
+     * Note: if fail_if_not_allowed_to_add() fails it 99% likely due a bug in the Application
      * */
     uint32_t add(std::unique_ptr<Descriptor> dscptr, bool assign_persistent_id = false);
+
+    /*
+     * Create a new descriptor of type T with the given arguments (Args) calling
+     * the class method T::create.
+     * Then, add the descriptor to the set and return a shared pointer to it.
+     * */
+    template <typename T, typename... Args>
+    std::shared_ptr<T> create_and_add(bool assign_persistent_id, Args... args) {
+        auto uptr = T::create(args...);
+        uint32_t id = add(std::move(uptr), assign_persistent_id);
+        return get<T>(id);
+    }
 
     /*
      * Move out the descriptor from this set and move it into the "new home" set.
