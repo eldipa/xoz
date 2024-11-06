@@ -46,7 +46,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -118,7 +118,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -202,7 +202,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -279,7 +279,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -423,7 +423,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -514,7 +514,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -603,7 +603,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -704,7 +704,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -875,7 +875,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -1044,7 +1044,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -1166,7 +1166,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -1282,7 +1282,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -1488,7 +1488,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -1515,7 +1515,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -1637,7 +1637,7 @@ namespace {
                 .on_external_ref_action = 0,
             },
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -1907,7 +1907,7 @@ namespace {
         const struct runtime_config_t runcfg = {
             .dset = DefaultRuntimeConfig.dset,
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
 
@@ -2246,7 +2246,7 @@ namespace {
                 .on_external_ref_action = 0,
             },
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -2627,7 +2627,7 @@ namespace {
                 .on_external_ref_action = 0,
             },
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -2755,7 +2755,7 @@ namespace {
                 .on_external_ref_action = 0,
             },
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -3078,7 +3078,7 @@ namespace {
                 .on_external_ref_action = 0,
             },
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -3630,7 +3630,7 @@ namespace {
                 .on_external_ref_action = 0,
             },
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);
@@ -4020,7 +4020,7 @@ namespace {
                 .on_external_ref_action = 0,
             },
             .file = {
-                .add_missing_id_mapping_to_root_set = false,
+                .keep_index_updated = false,
             }
         };
         File xfile = File::create(dmap, fpath, true, File::DefaultsParameters, runcfg);

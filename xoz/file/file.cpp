@@ -599,7 +599,7 @@ void File::load_private_metadata_from_root_set() {
 
     if (not idmap) {
         auto dsc = IDMappingDescriptor::create(*fblkarr);
-        if (rctx.runcfg.file.add_missing_id_mapping_to_root_set) {
+        if (rctx.runcfg.file.keep_index_updated) {
             auto id = root_set->add(std::move(dsc));
             idmap = root_set->get<IDMappingDescriptor>(id);
         } else {
