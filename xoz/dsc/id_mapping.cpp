@@ -7,9 +7,9 @@ IDMappingDescriptor::IDMappingDescriptor(const struct Descriptor::header_t& hdr,
 IDMappingDescriptor::IDMappingDescriptor(BlockArray& cblkarr):
         Descriptor(IDMappingDescriptor::TYPE, cblkarr), num_entries(0), content_sz(0) {}
 
-void IDMappingDescriptor::read_struct_specifics_from(IOBase& io) { num_entries = io.read_u32_from_le(); }
+void IDMappingDescriptor::read_struct_specifics_from(IOBase& io) { num_entries = io.read_u16_from_le(); }
 
-void IDMappingDescriptor::write_struct_specifics_into(IOBase& io) { io.write_u32_to_le(num_entries); }
+void IDMappingDescriptor::write_struct_specifics_into(IOBase& io) { io.write_u16_to_le(num_entries); }
 
 void IDMappingDescriptor::update_sizes(uint64_t& isize, uint64_t& csize) {
     isize = sizeof(uint32_t);  // num entries
@@ -49,6 +49,8 @@ void IDMappingDescriptor::store(const std::map<std::string, uint32_t>& id_by_nam
         io.write_u8_to_le(assert_u8(name.size()));
         io.writeall(name.data(), assert_u8(name.size()));
     }
+
+    num_entries = assert_u16(id_by_name.size());
 }
 
 std::map<std::string, uint32_t> IDMappingDescriptor::load() {

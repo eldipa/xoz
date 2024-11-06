@@ -32,7 +32,7 @@ private:
     void fail_if_bad_values(uint32_t id, const std::string& name) const;
     uint32_t calculate_store_mapping_size(const std::map<std::string, uint32_t>& id_by_name) const;
 
-    uint32_t num_entries;
+    uint16_t num_entries;
     uint32_t content_sz;
 
 private:
