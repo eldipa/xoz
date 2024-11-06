@@ -231,5 +231,12 @@ namespace {
                 )
         );
 
+        // this calls to idmap->store() under the hood
+        rctx.index.flush(idmap);
+
+        auto mapping = idmap->load();
+        EXPECT_EQ(mapping.size(), (size_t)2);
+        EXPECT_EQ(mapping["foo"], (uint32_t)id2);
+        EXPECT_EQ(mapping["baz"], (uint32_t)id3);
     }
 }
