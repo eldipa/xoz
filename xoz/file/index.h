@@ -7,14 +7,18 @@
 
 #include "xoz/dsc/descriptor.h"
 #include "xoz/dsc/descriptor_set.h"
+#include "xoz/dsc/id_mapping.h"
 
 namespace xoz {
 class IDManager;
 
+/*
+ * Index for the descriptors that live in the set or its subsets.
+ * */
 class Index {
 public:
     explicit Index(const IDManager& idmgr);
-    void init_index(DescriptorSet& root, const std::map<std::string, uint32_t>& id_by_name);
+    void init_index(DescriptorSet& dset, std::shared_ptr<IDMappingDescriptor>& idmap);
 
     /*
      * find() searches for the descriptor in the entire xoz file
@@ -51,12 +55,14 @@ public:
     void delete_name(const std::string& name);
     bool contains(const std::string& name) const;
 
+    void flush(std::shared_ptr<IDMappingDescriptor>& idmap);
+
 private:
     void fail_if_bad_values(const std::string& name, uint32_t id) const;
     void fail_if_not_initialized() const;
 
 private:
-    DescriptorSet* root;
+    DescriptorSet* dset;
     std::map<std::string, uint32_t> id_by_name;
     const IDManager& idmgr;
 

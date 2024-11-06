@@ -83,7 +83,8 @@ namespace {
         EXPECT_EQ(xsubdset->get(id1)->get_owner(), std::addressof(*xsubdset));
 
         // See if we can find the descriptors using the index
-        rctx.index.init_index(*dset, {});
+        auto idmap = dset->create_and_add<IDMappingDescriptor>(false, std::ref(d_blkarr));
+        rctx.index.init_index(*dset, idmap);
         EXPECT_EQ(rctx.index.find(id1)->get_owner(), std::addressof(*xsubdset));
         EXPECT_EQ(rctx.index.find(id2)->get_owner(), std::addressof(*dset));
         EXPECT_EQ(rctx.index.find(id3)->get_owner(), std::addressof(*dset));
@@ -155,7 +156,9 @@ namespace {
         auto dsc3 = dset->get(id3);
 
         // See if we can find the descriptors using the index
-        rctx.index.init_index(*dset, {{"foo", id2}});
+        auto idmap = dset->create_and_add<IDMappingDescriptor>(false, std::ref(d_blkarr));
+        idmap->store({{"foo", id2}});
+        rctx.index.init_index(*dset, idmap);
         EXPECT_EQ(std::addressof(*rctx.index.find(id2)), std::addressof(*dsc2));
         EXPECT_EQ(std::addressof(*rctx.index.find(id3)), std::addressof(*dsc3));
         EXPECT_EQ(std::addressof(*rctx.index.find("foo")), std::addressof(*dsc2));

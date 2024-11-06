@@ -5,19 +5,23 @@
 #include "xoz/log/format_string.h"
 
 namespace xoz {
-Index::Index(const IDManager& idmgr): root(nullptr), idmgr(idmgr) {}
+Index::Index(const IDManager& idmgr): dset(nullptr), idmgr(idmgr) {}
 
-void Index::init_index(DescriptorSet& root, const std::map<std::string, uint32_t>& id_by_name) {
-    if (this->root) {
+void Index::init_index(DescriptorSet& dset, std::shared_ptr<IDMappingDescriptor>& idmap) {
+    if (this->dset) {
         throw std::runtime_error("The index is already initialized");
     }
 
+    if (!idmap) {
+        throw std::runtime_error("The index cannot be initialized because the IDMappingDescriptor is null");
+    }
+
+    this->id_by_name = idmap->load();
     for (auto& [name, id]: id_by_name) {
         fail_if_bad_values(name, id);
     }
 
-    this->root = &root;
-    this->id_by_name = id_by_name;
+    this->dset = &dset;
 }
 
 std::shared_ptr<Descriptor> Index::find(const std::string& name) {
@@ -36,7 +40,7 @@ std::shared_ptr<Descriptor> Index::find(uint32_t id) {
     }
 
     std::shared_ptr<Descriptor> dsc;
-    DescriptorSet::depth_first_for_each_set(*root, [&dsc, id](DescriptorSet* s) {
+    DescriptorSet::depth_first_for_each_set(*dset, [&dsc, id](DescriptorSet* s) {
         if (not s->contains(id)) {
             return false;
         }
@@ -96,6 +100,8 @@ bool Index::contains(const std::string& name) const {
     return id_by_name.contains(name);
 }
 
+void Index::flush(std::shared_ptr<IDMappingDescriptor>& idmap) { idmap->store(id_by_name); }
+
 void Index::fail_if_bad_values(const std::string& name, uint32_t id) const {
     if (name.size() > 255) {
         throw std::runtime_error((F() << "The name '" << name << "' for descriptor " << xoz::log::hex(id)
@@ -116,7 +122,7 @@ void Index::fail_if_bad_values(const std::string& name, uint32_t id) const {
 }
 
 void Index::fail_if_not_initialized() const {
-    if (not this->root) {
+    if (not this->dset) {
         throw std::runtime_error("The index is not initialized yet.");
     }
 }
