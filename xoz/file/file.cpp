@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <utility>
 
+#include "xoz/dsc/id_mapping.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/io/iospan.h"
 #include "xoz/mem/endianness.h"

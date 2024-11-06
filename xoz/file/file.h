@@ -15,7 +15,6 @@
 #include "xoz/blk/block_array.h"
 #include "xoz/blk/file_block_array.h"
 #include "xoz/dsc/descriptor_set.h"
-#include "xoz/dsc/id_mapping.h"
 #include "xoz/ext/extent.h"
 #include "xoz/file/runtime_config.h"
 #include "xoz/file/runtime_context.h"
