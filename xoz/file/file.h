@@ -185,6 +185,7 @@ private:
      * */
     void write_header();
     void write_trailer();
+    void full_sync_metadata();
 
     /*
      * Read the header/trailer and check that the header/trailer

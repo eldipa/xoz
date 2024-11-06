@@ -430,6 +430,11 @@ void File::init_new_file(const struct default_parameters_t& defaults) {
 }
 
 void File::full_sync(const bool release) {
+    // Sync internal/private objects so they will update their descriptors
+    // (hence, writing to disk). We need to do this before sync'ing the root set
+    // because otherwise the set may contain outdated descriptors.
+    full_sync_metadata();
+
     // Update the root set. If there is any pending write, this will
     // do it. This may trigger some allocations in fblkarr and if release
     // is true, it may trigger some deallocations (shrinks) too.
@@ -461,6 +466,18 @@ void File::panic_close() {
     fblkarr->panic_close();
     closed = true;
     closing = false;
+}
+
+void File::full_sync_metadata() {
+    // Make the objects flush their state into the descriptors.
+    // There is no need to flush/sync the descriptors themselves because
+    // they should belong to a set and the sets will be flushed/synced
+    // in File::full_sync();
+    // Note: the exceptions are the descriptors that were explicitly not
+    // added to any set. In this case their writings will be lost.
+    if (rctx.runcfg.file.keep_index_updated) {
+        rctx.index.flush(idmap);
+    }
 }
 
 void File::load_root_set(struct file_header_t& hdr) {
@@ -586,6 +603,7 @@ void File::load_private_metadata_from_root_set() {
     xoz_assert("IDMappingDescriptor already loaded", not idmap);
     std::shared_ptr<IDMappingDescriptor> idmap_tmp;
 
+    // Search for the private descriptors that contain xoz-specific metadata
     for (auto it = root_set->begin(); it != root_set->end(); ++it) {
         idmap_tmp = Descriptor::cast<IDMappingDescriptor>(*it, true);
         if (idmap_tmp) {
@@ -597,6 +615,7 @@ void File::load_private_metadata_from_root_set() {
         }
     }
 
+    // Create default descriptors if they were not found earlier
     if (not idmap) {
         auto dsc = IDMappingDescriptor::create(*fblkarr);
         if (rctx.runcfg.file.keep_index_updated) {
@@ -606,6 +625,9 @@ void File::load_private_metadata_from_root_set() {
             idmap = std::shared_ptr<IDMappingDescriptor>(std::move(dsc));
         }
     }
+
+    // Initialize the index
+    rctx.index.init_index(*root_set, idmap);
 }
 
 void File::check_header_magic(struct file_header_t& hdr) {
