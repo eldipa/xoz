@@ -329,6 +329,7 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
     }
 
     chk_dset_type(true, dsc.get(), hdr, rctx);
+    dsc->checksum = inet_to_u16(checksum);
 
     uint32_t idata_begin_pos = io.tell_rd();
     {
@@ -350,7 +351,6 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
     // we can be 100% sure that load_header_from checksummed all the data field from
     // idata_begin_pos to idata_begin_pos+hdr.isize.
     assert(dsc_end_pos == idata_begin_pos + hdr.isize);
-    dsc->checksum = inet_to_u16(checksum);
 
     dsc->update_sizes_of_header(true);
 
