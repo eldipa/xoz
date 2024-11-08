@@ -128,6 +128,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         uint32_t idata_begin_pos;
     };
     std::list<dsc_load_state_t> load_dsc_states;
+    std::list<dsc_load_state_t> load_dset_states;
 
     while (io.remain_rd()) {
         // Try to read padding and if it so, skip the descriptor load
@@ -155,7 +156,12 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         // Track the (partial) checksum from the descriptor's perspective
         current_checksum = fold_inet_checksum(inet_add(current_checksum, p.dsc->checksum));
 
-        load_dsc_states.push_back(std::move(p));
+        auto subset = p.dsc->cast<DescriptorSet>(true);
+        if (subset != nullptr) {
+            load_dset_states.push_back(std::move(p));  // dset here
+        } else {
+            load_dsc_states.push_back(std::move(p));  // non-dset here
+        }
     }
 
     // NOTE this is probably redundant
@@ -167,76 +173,83 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
                                   << "remained: 0x" << std::hex << checksum_check);
     }
 
-    // Finish the reading
-    for (auto& p: load_dsc_states) {
-        // Read the descriptor - Step 2, their struct-specifics
-        //
-        // Note: finish_load_dsc_from will seek to idata_begin_pos automatically
-        finish_load_dsc_from(io, rctx, cblkarr, *p.dsc, p.dsc_begin_pos, p.idata_begin_pos, p.ex_type_used);
-        uint32_t dsc_end_pos = io.tell_rd();
+    // Finish the reading: first the non-dset, then the dset descriptors.
+    // This ensures that if a non-dset tries to find a descriptors (via Index), it will
+    // fail if such target is present in a subset.
+    // Forcing this reading order ensures that the non-dsets are loaded completly before
+    // even going deeper in the set tree.
+    for (auto& states_ptr: {&load_dsc_states, &load_dset_states}) {
+        for (auto& p: *states_ptr) {
+            // Read the descriptor - Step 2, their struct-specifics
+            //
+            // Note: finish_load_dsc_from will seek to idata_begin_pos automatically
+            finish_load_dsc_from(io, rctx, cblkarr, *p.dsc, p.dsc_begin_pos, p.idata_begin_pos, p.ex_type_used);
+            uint32_t dsc_end_pos = io.tell_rd();
 
-        uint32_t dsc_begin_pos = p.dsc_begin_pos;
-        auto dsc = std::move(p.dsc);
+            uint32_t dsc_begin_pos = p.dsc_begin_pos;
+            auto dsc = std::move(p.dsc);
 
-        // Descriptor::load_struct_from should had check for any anomaly of how much
-        // data was read and how much the descriptor said it should be read and raise
-        // an exception if such anomaly was detected.
-        //
-        // Here, we just chk that we are still aligned. This should never happen
-        // and it should be understood as a bug in the load_struct_from or descriptor
-        // subclass
-        if (dsc_end_pos % align != 0) {
-            throw InternalError(F() << "The reading position was not left aligned to " << align
-                                    << " after a descriptor load: left at " << dsc_end_pos << " bytes position");
+            // Descriptor::load_struct_from should had check for any anomaly of how much
+            // data was read and how much the descriptor said it should be read and raise
+            // an exception if such anomaly was detected.
+            //
+            // Here, we just chk that we are still aligned. This should never happen
+            // and it should be understood as a bug in the load_struct_from or descriptor
+            // subclass
+            if (dsc_end_pos % align != 0) {
+                throw InternalError(F() << "The reading position was not left aligned to " << align
+                                        << " after a descriptor load: left at " << dsc_end_pos << " bytes position");
+            }
+            if (dsc_end_pos <= dsc_begin_pos or dsc_end_pos - dsc_begin_pos < align) {
+                throw InternalError(
+                        F() << "The reading position after descriptor loaded was left too close or before the "
+                               "position before: left at "
+                            << dsc_end_pos << " bytes position");
+            }
+
+            // Set the Extent that corresponds to the place where the descriptor is
+            uint32_t dsc_length = dsc_end_pos - dsc_begin_pos;
+
+            dsc->ext = Extent(st_blkarr.bytes2blk_nr(dsc_begin_pos), st_blkarr.bytes2blk_cnt(dsc_length), false);
+            allocated_exts.push_back(dsc->ext);
+
+            uint32_t id = dsc->id();
+
+
+            // Descriptors or either have a new unique temporal id from RuntimeContext or
+            // the id is loaded from the io. In this latter case, the id is registered in the RuntimeContext
+            // to ensure uniqueness. All of this happen during the load of the descriptor,
+            // not here in the set.
+            //
+            // Here we do a double check: if we detect a duplicated here, it is definitely a bug,
+            // most likely in the code, no necessary in the XOZ file
+            //
+            // Note that if no duplicated ids are found here, it does not mean that the id is
+            // not duplicated against other descriptor in other stream. That's why the real and
+            // truly useful check is performed in RuntimeContext (that has a global view) during the
+            // descriptor load..
+            if (id == 0) {
+                throw InternalError(F() << "Descriptor id " << id << " is not allowed. "
+                                        << "Mostly likely an internal bug");
+            }
+
+            if (owned.count(id) != 0) {
+                throw InternalError(F() << "Descriptor id " << id
+                                        << " found duplicated within the stream. This should never had happen. "
+                                        << "Mostly likely an internal bug");
+            }
+
+            auto subset = dsc->cast<DescriptorSet>(true);
+            if (subset != nullptr) {
+                children.insert(subset);
+            }
+
+            dsc->set_owner(this);
+            owned[id] = std::move(dsc);
+
+            // dsc cannot be used any longer, it was transferred/moved to the dictionaries above
+            // assert(!dsc); (ok, linter is detecting this)
         }
-        if (dsc_end_pos <= dsc_begin_pos or dsc_end_pos - dsc_begin_pos < align) {
-            throw InternalError(F() << "The reading position after descriptor loaded was left too close or before the "
-                                       "position before: left at "
-                                    << dsc_end_pos << " bytes position");
-        }
-
-        // Set the Extent that corresponds to the place where the descriptor is
-        uint32_t dsc_length = dsc_end_pos - dsc_begin_pos;
-
-        dsc->ext = Extent(st_blkarr.bytes2blk_nr(dsc_begin_pos), st_blkarr.bytes2blk_cnt(dsc_length), false);
-        allocated_exts.push_back(dsc->ext);
-
-        uint32_t id = dsc->id();
-
-
-        // Descriptors or either have a new unique temporal id from RuntimeContext or
-        // the id is loaded from the io. In this latter case, the id is registered in the RuntimeContext
-        // to ensure uniqueness. All of this happen during the load of the descriptor,
-        // not here in the set.
-        //
-        // Here we do a double check: if we detect a duplicated here, it is definitely a bug,
-        // most likely in the code, no necessary in the XOZ file
-        //
-        // Note that if no duplicated ids are found here, it does not mean that the id is
-        // not duplicated against other descriptor in other stream. That's why the real and
-        // truly useful check is performed in RuntimeContext (that has a global view) during the
-        // descriptor load..
-        if (id == 0) {
-            throw InternalError(F() << "Descriptor id " << id << " is not allowed. "
-                                    << "Mostly likely an internal bug");
-        }
-
-        if (owned.count(id) != 0) {
-            throw InternalError(F() << "Descriptor id " << id
-                                    << " found duplicated within the stream. This should never had happen. "
-                                    << "Mostly likely an internal bug");
-        }
-
-        auto subset = dsc->cast<DescriptorSet>(true);
-        if (subset != nullptr) {
-            children.insert(subset);
-        }
-
-        dsc->set_owner(this);
-        owned[id] = std::move(dsc);
-
-        // dsc cannot be used any longer, it was transferred/moved to the dictionaries above
-        // assert(!dsc); (ok, linter is detecting this)
     }
 
     assert((is_new and allocated_exts.size() == 0) or not is_new);
