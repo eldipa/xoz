@@ -119,7 +119,14 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         // Read the descriptor
         assert(io.tell_rd() % align == 0);
         uint32_t dsc_begin_pos = io.tell_rd();
-        auto dsc = Descriptor::load_struct_from(io, rctx, cblkarr);
+        std::unique_ptr<Descriptor> dsc;
+        {
+            bool ex_type_used = false;
+            dsc = begin_load_dsc_from(io, rctx, cblkarr, dsc_begin_pos, ex_type_used);
+
+            uint32_t idata_begin_pos = io.tell_rd();
+            finish_load_dsc_from(io, rctx, cblkarr, *dsc, dsc_begin_pos, idata_begin_pos, ex_type_used);
+        }
         uint32_t dsc_end_pos = io.tell_rd();
 
         // Descriptor::load_struct_from should had check for any anomaly of how much
