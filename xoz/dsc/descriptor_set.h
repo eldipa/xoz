@@ -95,7 +95,8 @@ private:
     uint8_t psize;
     std::vector<char> pdata;
 
-    uint16_t reserved;
+    uint16_t ireserved;  // see MASK_DSET_IRESERVED
+    uint16_t creserved;
 
     uint32_t current_checksum;
 

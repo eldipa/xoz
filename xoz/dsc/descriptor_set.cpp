@@ -22,7 +22,8 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
         rctx(rctx),
         set_loaded(false),
         psize(0),
-        reserved(0),
+        ireserved(0),
+        creserved(0),
         current_checksum(0),
         header_does_require_write(false),
         header_ext(Extent::EmptyExtent()) {}
@@ -87,18 +88,18 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
     std::list<Extent> allocated_exts;
     if (not is_new) {
         // read the header
-        reserved = io.read_u16_from_le();
+        creserved = io.read_u16_from_le();
         stored_checksum = io.read_u16_from_le();
 
         // stored_checksum is not part of the checksum
-        current_checksum = inet_add(current_checksum, reserved);
+        current_checksum = inet_add(current_checksum, creserved);
 
         // ensure that the allocator knows that our header is already reserved by us
         const auto ext = Extent(st_blkarr.bytes2blk_nr(0), st_blkarr.bytes2blk_cnt(header_size), false);
         allocated_exts.push_back(ext);
     } else {
-        reserved = u16data;
-        current_checksum = inet_add(current_checksum, reserved);
+        creserved = u16data;
+        current_checksum = inet_add(current_checksum, creserved);
         stored_checksum = inet_to_u16(current_checksum);
     }
 
@@ -164,7 +165,9 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         }
     }
 
-    // NOTE this is probably redundant
+    // This may sound redundant with respect the checksum verification did at the begin
+    // of the load_descriptors() method but checking again may catch bugs in
+    // Descriptor::load_header_from()
     auto checksum_check = fold_inet_checksum(inet_remove(current_checksum, stored_checksum));
     if (not is_inet_checksum_good(checksum_check)) {
         throw InconsistentXOZ(F() << "Mismatch checksum for descriptor set on loading. "
@@ -488,8 +491,8 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     }
     to_update.clear();
 
-    // note: we don't checksum this->reserved because it should had been checksum
-    // earlier and in each change to this->reserved.
+    // note: we don't checksum this->creserved because it should had been checksum
+    // earlier and in each change to this->creserved.
     current_checksum = fold_inet_checksum(current_checksum);
 
     if (current_checksum == 0xffff) {
@@ -498,7 +501,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 
     io2.seek_wr(0);
 
-    io2.write_u16_to_le(this->reserved);
+    io2.write_u16_to_le(this->creserved);
     io2.write_u16_to_le(assert_u16(this->current_checksum));
     header_does_require_write = false;
 
@@ -717,7 +720,8 @@ void DescriptorSet::destroy_no_recursive() {
     // to call create_set()/load_set() again.
     set_loaded = false;
     header_does_require_write = false;
-    reserved = 0;
+    ireserved = 0;
+    creserved = 0;
     current_checksum = 0;
     segm = Segment::EmptySegment(sg_blkarr.blk_sz_order());
 }
@@ -829,7 +833,7 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     uint16_t field = io.read_u16_from_le();
 
     psize = assert_read_bits_from_u16(uint8_t, field, MASK_DSET_PSIZE);
-    reserved = assert_read_bits_from_u16(uint16_t, field, MASK_DSET_RESERVED);
+    ireserved = assert_read_bits_from_u16(uint16_t, field, MASK_DSET_IRESERVED);
 
     uint16_t sflags = 0;
     if (does_own_content()) {
@@ -868,11 +872,11 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
 void DescriptorSet::write_struct_specifics_into(IOBase& io) {
     assert(pdata.size() == psize);
     assert(psize <= 0xf);
-    assert((reserved & (~MASK_DSET_RESERVED)) == 0);
+    assert((ireserved & (~MASK_DSET_IRESERVED)) == 0);
 
     uint16_t field = 0;
     assert_write_bits_into_u16(field, psize, MASK_DSET_PSIZE);
-    assert_write_bits_into_u16(field, reserved, MASK_DSET_RESERVED);
+    assert_write_bits_into_u16(field, ireserved, MASK_DSET_IRESERVED);
     io.write_u16_to_le(field);
 
     if (count() == 0) {
