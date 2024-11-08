@@ -14,6 +14,18 @@ class IDManager;
 
 /*
  * Index for the descriptors that live in the set or its subsets.
+ *
+ * A descriptor D can find any other descriptor by id or by name as long
+ * as the target of the search T belongs directly or indirectly to the set
+ * that this Index is indexing (aka root).
+ *
+ * It doesn't matter if the target T lives in a set closer to the root
+ * with respect where the descriptor D or if T lives in the same set
+ * than D or anywhere else.
+ *
+ * However, during the load of the descriptor D (method Descriptor::read_struct_from),
+ * the descriptors of the set where D lives of any subset may not be loaded
+ * yet so Index may fail if D searches for T there.
  * */
 class Index {
 public:
