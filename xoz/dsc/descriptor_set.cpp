@@ -102,6 +102,15 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         stored_checksum = inet_to_u16(current_checksum);
     }
 
+    struct dsc_load_state_t {
+        std::unique_ptr<Descriptor> dsc;
+
+        bool ex_type_used;
+        uint32_t dsc_begin_pos;
+        uint32_t idata_begin_pos;
+    };
+    std::list<dsc_load_state_t> load_dsc_states;
+
     [[maybe_unused]] auto io_rd_begin = io.tell_rd();
 
     while (io.remain_rd()) {
@@ -118,16 +127,28 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
 
         // Read the descriptor
         assert(io.tell_rd() % align == 0);
-        uint32_t dsc_begin_pos = io.tell_rd();
+        {
+            struct dsc_load_state_t p = {
+                    .dsc = nullptr, .ex_type_used = false, .dsc_begin_pos = io.tell_rd(), .idata_begin_pos = 0};
+            p.dsc = begin_load_dsc_from(io, rctx, cblkarr, p.dsc_begin_pos, p.ex_type_used);
+            p.idata_begin_pos = io.tell_rd();
+
+            load_dsc_states.push_back(std::move(p));
+        }
+
+        uint32_t dsc_begin_pos;
         std::unique_ptr<Descriptor> dsc;
         {
-            bool ex_type_used = false;
-            dsc = begin_load_dsc_from(io, rctx, cblkarr, dsc_begin_pos, ex_type_used);
+            struct dsc_load_state_t p = std::move(load_dsc_states.back());
+            load_dsc_states.pop_back();
 
-            uint32_t idata_begin_pos = io.tell_rd();
-            finish_load_dsc_from(io, rctx, cblkarr, *dsc, dsc_begin_pos, idata_begin_pos, ex_type_used);
+            finish_load_dsc_from(io, rctx, cblkarr, *p.dsc, p.dsc_begin_pos, p.idata_begin_pos, p.ex_type_used);
+
+            dsc_begin_pos = p.dsc_begin_pos;
+            dsc = std::move(p.dsc);
         }
         uint32_t dsc_end_pos = io.tell_rd();
+
 
         // Descriptor::load_struct_from should had check for any anomaly of how much
         // data was read and how much the descriptor said it should be read and raise
