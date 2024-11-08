@@ -102,6 +102,24 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         stored_checksum = inet_to_u16(current_checksum);
     }
 
+    {
+        // Check the checksum of the entire io for this descriptor set
+        // before doing any real loading/parsing.
+        [[maybe_unused]] auto guard = io.auto_rewind();
+        uint32_t io_rd_begin = io.tell_rd();
+
+        uint32_t computed_checksum = current_checksum;
+        computed_checksum += inet_checksum(io, io_rd_begin, io_rd_begin + io.remain_rd());
+
+        auto checksum_check = fold_inet_checksum(inet_remove(computed_checksum, stored_checksum));
+        if (not is_inet_checksum_good(checksum_check)) {
+            throw InconsistentXOZ(F() << "Mismatch checksum for descriptor set on loading. "
+                                      << "Read: 0x" << std::hex << stored_checksum << ", "
+                                      << "computed: 0x" << std::hex << computed_checksum << ", "
+                                      << "remained: 0x" << std::hex << checksum_check);
+        }
+    }
+
     struct dsc_load_state_t {
         std::unique_ptr<Descriptor> dsc;
 
@@ -110,8 +128,6 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         uint32_t idata_begin_pos;
     };
     std::list<dsc_load_state_t> load_dsc_states;
-
-    [[maybe_unused]] auto io_rd_begin = io.tell_rd();
 
     while (io.remain_rd()) {
         // Try to read padding and if it so, skip the descriptor load
@@ -136,7 +152,19 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         // Skip descriptor's idata
         io.seek_rd(p.dsc->hdr.isize, IOBase::Seekdir::fwd);
 
+        // Track the (partial) checksum from the descriptor's perspective
+        current_checksum = fold_inet_checksum(inet_add(current_checksum, p.dsc->checksum));
+
         load_dsc_states.push_back(std::move(p));
+    }
+
+    // NOTE this is probably redundant
+    auto checksum_check = fold_inet_checksum(inet_remove(current_checksum, stored_checksum));
+    if (not is_inet_checksum_good(checksum_check)) {
+        throw InconsistentXOZ(F() << "Mismatch checksum for descriptor set on loading. "
+                                  << "Read: 0x" << std::hex << stored_checksum << ", "
+                                  << "computed: 0x" << std::hex << current_checksum << ", "
+                                  << "remained: 0x" << std::hex << checksum_check);
     }
 
     // Finish the reading
@@ -199,8 +227,6 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
                                     << "Mostly likely an internal bug");
         }
 
-        current_checksum = fold_inet_checksum(inet_add(current_checksum, dsc->checksum));
-
         auto subset = dsc->cast<DescriptorSet>(true);
         if (subset != nullptr) {
             children.insert(subset);
@@ -213,28 +239,7 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         // assert(!dsc); (ok, linter is detecting this)
     }
 
-    auto checksum_check = fold_inet_checksum(inet_remove(current_checksum, stored_checksum));
-    if (not is_inet_checksum_good(checksum_check)) {
-        throw InconsistentXOZ(F() << "Mismatch checksum for descriptor set on loading. "
-                                  << "Read: 0x" << std::hex << stored_checksum << ", "
-                                  << "computed: 0x" << std::hex << current_checksum << ", "
-                                  << "remained: 0x" << std::hex << checksum_check);
-    }
-
     assert((is_new and allocated_exts.size() == 0) or not is_new);
-
-#ifndef NDEBUG
-    {
-        uint32_t chk = inet_checksum(reserved);
-        io.seek_rd(io_rd_begin);
-        chk += inet_checksum(io, io_rd_begin, io_rd_begin + io.remain_rd());
-        if (chk == 0xffff) {
-            chk = 0;
-        }
-
-        assert(chk == current_checksum);
-    }
-#endif
 
     // let the allocator know which extents are allocated (contain the descriptors) and
     // which are free for further allocation (padding or space between the boundaries of the io)
