@@ -125,30 +125,30 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
             io.seek_rd(2, IOBase::Seekdir::bwd);
         }
 
-        // Read the descriptor
         assert(io.tell_rd() % align == 0);
-        {
-            struct dsc_load_state_t p = {
-                    .dsc = nullptr, .ex_type_used = false, .dsc_begin_pos = io.tell_rd(), .idata_begin_pos = 0};
-            p.dsc = begin_load_dsc_from(io, rctx, cblkarr, p.dsc_begin_pos, p.ex_type_used);
-            p.idata_begin_pos = io.tell_rd();
 
-            load_dsc_states.push_back(std::move(p));
-        }
+        // Read the descriptor - Step 1, header only
+        struct dsc_load_state_t p = {
+                .dsc = nullptr, .ex_type_used = false, .dsc_begin_pos = io.tell_rd(), .idata_begin_pos = 0};
+        p.dsc = begin_load_dsc_from(io, rctx, cblkarr, p.dsc_begin_pos, p.ex_type_used);
+        p.idata_begin_pos = io.tell_rd();
 
-        uint32_t dsc_begin_pos;
-        std::unique_ptr<Descriptor> dsc;
-        {
-            struct dsc_load_state_t p = std::move(load_dsc_states.back());
-            load_dsc_states.pop_back();
+        // Skip descriptor's idata
+        io.seek_rd(p.dsc->hdr.isize, IOBase::Seekdir::fwd);
 
-            finish_load_dsc_from(io, rctx, cblkarr, *p.dsc, p.dsc_begin_pos, p.idata_begin_pos, p.ex_type_used);
+        load_dsc_states.push_back(std::move(p));
+    }
 
-            dsc_begin_pos = p.dsc_begin_pos;
-            dsc = std::move(p.dsc);
-        }
+    // Finish the reading
+    for (auto& p: load_dsc_states) {
+        // Read the descriptor - Step 2, their struct-specifics
+        //
+        // Note: finish_load_dsc_from will seek to idata_begin_pos automatically
+        finish_load_dsc_from(io, rctx, cblkarr, *p.dsc, p.dsc_begin_pos, p.idata_begin_pos, p.ex_type_used);
         uint32_t dsc_end_pos = io.tell_rd();
 
+        uint32_t dsc_begin_pos = p.dsc_begin_pos;
+        auto dsc = std::move(p.dsc);
 
         // Descriptor::load_struct_from should had check for any anomaly of how much
         // data was read and how much the descriptor said it should be read and raise
