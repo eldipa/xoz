@@ -474,5 +474,10 @@ private:
     constexpr static inline bool does_hdr_csize_fit(uint64_t hdr_csize) { return hdr_csize <= 0x7fffffff; }
 
     static struct Descriptor::header_t create_header(const uint16_t type, const BlockArray& cblkarr);
+
+    static std::unique_ptr<Descriptor> begin_load_dsc_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr,
+                                                           uint32_t dsc_begin_pos, bool& ex_type_used);
+    static void finish_load_dsc_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr, Descriptor& dsc,
+                                     uint32_t dsc_begin_pos, uint32_t idata_begin_pos, bool ex_type_used);
 };
 }  // namespace xoz

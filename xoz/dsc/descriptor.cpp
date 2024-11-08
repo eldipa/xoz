@@ -310,15 +310,23 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 }
 
 std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr) {
+    bool ex_type_used = false;
+    uint32_t dsc_begin_pos = io.tell_rd();
+    auto dsc = begin_load_dsc_from(io, rctx, cblkarr, dsc_begin_pos, ex_type_used);
 
+    uint32_t idata_begin_pos = io.tell_rd();
+    finish_load_dsc_from(io, rctx, cblkarr, *dsc, dsc_begin_pos, idata_begin_pos, ex_type_used);
+    return dsc;
+}
+
+std::unique_ptr<Descriptor> Descriptor::begin_load_dsc_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr,
+                                                            uint32_t dsc_begin_pos, bool& ex_type_used) {
     // Make the io read-only during the execution of this method
     [[maybe_unused]] auto guard = io.auto_restore_limits();
     io.limit_to_read_only();
-
-    uint32_t dsc_begin_pos = io.tell_rd();
+    io.seek_rd(dsc_begin_pos);
 
     uint32_t checksum = 0;
-    bool ex_type_used = false;
     struct Descriptor::header_t hdr = load_header_from(io, rctx, cblkarr, ex_type_used, &checksum);
 
     descriptor_create_fn fn = rctx.dmap.descriptor_create_lookup(hdr.type);
@@ -331,30 +339,38 @@ std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeCont
     chk_dset_type(true, dsc.get(), hdr, rctx);
     dsc->checksum = inet_to_u16(checksum);
 
-    uint32_t idata_begin_pos = io.tell_rd();
+    return dsc;
+}
+
+void Descriptor::finish_load_dsc_from(IOBase& io, [[maybe_unused]] RuntimeContext& rctx, BlockArray& cblkarr,
+                                      Descriptor& dsc, uint32_t dsc_begin_pos, uint32_t idata_begin_pos,
+                                      bool ex_type_used) {
+    // Make the io read-only during the execution of this method
+    [[maybe_unused]] auto guard = io.auto_restore_limits();
+    io.limit_to_read_only();
+    io.seek_rd(idata_begin_pos);
+
     {
         [[maybe_unused]] auto alloc_guard = cblkarr.allocator().block_all_alloc_dealloc_guard();
         [[maybe_unused]] auto limit_guard = io.auto_restore_limits();
-        io.limit_rd(idata_begin_pos, hdr.isize);
+        io.limit_rd(idata_begin_pos, dsc.hdr.isize);
 
-        dsc->read_struct_specifics_from(io);
-        dsc->read_future_idata(io);
+        dsc.read_struct_specifics_from(io);
+        dsc.read_future_idata(io);
 
-        xoz_assert("load future idata odd size", dsc->future_idata_size() % 2 == 0);
+        xoz_assert("load future idata odd size", dsc.future_idata_size() % 2 == 0);
     }
     uint32_t dsc_end_pos = io.tell_rd();
 
-    chk_rw_specifics_on_idata(true, io, idata_begin_pos, dsc_end_pos, hdr.isize);
-    chk_struct_footprint(true, io, dsc_begin_pos, dsc_end_pos, dsc.get(), ex_type_used);
+    chk_rw_specifics_on_idata(true, io, idata_begin_pos, dsc_end_pos, dsc.hdr.isize);
+    chk_struct_footprint(true, io, dsc_begin_pos, dsc_end_pos, &dsc, ex_type_used);
 
     // note: as the check in chk_rw_specifics_on_idata and the following assert
     // we can be 100% sure that load_header_from checksummed all the data field from
-    // idata_begin_pos to idata_begin_pos+hdr.isize.
-    assert(dsc_end_pos == idata_begin_pos + hdr.isize);
+    // idata_begin_pos to idata_begin_pos+dsc.hdr.isize.
+    assert(dsc_end_pos == idata_begin_pos + dsc.hdr.isize);
 
-    dsc->update_sizes_of_header(true);
-
-    return dsc;
+    dsc.update_sizes_of_header(true);
 }
 
 
