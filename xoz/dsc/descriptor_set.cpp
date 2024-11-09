@@ -21,7 +21,6 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
         st_blkarr(this->segm, sg_blkarr, 2, rctx.runcfg.dset.sg_blkarr_flags),
         rctx(rctx),
         set_loaded(false),
-        psize(0),
         ireserved(0),
         creserved(0),
         current_checksum(0),
@@ -515,11 +514,9 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         uint32_t chk = inet_checksum(io2, 0, 2);
         io2.seek_rd(4);
         chk += inet_checksum(io2, 4, 4 + io2.remain_rd());
-        if (chk == 0xffff) {
-            chk = 0;
-        }
 
-        assert(chk == current_checksum);
+        auto checksum_check = fold_inet_checksum(inet_remove(chk, inet_to_u16(current_checksum)));
+        assert(is_inet_checksum_good(checksum_check));
     }
 #endif
 }
@@ -832,7 +829,7 @@ void DescriptorSet::fail_if_not_allowed_to_add(const Descriptor* dsc) const {
 void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     uint16_t field = io.read_u16_from_le();
 
-    psize = assert_read_bits_from_u16(uint8_t, field, MASK_DSET_PSIZE);
+    uint16_t psize = assert_read_bits_from_u16(uint8_t, field, MASK_DSET_PSIZE);
     ireserved = assert_read_bits_from_u16(uint16_t, field, MASK_DSET_IRESERVED);
 
     uint16_t sflags = 0;
@@ -870,7 +867,9 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
 }
 
 void DescriptorSet::write_struct_specifics_into(IOBase& io) {
-    assert(pdata.size() == psize);
+    assert(pdata.size() % 2 == 0);
+
+    uint16_t psize = assert_u16(pdata.size() >> 1);
     assert(psize <= 0xf);
     assert((ireserved & (~MASK_DSET_IRESERVED)) == 0);
 
@@ -881,7 +880,7 @@ void DescriptorSet::write_struct_specifics_into(IOBase& io) {
 
     if (count() == 0) {
         assert(does_own_content() == false);
-        io.write_u16_to_le(0);
+        io.write_u16_to_le(creserved);
     } else {
         assert(does_own_content() == true);
     }
@@ -914,7 +913,7 @@ void DescriptorSet::update_sizes(uint64_t& isize, uint64_t& csize) {
     assert(count() == 0 or not does_require_write());
 
     if (count() == 0) {
-        isize = 4;  // 2 uint16 fields: the set's first field and sflags fields
+        isize = 4;  // 2 uint16 fields: the set's first field and creserved fields
         csize = 0;
 
     } else {
@@ -922,8 +921,8 @@ void DescriptorSet::update_sizes(uint64_t& isize, uint64_t& csize) {
         csize = segm.calc_data_space_size();
     }
 
-    if (psize) {
-        isize = assert_u64_add_nowrap(isize, assert_u8((psize << 1)));
+    if (pdata.size()) {
+        isize = assert_u64_add_nowrap(isize, assert_u8(pdata.size()));
     }
 }
 
@@ -1002,4 +1001,17 @@ void DescriptorSet::chk_if_descriptor_has_external_references(const std::shared_
             xoz_assert("unsupported flag", false);
     }
 }
+
+uint16_t /* testing */ DescriptorSet::_get_ireserved() const { return ireserved; }
+uint16_t /* testing */ DescriptorSet::_get_creserved() const { return creserved; }
+std::vector<char> /* testing */ DescriptorSet::_get_pdata() const { return pdata; }
+
+void /* testing */ DescriptorSet::_set_ireserved(uint16_t v) { ireserved = v; }
+void /* testing */ DescriptorSet::_set_creserved(uint16_t v) {
+    current_checksum = inet_remove(current_checksum, creserved);
+    creserved = v;
+    current_checksum = inet_add(current_checksum, creserved);
+}
+void /* testing */ DescriptorSet::_set_pdata(const std::vector<char>& v) { pdata = v; }
+
 }  // namespace xoz

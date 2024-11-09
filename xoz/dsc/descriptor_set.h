@@ -92,7 +92,6 @@ private:
      * Private data (and its size).
      * Used to preserve fields from future versions of xoz.
      * */
-    uint8_t psize;
     std::vector<char> pdata;
 
     uint16_t ireserved;  // see MASK_DSET_IRESERVED
@@ -428,6 +427,14 @@ public:
     bool /* testing */ does_require_write() const;
 
     uint64_t /* internal */ count_descriptors_external_references() const;
+
+    uint16_t /* testing */ _get_ireserved() const;
+    uint16_t /* testing */ _get_creserved() const;
+    std::vector<char> /* testing */ _get_pdata() const;
+
+    void /* testing */ _set_ireserved(uint16_t v);
+    void /* testing */ _set_creserved(uint16_t v);
+    void /* testing */ _set_pdata(const std::vector<char>& v);
 
 private:
     void fail_if_set_not_loaded() const;

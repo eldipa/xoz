@@ -2993,4 +2993,236 @@ namespace {
         EXPECT_EQ(dset4->type(), (uint16_t)AppDescriptorSet::TYPE);
         EXPECT_EQ(dset4->get_cookie(), (uint16_t)0x4142);
     }
+
+    TEST(DescriptorSetTest, EmptyDescriptorSetContentReservedField) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        Segment sg(blk_sz_order);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
+        dset->_set_creserved(42);
+        dset->id(0x8000ffff);
+
+        // Write and check the dump
+        dset->full_sync(true);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                ""
+                );
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                "0108 0000 2a00"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
+    }
+
+    TEST(DescriptorSetTest, NonEmptyDescriptorSetContentReservedField) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        Segment sg(blk_sz_order);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
+        dset->_set_creserved(42);
+        dset->id(0x8000ffff);
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .isize = 0,
+            .csize = 0,
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+        };
+
+        auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+        dset->add(std::move(dscptr));
+
+        // Write and check the dump
+        dset->full_sync(true);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                "2a00 2401 fa00"
+                );
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                "0184 0600 0084 00e0 00c0 0000"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
+    }
+
+    TEST(DescriptorSetTest, EmptyDescriptorSetIdataReservedField) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        Segment sg(blk_sz_order);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
+        dset->_set_ireserved(42);
+        dset->id(0x8000ffff);
+
+        // Write and check the dump
+        dset->full_sync(true);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                ""
+                );
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                "0108 2a00 0000"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
+    }
+
+
+    TEST(DescriptorSetTest, NonEmptyDescriptorSetIDataReservedField) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        Segment sg(blk_sz_order);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
+        dset->_set_ireserved(42);
+        dset->id(0x8000ffff);
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .isize = 0,
+            .csize = 0,
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+        };
+
+        auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+        dset->add(std::move(dscptr));
+
+        // Write and check the dump
+        dset->full_sync(true);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                "0000 fa00 fa00"
+                );
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                "0184 0600 0084 00e0 00c0 2a00"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
+    }
+
+    TEST(DescriptorSetTest, EmptyDescriptorSetPDataField) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        Segment sg(blk_sz_order);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
+        dset->_set_pdata({'A', 'B'});
+        dset->id(0x8000ffff);
+
+        // Write and check the dump
+        dset->full_sync(true);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                ""
+                );
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                "010c 0010 0000 4142"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
+    }
+
+    TEST(DescriptorSetTest, NonEmptyDescriptorSetPDataField) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        Segment sg(blk_sz_order);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
+        dset->_set_pdata({'A', 'B'});
+        dset->id(0x8000ffff);
+
+        // Add one descriptor
+        struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = 0xfa,
+
+            .id = 0x80000001,
+
+            .isize = 0,
+            .csize = 0,
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+        };
+
+        auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+        dset->add(std::move(dscptr));
+
+        // Write and check the dump
+        dset->full_sync(true);
+        dset->write_struct_into(IOSpan(fp), rctx);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                "0000 fa00 fa00"
+                );
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                "0188 0600 0084 00e0 00c0 0010 4142"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
+    }
 }
