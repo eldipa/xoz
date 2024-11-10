@@ -124,8 +124,7 @@ public:
      * The caller may get an updated segment calling segment() method.
      *
      * If the segment is empty or it was not provided, the set is considered
-     * empty and create_set() will be immediately invoked.
-     * Otherwise, load_set() will be immediately invoked.
+     * empty.
      *
      * For descriptors that own content data, the descriptor set will remove
      * data blocks from cblkarr when the descriptor is removed from the set
@@ -373,7 +372,7 @@ private:
 
 
 private:
-    void load_descriptors(const bool is_new, const uint16_t u16data);
+    void load_descriptors();
     void write_modified_descriptors(IOBase& io);
 
     void add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id);
@@ -406,14 +405,6 @@ public:
      * properly.
      * */
     void /* internal */ load_set();
-
-    /*
-     * Create a new set (nothing is written to disk but there would be pending writes).
-     * This must be called once.
-     *
-     * Note: u16data is an opaque argument to configure the set creation.
-     * */
-    void /* internal */ create_set(uint16_t u16data = 0);
 
     /*
      * Check if there is any change pending to be written (addition of new descriptors,
@@ -471,11 +462,11 @@ protected:
         auto dset = std::make_unique<T>(hdr, cblkarr, rctx);
         assert(not dset->hdr.segm.has_end_of_segment());
 
-        if (dset->hdr.own_content) {
-            dset->load_set();
-        } else {
-            dset->create_set(sflags);
+        if (not dset->hdr.own_content) {
+            dset->creserved = sflags;
         }
+
+        dset->load_set();
 
         // this call will make hdr.csize and hdr.isize to be correctly set
         dset->update_header();

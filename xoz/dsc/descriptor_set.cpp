@@ -47,23 +47,14 @@ std::unique_ptr<Descriptor> DescriptorSet::create(const struct Descriptor::heade
     return dsc;
 }
 
-void DescriptorSet::load_set() { load_descriptors(false, 0); }
+void DescriptorSet::load_set() { load_descriptors(); }
 
-void DescriptorSet::create_set(uint16_t u16data) { load_descriptors(true, u16data); }
-
-void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) {
+void DescriptorSet::load_descriptors() {
     if (set_loaded) {
         throw std::runtime_error("DescriptorSet cannot be reloaded.");
     }
 
-    if (is_new and st_blkarr.blk_cnt() != 0) {
-        throw std::runtime_error("");
-    }
-
-    if (not is_new and st_blkarr.blk_cnt() == 0) {
-        throw std::runtime_error("");
-    }
-
+    const bool is_new = st_blkarr.blk_cnt() == 0;
     const uint32_t header_size = 4;
 
     auto io = IOSegment(sg_blkarr, segm);
@@ -97,7 +88,9 @@ void DescriptorSet::load_descriptors(const bool is_new, const uint16_t u16data) 
         const auto ext = Extent(st_blkarr.bytes2blk_nr(0), st_blkarr.bytes2blk_cnt(header_size), false);
         allocated_exts.push_back(ext);
     } else {
-        creserved = u16data;
+        // Note: creserved should had been set by read_struct_specifics_from() or
+        // by create_subclass() or set manually with _set_creserved().
+        // creserved = u16data;
         current_checksum = inet_add(current_checksum, creserved);
         stored_checksum = inet_to_u16(current_checksum);
     }
@@ -714,7 +707,7 @@ void DescriptorSet::destroy_no_recursive() {
     to_remove.clear();
 
     // The set now is officially "unloaded". The caller will have
-    // to call create_set()/load_set() again.
+    // to call load_set() again.
     set_loaded = false;
     header_does_require_write = false;
     ireserved = 0;
@@ -754,7 +747,7 @@ std::shared_ptr<Descriptor> DescriptorSet::get(uint32_t id) {
 
 void DescriptorSet::fail_if_set_not_loaded() const {
     if (not set_loaded) {
-        throw std::runtime_error("DescriptorSet not loaded. Missed call to create_set()/load_set()?");
+        throw std::runtime_error("DescriptorSet not loaded. Missed call to load_set()?");
     }
 }
 
@@ -854,12 +847,13 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     segm.remove_inline_data();
 
     if (not does_own_content()) {
-        create_set(sflags);
+        creserved = sflags;
     } else {
         // TODO this will trigger a recursive chain reaction of reads if the set has other holders
         assert(sflags == 0);
-        load_set();
     }
+
+    load_set();
 
     if (psize) {
         io.readall(pdata, assert_u32(psize << 1));

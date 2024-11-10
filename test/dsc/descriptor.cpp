@@ -254,7 +254,7 @@ namespace {
         };
 
         DescriptorSet dsc(hdr, cblkarr, rctx);
-        dsc.create_set();
+        dsc.load_set();
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -340,7 +340,7 @@ namespace {
         };
 
         DescriptorSet dsc(hdr, cblkarr, rctx);
-        dsc.create_set();
+        dsc.load_set();
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -829,7 +829,7 @@ namespace {
         };
 
         DescriptorSet dsc(hdr, cblkarr, rctx);
-        dsc.create_set();
+        dsc.load_set();
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
@@ -913,7 +913,7 @@ namespace {
         };
 
         DescriptorSet dsc(hdr, cblkarr, rctx);
-        dsc.create_set();
+        dsc.load_set();
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
