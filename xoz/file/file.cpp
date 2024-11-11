@@ -515,6 +515,7 @@ void File::load_root_set(struct file_header_t& hdr) {
         root_set = Descriptor::cast<DescriptorSet>(dsc);
     }
 
+    root_set->load_set();
     load_private_metadata_from_root_set();
 }
 

@@ -73,6 +73,8 @@ const size_t FP_SZ = 224;
     auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (cblkarr));   \
     checksum2 = dsc2_ptr->checksum;                                      \
     dsc2_ptr->checksum = 0;                                              \
+    auto dset = dsc2_ptr->cast<DescriptorSet>(true);                     \
+    if (dset) { dset->load_set(); }                                      \
     dsc2_ptr->write_struct_into(IOSpan(buf2), (rctx));                           \
     checksum3 = dsc2_ptr->checksum;                                      \
     EXPECT_EQ((fp), buf2);                                               \
@@ -91,6 +93,8 @@ const size_t FP_SZ = 224;
     auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (cblkarr));   \
     checksum2 = dsc2_ptr->checksum;                                      \
     dsc2_ptr->checksum = 0;                                              \
+    auto dset = dsc2_ptr->cast<DescriptorSet>(true);                     \
+    if (dset) { dset->load_set(); }                                      \
                                                                          \
     uint32_t sz2 = dsc2_ptr->calc_struct_footprint_size();               \
     EXPECT_EQ(sz1, sz2);                                                 \

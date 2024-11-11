@@ -69,6 +69,8 @@ const size_t FP_SZ = 224;
     auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (cblkarr));   \
     checksum2 = dsc2_ptr->checksum;                                      \
     dsc2_ptr->checksum = 0;                                              \
+    auto dset = dsc2_ptr->cast<DescriptorSet>(true);                     \
+    if (dset) { dset->load_set(); }                                      \
     dsc2_ptr->write_struct_into(IOSpan(buf2), (rctx));                   \
     checksum3 = dsc2_ptr->checksum;                                      \
     EXPECT_EQ((fp), buf2);                                               \
@@ -2075,6 +2077,7 @@ namespace {
         // so technically its header still needs to be written
         auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
         auto dset2 = dsc2->cast<DescriptorSet>();
+        dset2->load_set();
         XOZ_EXPECT_SET(dset2, 0, true);
 
         // Write it back, we expect the same serialization
@@ -2166,6 +2169,7 @@ namespace {
         // Load the set again, and check it: expected 1 descriptor and no need to write the set
         auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
         auto dset2 = dsc2->cast<DescriptorSet>();
+        dset2->load_set();
         XOZ_EXPECT_SET(dset2, 1, false);
 
         // Write it back, we expect the same serialization
@@ -2349,6 +2353,7 @@ namespace {
         // so technically its header still needs to be written
         auto dsc2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
         auto dset2 = dsc2->cast<DescriptorSet>();
+        dset2->load_set();
         XOZ_EXPECT_SET(dset2, 0, true);
 
         // Write it back, we expect the same serialization
@@ -2936,6 +2941,7 @@ namespace {
         // Load the dset again, check that it is mapped to the correct AppDescriptorSet subclass
         auto dsetptr2 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
         auto dset2 = dsetptr2->cast<AppDescriptorSet>();
+        dset2->load_set();
 
         // Check
         EXPECT_EQ(dset2->count(), (uint32_t)1);
@@ -2951,6 +2957,7 @@ namespace {
         // Load the dset again, check that it is mapped to DescriptorSet but not to AppDescriptorSet subclass
         auto dsetptr3 = Descriptor::load_struct_from(IOSpan(fp), rctx2, d_blkarr);
         auto dset3 = dsetptr3->cast<DescriptorSet>();
+        dset3->load_set();
         EXPECT_EQ(dsetptr3->cast<AppDescriptorSet>(true), (AppDescriptorSet*)nullptr);
 
         // Check
@@ -2984,6 +2991,7 @@ namespace {
         rctx.idmgr.reset();
         auto dsetptr4 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
         auto dset4 = dsetptr4->cast<AppDescriptorSet>();
+        dset4->load_set();
 
         // Check
         EXPECT_EQ(dset4->count(), (uint32_t)2);

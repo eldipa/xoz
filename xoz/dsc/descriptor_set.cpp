@@ -28,12 +28,12 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
         header_ext(Extent::EmptyExtent()) {}
 
 std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockArray& blkarr, RuntimeContext& rctx) {
-    return create_subclass<DescriptorSet>(0x01, segm, blkarr, rctx);
+    return create_subclass<DescriptorSet>(0x01, segm, blkarr, rctx);  // this calls load_set() for us
 }
 
 std::unique_ptr<DescriptorSet> DescriptorSet::create(BlockArray& blkarr, RuntimeContext& rctx) {
     const Segment segm = Segment::EmptySegment(blkarr.blk_sz_order());
-    return DescriptorSet::create(segm, blkarr, rctx);
+    return DescriptorSet::create(segm, blkarr, rctx);  // this calls load_set() for us
 }
 
 std::unique_ptr<Descriptor> DescriptorSet::create(const struct Descriptor::header_t& hdr, BlockArray& blkarr,
@@ -44,6 +44,10 @@ std::unique_ptr<Descriptor> DescriptorSet::create(const struct Descriptor::heade
     // The magic will happen in read_struct_specifics_from() where we do the real
     // read/load of the descriptor set.
     auto dsc = std::make_unique<DescriptorSet>(hdr, blkarr, rctx);
+
+    // We do *not* call load_set() here because:
+    //  - the descriptor may not be fully loaded yet and calling load_set() is undefined
+    //  - calling load_set() will end up in a recursive call to subsets's load_set().
     return dsc;
 }
 
@@ -236,6 +240,7 @@ void DescriptorSet::load_descriptors() {
 
             auto subset = dsc->cast<DescriptorSet>(true);
             if (subset != nullptr) {
+                subset->load_set();
                 children.insert(subset);
             }
 
@@ -853,8 +858,6 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
         assert(sflags == 0);
     }
 
-    load_set();
-
     if (psize) {
         io.readall(pdata, assert_u32(psize << 1));
     }
@@ -885,6 +888,12 @@ void DescriptorSet::write_struct_specifics_into(IOBase& io) {
 }
 
 bool DescriptorSet::update_content_segment(Segment& segm) {
+    if (not set_loaded) {
+        // If the set is not loaded yet, assume that we don't require updating
+        // the segment and if we own one or not is unchanged
+        return does_own_content();
+    }
+
     // Make sure set to be 100% sync so we can know how much space its segment is owning
     assert(count() == 0 or not does_require_write());
 
@@ -903,6 +912,11 @@ bool DescriptorSet::update_content_segment(Segment& segm) {
 }
 
 void DescriptorSet::update_sizes(uint64_t& isize, uint64_t& csize) {
+    if (not set_loaded) {
+        // If the set is not loaded yet, assume no change in the idata/content sizes
+        return;
+    }
+
     // Make sure set to be 100% sync so we can know how much space its segment is owning
     assert(count() == 0 or not does_require_write());
 
