@@ -51,9 +51,19 @@ std::unique_ptr<Descriptor> DescriptorSet::create(const struct Descriptor::heade
     return dsc;
 }
 
-void DescriptorSet::load_set() { load_descriptors(); }
+void DescriptorSet::load_set() {
+    std::queue<DescriptorSet*> to_load;
+    to_load.push(this);
 
-void DescriptorSet::load_descriptors() {
+    while (to_load.size() > 0) {
+        auto dset = to_load.front();
+        to_load.pop();
+
+        dset->load_descriptors(to_load);
+    }
+}
+
+void DescriptorSet::load_descriptors(std::queue<DescriptorSet*>& to_load_dsets) {
     if (set_loaded) {
         throw std::runtime_error("DescriptorSet cannot be reloaded.");
     }
@@ -240,7 +250,7 @@ void DescriptorSet::load_descriptors() {
 
             auto subset = dsc->cast<DescriptorSet>(true);
             if (subset != nullptr) {
-                subset->load_set();
+                to_load_dsets.push(subset);
                 children.insert(subset);
             }
 

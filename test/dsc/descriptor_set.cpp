@@ -3233,4 +3233,78 @@ namespace {
         // are the same
         XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
     }
+
+    TEST(DescriptorSetTest, VeryNestedSetTree) {
+        RuntimeContext rctx({});
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        Segment sg(blk_sz_order);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
+
+        std::shared_ptr<DescriptorSet> last_dset;
+        for (int i = 0; i  < 10240; ++i) {
+            Segment subsg(blk_sz_order);
+            auto subdset = DescriptorSet::create(subsg, d_blkarr, rctx);
+
+            int id = 0;
+            if (last_dset) {
+                id = last_dset->add(std::move(subdset));
+                last_dset = last_dset->get<DescriptorSet>(id);
+            } else {
+                id = dset->add(std::move(subdset));
+                last_dset = dset->get<DescriptorSet>(id);
+            }
+        }
+
+        // Add one descriptor to the dset and another to the subdset
+        struct Descriptor::header_t hdr = {
+            .own_content = false,
+            .type = 0xfa,
+
+            .id = 0x0,
+
+            .isize = 0,
+            .csize = 0,
+            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+        };
+
+        auto dscptr1 = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+        uint32_t id1 = last_dset->add(std::move(dscptr1));
+
+        auto dscptr2 = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+        uint32_t id2 = dset->add(std::move(dscptr2));
+
+        // Count is not recursive: the set has only 2 direct descriptors
+        EXPECT_EQ(dset->count(), (uint32_t)2);
+        EXPECT_EQ(dset->does_require_write(), (bool)true);
+        EXPECT_EQ(dset->get(id2)->get_owner(), std::addressof(*dset));
+
+        // Check subset (get a reference to it again because the ref subset was left
+        // invalid after the std::move in the dset->add above)
+        EXPECT_EQ(last_dset->count(), (uint32_t)1);
+        EXPECT_EQ(last_dset->get(id1)->get_owner(), std::addressof(*last_dset));
+
+        // Write down the set: we expect to see all the descriptors of dset and last_dset
+        // because full_sync is recursive.
+        dset->full_sync(false);
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                "0000 8eea 0184 1200 0080 ff25 80ff 00c0 0000 fa00"
+                );
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, last_dset,
+                "0000 fa00 fa00"
+                );
+
+        // Now, destroy dset. We expect a recursive destroy.
+        dset->destroy();
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
+                ""
+                );
+
+        XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, last_dset,
+                ""
+                );
+    }
 }

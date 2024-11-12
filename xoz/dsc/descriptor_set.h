@@ -5,6 +5,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <queue>
 #include <set>
 #include <type_traits>
 #include <utility>
@@ -372,7 +373,7 @@ private:
 
 
 private:
-    void load_descriptors();
+    void load_descriptors(std::queue<DescriptorSet*>& to_load_dsets);
     void write_modified_descriptors(IOBase& io);
 
     void add_s(std::shared_ptr<Descriptor> dscptr, bool assign_persistent_id);
