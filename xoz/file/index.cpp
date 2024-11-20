@@ -18,7 +18,7 @@ void Index::init_index(DescriptorSet& dset, std::shared_ptr<IDMappingDescriptor>
 
     this->id_by_name = idmap->load();
     for (auto& [name, id]: id_by_name) {
-        fail_if_bad_values(name, id);
+        fail_if_bad_values(name, id, false);
     }
 
     this->dset = &dset;
@@ -60,17 +60,36 @@ std::shared_ptr<Descriptor> Index::find(uint32_t id) {
 }
 
 void Index::add_name(const std::string& name, const std::shared_ptr<Descriptor>& dsc, bool override_if_exists) {
+    return _add_name(name, dsc, override_if_exists, false);
+}
+
+void Index::add_name(const std::string& name, uint32_t id, bool override_if_exists) {
+    return _add_name(name, id, override_if_exists, false);
+}
+
+void Index::add_temporal_name(const std::string& name, const std::shared_ptr<Descriptor>& dsc,
+                              bool override_if_exists) {
+    return _add_name(name, dsc, override_if_exists, true);
+}
+
+void Index::add_temporal_name(const std::string& name, uint32_t id, bool override_if_exists) {
+    return _add_name(name, id, override_if_exists, true);
+}
+
+void Index::_add_name(const std::string& name, const std::shared_ptr<Descriptor>& dsc, bool override_if_exists,
+                      bool is_temporal_name) {
     fail_if_not_initialized();
     if (!dsc) {
         throw std::runtime_error((F() << "Descriptor is null so we cannot assign it the name '" << name << "'.").str());
     }
 
     uint32_t id = dsc->id();
-    add_name(name, id, override_if_exists);
+    _add_name(name, id, override_if_exists, is_temporal_name);
 }
 
-void Index::add_name(const std::string& name, uint32_t id, bool override_if_exists) {
-    fail_if_bad_values(name, id);
+void Index::_add_name(const std::string& name, uint32_t id, bool override_if_exists, bool is_temporal_name) {
+    fail_if_not_initialized();
+    fail_if_bad_values(name, id, is_temporal_name);
 
     if (id_by_name.contains(name) and not override_if_exists) {
         uint32_t other_id = id_by_name[name];
@@ -102,7 +121,7 @@ bool Index::contains(const std::string& name) const {
 
 void Index::flush(std::shared_ptr<IDMappingDescriptor>& idmap) { idmap->store(id_by_name); }
 
-void Index::fail_if_bad_values(const std::string& name, uint32_t id) const {
+void Index::fail_if_bad_values(const std::string& name, uint32_t id, bool is_temporal_name) const {
     if (name.size() > 255) {
         throw std::runtime_error((F() << "The name '" << name << "' for descriptor " << xoz::log::hex(id)
                                       << " is too large (it has a size of " << name.size()
@@ -117,6 +136,20 @@ void Index::fail_if_bad_values(const std::string& name, uint32_t id) const {
     if (not idmgr.is_registered(id)) {
         throw std::runtime_error((F() << "The descriptor id " << xoz::log::hex(id)
                                       << " is not registered so we cannot assign it the name '" << name << "'.")
+                                         .str());
+    }
+
+    if (name[0] == TempNamePrefix and not is_temporal_name) {
+        throw std::runtime_error((F() << "The name '" << name << "' for descriptor " << xoz::log::hex(id)
+                                      << " has the temporal marker '" << name[0] << "' "
+                                      << "but it is not accepted in this context.")
+                                         .str());
+    }
+
+    if (name[0] != TempNamePrefix and is_temporal_name) {
+        throw std::runtime_error((F() << "The name '" << name << "' for descriptor " << xoz::log::hex(id)
+                                      << " does not have the temporal marker '" << name[0] << "' "
+                                      << "but it is expected.")
                                          .str());
     }
 }

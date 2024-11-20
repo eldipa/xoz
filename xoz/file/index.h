@@ -62,16 +62,28 @@ public:
         return ptr;
     }
 
+    constexpr static char TempNamePrefix = IDMappingDescriptor::TempNamePrefix;
+
+    /*
+     * Add a mapping between a name (string) and the descriptor's id (int).
+     * */
     void add_name(const std::string& name, const std::shared_ptr<Descriptor>& dsc, bool override_if_exists = false);
     void add_name(const std::string& name, uint32_t id, bool override_if_exists = false);
+    void add_temporal_name(const std::string& name, const std::shared_ptr<Descriptor>& dsc,
+                           bool override_if_exists = false);
+    void add_temporal_name(const std::string& name, uint32_t id, bool override_if_exists = false);
     void delete_name(const std::string& name);
     bool contains(const std::string& name) const;
 
     void flush(std::shared_ptr<IDMappingDescriptor>& idmap);
 
 private:
-    void fail_if_bad_values(const std::string& name, uint32_t id) const;
+    void fail_if_bad_values(const std::string& name, uint32_t id, bool is_temporal_name) const;
     void fail_if_not_initialized() const;
+
+    void _add_name(const std::string& name, const std::shared_ptr<Descriptor>& dsc, bool override_if_exists,
+                   bool is_temporal_name);
+    void _add_name(const std::string& name, uint32_t id, bool override_if_exists, bool is_temporal_name);
 
 private:
     DescriptorSet* dset;

@@ -13,6 +13,8 @@ class IDMappingDescriptor: public Descriptor {
 public:
     constexpr static uint16_t TYPE = 0x01bf;
 
+    constexpr static char TempNamePrefix = '~';
+
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               RuntimeContext& rctx);
 
