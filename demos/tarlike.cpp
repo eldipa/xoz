@@ -25,34 +25,49 @@
 using xoz::Descriptor;
 
 // Descriptors live in one and only one DescriptorSet; DescriptorSet are
-// Descriptors by themselves.
+// Descriptors by themselves and therefore a set can belong to another set.
 using xoz::DescriptorSet;
 
 // This is the xoz file. It contains a single "root" DescriptorSet where
 // descriptors and sets live.
-// In this demo, the "root" will only have FileMember descriptors.
+// This induces a tree-like structure: the File contains a single "root" DescriptorSet
+// which may have zero or more sets and so on. Cycles are not allowed.
+//
+// In this demo, the "root" will only have FileMember descriptors so we will not
+// have subsets inside.
 using xoz::File;
 
 // On loading a file from disk it is necessary to know which Descriptor subclass
 // correspond to each part of data.
 // DescriptorMapping makes that link.
+//
+// It is not magic: DescriptorMapping knows *only* about the xoz descriptor subclasses
+// and has *no* idea of yours (like FileMember). We will have to teach it about that!
 using xoz::DescriptorMapping;
 
 // Each Descriptor may own a Segment: a ordered list of Extents, each being
 // a contiguous blocks of space within the xoz file.
-using xoz::Segment;
-
+//
 // A BlockArray is the space where those blocks live. You can think it as
 // the "usable" space of the xoz file (it is a little more than that but it is ok)
+//
+// You are developer of *your* file format (like tarlike) using xoz as a library
+// should not have to deal with neither Segment, Extent not BlockArray but you
+// may see it in the documentation.
+//
+// Here need to have a reference to BlockArray but that's all.
 using xoz::BlockArray;
 
 // Reading and writing blocks is cumbersome. Instead, we can use an IOSegment
 // to see the blocks pointed by a Segment as a contiguous stream of bytes, very much
 // like the API that std::fstream offers you. IOBase is its parent class.
+//
+// These are the high-level classes that you should be working with. (instead
+// of Segment, Extent or BlockArray).
 using xoz::IOBase;
 using xoz::IOSegment;
 
-// Opaque object. Not used in this demo.
+// Opaque object. Not used in this demo but used internally by xoz.
 using xoz::RuntimeContext;
 
 
@@ -78,12 +93,48 @@ using xoz::RuntimeContext;
 // The FileMember descriptor also offers a way to get/set the file name and to extract
 // the file content. (7), (8), (9)
 //
+// Important!: there are two ways to think and use Descriptors.
+//
+// One is to use the descriptors to hold and maintain the state of the application.
+// In tarlike we have FileMember which it is a Descriptor that handles the load and store
+// of the state to disk but *also* maintains the state. For example, the file name is stored
+// in memory in FileMember and the rest of the application (functions add_file and others)
+// interacts directly with FileMember (for example, with set_fname).
+//
+// We call this "stateful descriptors"
+//
+// The other way to think and use Descriptors is to separate (decouple) the state.
+// Hypothetically you would have "two" FileMember classes (FileMemberObject, FileMemberDescriptor):
+// one has the state (and methods) specific for the application (the "object") and
+// the other handles the load and store (the "descriptor").
+// To link both the object need to "notify" the descriptor that the object changed
+// and the descriptor then can opt read the object's state and store it in disk
+// (or it may keep a flag and delay the write for later).
+// This way is slightly more complex than the former so it is not covered in this tarlike demo.
+//
+// We call this "stateless descriptors"
+//
+// Which "ways" of using descriptors you should choose? It depends.
+// For tarlike which has little logic the "stateful" way is simpler and works perfectly.
+//
+// Imagine now that you want to display on screen the content of each FileMember
+// on user request, like being a file browser. In the "stateful" way you then will store
+// anything required to display in the FileMember class. This coples your file format
+// with your application.
+//
+// It's fine but if you don't want to? The "stateless" way puts the application related
+// state (lke the display) in its own class leaving decoupling it from the descriptor.
+//
+// The important thing is: xoz is not forcing you to do one or the other. It is your choice.
+//
 class FileMember: public Descriptor {
 
 public:
     // Each descriptor has a type that denotes its nature. FileMember Descriptors
     // have the 0xab type. Of course this was chosen by me for this demo.
     // The type should be very well documented in a RFC or like.
+    //
+    // Note: some are reserved and cannot be used for you.
     constexpr static uint16_t TYPE = 0x00ab;
 
 
@@ -94,6 +145,9 @@ public:
     //
     // Because it is meant to be called by the user, it is likely to be used/modified
     // immediately so we return a pointer to FileMember and  not to Descriptor.
+    //
+    // In fact you can create more than one "create" method and even named different
+    // (the name "create" is only a suggestion)
     static std::unique_ptr<FileMember> create(const std::string& fpath, BlockArray& cblkarr) {
         // Call the Descriptor constructor and build a FileMember descriptor.
         return std::unique_ptr<FileMember>(new FileMember(cblkarr, fpath));
@@ -108,6 +162,8 @@ public:
     // The signature of this method is defined and required by XOZ. It cannot be changed.
     // If you do, it will not compile when we add this function to the initialization
     // of the descriptor mapping (see main()).
+    //
+    // Technically you could rename it to something else but by convention we call it create()
     static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
                                               [[maybe_unused]] RuntimeContext& rctx) {
         return std::unique_ptr<FileMember>(new FileMember(hdr, cblkarr));
@@ -170,6 +226,8 @@ protected:
     // the "internal" of the descriptor. This happens when the descriptor is being read from
     // or write to the xoz file.
     //
+    // A Descriptor has two areas for storage: the "internal" and the "content".
+    //
     // Here "internal" means the small private data section that every descriptor has
     // (this is not the "content" data).
     //
@@ -230,7 +288,7 @@ protected:
 
     // (2)
     //
-    // Update the interna and content sizes. The method receives
+    // Update the size of the internal and content areas. The method receives
     // the current sizes by reference so we can change them in-place.
     //
     // The sizes are uint64_t so we don't need to worry about
@@ -288,9 +346,13 @@ private:
     // cblkarr, RuntimeContext& rctx);
 
 
+    // This C++ class constructor is mandatory so FileMember can be instantiated by xoz
+    // This is called by the create() method above.
     FileMember(const struct Descriptor::header_t& hdr, BlockArray& cblkarr):
             Descriptor(hdr, cblkarr), fname(""), file_sz(0), fname_sz(0) {}
 
+    // This C++ class constructor can have any signature (except that you need to provide
+    // the BlockArray). It is called by the create() method.
     FileMember(BlockArray& cblkarr, const std::string& fpath): Descriptor(TYPE, cblkarr) {
         // Get from the path the filename (fname) and
         // calculate its size (fname_sz) and the size of the file (file_sz).
@@ -340,6 +402,8 @@ private:
     }
 };
 
+// TODO add a example of DescriptorSet subclass
+
 
 void add_file(File& xfile, const std::string& fname) {
     // We want to create a new FileMember descriptor. Error handling is up to you;
@@ -353,6 +417,12 @@ void add_file(File& xfile, const std::string& fname) {
     std::shared_ptr<DescriptorSet> dset = xfile.root();
     std::unique_ptr<FileMember> f;
     try {
+
+        // Note: we are creating a FileMember object that does not belong to any
+        // set and then, (see below), we do dset->add(move(f)...)
+        // In that moment the FileMember object is owned by the set.
+        // We can merge both operations in a single call
+        // dset->create_and_add<FileMember>(fname, std::ref(xfile.expose_block_array()))
         f = FileMember::create(fname, xfile.expose_block_array());
 
         // Check that we can add it to the set. This is meant to catch
@@ -372,7 +442,7 @@ void add_file(File& xfile, const std::string& fname) {
     // a temporal id, it will replace this by a persistent id.
     //
     // Such id is returned and we print it to the user so he/she can delete/extract
-    // the file by referencing it by id (this is why also needs to be persistent,
+    // the file by referencing it by id (this is why also needs to be persistented,
     // the id must survive reopening of the xoz file).
     uint32_t id = dset->add(std::move(f), true);
     std::cout << "[ID " << id << "] File " << fname << " added.\n";
