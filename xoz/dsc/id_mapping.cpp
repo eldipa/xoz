@@ -12,7 +12,7 @@ void IDMappingDescriptor::read_struct_specifics_from(IOBase& io) { num_entries =
 void IDMappingDescriptor::write_struct_specifics_into(IOBase& io) { io.write_u16_to_le(num_entries); }
 
 void IDMappingDescriptor::update_sizes(uint64_t& isize, uint64_t& csize) {
-    isize = sizeof(uint32_t);  // num entries
+    isize = sizeof(uint16_t);  // num entries
     csize = content_sz;
 }
 
