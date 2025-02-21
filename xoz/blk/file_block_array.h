@@ -115,7 +115,8 @@ public:
     bool is_closed() const;
 
     /*
-     * Close the file without releasing any block. No trailer is written either.
+     * Close the file without releasing any block.
+     * Trailer is written at the end of the physical file.
      * */
     void panic_close();
 
@@ -168,6 +169,11 @@ public:
      * */
     void write_trailer(const char* buf, uint32_t exact_sz);
     void read_trailer(char* buf, uint32_t exact_sz);
+
+    /*
+     * Read only the last <exact_sz> bytes at the end of the trailer.
+     * */
+    void read_trailer_last_bytes(char* buf, uint32_t exact_sz);
 
 public:
     /*
@@ -331,6 +337,7 @@ private:
     bool closing;
 
     std::vector<char> trailer;
+    void write_trailer_to_file();
 
     constexpr static const char* IN_MEMORY_FPATH = "@in-memory";
 };

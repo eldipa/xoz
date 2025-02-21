@@ -381,12 +381,7 @@ void FileBlockArray::close() {
     closing = true;
     release_blocks();
 
-    if (trailer.size() > 0) {
-        // note: the seek relays on that the file fp was truncated to a size exactly
-        // of the blocks in the array plus the header so we can write the trailer at the end
-        fp.seekp(0, std::ios_base::end);
-        fp.write(trailer.data(), assert_streamsize(trailer.size()));
-    }
+    write_trailer_to_file();
 
     if (not is_mem_based()) {
         disk_fp.close();
@@ -398,11 +393,22 @@ void FileBlockArray::panic_close() {
     if (closed)
         return;
 
+    write_trailer_to_file();
+
     if (not is_mem_based()) {
         disk_fp.close();
     }
 
     closed = true;
+}
+
+void FileBlockArray::write_trailer_to_file() {
+    if (trailer.size() > 0) {
+        // note: the seek relays on that the file fp was truncated to a size exactly
+        // of the blocks in the array plus the header so we can write the trailer at the end
+        fp.seekp(0, std::ios_base::end);
+        fp.write(trailer.data(), assert_streamsize(trailer.size()));
+    }
 }
 
 bool FileBlockArray::is_closed() const { return closed; }
@@ -444,5 +450,13 @@ void FileBlockArray::read_trailer(char* buf, uint32_t exact_sz) {
     }
 
     memcpy(buf, trailer.data(), exact_sz);
+}
+
+void FileBlockArray::read_trailer_last_bytes(char* buf, uint32_t exact_sz) {
+    if (exact_sz > trailer_sz()) {
+        throw NotEnoughRoom(exact_sz, trailer_sz(), "Bad read trailer");
+    }
+
+    memcpy(buf, trailer.data() + (trailer_sz() - exact_sz), exact_sz);
 }
 }  // namespace xoz

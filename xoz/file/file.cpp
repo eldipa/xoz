@@ -313,11 +313,32 @@ void File::read_and_check_header_and_trailer() {
                                          << " bytes).");
     }
 
+    // Read the last N bytes of the trailer, not the entire trailer so we can be robust against
+    // bad trailers written mis-aligned.
+    // We'll check for the alignment later.
     struct file_trailer_t eof;
-    fblkarr->read_trailer(reinterpret_cast<char*>(&eof), sizeof(eof));
+    fblkarr->read_trailer_last_bytes(reinterpret_cast<char*>(&eof), sizeof(eof));
+
+    if (strncmp(reinterpret_cast<const char*>(&eof.magic), "BAD", 4) == 0) {
+        throw InconsistentXOZ(
+                *this,
+                "magic string 'BAD' found in the trailer: "
+                "the file was not correctly closed and it may be in an undefined but possible recoverable state. "
+                "Do a backup and try reopen it in read-only.");
+    }
 
     if (strncmp(reinterpret_cast<const char*>(&eof.magic), "EOF", 4) != 0) {
-        throw InconsistentXOZ(*this, "magic string 'EOF' not found in the trailer.");
+        throw InconsistentXOZ(*this, "magic string 'EOF' not found in the trailer: "
+                                     "the file was not correctly closed and its state is unknown. "
+                                     "Do a backup and try reopen it in read-only.");
+    }
+
+    // Check for subtle corruptions. If we found EOF but the trailer is larger than
+    // expected, warn about it.
+    if (fblkarr->trailer_sz() > sizeof(eof)) {
+        throw InconsistentXOZ(*this, "magic string 'EOF' found in the trailer but the trailer is larger than expected: "
+                                     "the file probably was correctly closed but it may still be corrupted. "
+                                     "Do a backup and try reopen it in read-only.");
     }
 }
 
@@ -396,6 +417,11 @@ void File::write_trailer() {
     fblkarr->write_trailer(reinterpret_cast<const char*>(&eof), sizeof(eof));
 }
 
+void File::write_panic_trailer() {
+    struct file_trailer_t eof = {.magic = {'B', 'A', 'D', 0}};
+    fblkarr->write_trailer(reinterpret_cast<const char*>(&eof), sizeof(eof));
+}
+
 void File::init_new_file(const struct default_parameters_t& defaults) {
     fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
@@ -463,6 +489,7 @@ void File::panic_close() {
     if (closed)
         return;
 
+    write_panic_trailer();
     fblkarr->panic_close();
     closed = true;
     closing = false;

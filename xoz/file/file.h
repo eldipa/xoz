@@ -185,6 +185,7 @@ private:
      * */
     void write_header();
     void write_trailer();
+    void write_panic_trailer();
     void full_sync_metadata();
 
     /*
@@ -313,11 +314,15 @@ private:
 
     // In-disk xoz file's trailer
     struct file_trailer_t {
-        // It should be "EOF" followed by a NUL
+        // It should be "EOF" or "BAD" followed by a NUL
         uint8_t magic[4];
     } __attribute__((packed));
 
     static_assert(sizeof(struct file_header_t) == 128);
+    static_assert(sizeof(struct file_header_t) <= MIN_BLK_SZ);
+
+    static_assert(sizeof(struct file_trailer_t) < 64);
+    static_assert(sizeof(struct file_trailer_t) < MIN_BLK_SZ);
 
 private:
     /*
