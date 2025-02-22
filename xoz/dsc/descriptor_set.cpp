@@ -289,6 +289,7 @@ void DescriptorSet::flush_writes_no_recursive(const bool release) {
     // by traveling the tree of set in a depth-first fashion)
     //
     // TODO detect modifications to to_update/to_add during this
+
     for (auto dsc: to_update) {
         if (not dsc->is_descriptor_set()) {
             dsc->full_sync(release);
@@ -299,6 +300,16 @@ void DescriptorSet::flush_writes_no_recursive(const bool release) {
             dsc->full_sync(release);
         }
     }
+
+    // Assign a persistent id to each bad descriptor;
+    // move them to the "special" set and write in "this"
+    // a descriptor that has all the ids of the bad descriptors.
+    //
+    // In this way, a recovery process can know where to put back
+    // the bad descriptors after fixing them (if possible).
+    //
+    // This "special" set should be stored somewhere else in the root set.
+    // TODO
 
     auto io = IOSegment(sg_blkarr, segm);
     write_modified_descriptors(io);
