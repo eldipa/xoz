@@ -170,6 +170,15 @@ public:
     }
 
     /*
+     * Like count() but count only for subsets (DescriptorSet that live in the current set).
+     * */
+    uint32_t count_subset() const {
+        fail_if_set_not_loaded();
+        auto cnt = children.size();
+        return assert_u32(cnt);
+    }
+
+    /*
      * Add the given descriptor to the set. If the descriptor already belongs
      * to another set, it will throw: user must call 'move_out()' on the other
      * set to move the descriptor to this one.
@@ -205,6 +214,13 @@ public:
     template <typename T, typename... Args>
     std::shared_ptr<T> create_and_add(bool assign_persistent_id, Args... args) {
         auto uptr = T::create(std::ref(cblkarr), args...);
+        uint32_t id = add(std::move(uptr), assign_persistent_id);
+        return get<T>(id);
+    }
+
+    template <typename T, typename... Args>
+    std::shared_ptr<T> create_and_add_dset(bool assign_persistent_id, Args... args) {
+        auto uptr = T::create(std::ref(cblkarr), std::ref(rctx), args...);
         uint32_t id = add(std::move(uptr), assign_persistent_id);
         return get<T>(id);
     }
