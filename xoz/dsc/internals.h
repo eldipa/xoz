@@ -87,6 +87,39 @@ public:
         return &cached;
     }
 
+    /*
+     * Dynamically downcast the current Descriptor (pointed by the current interator)
+     * to the given concrete subclass T returning a shared pointer.
+     *
+     * If the cast works, return a shared pointer to this casted to T.
+     * If the cast fails, throw an exception (if ret_null is false) or return
+     * nullptr (if ret_null is true).
+     *
+     * While expensive, deref_cast<T>(true) can be used to check the type of a descriptor.
+     * The methods deref_may_cast<T>() are an alias of deref_cast<T>(true)
+     * */
+    template <typename T>
+    std::shared_ptr<T> deref_cast(bool ret_null = false) const {
+        descriptor_ptr_t curptr = **this;
+        return Descriptor::cast<T>(curptr, ret_null);
+    }
+
+    template <typename T>
+    std::shared_ptr<T> deref_cast(bool ret_null = false) {
+        descriptor_ptr_t curptr = **this;
+        return Descriptor::cast<T>(curptr, ret_null);
+    }
+
+    template <typename T>
+    std::shared_ptr<T> deref_may_cast() const {
+        return this->deref_cast<T>(true);
+    }
+
+    template <typename T>
+    std::shared_ptr<T> deref_may_cast() {
+        return this->deref_cast<T>(true);
+    }
+
 private:
     inline void update_current_extent() const {
         if (not is_cache_synced) {
