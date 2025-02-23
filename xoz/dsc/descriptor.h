@@ -113,6 +113,7 @@ public:
      * nullptr (if ret_null is true).
      *
      * While expensive, cast<T>(true) can be used to check the type of a descriptor.
+     * The methods may_cast<T>() are an alias of cast<T>(true)
      * */
     template <typename T>
     T* cast(bool ret_null = false) const {
@@ -133,6 +134,16 @@ public:
         }
 
         return ptr;
+    }
+
+    template <typename T>
+    T* may_cast() const {
+        return this->cast<T>(true);
+    }
+
+    template <typename T>
+    T* may_cast() {
+        return this->cast<T>(true);
     }
 
     /*

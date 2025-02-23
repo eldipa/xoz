@@ -197,12 +197,14 @@ public:
 
     /*
      * Create a new descriptor of type T with the given arguments (Args) calling
-     * the class method T::create.
+     * the class method T::create. The first argument of T::create must be
+     * a reference to BlockArray (create_and_add() will pass the set's cblkarr)
+     *
      * Then, add the descriptor to the set and return a shared pointer to it.
      * */
     template <typename T, typename... Args>
     std::shared_ptr<T> create_and_add(bool assign_persistent_id, Args... args) {
-        auto uptr = T::create(args...);
+        auto uptr = T::create(std::ref(cblkarr), args...);
         uint32_t id = add(std::move(uptr), assign_persistent_id);
         return get<T>(id);
     }
@@ -406,6 +408,7 @@ public:
      * properly.
      * */
     void /* internal */ load_set();
+    BlockArray& /* internal - for testing */ expose_block_array() { return cblkarr; }
 
     /*
      * Check if there is any change pending to be written (addition of new descriptors,
