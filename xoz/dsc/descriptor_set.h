@@ -7,6 +7,7 @@
 #include <memory>
 #include <queue>
 #include <set>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -366,6 +367,44 @@ public:
             std::for_each(to_explore.begin(), to_explore.end(), [](auto e) { e->visited = false; });
             throw;
         }
+    }
+
+    template <class Fn, bool PostOrder = false>
+    static bool top_down_for_each_set(DescriptorSet& root, Fn fn) {
+        std::deque<std::tuple<decltype(root.children.begin()), decltype(root.children.begin()), DescriptorSet*>>
+                to_explore;
+
+        if constexpr (not PostOrder) {
+            if (fn(&root, 0)) {
+                return true;
+            }
+        }
+
+        to_explore.push_back({root.children.begin(), root.children.end(), &root});
+
+        while (not to_explore.empty()) {
+            auto [cur, end, parent_dset] = to_explore.back();
+            if (cur == end) {
+                if constexpr (PostOrder) {
+                    if (fn(parent_dset, to_explore.size() - 1)) {
+                        return true;
+                    }
+                }
+
+                to_explore.pop_back();
+                continue;
+            }
+
+            if constexpr (not PostOrder) {
+                if (fn(*cur, to_explore.size())) {
+                    return true;
+                }
+            }
+
+            to_explore.push_back({(*cur)->children.begin(), (*cur)->children.end(), (*cur)});
+        }
+
+        return false;
     }
 
     Segment segment() const { return segm; }
