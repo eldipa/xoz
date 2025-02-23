@@ -514,10 +514,15 @@ void rename_file(std::shared_ptr<DescriptorSet>& dset, int id_arg, const std::st
 
 void list_files(std::shared_ptr<DescriptorSet>& dset) {
     // The descriptor set supports a C++ classic iteration.
-    // The iterators has the method cast<> to downcast descriptors
+    // The iterators has the method deref_cast<> to downcast descriptors
     // as get<> does.
+    //
+    // Note: the descriptors also have a cast<> method so you could write instead
+    // (*it)->cast<FileMember> **but** such casting operates on and returns raw
+    // pointers and **not** shared pointers so you may end up having memory corruptions
+    // Don't do that.
     for (auto it = dset->begin(); it != dset->end(); ++it) {
-        auto f = (*it)->cast<FileMember>();
+        auto f = it.deref_cast<FileMember>();
         std::cout << "[ID " << f->id() << "] File " << f->get_fname() << "\n";
     }
 }
@@ -531,7 +536,7 @@ void stats(const File& xfile, std::shared_ptr<DescriptorSet>& dset) {
     uint64_t data_sz = 0;
     uint64_t fcount = 0;
     for (auto it = dset->begin(); it != dset->end(); ++it) {
-        auto f = (*it)->cast<FileMember>();
+        auto f = it.deref_cast<FileMember>();
         data_sz += f->get_total_size();
         ++fcount;
     }
