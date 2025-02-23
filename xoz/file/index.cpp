@@ -40,7 +40,7 @@ std::shared_ptr<Descriptor> Index::find(uint32_t id) {
     }
 
     std::shared_ptr<Descriptor> dsc;
-    DescriptorSet::depth_first_for_each_set(*dset, [&dsc, id](DescriptorSet* s) {
+    DescriptorSet::bottom_up_for_each_set(*dset, [&dsc, id](DescriptorSet* s, [[maybe_unused]] size_t l) {
         if (not s->contains(id)) {
             return false;
         }

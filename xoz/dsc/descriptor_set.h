@@ -331,82 +331,22 @@ public:
      *
      * If the function fn returns a boolean, it if it returns true,
      * the iteration stops immediately.
+     *
+     * The function must receive two arguments:
+     *  - DescriptorSet* :  the set to process
+     *  - size_t : the level in the stack
+     *
+     * top_down_for_each_set() and bottom_up_for_each_set() are the same
+     * except that the first iterates in pre-order will the second in post-order.
      * */
     template <class Fn>
-    static bool depth_first_for_each_set(DescriptorSet& root, Fn fn) {
-        std::deque<DescriptorSet*> to_explore;
-        to_explore.push_back(&root);
-
-        try {
-            while (not to_explore.empty()) {
-                auto dset = to_explore.back();
-
-                if (dset->visited or dset->children.empty()) {
-                    using ret_type = std::invoke_result<decltype(fn), DescriptorSet*>::type;
-                    if constexpr (std::is_same<ret_type, void>::value) {
-                        fn(dset);
-                    } else {
-                        bool should_stop = fn(dset);
-                        if (should_stop) {
-                            // Ensure any 'visited' set has the flag unset before exiting
-                            std::for_each(to_explore.begin(), to_explore.end(), [](auto e) { e->visited = false; });
-                            return true;  // signal that we returned earlier
-                        }
-                    }
-                    dset->visited = false;
-                    to_explore.pop_back();
-                } else {
-                    dset->visited = true;
-
-                    // push dset's children into the stack
-                    std::for_each(dset->children.begin(), dset->children.end(),
-                                  [&to_explore](auto e) { to_explore.push_back(e); });
-                }
-            }
-            return false;
-        } catch (...) {
-            // Ensure any 'visited' set has the flag unset before keep propagating the exception
-            std::for_each(to_explore.begin(), to_explore.end(), [](auto e) { e->visited = false; });
-            throw;
-        }
+    static bool bottom_up_for_each_set(DescriptorSet& root, Fn fn) {
+        return _depth_first_for_each_set_adapter<Fn, true>(root, fn);
     }
 
-    template <class Fn, bool PostOrder = false>
+    template <class Fn>
     static bool top_down_for_each_set(DescriptorSet& root, Fn fn) {
-        std::deque<std::tuple<decltype(root.children.begin()), decltype(root.children.begin()), DescriptorSet*>>
-                to_explore;
-
-        if constexpr (not PostOrder) {
-            if (fn(&root, 0)) {
-                return true;
-            }
-        }
-
-        to_explore.push_back({root.children.begin(), root.children.end(), &root});
-
-        while (not to_explore.empty()) {
-            auto [cur, end, parent_dset] = to_explore.back();
-            if (cur == end) {
-                if constexpr (PostOrder) {
-                    if (fn(parent_dset, to_explore.size() - 1)) {
-                        return true;
-                    }
-                }
-
-                to_explore.pop_back();
-                continue;
-            }
-
-            if constexpr (not PostOrder) {
-                if (fn(*cur, to_explore.size())) {
-                    return true;
-                }
-            }
-
-            to_explore.push_back({(*cur)->children.begin(), (*cur)->children.end(), (*cur)});
-        }
-
-        return false;
+        return _depth_first_for_each_set_adapter<Fn, false>(root, fn);
     }
 
     Segment segment() const { return segm; }
@@ -496,6 +436,62 @@ private:
 
     void chk_if_any_descriptor_has_external_references() const;
     void chk_if_descriptor_has_external_references(const std::shared_ptr<Descriptor>& dscptr) const;
+
+private:
+    template <class Fn, bool PostOrder>
+    static bool _depth_first_for_each_set_adapter(DescriptorSet& root, Fn fn) {
+        using ret_type = std::invoke_result_t<decltype(fn), DescriptorSet*, size_t>;
+        if constexpr (std::is_same_v<ret_type, void>) {
+            auto adapted = [fn](DescriptorSet* s, size_t l) -> bool {
+                fn(s, l);
+                return false;
+            };
+            return _depth_first_for_each_set<decltype(adapted), PostOrder>(root, adapted);
+        } else {
+            return _depth_first_for_each_set<Fn, PostOrder>(root, fn);
+        }
+    }
+
+    template <class Fn, bool PostOrder>
+    static bool _depth_first_for_each_set(DescriptorSet& root, Fn fn) {
+        std::deque<std::tuple<decltype(root.children.begin()), decltype(root.children.begin()), DescriptorSet*>>
+                to_explore;
+
+        if constexpr (not PostOrder) {
+            if (fn(&root, 0)) {
+                return true;
+            }
+        }
+
+        to_explore.push_back({root.children.begin(), root.children.end(), &root});
+
+        while (not to_explore.empty()) {
+            auto [cur, end, parent_dset] = to_explore.back();
+            if (cur == end) {
+                if constexpr (PostOrder) {
+                    if (fn(parent_dset, to_explore.size() - 1)) {
+                        return true;
+                    }
+                }
+
+                to_explore.pop_back();
+                continue;
+            }
+
+            if constexpr (not PostOrder) {
+                if (fn(*cur, to_explore.size())) {
+                    return true;
+                }
+            }
+
+            auto orig = cur++;
+            to_explore.back() = {cur, end, parent_dset};
+            to_explore.push_back({(*orig)->children.begin(), (*orig)->children.end(), (*orig)});
+        }
+
+        return false;
+    }
+
 
 protected:
     void read_struct_specifics_from(IOBase& io) override;

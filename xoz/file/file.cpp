@@ -113,20 +113,21 @@ std::list<Segment> File::collect_allocated_segments_of_descriptors() const {
     std::list<Segment> allocated;
     allocated.push_back(root_set->segment());
 
-    DescriptorSet::depth_first_for_each_set(*root_set, [&allocated](const DescriptorSet* dset) {
-        for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
-            auto& dsc(*it);
-            if (dsc->does_own_content()) {
-                allocated.push_back(dsc->content_segment_ref());
-            }
-        }
-    });
+    DescriptorSet::bottom_up_for_each_set(*root_set,
+                                          [&allocated](const DescriptorSet* dset, [[maybe_unused]] size_t l) {
+                                              for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
+                                                  auto& dsc(*it);
+                                                  if (dsc->does_own_content()) {
+                                                      allocated.push_back(dsc->content_segment_ref());
+                                                  }
+                                              }
+                                          });
 
     return allocated;
 }
 
 void File::notify_load_to_all_descriptors() {
-    DescriptorSet::depth_first_for_each_set(*root_set, [this](DescriptorSet* s) {
+    DescriptorSet::bottom_up_for_each_set(*root_set, [this](DescriptorSet* s, [[maybe_unused]] size_t l) {
         for (auto it = s->begin(); it != s->end(); ++it) {
             (*it)->on_after_load(root_set);
         }
