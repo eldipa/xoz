@@ -21,6 +21,7 @@ project(xoz
 
 option(XOZ_TESTS "Enable / disable tests." ON)
 option(XOZ_DEMOS "Enable / disable demos." ON)
+option(XOZ_TOOLS "Enable / disable tools." ON)
 option(XOZ_MAKE_WARNINGS_AS_ERRORS "Enable / disable warnings as errors." ON)
 
 message(CMAKE_CXX_COMPILER_ID="${CMAKE_CXX_COMPILER_ID}")
@@ -71,6 +72,25 @@ if(XOZ_DEMOS)
     # Link the xoz lib target to each demo targets
     target_link_libraries(allocdemo xoz)
     target_link_libraries(tarlike xoz)
+endif()
+
+# Tools section
+# -----=-------
+
+if(XOZ_TOOLS)
+    # Extra targets: tools programs
+    add_executable(xozstats)
+
+    # Make them depend on xoz lib
+    add_dependencies(xozstats xoz)
+
+    # Add source files and enable warnings
+    add_subdirectory(tools)
+
+    set_project_warnings(xozstats ${XOZ_MAKE_WARNINGS_AS_ERRORS} FALSE)
+
+    # Link the xoz lib target to each demo targets
+    target_link_libraries(xozstats xoz)
 endif()
 
 
