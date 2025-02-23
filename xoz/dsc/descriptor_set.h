@@ -214,6 +214,7 @@ public:
      * */
     template <typename T, typename... Args>
     std::shared_ptr<T> create_and_add(bool assign_persistent_id, Args... args) {
+        static_assert(std::is_base_of_v<Descriptor, T> == true);
         auto uptr = T::create(std::ref(cblkarr), args...);
         uint32_t id = add(std::move(uptr), assign_persistent_id);
         return get<T>(id);
@@ -221,6 +222,7 @@ public:
 
     template <typename T, typename... Args>
     std::shared_ptr<T> create_and_add_dset(bool assign_persistent_id, Args... args) {
+        static_assert(std::is_base_of_v<DescriptorSet, T> == true);
         auto uptr = T::create(std::ref(cblkarr), std::ref(rctx), args...);
         uint32_t id = add(std::move(uptr), assign_persistent_id);
         return get<T>(id);
