@@ -442,6 +442,7 @@ private:
     static bool _depth_first_for_each_set_adapter(DescriptorSet& root, Fn fn) {
         using ret_type = std::invoke_result_t<decltype(fn), DescriptorSet*, size_t>;
         if constexpr (std::is_same_v<ret_type, void>) {
+            // Addapt void(DescriptorSet*, size_t) to bool(DescriptorSet*, size_t)
             auto adapted = [fn](DescriptorSet* s, size_t l) -> bool {
                 fn(s, l);
                 return false;
