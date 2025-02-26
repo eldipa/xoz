@@ -1,10 +1,12 @@
 target_sources(xoz
     PRIVATE
     asserts.cpp
+    double.cpp
     inet_checksum.cpp
     PUBLIC
     asserts.h
     casts.h
+    double.h
     endianness.h
     inet_checksum.h
     integer_ops.h

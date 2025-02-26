@@ -1,6 +1,7 @@
 #pragma once
 
 #include "xoz/mem/asserts.h"
+#include "xoz/mem/casts.h"
 
 namespace xoz {
 
@@ -117,11 +118,15 @@ template <typename Dst, typename Src>
     internals::assert_read_bits_annotated<dst_type, uint16_t>((field), (mask), __FILE__, __LINE__, __func__)
 #define assert_read_bits_from_u32(dst_type, field, mask) \
     internals::assert_read_bits_annotated<dst_type, uint32_t>((field), (mask), __FILE__, __LINE__, __func__)
+#define assert_read_bits_from_u64(dst_type, field, mask) \
+    internals::assert_read_bits_annotated<dst_type, uint64_t>((field), (mask), __FILE__, __LINE__, __func__)
 
 #define assert_write_bits_into_u16(field, val, mask) \
     internals::assert_write_bits_annotated<uint16_t>((field), (val), (mask), __FILE__, __LINE__, __func__)
 #define assert_write_bits_into_u32(field, val, mask) \
     internals::assert_write_bits_annotated<uint32_t>((field), (val), (mask), __FILE__, __LINE__, __func__)
+#define assert_write_bits_into_u64(field, val, mask) \
+    internals::assert_write_bits_annotated<uint64_t>((field), (val), (mask), __FILE__, __LINE__, __func__)
 
 
 // Calculate the log2 of a uint16_t or uint32_t values

@@ -1,7 +1,10 @@
 #pragma once
 
+#include <cassert>
 #include <climits>
+#include <cmath>
 #include <ios>
+#include <type_traits>
 
 #include "xoz/mem/asserts.h"
 
@@ -54,6 +57,33 @@ template <typename Dst, typename Src>
     return m;
 }
 
+template <typename SInt>
+[[nodiscard]] constexpr inline
+        typename std::enable_if_t<std::is_integral_v<SInt> and std::is_signed_v<SInt>, std::make_unsigned_t<SInt>>
+        signed_cast_to_2complement(const SInt n) noexcept {
+    using UInt = std::make_unsigned_t<SInt>;
+    if (n < 0) {
+        const UInt x = ~UInt(n * -1);
+        return x + 1;
+    } else {
+        return UInt(n);
+    }
+}
+
+template <typename UInt>
+[[nodiscard]] constexpr inline
+        typename std::enable_if_t<std::is_integral_v<UInt> and std::is_unsigned_v<UInt>, std::make_signed_t<UInt>>
+        signed_cast_from_2complement(const UInt n) noexcept {
+    using SInt = std::make_signed_t<UInt>;
+    const UInt half = UInt(UInt(-1) >> 1) + 1;
+    if (n >= half) {
+        const UInt x = ~(n - 1);
+        return SInt(x) * -1;
+    } else {
+        return SInt(n);
+    }
+}
+
 }  // namespace internals
 
 #define assert_u8(n) internals::assert_integral_cast_annotated<uint8_t>(n, __FILE__, __LINE__, __func__)
@@ -89,5 +119,6 @@ template <typename Dst, typename Src>
     static_assert(sizeof(char) == sizeof(uint8_t) and CHAR_BIT == 8);
     return reinterpret_cast<const uint8_t*>(p);
 }
+
 
 }  // namespace xoz
