@@ -109,22 +109,26 @@ template <typename Dst, typename Src>
                                     [[maybe_unused]] unsigned int line, [[maybe_unused]] const char* func) {
     xoz_internals__assert_annotated("bad mask", mask, file, line, func);
     int shift = std::countr_zero(mask);
-    field |= assert_integral_cast_annotated<Dst>((val << shift) & mask, file, line, func);
+    field |= assert_integral_cast_annotated<Dst>(uint64_t(uint64_t(uint64_t(val) << shift) & mask), file, line, func);
 }
 }  // namespace internals
 
 
 #define assert_read_bits_from_u16(dst_type, field, mask) \
     internals::assert_read_bits_annotated<dst_type, uint16_t>((field), (mask), __FILE__, __LINE__, __func__)
+
 #define assert_read_bits_from_u32(dst_type, field, mask) \
     internals::assert_read_bits_annotated<dst_type, uint32_t>((field), (mask), __FILE__, __LINE__, __func__)
+
 #define assert_read_bits_from_u64(dst_type, field, mask) \
     internals::assert_read_bits_annotated<dst_type, uint64_t>((field), (mask), __FILE__, __LINE__, __func__)
 
 #define assert_write_bits_into_u16(field, val, mask) \
     internals::assert_write_bits_annotated<uint16_t>((field), (val), (mask), __FILE__, __LINE__, __func__)
+
 #define assert_write_bits_into_u32(field, val, mask) \
     internals::assert_write_bits_annotated<uint32_t>((field), (val), (mask), __FILE__, __LINE__, __func__)
+
 #define assert_write_bits_into_u64(field, val, mask) \
     internals::assert_write_bits_annotated<uint64_t>((field), (val), (mask), __FILE__, __LINE__, __func__)
 
