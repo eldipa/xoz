@@ -130,11 +130,159 @@ namespace {
         EXPECT_NEAR(rescale_int_to_double<int16_t>(lo, lo, hi), (double)-0.99999999999999, eps2);
         }
     }
+template <typename UInt, unsigned exp_bits>
+UInt impl_double_to_le(double num) {
+    using SInt = std::make_signed_t<UInt>;
+    if (std::isinf(num) or not std::isfinite(num)) {
+        throw std::invalid_argument("Argument is either infinite or NaN.");  // TODO
+    }
+
+    // TODO check T is uint16_t or uint32_t
+
+    const unsigned type_bits = sizeof(UInt) << 3;
+    static_assert(type_bits == 16 or type_bits == 32 or type_bits == 64);
+
+    static_assert(exp_bits < type_bits);
+    const unsigned mant_bits = type_bits - exp_bits;
+
+    const int min_exp = -(1 << (exp_bits - 1));
+    const int max_exp = (1 << (exp_bits - 1)) - 1;
+
+    const SInt min_mant = SInt(-(UInt(1) << (mant_bits - 1)));
+    const SInt max_mant = SInt((UInt(1) << (mant_bits - 1)) - 1);
+
+    const UInt exp_mask = UInt((UInt(-1)) << mant_bits);
+    const UInt mant_mask = UInt(~exp_mask);
+
+    int exp;
+    double mant = frexp(num, &exp);
+
+    if (exp < min_exp or exp > max_exp) {
+        throw std::domain_error("Exponent is out of range.");  // TODO
+    }
+
+    unsigned rawexp = xoz::internals::signed_cast_to_2complement<int>(exp);
+
+    SInt scaledmant_int = rescale_double_to_int<SInt>(mant, min_mant, max_mant);
+    UInt rawmant = xoz::internals::signed_cast_to_2complement<SInt>(scaledmant_int);
+
+    if constexpr (type_bits == 16) {
+        uint16_t data = 0;
+        assert_write_bits_into_u16(data, rawexp, exp_mask);
+        assert_write_bits_into_u16(data, rawmant, mant_mask);
+
+        return u16_to_le(data);
+    } else if (type_bits == 32) {
+        uint32_t data = 0;
+        assert_write_bits_into_u32(data, rawexp, exp_mask);
+        assert_write_bits_into_u32(data, rawmant, mant_mask);
+
+        return u32_to_le(data);
+    } else if (type_bits == 64) {
+        uint64_t data = 0;
+        assert_write_bits_into_u64(data, rawexp, exp_mask);
+        assert_write_bits_into_u64(data, rawmant, mant_mask);
+
+        return u64_to_le(data);
+    } else {
+        return 0;  // we should never reach here
+    }
+}
+
+template <typename UInt, unsigned exp_bits>
+double impl_double_from_le(UInt data) {
+    using SInt = std::make_signed_t<UInt>;
+
+    const unsigned type_bits = sizeof(UInt) << 3;
+    static_assert(type_bits == 16 or type_bits == 32 or type_bits == 64);
+
+    // TODO check T is uint16_t or uint32_t
+
+    static_assert(exp_bits < type_bits);
+    const unsigned mant_bits = type_bits - exp_bits;
+
+    const UInt exp_mask = UInt((UInt(-1)) << mant_bits);
+    const UInt mant_mask = UInt(~exp_mask);
+
+    const UInt exp_hi_bit = UInt(UInt(1) << (exp_bits - 1));
+    const UInt mant_hi_bit = UInt(UInt(1) << (mant_bits - 1));
+
+    const SInt min_mant = SInt(-(UInt(1) << (mant_bits - 1)));
+    const SInt max_mant = SInt((UInt(1) << (mant_bits - 1)) - 1);
+
+    unsigned rawexp;
+    UInt rawmant;
+    if constexpr (type_bits == 16) {
+        data = u16_from_le(data);
+
+        rawexp = assert_read_bits_from_u16(UInt, data, exp_mask);
+        rawmant = assert_read_bits_from_u16(UInt, data, mant_mask);
+    } else if (type_bits == 32) {
+        data = u32_from_le(data);
+
+        rawexp = assert_read_bits_from_u32(UInt, data, exp_mask);
+        rawmant = assert_read_bits_from_u32(UInt, data, mant_mask);
+    } else if (type_bits == 64) {
+        data = u64_from_le(data);
+
+        rawexp = unsigned(assert_read_bits_from_u64(UInt, data, exp_mask));
+        rawmant = assert_read_bits_from_u64(UInt, data, mant_mask);
+    } else {
+        return 0;  // we should never reach here
+    }
+
+    // sign extension
+    if (rawexp & exp_hi_bit) {
+        rawexp = unsigned((unsigned(-1) << exp_bits) | rawexp);
+    }
+
+    if (rawmant & mant_hi_bit) {
+        rawmant = UInt((UInt(-1) << mant_bits) | rawmant);
+    }
+
+    int exp = xoz::internals::signed_cast_from_2complement<unsigned>(rawexp);
+    SInt scaledmant_int = xoz::internals::signed_cast_from_2complement<UInt>(rawmant);
+
+    double mant = rescale_int_to_double<SInt>(scaledmant_int, min_mant, max_mant);
+
+    return std::ldexp(mant, exp);
+}
 
     template<typename UInt, unsigned exp_bits>
     double double_to_le_and_back(const double d) {
-        const UInt i = xoz::internals::impl_double_to_le<UInt, exp_bits>(d);
-        return xoz::internals::impl_double_from_le<UInt, exp_bits>(i);
+#if 0
+        const UInt i = /*xoz::internals::*/impl_double_to_le<UInt, exp_bits>(d);
+        return double(i);// /*xoz::internals::*/impl_double_from_le<UInt, exp_bits>(i);
+#endif
+        const UInt i = impl_double_to_le<UInt, exp_bits>(d);
+        return impl_double_from_le<UInt, exp_bits>(i);
+    }
+
+
+    TEST(DoubleTest, DoubleToInt64) {
+        constexpr unsigned exp_bits = 11;
+        using UInt = uint64_t;
+
+        // eps == 2.0 / mantisa size
+        constexpr double eps = 2.0 / (UInt(1) << ((sizeof(UInt) << 3) - exp_bits));
+
+        const double vals[] = {
+            0.5,
+            0.2,
+            0.1,
+            0.000000000001,
+            0.7,
+            0.999999999999,
+            1.0,
+            999999999999.0,
+        };
+
+        EXPECT_DOUBLE_EQ((double_to_le_and_back<UInt, exp_bits>(0.0)), (double)0.0);
+        for (unsigned i = 0; i < sizeof(vals)/sizeof(vals[0]); ++i) {
+            const double d = vals[i];
+            EXPECT_NEAR((double_to_le_and_back<UInt, exp_bits>(d)) / d, (double)1.0, eps);
+            EXPECT_NEAR((double_to_le_and_back<UInt, exp_bits>(-d)) / -d, (double)1.0, eps);
+        }
     }
 
     TEST(DoubleTest, DoubleToInt32) {
