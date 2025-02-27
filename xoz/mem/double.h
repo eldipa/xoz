@@ -58,8 +58,8 @@ double single_float_from_le(uint32_t num);
  * If the number is too large or it is too small than 11 bits for the exponent
  * is not enough, throw an exception.
  * */
-uint32_t double_float_to_le(double num);
-double double_float_from_le(uint32_t num);
+uint64_t double_float_to_le(double num);
+double double_float_from_le(uint64_t num);
 
 /*
  * Map the double float value <d> to an integer as follow:
