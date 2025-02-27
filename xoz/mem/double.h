@@ -10,6 +10,26 @@
 #include "xoz/mem/integer_ops.h"
 
 namespace xoz {
+/*
+ * Convert a floating point number (double) <num> to a portable version in an unsigned
+ * number in little endian for serialization. Have the reverse operation too.
+ *
+ * There are 3 sizes to store <num> as an unsigned integer:
+ *
+ *  - half floats: uses 16 bits with 5 bits for the exponent and 11 bits for the mantisa
+ *  - single floats: uses 16 bits with 8 bits for the exponent and 24 bits for the mantisa
+ *  - double floats: uses 16 bits with 11 bits for the exponent and 53 bits for the mantisa
+ *
+ * These are similar but not equal to the IEEE 754 format. The differences are:
+ *
+ *  - no bit has the sign of the number: both the exponent and the mantisa are stored as
+ *    two-complement numbers.
+ *  - endinnaness: IEEE 754 does not say anything; we say little endian.
+ *  - bias: IEEE 754 stores the exponent with a bias; we don't
+ *
+ * Note: by the moment NaN and +/- Infinite are not supported.
+ **/
+
 
 /*
  * Serialize a double with half-float precision to an uint16_t.
@@ -38,8 +58,8 @@ double single_float_from_le(uint32_t num);
  * If the number is too large or it is too small than 11 bits for the exponent
  * is not enough, throw an exception.
  * */
-// uint32_t double_float_to_le(double num);
-// double double_float_from_le(uint32_t num);
+uint32_t double_float_to_le(double num);
+double double_float_from_le(uint32_t num);
 
 /*
  * Map the double float value <d> to an integer as follow:
