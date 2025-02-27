@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "xoz/mem/double.h"
 #include "xoz/mem/endianness.h"
 
 namespace xoz {
@@ -213,6 +214,18 @@ public:
         readall(&c, sizeof(c));
 
         return c;
+    }
+
+    double read_half_float_from_le() {
+        uint16_t num = 0;
+        readall(reinterpret_cast<char*>(&num), sizeof(num));
+
+        return half_float_from_le(num);
+    }
+
+    void write_half_float_to_le(double value) {
+        uint16_t num = half_float_to_le(value);
+        writeall(reinterpret_cast<char*>(&num), sizeof(num));
     }
 
     class RewindGuard {
