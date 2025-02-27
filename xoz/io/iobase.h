@@ -228,6 +228,30 @@ public:
         writeall(reinterpret_cast<char*>(&num), sizeof(num));
     }
 
+    double read_single_float_from_le() {
+        uint32_t num = 0;
+        readall(reinterpret_cast<char*>(&num), sizeof(num));
+
+        return single_float_from_le(num);
+    }
+
+    void write_single_float_to_le(double value) {
+        uint32_t num = single_float_to_le(value);
+        writeall(reinterpret_cast<char*>(&num), sizeof(num));
+    }
+
+    double read_double_float_from_le() {
+        uint64_t num = 0;
+        readall(reinterpret_cast<char*>(&num), sizeof(num));
+
+        return double_float_from_le(num);
+    }
+
+    void write_double_float_to_le(double value) {
+        uint64_t num = double_float_to_le(value);
+        writeall(reinterpret_cast<char*>(&num), sizeof(num));
+    }
+
     class RewindGuard {
     private:
         IOBase& io;
