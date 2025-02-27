@@ -203,4 +203,39 @@ namespace {
             EXPECT_NEAR((double_to_le_and_back<UInt, exp_bits>(-d)) / -d, (double)1.0, eps);
         }
     }
+
+    template<typename UInt, unsigned exp_bits>
+    UInt from_le_to_double_and_back(const UInt i) {
+        const double d = xoz::internals::impl_double_from_le<UInt, exp_bits>(i);
+        return xoz::internals::impl_double_to_le<UInt, exp_bits>(d);
+    }
+
+    TEST(DoubleTest, DoubleToInt16FullTest) {
+        using UInt = uint16_t;
+
+        constexpr unsigned exp_bits = 5;
+        const unsigned mant_bits = (sizeof(UInt) << 3) - exp_bits;
+
+        const UInt exp_mask = UInt((UInt(-1)) << mant_bits);
+        const UInt mant_mask = UInt(~exp_mask);
+
+        constexpr UInt max_diff = 1;
+
+        //
+        // target:     [ exp ] [     mant     ]
+        // valid:         0            0
+        // valid:         0         != 0
+        // not valid:   != 0           0
+        // valid:       != 0        != 0
+        for (UInt i = 0; i < UInt(-1); ++i) {
+            // If the mantisa is zero, skip. These are not valid numbers
+            if ((i & mant_mask) == 0) {
+                continue;
+            }
+
+            const UInt r = from_le_to_double_and_back<UInt, exp_bits>(i);
+            const UInt abs_diff = i < r ? r - i : i - r;
+            EXPECT_LE(abs_diff, max_diff);
+        }
+    }
 }
