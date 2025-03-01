@@ -388,6 +388,8 @@ protected:
      * */
     virtual void flush_writes() {}
 
+    virtual void complete_load() {}
+
     void update_sizes_of_header(bool called_from_load);
 
 private:

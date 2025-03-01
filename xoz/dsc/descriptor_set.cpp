@@ -255,6 +255,7 @@ void DescriptorSet::load_descriptors(std::queue<DescriptorSet*>& to_load_dsets) 
             }
 
             dsc->set_owner(this);
+            dsc->complete_load();
             owned[id] = std::move(dsc);
 
             // dsc cannot be used any longer, it was transferred/moved to the dictionaries above
