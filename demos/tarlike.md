@@ -2,6 +2,7 @@
 <!--
 $ bin_folder=$(dirname $(ls -1 build-*/tarlike | head -1))
 $ mkdir -p tmp/
+$ rm -f tmp/myarchive.xoz
 -->
 
 # Tarlike

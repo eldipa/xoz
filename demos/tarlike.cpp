@@ -170,32 +170,48 @@ public:
     }
 
 public:
-    // (7)
+    //
+    // We could have been implemented this method in different ways with different tradeoffs
+    //
+    //  - cold: we could make get_fname() to go to disk every time to read it
+    //  (like calling get_content_io() and then read from it)
+    //  - warm-on-demand: we could make get_fname() to go to disk only the first time and then
+    //  keep a copy in memory
+    //  - warm: the file name is loaded in complete_load() and it remains in memory
+    //  (this is how *our* get_fname() is implemented).
+    //
     std::string get_fname() const { return fname; }
 
-    // (8)
+    //
+    // We could have been implemented this method in different ways with different tradeoffs
+    //
+    //  - immediate: we could make set_fname() to go to disk every time to write it
+    //  (like calling get_content_io() and then write into)
+    //  - deferred: the file name is written by flush_writes() when the descriptor set
+    //  owned considers that it is time to sync and flush any pending write.
+    //  (this is how *our* set_fname() is implemented).
+    //
     void set_fname(const std::string& new_fname) {
-        uint16_t new_fname_sz = xoz::assert_u16(new_fname.size());
-
-        // Do a resize of the content. Note that this will destroy the
-        // information at the end of the content section if the content
-        // is being shrinking.
-        //
-        // Thankfully, the file name is at the end anyways.
-        resize_content(file_sz + new_fname_sz);
-
-        auto io = get_content_io();
-        io.seek_wr(file_sz);
-        io.writeall(new_fname.c_str(), new_fname_sz);
-
+        fname_sz = xoz::assert_u16(new_fname.size());
         fname = new_fname;
-        fname_sz = new_fname_sz;
 
         // (10)
+        // We let know the descriptor set owner of us that we changed.
+        // We must call notify_descriptor_changed() if we have some pending
+        // writes and/or the size of the descriptor changed.
+        //
+        // In our case we have both conditions:
+        //  - the fname is pending to be written (see flush_writes())
+        //  - the content size changed (the fname_sz changed)
+        //
         notify_descriptor_changed();
     }
 
-    // (9)
+    //
+    // Contrary to get_fname(), in extract() we chosen the "cold" implementation:
+    // we read from the disk (from get_content_io()) *every time* that the caller
+    // calls extract().
+    //
     void extract() {
         std::fstream f;
         f.open(fname, std::ios_base::in);
@@ -218,6 +234,53 @@ public:
     }
 
     uint64_t get_total_size() const { return fname_sz + file_sz; }
+
+protected:
+    //
+    // Complete the load of the descriptor.
+    // In this method is where we should read the content (from get_content_io())
+    // if we want.
+    //
+    // In our case, it was our decision to load "cold" the file content
+    // and "warm" the file name.
+    //
+    void complete_load() override {
+        auto content_io = get_content_io();
+        content_io.turn_read_only();  // not necessary, just a safe check for us
+
+        // The file name is stored immediately after the file content
+        // so we seek to that position
+        content_io.seek_rd(file_sz);
+
+        // Read the file name
+        std::vector<char> buf(fname_sz);
+
+        content_io.readall(buf);
+        fname.assign(buf.data(), fname_sz);
+    }
+
+    //
+    // Called every time the descriptor set (our owner) is notified that
+    // we have pending writes (either the descriptor calling notify_descriptor_changed()
+    // or someone else calling on the descriptor set mark_as_modified()).
+    //
+    // Note: currently, it is not possible in xoz to "mark" what things are pending
+    // to write and which don't.
+    // Moreover, how the content data section works, resize_content() almost implies
+    // that flush_writes() must rewrite everything.
+    void flush_writes() override {
+        // Do a resize of the content. Note that this will destroy the
+        // information at the end of the content section if the content
+        // is being shrinking.
+        //
+        // Thankfully, the file name is at the end anyways and it is what
+        // may change only.
+        resize_content(file_sz + fname_sz);
+
+        auto io = get_content_io();
+        io.seek_wr(file_sz);
+        io.writeall(fname.c_str(), fname_sz);
+    }
 
 protected:
     // (1)
@@ -245,40 +308,10 @@ protected:
     // the read_struct_specifics_from() and write_struct_specifics_into()
     //
     // Failing to do this may not trigger any exception but it could leave data corrupted.
+    // Avoid reading from "content" here and move the reads to complete_load().
     void read_struct_specifics_from(IOBase& io) override {
         file_sz = io.read_u32_from_le();
         fname_sz = io.read_u16_from_le();
-
-        auto content_io = get_content_io();
-        content_io.turn_read_only();  // not necessary, just a safe check for us
-
-        // The file name is stored immediately after the file content
-        // so we seek to that position
-        content_io.seek_rd(file_sz);
-
-        // Read the string
-        std::vector<char> buf(fname_sz);
-
-        // The following is forward-compatible. We *know* the size of the file name
-        // and we read only that.
-        //
-        // Instead, we *could* just read to the end of the io (doing io.readall(buf))
-        // because the file name is at the end of the content section **but** this is
-        // only true for the current version of TarLike.
-        // A future version could add more stuff and then, reading that xoz file
-        // with an older version of TarLike (like ours), it will read more things
-        // than the file name.
-        //
-        // So it is always safer to work with explicit sizes.
-        //
-        // After the call to read_struct_specifics_from() is done,
-        // the get_content_io() will always be limited to the sections that
-        // the current version suppose to know and any "data from future versions"
-        // will be hidden.
-        // But during read_struct_specifics_from(), the descriptor's dimensions
-        // are not complete known and we need to be extra careful here.
-        content_io.readall(buf, fname_sz);
-        fname.assign(buf.data(), fname_sz);
     }
 
     void write_struct_specifics_into(IOBase& io) override {
