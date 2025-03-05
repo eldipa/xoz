@@ -171,6 +171,8 @@ public:
 
 public:
     //
+    // We are reading an attribute of the FileMember descriptor, in this case the file name.
+    //
     // We could have been implemented this method in different ways with different tradeoffs
     //
     //  - cold: we could make get_fname() to go to disk every time to read it
@@ -180,8 +182,18 @@ public:
     //  - warm: the file name is loaded in complete_load() and it remains in memory
     //  (this is how *our* get_fname() is implemented).
     //
+    // If the filename were stored in the private data of the descriptor, it *should*
+    // be loaded during the load in read_struct_specifics_from() and kept in memory
+    // (in other words, the "cold" implementation is a *must*).
+    //
+    // I'm storing the filename in the content section so we can choose
+    // any strategy (cold/warm-on-demand/warm).
+    // In this case I decided to go with the "warm" implementation. See complete_load()
+    // where we perform the actual read.
     std::string get_fname() const { return fname; }
 
+    //
+    // We are writing an attribute of the FileMember descriptor.
     //
     // We could have been implemented this method in different ways with different tradeoffs
     //
@@ -191,7 +203,21 @@ public:
     //  owned considers that it is time to sync and flush any pending write.
     //  (this is how *our* set_fname() is implemented).
     //
+    // If the filename were stored in the private data of the descriptor, it *should*
+    // be written during write_struct_specifics_into()
+    // (in other words, the "deferred" implementation is a *must*).
+    //
+    // xoz has *no* idea when an attribute is modified so the code *must* notify
+    // that the descriptor changed and there are writes pending.
+    // This can be accomplish either the descriptor calling its method notify_descriptor_changed()
+    // or the caller calling mark_as_modified() on the descriptor set that owns this
+    // descriptor.
+    //
+    // See below more details on when notify_descriptor_changed() must be called.
     void set_fname(const std::string& new_fname) {
+        // Keep the descriptor consistent: even if the file name was not written to disk
+        // we *must* reflect a consistent view. In this case if we set a new filename
+        // we need to reflect that *including* its new size.
         fname_sz = xoz::assert_u16(new_fname.size());
         fname = new_fname;
 
