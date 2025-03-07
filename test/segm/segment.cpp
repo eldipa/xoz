@@ -112,7 +112,8 @@ namespace {
         std::vector<char> fp;
         uint32_t checksum = 0;
         XOZ_RESET_FP(fp, FP_SZ);
-        Segment segm = Segment::create_empty_zero_inline(blk_sz_order);
+        Segment segm(blk_sz_order);
+        segm.set_inline_data({});
 
         // Check sizes
         XOZ_EXPECT_SIZES(segm,
@@ -224,11 +225,16 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
-        // Remove the inline data, add an extent
-        // and add "end of segment" again
+        // Remove the inline data. Because we called add_end_of_segment()
+        // explicitly, removing inline data does *not* remove the end of segment.
         segm.remove_inline_data();
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
+
+        // Remove the "end of segment" and check again
+        segm.remove_end_of_segment();
         EXPECT_EQ(segm.has_end_of_segment(), (bool)false);
 
+        // Add an extent and add "end of segment" again
         segm.add_extent(Extent(0x2ff, 1, false)); // 1-block extent
         segm.add_end_of_segment();
 
@@ -248,14 +254,21 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
 
-        // Remove the extent and inline data, add a non-zero length inline data
-        // Check that that is enough to consider the segment ended
-        segm.remove_inline_data();
+        // Remove the extent and the end of segment, add a non-zero length inline data
+        // Check that *that* is enough to consider the segment ended
+        // In short, inline data (even if zero but explicitly given) implies and end of segment
+        segm.remove_end_of_segment();
         segm.clear_extents();
         EXPECT_EQ(segm.has_end_of_segment(), (bool)false);
 
         segm.set_inline_data({0x41});
         EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
+
+        XOZ_EXPECT_SIZES(segm,
+                2, /* disc size */
+                1, /* allocated size */
+                0
+                );
 
         // Now let's try to add the end of segment explicitly
         // Because there was a previous inline data already there
@@ -274,6 +287,40 @@ namespace {
         checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
         XOZ_EXPECT_SERIALIZATION(fp, segm, "41c1");
+        XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
+        XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        // Removing the end of segment without removing the inline data is an error.
+        EXPECT_THAT(
+            ensure_called_once([&]() { segm.remove_end_of_segment(); }),
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Segment has inline data."
+                        )
+                    )
+                )
+        );
+
+        // Remove the inline data and end of segment. Then add an empty inline data.
+        segm.remove_inline_data();
+        segm.remove_end_of_segment();
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)false);
+
+        segm.set_inline_data({});
+
+        XOZ_EXPECT_SIZES(segm,
+                2, /* disc size */
+                0, /* allocated size */
+                0
+                );
+
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
+
+        checksum = 0;
+        segm.write_struct_into(IOSpan(fp), &checksum);
+        XOZ_EXPECT_SERIALIZATION(fp, segm, "00c0");
         XOZ_EXPECT_CHECKSUM(fp, segm, checksum);
         XOZ_EXPECT_DESERIALIZATION_INLINE_ENDED(fp, blk_sz_order, segm);
         XOZ_RESET_FP(fp, FP_SZ);
@@ -859,7 +906,7 @@ namespace {
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(
-                        "Segment with inline data/end of segment cannot be extended."
+                        "Segment with inline data cannot be extended."
                         )
                     )
                 )
@@ -1243,7 +1290,7 @@ namespace {
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(
-                        "Segment with inline data/end of segment cannot be extended."
+                        "Segment with inline data cannot be extended."
                         )
                     )
                 )
@@ -1255,11 +1302,44 @@ namespace {
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(
-                        "Segment with inline data/end of segment cannot be extended."
+                        "Segment with inline data cannot be extended."
                         )
                     )
                 )
         );
+
+        // Adding an explicit end of segment while having inline data does not change anything
+        segm.add_end_of_segment();
+        EXPECT_THAT(
+            [&]() { segm.extend(src); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Segment with inline data cannot be extended."
+                        )
+                    )
+                )
+        );
+
+        // If we set inline to zero (but we don't remove it), same exception
+        segm.set_inline_data({});
+        EXPECT_THAT(
+            [&]() { segm.extend(src); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr(
+                        "Segment with inline data cannot be extended."
+                        )
+                    )
+                )
+        );
+
+        // But if we remove the inline data, even if we have an "end of segment",
+        // no error will happen.
+        segm.remove_inline_data();
+        EXPECT_EQ(segm.has_end_of_segment(), (bool)true);
+        segm.extend(src);
+
     }
 
     TEST(SegmentTest, FileOverflowNotEnoughRoom) {
@@ -1677,8 +1757,9 @@ namespace {
         // We expect a failure
         XOZ_RESET_FP(fp, FP_SZ);
 
-        // Same but without inline
+        // Same but without inline or end of segment
         segm.remove_inline_data();
+        segm.remove_end_of_segment();
         checksum = 0;
         segm.write_struct_into(IOSpan(fp), &checksum);
 
@@ -1912,9 +1993,10 @@ namespace {
 
         XOZ_RESET_FP(fp, FP_SZ);
 
-        // Now let's use a segment without inline
+        // Now let's use a segment without inline or end of segment
         checksum = 0;
         segm.remove_inline_data();
+        segm.remove_end_of_segment();
         segm.add_extent(Extent(0, 0, false));
         segm.write_struct_into(IOSpan(fp), &checksum);
 
@@ -2046,9 +2128,10 @@ namespace {
 
         XOZ_RESET_FP(fp, FP_SZ);
 
-        // Now let's use a segment without inline
+        // Now let's use a segment without inline or end of segment
         checksum = 0;
         segm.remove_inline_data();
+        segm.remove_end_of_segment();
         segm.add_extent(Extent(0, 0, false));
         segm.write_struct_into(IOSpan(fp), &checksum);
 

@@ -37,9 +37,11 @@ private:
     uint16_t num_entries;
     uint32_t content_sz;
 
+    enum Parts : uint16_t { Map, CNT };
+
 private:
     void read_struct_specifics_from(IOBase& io) override;
     void write_struct_specifics_into(IOBase& io) override;
-    void update_sizes(uint64_t& isize, uint64_t& csize) override;
+    void update_isize(uint64_t& isize) override;
 };
 }  // namespace xoz

@@ -1,5 +1,6 @@
 #include "xoz/dsc/descriptor.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <iomanip>
@@ -18,7 +19,8 @@
 
 namespace {
 const uint32_t RESIZE_CONTENT_MEM_COPY_THRESHOLD_SZ = 1 << 20;  // 1 MB
-}
+
+}  // namespace
 
 namespace xoz {
 /*
@@ -172,6 +174,39 @@ fail:
     }
 }
 
+Descriptor::Descriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, uint16_t decl_cpart_cnt):
+        hdr(hdr),
+        decl_cpart_cnt(decl_cpart_cnt),
+        ext(Extent::EmptyExtent()),
+        cblkarr(cblkarr),
+        owner_raw_ptr(nullptr),
+        checksum(0) {
+
+    const struct content_part_t example = {.future_csize = 0, .csize = 0, .segm = cblkarr.create_segment_with({})};
+
+    // If declared more parts that the one in the header, increase the vector.
+    // If declared less do nothing. We will show the first parts (up to decl_cpart_cnt)
+    // and 'hide' but preserve any following part
+    if (this->hdr.cparts.size() < decl_cpart_cnt) {
+        this->hdr.cparts.resize(decl_cpart_cnt, example);
+    }
+
+    for (auto& cpart: this->hdr.cparts) {
+        cpart.segm.add_end_of_segment();
+    }
+
+    // Update the decl_cpart_cnt counter in case that the initial cparts vector was larger
+    // than expected. This could happen if we read from disk a version from the future
+    // that the present Descriptor subclass expected less cparts.
+    this->decl_cpart_cnt = assert_u16(this->hdr.cparts.size());
+    chk_content_parts_consistency(false, this->hdr);
+    chk_content_parts_count(false, this->hdr, this->decl_cpart_cnt);
+    // assert(hdr.id != 0); // TODO ok? breaks too much tests, disable for now
+}
+
+Descriptor::Descriptor(const uint16_t type, BlockArray& cblkarr, uint16_t decl_cpart_cnt):
+        Descriptor(create_header(type, cblkarr), cblkarr, decl_cpart_cnt) {}
+
 struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr,
                                                          bool& ex_type_used, uint32_t* checksum) {
     uint32_t local_checksum = 0;
@@ -203,29 +238,24 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     uint8_t isize = uint8_t((uint8_t(hi_isize << 5) | lo_isize) << 1);  // in bytes
 
-    uint32_t lo_csize = 0, hi_csize = 0;
+    // Count content parts (if we own content at all)
+    uint16_t content_part_cnt = 0;
     if (own_content) {
-        uint16_t sizefield = io.read_u16_from_le();
+        content_part_cnt = io.read_u16_from_le();
+        local_checksum += content_part_cnt;
 
-        local_checksum += sizefield;
+        assert(content_part_cnt != 0xffff);  // TODO this is reserved
 
-        bool large = assert_read_bits_from_u16(bool, sizefield, MASK_LARGE_FLAG);
-        lo_csize = assert_read_bits_from_u16(uint32_t, sizefield, MASK_LO_CSIZE);
-
-        if (large) {
-            uint16_t largefield = io.read_u16_from_le();
-
-            local_checksum += largefield;
-
-            hi_csize = assert_read_bits_from_u16(uint32_t, largefield, MASK_HI_CSIZE);
-        }
+        content_part_cnt += 1;  // we always have at least 1 part
     }
 
-    uint32_t csize = (hi_csize << 15) | lo_csize;  // in bytes
+    // Read the parts
+    std::vector<struct content_part_t> cparts = reserve_content_part_vec(content_part_cnt);
+    if (own_content) {
+        local_checksum += inet_checksum(read_content_parts(io, cblkarr, cparts));
+    }
 
-    Segment segm(cblkarr.blk_sz_order());
-    struct Descriptor::header_t hdr = {
-            .own_content = own_content, .type = type, .id = 0, .isize = isize, .csize = csize, .segm = segm};
+    struct Descriptor::header_t hdr = {.type = type, .id = 0, .isize = isize, .cparts = cparts};
 
     // ID of zero is not an error, it just means that the descriptor will have a temporal id
     // assigned in runtime.
@@ -262,18 +292,8 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
     assert(id != 0);
     hdr.id = id;
 
-    if (own_content) {
-        hdr.segm = Segment::load_struct_from(io, cblkarr.blk_sz_order(), Segment::EndMode::AnyEnd, uint32_t(-1),
-                                             &local_checksum);
-    }
-
-    /* TODO
-    const auto segm_sz = hdr.segm.calc_data_space_size(???);
-    if (segm_sz < hdr.csize) {
-        throw InconsistentXOZ(F() << "Descriptor claims at least " << hdr.csize << " bytes of content but it has
-    allocated only " << segm_sz << ": " << hdr);
-    }
-    */
+    chk_content_parts_consistency(false, hdr);
+    // chk_content_parts_count(....); we can't here, see caller of load_header_from
 
     // extended-type (for types that require full 16 bits)
     ex_type_used = false;
@@ -309,6 +329,84 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
     return hdr;
 }
 
+std::vector<struct Descriptor::content_part_t> Descriptor::reserve_content_part_vec(uint16_t content_part_cnt) {
+    return std::vector<content_part_t>(content_part_cnt);
+}
+
+uint32_t Descriptor::read_content_parts(IOBase& io, BlockArray& cblkarr, std::vector<struct content_part_t>& parts) {
+    uint32_t local_checksum = 0;
+    for (unsigned part_num = 0; part_num < parts.size(); ++part_num) {
+        uint16_t sizefield = io.read_u16_from_le();
+
+        local_checksum += sizefield;
+
+        uint32_t lo_csize = 0, hi_csize = 0;
+        bool large = assert_read_bits_from_u16(bool, sizefield, MASK_LARGE_FLAG);
+        lo_csize = assert_read_bits_from_u16(uint32_t, sizefield, MASK_LO_CSIZE);
+
+        if (large) {
+            uint16_t largefield = io.read_u16_from_le();
+
+            local_checksum += largefield;
+
+            hi_csize = assert_read_bits_from_u16(uint32_t, largefield, MASK_HI_CSIZE);
+        }
+
+        parts[part_num].csize = (hi_csize << 15) | lo_csize;  // in bytes
+        parts[part_num].segm = Segment::load_struct_from(io, cblkarr.blk_sz_order(), Segment::EndMode::AnyEnd,
+                                                         uint32_t(-1), &local_checksum);
+    }
+
+    return local_checksum;
+}
+
+uint32_t Descriptor::write_content_parts(IOBase& io, const std::vector<struct content_part_t>& parts, int cparts_cnt) {
+    assert(cparts_cnt > 0);
+    assert(parts.size() >= unsigned(cparts_cnt));
+
+    uint32_t local_checksum = 0;
+    for (const auto& part: parts) {
+        if (cparts_cnt <= 0) {
+            break;
+        }
+        --cparts_cnt;
+
+        uint16_t sizefield = 0;
+
+        // Write the sizefield and optionally the largefield
+        if (part.csize < (1 << 15)) {
+            assert_write_bits_into_u16(sizefield, false, MASK_LARGE_FLAG);
+            assert_write_bits_into_u16(sizefield, part.csize, MASK_LO_CSIZE);
+
+            io.write_u16_to_le(sizefield);
+            local_checksum += sizefield;
+        } else {
+            if (part.csize >= uint32_t(0x80000000)) {  // TODO test
+                throw WouldEndUpInconsistentXOZ(F()
+                                                << "Descriptor content size is larger than the maximum representable ("
+                                                << uint32_t(0x80000000) << ") in " << hdr);
+            }
+
+            assert_write_bits_into_u16(sizefield, true, MASK_LARGE_FLAG);
+            assert_write_bits_into_u16(sizefield, part.csize, MASK_LO_CSIZE);
+
+            uint16_t largefield = 0;
+            assert_write_bits_into_u16(largefield, assert_u16(part.csize >> 15), MASK_HI_CSIZE);
+
+            io.write_u16_to_le(sizefield);
+            io.write_u16_to_le(largefield);
+            local_checksum += sizefield;
+            local_checksum += largefield;
+        }
+
+
+        // Write the segment
+        part.segm.write_struct_into(io, &local_checksum);
+    }
+
+    return local_checksum;
+}
+
 std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr) {
     bool ex_type_used = false;
     uint32_t dsc_begin_pos = io.tell_rd();
@@ -337,6 +435,7 @@ std::unique_ptr<Descriptor> Descriptor::begin_load_dsc_from(IOBase& io, RuntimeC
     }
 
     chk_dset_type(true, dsc.get(), hdr, rctx);
+    chk_content_parts_count(false, dsc->hdr, dsc->decl_cpart_cnt);
     dsc->checksum = inet_to_u16(checksum);
 
     return dsc;
@@ -370,7 +469,8 @@ void Descriptor::finish_load_dsc_from(IOBase& io, [[maybe_unused]] RuntimeContex
     // idata_begin_pos to idata_begin_pos+dsc.hdr.isize.
     assert(dsc_end_pos == idata_begin_pos + dsc.hdr.isize);
 
-    dsc.update_sizes_of_header(true);
+    dsc.compute_future_content_parts_sizes();
+    dsc.update_sizes_of_header();
 }
 
 
@@ -390,41 +490,15 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
         throw WouldEndUpInconsistentXOZ(F() << "Descriptor id is zero in " << hdr);
     }
 
-    // TODO test
-    if (not hdr.segm.is_empty_space() and not hdr.own_content) {
-        throw WouldEndUpInconsistentXOZ(
-                F() << "Descriptor does not claim to be owner of content but it has allocated a segment " << hdr.segm
-                    << "; " << hdr);
-    }
-
-    // TODO test
-    if (hdr.own_content and not hdr.segm.has_end_of_segment()) {
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims to be owner of content but its segment " << hdr.segm
-                                            << "  has no explicit end; " << hdr);
-    }
-
-    // TODO test
-    if (hdr.csize and not hdr.own_content) {
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.csize
-                                            << " bytes of content but it is not an owner; " << hdr);
-    }
-
-    if (not does_hdr_csize_fit(hdr.csize)) {
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor csize is larger than allowed " << hdr);
-    }
-
+    chk_content_parts_consistency(true, hdr);
+    chk_content_parts_count(true, hdr, decl_cpart_cnt);
     chk_dset_type(false, this, hdr, rctx);
 
     uint32_t checksum = 0;
 
-    /* TODO
-    const auto segm_sz = hdr.segm.calc_data_space_size();
-    if (segm_sz < hdr.csize) {
-        assert(hdr.own_content);
-        throw WouldEndUpInconsistentXOZ(F() << "Descriptor claims at least " << hdr.csize << " bytes of content
-    but it has allocated only " << segm_sz << ": " << hdr);
-    }
-    */
+    // Parts at the end of the vector that are empty can be
+    // stripped away to compress a little so they don't count.
+    int cparts_cnt = count_incompressible_cparts();
 
     // If the id is persistent we must store it. It may not be persistent but we may require
     // store hi_isize so in that case we still need the idfield (but with an id of 0)
@@ -432,7 +506,7 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
 
     uint16_t firstfield = 0;
 
-    assert_write_bits_into_u16(firstfield, hdr.own_content, MASK_OWN_CONTENT_FLAG);
+    assert_write_bits_into_u16(firstfield, cparts_cnt > 0, MASK_OWN_CONTENT_FLAG);
     assert_write_bits_into_u16(firstfield, assert_u16(hdr.isize >> 1), MASK_LO_ISIZE);
     assert_write_bits_into_u16(firstfield, has_id, MASK_HAS_ID_FLAG);
 
@@ -468,38 +542,10 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
     }
 
 
-    if (hdr.own_content) {
-        uint16_t sizefield = 0;
-
-        // Write the sizefield and optionally the largefield
-        if (hdr.csize < (1 << 15)) {
-            assert_write_bits_into_u16(sizefield, false, MASK_LARGE_FLAG);
-            assert_write_bits_into_u16(sizefield, hdr.csize, MASK_LO_CSIZE);
-
-            io.write_u16_to_le(sizefield);
-            checksum += sizefield;
-        } else {
-            if (hdr.csize >= uint32_t(0x80000000)) {  // TODO test
-                throw WouldEndUpInconsistentXOZ(F()
-                                                << "Descriptor content size is larger than the maximum representable ("
-                                                << uint32_t(0x80000000) << ") in " << hdr);
-            }
-
-            assert_write_bits_into_u16(sizefield, true, MASK_LARGE_FLAG);
-            assert_write_bits_into_u16(sizefield, hdr.csize, MASK_LO_CSIZE);
-
-            uint16_t largefield = 0;
-            assert_write_bits_into_u16(largefield, assert_u16(hdr.csize >> 15), MASK_HI_CSIZE);
-
-            io.write_u16_to_le(sizefield);
-            io.write_u16_to_le(largefield);
-            checksum += sizefield;
-            checksum += largefield;
-        }
-
-
-        // Write the segment
-        hdr.segm.write_struct_into(io, &checksum);
+    if (cparts_cnt > 0) {
+        io.write_u16_to_le(assert_u16(cparts_cnt - 1));
+        checksum += inet_checksum(assert_u16(cparts_cnt - 1));
+        checksum += inet_checksum(write_content_parts(io, hdr.cparts, cparts_cnt));
     }
 
     // extended-type
@@ -553,25 +599,33 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
         struct_sz += 4;
     }
 
+    // Count how many content parts do we have.
+    // Parts at the end of the vector that are empty can be
+    // stripped away to compress a little so they don't count.
+    int cparts_cnt = count_incompressible_cparts();
 
-    if (hdr.own_content) {
-        if (hdr.csize < (1 << 15)) {
-            // sizefield
-            struct_sz += 2;
-        } else {
-            if (hdr.csize >= uint32_t(0x80000000)) {  // TODO test
-                throw WouldEndUpInconsistentXOZ(F()
-                                                << "Descriptor content size is larger than the maximum representable ("
-                                                << uint32_t(0x80000000) << ") in " << hdr);
+    if (cparts_cnt > 0) {
+        // content_part_cnt
+        struct_sz += 2;
+
+        for (const auto& part: hdr.cparts) {
+            if (cparts_cnt <= 0) {
+                break;
+            }
+            --cparts_cnt;
+
+            if (part.csize < (1 << 15)) {
+                // sizefield
+                struct_sz += 2;
+            } else {
+                // sizefield and largefield
+                struct_sz += 2;
+                struct_sz += 2;
             }
 
-            // sizefield and largefield
-            struct_sz += 2;
-            struct_sz += 2;
+            // segment
+            struct_sz += part.segm.calc_struct_footprint_size();
         }
-
-        // segment
-        struct_sz += hdr.segm.calc_struct_footprint_size();
     }
 
     if (hdr.type >= EXTENDED_TYPE_VAL_THRESHOLD) {
@@ -582,6 +636,24 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
     struct_sz += hdr.isize;  // hdr.isize is in bytes too
 
     return struct_sz;
+}
+
+uint16_t Descriptor::count_incompressible_cparts() const { return count_incompressible_cparts(hdr); }
+
+uint16_t Descriptor::count_incompressible_cparts(const struct header_t& hdr) {
+    // Count how many content parts do we have.
+    // Parts at the end of the vector that are empty can be
+    // stripped away to compress a little so they don't count.
+    uint16_t cparts_cnt = assert_u16(hdr.cparts.size());
+    for (int i = cparts_cnt - 1; i >= 0; --i) {
+        if (hdr.cparts[assert_u16(i)].csize > 0) {
+            break;
+        } else {
+            --cparts_cnt;
+        }
+    }
+
+    return cparts_cnt;
 }
 
 std::ostream& operator<<(std::ostream& out, const struct Descriptor::header_t& hdr) {
@@ -595,12 +667,13 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
     (*out) << "descriptor {"
            << "id: " << xoz::log::hex(hdr.id) << ", type: " << hdr.type << ", isize: " << uint32_t(hdr.isize);
 
-    if (hdr.own_content) {
-        (*out) << ", csize: " << hdr.csize << ", owns: " << hdr.segm.calc_data_space_size() << "}"
-               << " " << hdr.segm;
-    } else {
-        (*out) << "}";
+    if (hdr.cparts.size() > 0) {
+        (*out) << ", [use/csize segm]: ";
+        for (const auto& cpart: hdr.cparts) {
+            (*out) << cpart.csize - cpart.future_csize << "/" << cpart.csize << " " << cpart.segm;
+        }
     }
+    (*out) << "}";
 
     out->flags(ioflags);
 }
@@ -626,12 +699,15 @@ void Descriptor::chk_hdr_isize_fit_or_fail(bool has_id, const struct Descriptor:
     }
 }
 
-uint32_t Descriptor::calc_content_space_size() const { return hdr.own_content ? hdr.segm.calc_data_space_size() : 0; }
-
 void Descriptor::destroy() {
-    if (hdr.own_content) {
-        cblkarr.allocator().dealloc(hdr.segm);
+    for (const auto& cpart: hdr.cparts) {
+        // Dealloc all the segments even if the csize is zero
+        // A non-empty segment could have associated a csize of zero in case
+        // of an allocation request of 0 size but that >0 bytes were actually allocated
+        // Here we need to dealloc everything.
+        cblkarr.allocator().dealloc(cpart.segm);
     }
+    hdr.cparts.clear();
 }
 
 void Descriptor::notify_descriptor_changed() {
@@ -651,102 +727,109 @@ void Descriptor::write_future_idata(IOBase& io) const { io.writeall(future_idata
 
 uint8_t Descriptor::future_idata_size() const { return assert_u8(future_idata.size()); }
 
-void Descriptor::update_header() {
-    bool own_content = update_content_segment(hdr.segm);
+void Descriptor::update_header() { update_sizes_of_header(); }
 
-    hdr.own_content = own_content;
-    if (not own_content) {
-        hdr.segm = Segment::EmptySegment(cblkarr.blk_sz_order());
+void Descriptor::compute_future_content_parts_sizes() {
+    std::vector<uint64_t> cparts_sizes;
+    cparts_sizes.resize(hdr.cparts.size());
+
+    // Get a modifiable copy of the cparts' sizes
+    std::transform(hdr.cparts.cbegin(), hdr.cparts.cend(), cparts_sizes.begin(),
+                   [](const struct content_part_t& cpart) { return cpart.csize; });
+
+    // Let the subclasses to say how much data *their* really owns
+    declare_used_content_space_on_load(cparts_sizes);
+
+    for (uint32_t i = 0; i < hdr.cparts.size(); ++i) {
+        const uint32_t hdr_csize = hdr.cparts[i].csize;
+        const uint64_t present_csize = cparts_sizes[i];
+
+        // Note: we check this to avoid a overflow.
+        // More checks should be made by the caller calling chk_content_parts_consistency et al.
+        if (hdr_csize < present_csize) {
+            throw WouldEndUpInconsistentXOZ(F() << "Declared csize of content part " << i
+                                                << " for present version overflows with csize found in the header; "
+                                                << "they are respectively " << present_csize << " and " << hdr_csize);
+        }
+
+        hdr.cparts[i].future_csize = assert_u32_sub_nonneg(hdr_csize, assert_u32(present_csize));
     }
-    hdr.segm.add_end_of_segment();
-
-    // Order is important: update segment, then update sizes
-    update_sizes_of_header(false);
 }
 
-void Descriptor::update_sizes_of_header(bool called_from_load) {
+void Descriptor::update_sizes_of_header() {
+    // By contract (see update_isize), we need to provide to the callee what we think
+    // is the current/present isize (we cannot just pass 0 or a hardcoded default.).
+    // If the callee decides to no update the isize, we will keep then with the value
+    // that we initially think for free.
     uint64_t present_isize = assert_u8_sub_nonneg(hdr.isize, future_idata_size());
-    uint64_t present_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
+    update_isize(present_isize);
 
-    update_sizes(present_isize, present_csize);
+    // Let the subclass to modify the cparts.
+    // This is ugly!!!
+    update_content_parts(hdr.cparts);
 
-    // If update_sizes_of_header is being called from the loading of the descriptor,
-    // this is the first call and the only moment where we can know how much content
-    // belongs to the current version of the subclass descriptor and how much
-    // to the 'future' version.
-    if (called_from_load) {
-        // We can deduce future_content_size but not future_idata_size. The reason is that
-        // the subclass can add fields changing the future_idata_size at any time
-        // however it cannot change the content because allocation is disabled during
-        // the loading of the descriptor (hopefully)
-        future_content_size = assert_u32_sub_nonneg(hdr.csize, assert_u32(present_csize));
+    // Ensure that the segments have an end-of-segment
+    for (auto& cpart: hdr.cparts) {
+        cpart.segm.add_end_of_segment();
     }
 
     // Sanity checks
-    if (not is_u64_add_ok(present_isize, future_idata_size())) {
-        throw WouldEndUpInconsistentXOZ(F()
-                                        << "Updated isize for present version overflows with isize for future version; "
-                                        << "they are respectively " << present_isize << " and " << future_idata_size());
-    }
+    chk_content_parts_consistency(true, hdr);
+    chk_content_parts_count(true, hdr, decl_cpart_cnt);
 
-    if (not is_u64_add_ok(present_csize, future_content_size)) {
-        throw WouldEndUpInconsistentXOZ(F()
-                                        << "Updated csize for present version overflows with csize for future version; "
-                                        << "they are respectively " << present_csize << " and " << future_content_size);
+    if (not is_u64_add_ok(present_isize, future_idata_size())) {
+        throw WouldEndUpInconsistentXOZ(
+                F() << "Updated isize for present version overflows with isize for future version; "
+                    << "they are respectively " << present_isize << " and " << future_idata_size());  // TODO test
     }
 
     if (present_isize % 2 != 0) {
         throw WouldEndUpInconsistentXOZ(F() << "Updated isize for present version (" << present_isize << ") "
-                                            << "is an odd number (it must be even).");
+                                            << "is an odd number (it must be even).");  // TODO test
     }
 
     uint64_t hdr_isize = assert_u64_add_nowrap(present_isize, future_idata_size());
-    uint64_t hdr_csize = assert_u64_add_nowrap(present_csize, future_content_size);
 
     if (not does_hdr_isize_fit(hdr_isize)) {
         throw WouldEndUpInconsistentXOZ(F() << "Updated isize for present version (" << present_isize << ") "
                                             << "plus isize for future version (" << future_idata_size() << ") "
-                                            << "does not fit in the header");
-    }
-
-    if (not does_hdr_csize_fit(hdr_csize)) {
-        throw WouldEndUpInconsistentXOZ(F() << "Updated csize for present version (" << present_csize << ") "
-                                            << "plus csize for future version (" << future_content_size << ") "
-                                            << "does not fit in the header");
+                                            << "does not fit in the header");  // TODO test
     }
 
     xoz_assert("odd hdr isize", hdr_isize % 2 == 0);
 
     hdr.isize = assert_u8(hdr_isize);
-    hdr.csize = assert_u32(hdr_csize);
 }
 
-bool Descriptor::update_content_segment([[maybe_unused]] Segment& segm) { return hdr.own_content; }
+void Descriptor::declare_used_content_space_on_load([[maybe_unused]] std::vector<uint64_t>& cparts_sizes) const {}
 
-void Descriptor::resize_content(uint32_t content_new_sz) {
+void Descriptor::update_content_parts([[maybe_unused]] std::vector<struct Descriptor::content_part_t>& cparts) {}
+
+void Descriptor::resize_content_part(uint16_t part_num, uint32_t content_new_sz) {
+    auto& cpart = hdr.cparts.at(part_num);  // TODO at()
+
     // No previous content and nothing to grow, then skip (no change)
-    if (not hdr.own_content and content_new_sz == 0) {
-        xoz_assert("invariant", future_content_size == 0);
-        xoz_assert("invariant", hdr.csize == 0);
+    if (cpart.csize == 0 and content_new_sz == 0) {
+        // TODO should try to dealloc anyways???
+        xoz_assert("invariant", cpart.future_csize == 0);
         return;
     }
 
-    if (not does_present_csize_fit(content_new_sz)) {
+    if (not does_present_csize_fit(cpart, content_new_sz)) {
         throw WouldEndUpInconsistentXOZ(F() << "The new content size (" << content_new_sz << ") "
-                                            << "plus the size from the future version (" << future_content_size << ") "
+                                            << "plus the size from the future version (" << cpart.future_csize << ") "
                                             << "does not fit in the header.");
     }
 
     // Caller wants some space for the (new) content
-    if (not hdr.own_content) {
-        xoz_assert("invariant", future_content_size == 0);
-        xoz_assert("invariant", hdr.csize == 0);
+    if (cpart.csize == 0) {
+        xoz_assert("invariant", cpart.future_csize == 0);
 
-        hdr.segm = cblkarr.allocator().alloc(content_new_sz);
-        hdr.segm.add_end_of_segment();
-        hdr.own_content = true;
+        // TODO dealloc first! then alloc. A specialize realloc may be?
+        cpart.segm = cblkarr.allocator().alloc(content_new_sz);
+        cpart.segm.add_end_of_segment();
 
-        xoz_assert("allocated less than requested", hdr.segm.calc_data_space_size() >= content_new_sz);
+        xoz_assert("allocated less than requested", cpart.segm.calc_data_space_size() >= content_new_sz);
 
         // Save the caller's content_new_sz, not the real size of the segment.
         // This reflects correctly what the descriptor owns, the rest (padding)
@@ -754,117 +837,98 @@ void Descriptor::resize_content(uint32_t content_new_sz) {
         // We need to be *very* strict in the value of csize because we will use
         // it to know if there is future content or not and we *don't* want
         // to treat padding as future content (hence future_content_size = 0).
-        hdr.csize = content_new_sz;
+        cpart.csize = content_new_sz;
         return;
     }
 
     // We own some content but the caller does not want it
     // and we don't have any future data to preserve so we dealloc
-    if (content_new_sz == 0 and future_content_size == 0) {
-        xoz_assert("invariant", hdr.own_content);
+    if (content_new_sz == 0 and cpart.future_csize == 0) {
+        cblkarr.allocator().dealloc(cpart.segm);
+        cpart.segm.remove_inline_data();
+        cpart.segm.remove_end_of_segment();
+        cpart.segm.clear();
 
-        cblkarr.allocator().dealloc(hdr.segm);
-        hdr.segm.remove_inline_data();
-        hdr.segm.clear();
-        hdr.own_content = false;
-
-        hdr.csize = 0;
-        future_content_size = 0;
+        cpart.csize = 0;
         return;
     }
 
-    uint32_t csize_new = content_new_sz + future_content_size;
-    if (hdr.csize < csize_new) {
+    uint32_t csize_new = content_new_sz + cpart.future_csize;  // TODO add an assert?
+    if (cpart.csize < csize_new) {
         // The content is expanding.
         //
         // Perform the realloc
-        cblkarr.allocator().realloc(hdr.segm, csize_new);
+        cblkarr.allocator().realloc(cpart.segm, csize_new);
 
         // Copy from the io content the future content at the end of the io
-        auto content_io = get_allocated_content_io();
-        content_io.seek_rd(assert_u32_sub_nonneg(hdr.csize, future_content_size), IOBase::Seekdir::beg);
-        content_io.seek_wr(future_content_size, IOBase::Seekdir::end);
-        content_io.copy_into_self(future_content_size);
+        auto content_io = IOSegment(cblkarr, cpart.segm);
+        content_io.seek_rd(assert_u32_sub_nonneg(cpart.csize, cpart.future_csize), IOBase::Seekdir::beg);
+        content_io.seek_wr(cpart.future_csize, IOBase::Seekdir::end);
+        content_io.copy_into_self(cpart.future_csize);
 
-    } else if (hdr.csize > csize_new) {
+    } else if (cpart.csize > csize_new) {
         // The content is shrinking, we need to copy outside the future content,
         // do the realloc (shrink) and copy the future back.
         //
         // We can copy the future content into memory iff is small enough,
         // otherwise we go to disk.
-        if (future_content_size < RESIZE_CONTENT_MEM_COPY_THRESHOLD_SZ) {
+        if (cpart.future_csize < RESIZE_CONTENT_MEM_COPY_THRESHOLD_SZ) {
             // The future_content size is small enough, copy it into memory
             std::vector<char> future_data;
-            future_data.reserve(future_content_size);
+            future_data.reserve(cpart.future_csize);
             {
-                auto content_io = get_allocated_content_io();
-                content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
+                auto content_io = IOSegment(cblkarr, cpart.segm);
+                content_io.seek_rd(cpart.future_csize, IOBase::Seekdir::end);
                 content_io.readall(future_data);
             }
 
             // Perform the realloc
-            cblkarr.allocator().realloc(hdr.segm, csize_new);
+            cblkarr.allocator().realloc(cpart.segm, csize_new);
 
             // Copy back the future data
             {
-                auto content_io = get_allocated_content_io();  // hdr.segm changed, get a new io
-                content_io.seek_wr(future_content_size, IOBase::Seekdir::end);
+                auto content_io = IOSegment(cblkarr, cpart.segm);  // cpart.segm changed, get a new io
+                content_io.seek_wr(cpart.future_csize, IOBase::Seekdir::end);
                 content_io.writeall(future_data);
             }
 
         } else {
-            // The future_content size is too large, copy it into disk
-            auto future_sg = cblkarr.allocator().alloc(future_content_size);
+            // The future_csize size is too large, copy it into disk
+            auto future_sg = cblkarr.allocator().alloc(cpart.future_csize);
             auto future_io = IOSegment(cblkarr, future_sg);
             {
-                auto content_io = get_allocated_content_io();
-                content_io.seek_rd(future_content_size, IOBase::Seekdir::end);
-                content_io.copy_into(future_io, future_content_size);
+                auto content_io = IOSegment(cblkarr, cpart.segm);
+                content_io.seek_rd(cpart.future_csize, IOBase::Seekdir::end);
+                content_io.copy_into(future_io, cpart.future_csize);
             }
 
             // Perform the realloc
-            cblkarr.allocator().realloc(hdr.segm, csize_new);
+            cblkarr.allocator().realloc(cpart.segm, csize_new);
 
             // Copy back the future data
             {
-                auto content_io = get_allocated_content_io();  // hdr.segm changed, get a new io
-                content_io.seek_wr(future_content_size, IOBase::Seekdir::end);
+                auto content_io = IOSegment(cblkarr, cpart.segm);  // cpart.segm changed, get a new io
+                content_io.seek_wr(cpart.future_csize, IOBase::Seekdir::end);
                 future_io.seek_rd(0);
-                future_io.copy_into(content_io, future_content_size);
+                future_io.copy_into(content_io, cpart.future_csize);
             }
         }
     } /* else { neither shrink nor expand, leave it as is } */
-    hdr.segm.add_end_of_segment();
+    cpart.segm.add_end_of_segment();
 
-    xoz_assert("allocated less than requested", hdr.segm.calc_data_space_size() >= csize_new);
-    hdr.csize = csize_new;
+    xoz_assert("allocated less than requested", cpart.segm.calc_data_space_size() >= csize_new);
+    cpart.csize = csize_new;
 }
 
-IOSegment Descriptor::get_allocated_content_io() {
-    if (not hdr.own_content) {
-        // Descriptors without a content don't fail on get_content_io and instead
-        // return an empty io.
-        // This is to simplify the case where the descriptor *has* a non-empty segment
-        // but it is full of future data so the descriptor "does not have" content.
-        auto sg = Segment::EmptySegment(cblkarr.blk_sz_order());
-        auto io = IOSegment(cblkarr, sg);
-
-        io.limit_rd(0, 0);
-        io.limit_wr(0, 0);
-        return io;
-    }
-
-    return IOSegment(cblkarr, hdr.segm);
-}
-
-IOSegment Descriptor::get_content_io() {
-    // Hide from the caller the future_content
+IOSegment Descriptor::get_content_part_io(uint16_t part_num) {
+    // Hide from the caller the future content
     //
-    // Note: if get_content_io() is called from read_struct_specifics_from,
-    // by that time future_content_size is not set yet and it will default to 0
-    auto present_csize = assert_u32_sub_nonneg(hdr.csize, future_content_size);
+    // Note: if get_content_part_io() is called from read_struct_specifics_from,
+    // by that time future content size is not set yet and it will default to 0
 
-    auto io = get_allocated_content_io();
+    auto& cpart = hdr.cparts.at(part_num);  // TODO at()
+    auto io = IOSegment(cblkarr, cpart.segm);
+    auto present_csize = assert_u32_sub_nonneg(cpart.csize, cpart.future_csize);
 
     io.limit_rd(0, present_csize);
     io.limit_wr(0, present_csize);
@@ -881,26 +945,84 @@ bool Descriptor::does_present_isize_fit(uint64_t present_isize) const {
     return does_hdr_isize_fit(hdr_isize) and hdr_isize % 2 == 0;
 }
 
-bool Descriptor::does_present_csize_fit(uint64_t present_csize) const {
-    if (not is_u64_add_ok(present_csize, future_content_size)) {
+bool Descriptor::does_present_csize_fit(const struct Descriptor::content_part_t& cpart, uint64_t present_csize) const {
+    if (not is_u64_add_ok(present_csize, cpart.future_csize)) {
         return false;
     }
 
-    uint64_t hdr_csize = assert_u64_add_nowrap(present_csize, future_content_size);
+    uint64_t hdr_csize = assert_u64_add_nowrap(present_csize, cpart.future_csize);
 
     return does_hdr_csize_fit(hdr_csize);
 }
 
-struct Descriptor::header_t Descriptor::create_header(const uint16_t type, const BlockArray& cblkarr) {
-    struct Descriptor::header_t hdr = {
-            .own_content = false,
-            .type = type,
-            .id = 0x0,
-            .isize = 0,
-            .csize = 0,
-            .segm = Segment::EmptySegment(cblkarr.blk_sz_order()),
-    };
+struct Descriptor::header_t Descriptor::create_header(const uint16_t type, [[maybe_unused]] const BlockArray& cblkarr) {
+    struct Descriptor::header_t hdr = {.type = type, .id = 0x0, .isize = 0, .cparts = {}};
 
     return hdr;
+}
+
+void Descriptor::collect_segments_into(std::list<Segment>& collection) const {
+    std::for_each(hdr.cparts.cbegin(), hdr.cparts.cend(),
+                  [&collection](const auto& part) { collection.push_back(part.segm); });
+}
+
+void Descriptor::chk_content_parts_count(bool wouldBe, const Descriptor::header_t& hdr, const uint16_t decl_cpart_cnt) {
+    F errmsg;
+    if (hdr.cparts.size() != decl_cpart_cnt) {
+        errmsg = std::move(F() << "The descriptor code declared to use " << decl_cpart_cnt
+                               << " content parts but it has " << hdr.cparts.size()
+                               << ". May be the update_content_parts() has a bug?");
+        goto fail;
+    }
+
+    return;
+
+fail:
+    if (wouldBe) {
+        throw WouldEndUpInconsistentXOZ(errmsg);
+    } else {
+        throw InconsistentXOZ(errmsg);
+    }
+}
+
+void Descriptor::chk_content_parts_consistency(bool wouldBe, const Descriptor::header_t& hdr) {
+    F errmsg;
+    int part_ix = 0;
+
+    for (const auto& cpart: hdr.cparts) {
+        if (cpart.csize < cpart.future_csize) {
+            errmsg = std::move(F() << "The content part at index " << part_ix << " declares to have a csize of "
+                                   << cpart.csize << " bytes"
+                                   << " which it is less than the computed future_csize of " << cpart.future_csize
+                                   << " bytes.");
+            goto fail;
+        }
+
+        if (cpart.csize > cpart.segm.calc_data_space_size()) {
+            errmsg = std::move(F() << "The content part at index " << part_ix << " declares to have a csize of "
+                                   << cpart.csize << " bytes"
+                                   << " which it is greater than the available space in the segment of "
+                                   << cpart.segm.calc_data_space_size() << " bytes.");
+            goto fail;
+        }
+
+        if (not does_hdr_csize_fit(cpart.csize)) {
+            errmsg = std::move(F() << "The content part at index " << part_ix << " declares to have a csize of "
+                                   << cpart.csize << " bytes"
+                                   << " that does not fit in the header.");
+            goto fail;
+        }
+
+        ++part_ix;
+    }
+
+    return;
+
+fail:
+    if (wouldBe) {
+        throw WouldEndUpInconsistentXOZ(errmsg);
+    } else {
+        throw InconsistentXOZ(errmsg);
+    }
 }
 }  // namespace xoz

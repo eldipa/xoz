@@ -13,6 +13,7 @@
 #include "gmock/gmock.h"
 #include "test/testing_xoz.h"
 
+#include "xoz/dsc/spy.h"
 
 #include <numeric>
 
@@ -22,6 +23,7 @@ using ::testing::AllOf;
 
 using ::testing_xoz::PlainDescriptor;
 using ::testing_xoz::PlainWithContentDescriptor;
+using ::testing_xoz::PlainWithImplContentDescriptor;
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::are_all_zeros;
@@ -34,6 +36,8 @@ namespace {
 const size_t FP_SZ = 224;
 }
 
+typedef ::xoz::dsc::internals::DescriptorInnerSpyForTesting DSpy;
+
 #define XOZ_RESET_FP(fp, sz) do {           \
     (fp).assign(sz, 0);                     \
 } while (0)
@@ -41,25 +45,25 @@ const size_t FP_SZ = 224;
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
 #define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, cdata_sz, obj_data_sz) do {      \
-    EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
-    EXPECT_EQ((dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
-    EXPECT_EQ((dsc).calc_content_space_size(), (unsigned)(cdata_sz));      \
-    EXPECT_EQ((dsc).get_hdr_csize(), (unsigned)(obj_data_sz));       \
+    EXPECT_EQ(DSpy(dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
+    EXPECT_EQ(DSpy(dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
+    EXPECT_EQ(DSpy(dsc).calc_segm_data_space_size(0), (unsigned)(cdata_sz));      \
+    EXPECT_EQ(DSpy(dsc).calc_declared_hdr_csize(0), (unsigned)(obj_data_sz));       \
 } while (0)
 
 // Check that the serialization of the obj in fp match
 // byte-by-byte with the expected data (in hexdump) in the first
 // N bytes and the rest of fp are zeros
 #define XOZ_EXPECT_SERIALIZATION(fp, dsc, data) do {                                 \
-    EXPECT_EQ(hexdump((fp), 0, (dsc).calc_struct_footprint_size()), (data));         \
-    EXPECT_EQ(are_all_zeros((fp), (dsc).calc_struct_footprint_size()), (bool)true);  \
+    EXPECT_EQ(hexdump((fp), 0, DSpy(dsc).calc_struct_footprint_size()), (data));         \
+    EXPECT_EQ(are_all_zeros((fp), DSpy(dsc).calc_struct_footprint_size()), (bool)true);  \
 } while (0)
 
 // Calc checksum over the fp (bytes) and expect to be the same as the descriptor's checksum
 // Note: this requires a load_struct_from/write_struct_into call before to make
 // the descriptor's checksum updated
 #define XOZ_EXPECT_CHECKSUM(fp, dsc) do {    \
-    EXPECT_EQ(inet_checksum((uint8_t*)(fp).data(), (dsc).calc_struct_footprint_size()), (dsc).checksum); \
+    EXPECT_EQ(inet_checksum((uint8_t*)(fp).data(), DSpy(dsc).calc_struct_footprint_size()), (dsc).checksum); \
 } while (0)
 
 // Load from fp the obj and serialize it back again into
@@ -87,7 +91,7 @@ const size_t FP_SZ = 224;
     uint32_t checksum2 = 0;                                              \
     uint32_t checksum3 = 0;                                              \
                                                                          \
-    uint32_t sz1 = (dsc).calc_struct_footprint_size();                   \
+    uint32_t sz1 = DSpy(dsc).calc_struct_footprint_size();                   \
     auto d1 = hexdump((fp), 0, sz1);                                      \
                                                                          \
     auto dsc2_ptr = Descriptor::load_struct_from(IOSpan(fp), (rctx), (cblkarr));   \
@@ -96,7 +100,7 @@ const size_t FP_SZ = 224;
     auto dset = dsc2_ptr->cast<DescriptorSet>(true);                     \
     if (dset) { dset->load_set(); }                                      \
                                                                          \
-    uint32_t sz2 = dsc2_ptr->calc_struct_footprint_size();               \
+    uint32_t sz2 = DSpy(*dsc2_ptr).calc_struct_footprint_size();               \
     EXPECT_EQ(sz1, sz2);                                                 \
                                                                          \
     dsc2_ptr->write_struct_into(IOSpan(buf2), (rctx));                   \
@@ -118,14 +122,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -159,14 +161,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -203,14 +203,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0x1e0 - 1,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -247,14 +245,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0x01fe,
 
             .id = 0x80000001,
 
             .isize = 4,
-            .csize = 0,
-            .segm = Segment::EmptySegment(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         DescriptorSet dsc(hdr, cblkarr, rctx);
@@ -289,14 +285,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0x1e0 + 2048 + 1,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -333,14 +327,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0x01ff,
 
             .id = 0x80000001,
 
             .isize = 4,
-            .csize = 0,
-            .segm = Segment::EmptySegment(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         DescriptorSet dsc(hdr, cblkarr, rctx);
@@ -375,14 +367,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xffff,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -419,14 +409,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xffff, // fake a type that requires ex_type
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -490,14 +478,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         std::vector<char> data(64-2);
@@ -539,14 +525,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         std::vector<char> data(64);
@@ -588,14 +572,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         std::vector<char> data(128-2);
@@ -639,14 +621,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xff,
 
             .id = 1,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         std::vector<char> data(64-2);
@@ -689,14 +669,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xff,
 
             .id = 0x7fffffff,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         std::vector<char> data(64-2);
@@ -738,14 +716,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 1,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -753,7 +729,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -762,7 +738,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 0000 00c0"
+                "ff02 0100 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -780,14 +756,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0x01e0 - 1,
 
             .id = 1,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -795,7 +769,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -804,7 +778,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "df83 0100 0000 0000 00c0"
+                "df03 0100 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -822,14 +796,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0x01fe,
 
             .id = 0x80000001,
 
             .isize = 4,
-            .csize = 0,
-            .segm = Segment::EmptySegment(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         DescriptorSet dsc(hdr, cblkarr, rctx);
@@ -864,14 +836,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0x01e0 + 2048 + 1,
 
             .id = 1,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -879,7 +849,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -888,7 +858,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff83 0100 0000 0000 00c0 e109"
+                "ff03 0100 0000 e109"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -906,14 +876,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0x01ff,
 
             .id = 0x80000001,
 
             .isize = 4,
-            .csize = 0,
-            .segm = Segment::EmptySegment(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         DescriptorSet dsc(hdr, cblkarr, rctx);
@@ -948,14 +916,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xffff,
 
             .id = 1,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -963,7 +929,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -972,7 +938,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff83 0100 0000 0000 00c0 ffff"
+                "ff03 0100 0000 ffff"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -990,14 +956,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 1,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         std::vector<char> data(64);
@@ -1010,7 +974,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+64, /* struct size */
+                2+4+64, /* struct size */
                 64,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -1019,7 +983,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0080 0000 00c0 "
+                "ff02 0100 0080 "
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 "
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f "
                 "3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
@@ -1031,7 +995,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmSomeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataWithInlineData) {
         RuntimeContext rctx({});
 
         std::vector<char> fp;
@@ -1040,31 +1004,35 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 1,
 
             .isize = 0,
-            .csize = 1,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = 1,
+                    .segm = cblkarr.create_segment_with({'a'})
+                }
+            }
         };
 
-        PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
         dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4+2+2+2, /* struct size */
                 0,   /* internal data size */
-                0,  /* segment data size */
+                1,  /* segment data size */
                 1  /* obj data size */
                 );
 
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 0100 00c0"
+                "ff82 0100 0000 0000 0100 61c1"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1073,7 +1041,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxNonLargeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataLargeCSizeSegmentOneByteMore) {
         RuntimeContext rctx({});
 
         std::vector<char> fp;
@@ -1082,31 +1050,37 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 1,
 
             .isize = 0,
-            .csize = (1 << 15) - 1,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {
+                {
+                    // A single content part with X csize
+                    // The segment howerver it is 1 byte larger (and it is ok, larger segments are ok)
+                    .future_csize = 0,
+                    .csize = (1 << 15) - 1,
+                    .segm = cblkarr.create_segment(Extent(0, ((1 << 15)) >> cblkarr.blk_sz_order(), false))
+                }
+            }
         };
 
-        PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
         dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4+2+2+2+4, /* struct size */
                 0,   /* internal data size */
-                0,  /* segment data size */
+                (1 << 15),  /* segment data size */
                 (1 << 15) - 1  /* obj data size */
                 );
 
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 ff7f 00c0"
+                "ff82 0100 0000 0000 ff7f 0004 2000 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1115,7 +1089,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmOneMoreNonLargeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataLargeCSizeSegmSizeSameSize) {
         RuntimeContext rctx({});
 
         std::vector<char> fp;
@@ -1124,31 +1098,35 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 1,
 
             .isize = 0,
-            .csize = (1 << 15),
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = (1 << 15),
+                    .segm = cblkarr.create_segment(Extent(0, ((1 << 15)) >> cblkarr.blk_sz_order(), false))
+                }
+            }
         };
 
-        PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
         dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2+4, /* struct size */
                 0,   /* internal data size */
-                0,  /* segment data size */
+                (1 << 15),  /* segment data size */
                 (1 << 15)  /* obj data size */
                 );
 
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 0080 0100 00c0"
+                "ff82 0100 0000 0000 0080 0100 0004 2000 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1157,40 +1135,44 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataEmptySegmMaxLargeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataMaxCSizeMuchLargerSegm) {
         RuntimeContext rctx({});
 
         std::vector<char> fp;
         XOZ_RESET_FP(fp, FP_SZ);
 
-        VectorBlockArray cblkarr(1024);
+        VectorBlockArray cblkarr(32768 << 1); // note: very large blocks so it is easier to build a single-extent segment
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 1,
 
             .isize = 0,
-            .csize = uint32_t(1 << 31) - 1,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = uint32_t(1 << 31) - 1,
+                    .segm = cblkarr.create_segment(Extent(0, uint16_t(-1), false))
+                }
+            }
         };
 
-        PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
         dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2+4, /* struct size */
                 0,   /* internal data size */
-                0,  /* segment data size */
+                4294901760,  /* segment data size */
                 uint32_t(1 << 31) - 1  /* obj data size */
                 );
 
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 ffff ffff 00c0"
+                "ff82 0100 0000 0000 ffff ffff 0004 ffff 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1199,7 +1181,7 @@ namespace {
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
     }
 
-    TEST(DescriptorTest, OwnsPersistentIdZeroDataSegmInlineSomeObjData) {
+    TEST(DescriptorTest, OwnsPersistentIdZeroDataSegmInlineWithFuture) {
         RuntimeContext rctx({});
 
         std::vector<char> fp;
@@ -1208,24 +1190,26 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 1,
 
             .isize = 0,
-            .csize = 1,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {
+                {
+                    .future_csize = 1,
+                    .csize = 1,
+                    .segm = cblkarr.create_segment_with({0x1, 0x2, 0x3})
+                }
+            }
         };
 
-        hdr.segm.set_inline_data({0x1, 0x2, 0x3});
-
-        PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
         dsc.full_sync(false);
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+4, /* struct size */
+                2+4+2+2+4, /* struct size */
                 0,   /* internal data size */
                 3,  /* segment data size */
                 1  /* obj data size */
@@ -1234,7 +1218,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 0100 03c3 0102"
+                "ff82 0100 0000 0000 0100 03c3 0102"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1252,14 +1236,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -1323,31 +1305,35 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 15,
 
             .isize = 0,
-            .csize = 42,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = 42,
+                    .segm = cblkarr.create_segment_with(std::vector<char>(42))
+                }
+            }
         };
 
-        PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
+        PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
         dsc.set_idata({1, 2}); // isize = 2
         dsc.full_sync(false);
 
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2+42, /* struct size */
                 2,   /* internal data size */
-                0,  /* segment data size */
+                42,  /* segment data size */
                 42  /* obj data size */
                 );
 
         IOSpan io(fp);
-        io.seek_wr(2+4+2+2+2 - 1, IOSpan::Seekdir::end); // point 1 byte off (available = 11 bytes)
+        io.seek_wr(2+4+2+2+2+2+42 - 1, IOSpan::Seekdir::end); // point 1 byte off (available = 11 bytes)
 
         EXPECT_THAT(
             ensure_called_once([&]() { dsc.write_struct_into(io, rctx); }),
@@ -1356,7 +1342,8 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for writing descriptor's internal data of "
-                        "descriptor {id: 0x0000000f, type: 255, isize: 2, csize: 42, owns: 0}"
+                        "descriptor {id: 0x0000000f, type: 255, isize: 2, "
+                        "[use/csize segm]: 42/42 [] (+42) (struct: 44 B, data: 0 B) }"
                         )
                     )
                 )
@@ -1368,7 +1355,7 @@ namespace {
         dsc.write_struct_into(IOSpan(fp), rctx);
 
         // Now, truncate the file so the span will be shorter than the expected size
-        fp.resize(2+4+2+2+2 - 1); // shorter by 1 byte
+        fp.resize(2+4+2+2+2+2+42 - 1); // shorter by 1 byte
 
         EXPECT_THAT(
             ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr); }),
@@ -1377,7 +1364,8 @@ namespace {
                     HasSubstr(
                         "Requested 2 bytes but only 1 bytes are available. "
                         "No enough room for reading descriptor's internal data of "
-                        "descriptor {id: 0x0000000f, type: 255, isize: 2, csize: 42, owns: 0}"
+                        "descriptor {id: 0x0000000f, type: 255, isize: 2, "
+                        "[use/csize segm]: 42/42 [] (+42) (struct: 44 B, data: 0 B) }"
                         )
                     )
                 )
@@ -1388,14 +1376,15 @@ namespace {
     private:
         std::vector<char> internal_data;
     public:
-        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : Descriptor(hdr, cblkarr) {}
+        DescriptorSubRW(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : Descriptor(hdr, cblkarr, 1) {}
         void read_struct_specifics_from(IOBase&) override {
             return; // 0 read
         }
         void write_struct_specifics_into(IOBase&) override {
             return; // 0 write
         }
-        void update_sizes(uint64_t& isize, [[maybe_unused]] uint64_t& csize) override {
+
+        void update_isize(uint64_t& isize) override {
             isize = assert_u8(internal_data.size());
         }
 
@@ -1430,14 +1419,18 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 15,
 
             .isize = 0,
-            .csize = 42,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = 42,
+                    .segm = cblkarr.create_segment_with(std::vector<char>(42))
+                }
+            }
         };
 
         DescriptorSubRW dsc = DescriptorSubRW(hdr, cblkarr);
@@ -1446,9 +1439,9 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2+42, /* struct size */
                 2,   /* internal data size */
-                0,  /* segment data size */
+                42,  /* segment data size */
                 42  /* obj data size */
                 );
 
@@ -1459,7 +1452,7 @@ namespace {
                     HasSubstr(
                         "The descriptor subclass underflowed the write pointer and "
                         "processed 0 bytes (left 2 bytes unprocessed of 2 bytes available) and "
-                        "left it at position 10 that it is before the end of the data section at position 12."
+                        "left it at position 54 that it is before the end of the data section at position 56."
                         )
                     )
                 )
@@ -1468,7 +1461,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
 
         // Write a valid descriptor of data size 2
-        PlainDescriptor dsc2 = PlainDescriptor(hdr, cblkarr);
+        PlainWithImplContentDescriptor dsc2 = PlainWithImplContentDescriptor(hdr, cblkarr);
         dsc2.set_idata({1, 2});
         dsc2.full_sync(false);
         dsc2.write_struct_into(IOSpan(fp), rctx);
@@ -1488,7 +1481,7 @@ namespace {
         // Check the write preserve the opaque data
         dsc3->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, *dsc3,
-                "ff86 0f00 0000 2a00 00c0 0102"
+                "ff86 0f00 0000 0000 2a00 00ea 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0102"
                 );
 
         rctx.idmgr.reset();
@@ -1497,9 +1490,9 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(*dsc4,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2+42, /* struct size */
                 2,   /* internal data size */
-                0,  /* segment data size */
+                42,  /* segment data size */
                 42  /* obj data size */
                 );
 
@@ -1509,7 +1502,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
         dsc4->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, *dsc4,
-                "ff86 0f00 0000 2a00 00c0 0102"
+                "ff86 0f00 0000 0000 2a00 00ea 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0102"
                 );
     }
 
@@ -1522,14 +1515,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xff,
 
             .id = 0,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainDescriptor dsc = PlainDescriptor(hdr, cblkarr);
@@ -1537,7 +1528,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -1552,7 +1543,7 @@ namespace {
                 AllOf(
                     HasSubstr(
                         "Descriptor id is zero in descriptor "
-                        "{id: 0x00000000, type: 255, isize: 0, csize: 0, owns: 0}"
+                        "{id: 0x00000000, type: 255, isize: 0}"
                         )
                     )
                 )
@@ -1571,7 +1562,7 @@ namespace {
         // that has_id but it has a id = 0
         fp[2] = fp[3] = 0;
         XOZ_EXPECT_SERIALIZATION(fp, dsc2,
-                "ff82 0000 0000 0000 00c0"
+                "ff02 0000 0000"
                 );
 
         // Because the isize of the descriptor is small, there is no reason to have
@@ -1583,7 +1574,7 @@ namespace {
                     HasSubstr(
                         "xoz file seems inconsistent/corrupt. "
                         "Descriptor id is zero, detected with partially loaded descriptor "
-                        "{id: 0x00000000, type: 255, isize: 0, csize: 0, owns: 0}"
+                        "{id: 0x00000000, type: 255, isize: 0}"
                         )
                     )
                 )
@@ -1606,7 +1597,7 @@ namespace {
 
         // the id should be 0, see also how the hi_dsize bit is set (0080)
         XOZ_EXPECT_SERIALIZATION(fp, dsc3,
-                "ff82 0000 0080 0000 00c0 "
+                "ff02 0000 0080 "
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
@@ -1627,14 +1618,12 @@ namespace {
         VectorBlockArray cblkarr(1024);
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xffff, // fake a type that requires ex_type
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         // The concrete Descriptor subclass
@@ -1686,14 +1675,12 @@ namespace {
         cblkarr.allocator().initialize_with_nothing_allocated();
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xff,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(cblkarr.blk_sz_order())
+            .cparts = {}
         };
 
         PlainWithContentDescriptor dsc = PlainWithContentDescriptor(hdr, cblkarr);
@@ -1724,7 +1711,7 @@ namespace {
 
         // Check sizes: no content for now
         XOZ_EXPECT_SIZES(dsc,
-                10, // struct size: 6 of header + 4 of idata
+                12, // struct size: 8 of header + 4 of idata
                 4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
                 1,  // segment data size: 'A'
                 1   // obj data size: 'A'
@@ -1732,7 +1719,7 @@ namespace {
 
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff88 0100 41c1 0100 0000" // Note the 0x41 there: the content is stored within the segment
+                "ff88 0000 0100 41c1 0100 0000" // Note the 0x41 there: the content is stored within the segment
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
@@ -1743,7 +1730,7 @@ namespace {
 
         // Check sizes: no content for now
         XOZ_EXPECT_SIZES(dsc,
-                12, // struct size: 8 of header + 4 of idata
+                14, // struct size: 10 of header + 4 of idata
                 4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
                 2,  // segment data size: 'AB'
                 2   // obj data size: 'AB'
@@ -1751,7 +1738,7 @@ namespace {
 
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff88 0200 00c2 4142 0200 0000"
+                "ff88 0000 0200 00c2 4142 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
@@ -1763,7 +1750,7 @@ namespace {
 
         // Check sizes: no content for now
         XOZ_EXPECT_SIZES(dsc,
-                14, // struct size: 10 of header + 4 of idata
+                16, // struct size: 12 of header + 4 of idata
                 4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
                 64,  // segment data size: 1/16 of a block size (1 single subblock)
                 10   // obj data size: 'ABCDEFGHIJ'
@@ -1771,7 +1758,7 @@ namespace {
 
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff88 0a00 0084 0080 00c0 0a00 0000"
+                "ff88 0000 0a00 0084 0080 00c0 0a00 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
@@ -1787,7 +1774,7 @@ namespace {
 
         // Check sizes: no content for now
         XOZ_EXPECT_SIZES(dsc,
-                14, // struct size: 10 of header + 4 of idata
+                16, // struct size: 12 of header + 4 of idata
                 4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
                 4,  // segment data size: 1/16 of a block size (1 single subblock)
                 4   // obj data size: 'ABCDEFGHIJ'
@@ -1795,7 +1782,7 @@ namespace {
 
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff88 0400 00c4 4748 494a 0400 0000" // use inline again
+                "ff88 0000 0400 00c4 4748 494a 0400 0000" // use inline again
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
@@ -1814,7 +1801,7 @@ namespace {
 
         // Write and check the dump: no content for now
         dsc.write_struct_into(IOSpan(fp), rctx);
-        EXPECT_EQ(hexdump((fp), 0, (dsc).calc_struct_footprint_size()),
+        EXPECT_EQ(hexdump((fp), 0, DSpy(dsc).calc_struct_footprint_size()),
                 "ff00"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
@@ -1834,10 +1821,430 @@ namespace {
 
         // Write and check the dump: no content for now
         dsc.write_struct_into(IOSpan(fp), rctx);
-        EXPECT_EQ(hexdump((fp), 0, (dsc).calc_struct_footprint_size()),
+        EXPECT_EQ(hexdump((fp), 0, DSpy(dsc).calc_struct_footprint_size()),
                 "ff00"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, dsc, rctx, cblkarr);
+    }
+
+    TEST(DescriptorTest, ContentSizeGreaterThanSegmentSizeIsBad) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024);
+
+        struct Descriptor::header_t hdr = {
+            .type = 0xff,
+
+            .id = 1,
+
+            .isize = 0,
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = 4,
+                    .segm = cblkarr.create_segment_with({0x1, 0x2, 0x3})
+                }
+            }
+        };
+
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                [[maybe_unused]]
+                PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
+                }),
+            ThrowsMessage<xoz::InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                         "The content part at index 0 declares to have a csize of 4 bytes "
+                         "which it is greater than the available space in the segment of 3 bytes."
+                        )
+                    )
+                )
+        );
+    }
+
+    TEST(DescriptorTest, FutureContentSizeGreaterThanContentSizeIsBad) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024);
+
+        struct Descriptor::header_t hdr = {
+            .type = 0xff,
+
+            .id = 1,
+
+            .isize = 0,
+            .cparts = {
+                {
+                    .future_csize = 3,
+                    .csize = 3,
+                    .segm = cblkarr.create_segment_with({0x1, 0x2, 0x3})
+                }
+            }
+        };
+
+        {
+            // future_csize == csize  no problem
+            PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
+            dsc.full_sync(false);
+        }
+
+        hdr.cparts[0].future_csize += 1;
+
+        // future_csize > csize  is not ok
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                [[maybe_unused]]
+                PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
+                }),
+            ThrowsMessage<xoz::InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                         "The content part at index 0 declares to have a csize of 3 bytes "
+                         "which it is less than the computed future_csize of 4 bytes."
+                        )
+                    )
+                )
+        );
+    }
+
+    TEST(DescriptorTest, ContentSizeTooLargeIsBad) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024 << 6);
+
+        struct Descriptor::header_t hdr = {
+            .type = 0xff,
+
+            .id = 1,
+
+            .isize = 0,
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = uint32_t(0x80000000),
+                    .segm = cblkarr.create_segment(Extent(0, uint16_t(-1), false))
+                }
+            }
+        };
+
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                [[maybe_unused]]
+                PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
+                }),
+            ThrowsMessage<xoz::InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                         "The content part at index 0 declares to have a csize of 2147483648 bytes "
+                         "that does not fit in the header."
+                        )
+                    )
+                )
+        );
+    }
+
+    class BuggyDescriptor : public PlainWithImplContentDescriptor {
+    public:
+        BuggyDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr): PlainWithImplContentDescriptor(hdr, cblkarr) {}
+        void update_content_parts(std::vector<struct Descriptor::content_part_t>& cparts) override {
+            cparts.clear(); // This is a bug!
+        }
+    };
+
+    TEST(DescriptorTest, ModifyContentPartsOnUpdateCallIsBad) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024);
+
+        {
+            // We have 1 content part, BuggyDescriptor will erroneously clear the cparts vector
+            // hence, triggering the exception
+            struct Descriptor::header_t hdr = {
+                .type = 0xff,
+
+                .id = 1,
+
+                .isize = 0,
+                .cparts = {
+                    {
+                        .future_csize = 0,
+                        .csize = 1,
+                        .segm = cblkarr.create_segment_with({0, 1, 2})
+                    }
+                }
+            };
+
+            BuggyDescriptor dsc = BuggyDescriptor(hdr, cblkarr);
+            EXPECT_THAT(
+                ensure_called_once([&]() {
+                    dsc.full_sync(false);
+                    }),
+                ThrowsMessage<xoz::WouldEndUpInconsistentXOZ>(
+                    AllOf(
+                        HasSubstr(
+                             "The descriptor code declared to use 1 content parts but it has 0. "
+                             "May be the update_content_parts() has a bug?"
+                            )
+                        )
+                    )
+            );
+        }
+
+        {
+            // We have 0 content parts but BuggyDescriptor inherits from PlainWithImplContentDescriptor
+            // which declares 1 content part so it should be at least 1
+            // BuggyDescriptor will erroneously clear the cparts vector
+            // hence, triggering the exception
+            struct Descriptor::header_t hdr = {
+                .type = 0xff,
+
+                .id = 1,
+
+                .isize = 0,
+                .cparts = {
+                    {
+                        .future_csize = 0,
+                        .csize = 0,
+                        .segm = cblkarr.create_segment_with({})
+                    }
+                }
+            };
+
+            BuggyDescriptor dsc = BuggyDescriptor(hdr, cblkarr);
+            EXPECT_THAT(
+                ensure_called_once([&]() {
+                    dsc.full_sync(false);
+                    }),
+                ThrowsMessage<xoz::WouldEndUpInconsistentXOZ>(
+                    AllOf(
+                        HasSubstr(
+                             "The descriptor code declared to use 1 content parts but it has 0. "
+                             "May be the update_content_parts() has a bug?"
+                            )
+                        )
+                    )
+            );
+        }
+
+        {
+            // We have 2 content parts and it is ok even if
+            // BuggyDescriptor (inheriting from PlainWithImplContentDescriptor)
+            // declared 1.
+            // But BuggyDescriptor will erroneously clear the cparts vector
+            // hence, triggering the exception
+            struct Descriptor::header_t hdr = {
+                .type = 0xff,
+
+                .id = 1,
+
+                .isize = 0,
+                .cparts = {
+                    {
+                        .future_csize = 0,
+                        .csize = 1,
+                        .segm = cblkarr.create_segment_with({0, 1, 2})
+                    },
+                    {
+                        .future_csize = 0,
+                        .csize = 1,
+                        .segm = cblkarr.create_segment_with({0, 1, 2})
+                    }
+                }
+            };
+
+            BuggyDescriptor dsc = BuggyDescriptor(hdr, cblkarr);
+            EXPECT_THAT(
+                ensure_called_once([&]() {
+                    dsc.full_sync(false);
+                    }),
+                ThrowsMessage<xoz::WouldEndUpInconsistentXOZ>(
+                    AllOf(
+                        HasSubstr(
+                             "The descriptor code declared to use 2 content parts but it has 0. "
+                             "May be the update_content_parts() has a bug?"
+                            )
+                        )
+                    )
+            );
+        }
+    }
+
+    class Buggy2Descriptor : public PlainWithImplContentDescriptor {
+    public:
+        Buggy2Descriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr): PlainWithImplContentDescriptor(hdr, cblkarr) {}
+        void update_content_parts(std::vector<struct Descriptor::content_part_t>& cparts) override {
+            cparts[0].csize = 0xffff; // this is a bug!
+        }
+    };
+
+    TEST(DescriptorTest, ContentSizeLargerThanSegmentIsBad) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024 << 6);
+
+        struct Descriptor::header_t hdr = {
+            .type = 0xff,
+
+            .id = 1,
+
+            .isize = 0,
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = 3, // 1 byte larger, this is bad
+                    .segm = cblkarr.create_segment_with({1, 2})
+                }
+            }
+        };
+
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                [[maybe_unused]]
+                PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
+                }),
+            ThrowsMessage<xoz::InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                         "xoz file seems inconsistent/corrupt. "
+                         "The content part at index 0 declares to have a csize of 3 bytes which "
+                         "it is greater than the available space in the segment of 2 bytes."
+                        )
+                    )
+                )
+        );
+
+        // Same result if we make this worse: the segment is not only smaller than csize but it is empty!
+        hdr.cparts[0].segm = cblkarr.create_segment_with({});
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                [[maybe_unused]]
+                PlainWithImplContentDescriptor dsc = PlainWithImplContentDescriptor(hdr, cblkarr);
+                }),
+            ThrowsMessage<xoz::InconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                         "xoz file seems inconsistent/corrupt. "
+                         "The content part at index 0 declares to have a csize of 3 bytes which "
+                         "it is greater than the available space in the segment of 0 bytes."
+                        )
+                    )
+                )
+        );
+
+
+        // Let's fix the header so we can construct Buggy2Descriptor
+        // But Buggy2Descriptor is buggy and it will screw the csize on update_content_parts call
+        hdr.cparts[0].csize = 0;
+        Buggy2Descriptor dsc = Buggy2Descriptor(hdr, cblkarr);
+
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dsc.full_sync(false);
+                }),
+            ThrowsMessage<xoz::WouldEndUpInconsistentXOZ>(
+                AllOf(
+                    HasSubstr(
+                        "The content part at index 0 declares to have a csize of 65535 bytes which "
+                        "it is greater than the available space in the segment of 0 bytes."
+                        )
+                    )
+                )
+        );
+    }
+
+    TEST(DescriptorTest, ContentSizeSmallerThanSegmentIsOk) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024 << 6);
+
+        struct Descriptor::header_t hdr = {
+            .type = 0xff,
+
+            .id = 1,
+
+            .isize = 0,
+            .cparts = {
+                {
+                    .future_csize = 0, // note: there is *no* future data, so the rest of segm is garbage
+                    .csize = 1, // 1 byte smaller, this is perfectly fine
+                    .segm = cblkarr.create_segment_with({1, 2})
+                }
+            }
+        };
+
+        {
+            PlainWithContentDescriptor dsc = PlainWithContentDescriptor(hdr, cblkarr);
+
+            // Check sizes
+            dsc.full_sync(false);
+            XOZ_EXPECT_SIZES(dsc,
+                    2+4+2+(2+4)+4, /* struct size */
+                    4,   /* internal data size */
+                    2,  /* segment data size */
+                    1  /* obj data size */
+                    );
+
+            // Write and check the dump: no content for now
+            dsc.write_struct_into(IOSpan(fp), rctx);
+            XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                    "ff8a 0100 0000 0000 "
+                    "0100 "         // csize = 1
+                    "00c2 0102 "    // segm sz = 2
+                    "0000 0000"     // content_size field of PlainWithContentDescriptor
+                    );
+            XOZ_EXPECT_CHECKSUM(fp, dsc);
+
+            // Load, write it back and check both byte-strings
+            // are the same
+            XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+        }
+
+        // If the csize is zero, then the content part collapses (the header is compressed)
+        hdr.id = 2;
+        hdr.cparts[0].csize = 0;
+        XOZ_RESET_FP(fp, FP_SZ);
+        {
+            PlainWithContentDescriptor dsc = PlainWithContentDescriptor(hdr, cblkarr);
+
+            // Check sizes
+            dsc.full_sync(false);
+            XOZ_EXPECT_SIZES(dsc,
+                    2+4, /* struct size */
+                    0,   /* internal data size */
+                    2,  /* segment data size, it did *not* disappeared! */
+                    0  /* obj data size */
+                    );
+
+            // Write and check the dump: no content for now
+            dsc.write_struct_into(IOSpan(fp), rctx);
+            XOZ_EXPECT_SERIALIZATION(fp, dsc,
+                    "ff02 0200 0000"
+                    );
+            XOZ_EXPECT_CHECKSUM(fp, dsc);
+
+            // Load, write it back and check both byte-strings
+            // are the same
+            XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
+        }
     }
 }

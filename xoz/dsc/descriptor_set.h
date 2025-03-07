@@ -7,6 +7,7 @@
 #include <memory>
 #include <queue>
 #include <set>
+#include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -81,7 +82,7 @@ private:
      *
      * Note: currently both sg_blkarr and cblkarr point to the *same* block array.
      * */
-    Segment segm;
+    Segment dset_segm;
     BlockArray& sg_blkarr;
     BlockArray& cblkarr;
     SegmentBlockArray st_blkarr;
@@ -110,7 +111,12 @@ private:
      * of the current_checksum).
      * */
     bool header_does_require_write;
-    Extent header_ext;
+
+protected:
+    enum Streams : uint16_t {
+        Main = 0,
+        END  // this *must* be the last entry
+    };
 
 public:
     constexpr static uint16_t TYPE = 0x0001;
@@ -349,7 +355,7 @@ public:
         return _depth_first_for_each_set_adapter<Fn, false>(root, fn);
     }
 
-    Segment segment() const { return segm; }
+    Segment segment() const { return dset_segm; }
 
 public:
     void fail_if_not_allowed_to_add(const Descriptor* dsc) const;
@@ -383,8 +389,8 @@ private:
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
 
 protected:
-    void update_sizes(uint64_t& isize, uint64_t& csize) override;
-    bool update_content_segment(Segment& segm) override;
+    void update_isize(uint64_t& isize) override;
+    void update_content_parts(std::vector<struct Descriptor::content_part_t>& cparts) override;
 
 private:
     void flush_writes_no_recursive(const bool release);
@@ -427,6 +433,14 @@ public:
     void /* testing */ _set_ireserved(uint16_t v);
     void /* testing */ _set_creserved(uint16_t v);
     void /* testing */ _set_pdata(const std::vector<char>& v);
+
+    // Internal, for sub-classing only
+    DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, uint16_t decl_cpart_cnt,
+                  RuntimeContext& rctx);
+    DescriptorSet(const uint16_t TYPE, BlockArray& cblkarr, uint16_t decl_cpart_cnt, RuntimeContext& rctx);
+
+    // This is for testing only
+    DescriptorSet(const Segment& segm, BlockArray& cblkarr, RuntimeContext& rctx);
 
 private:
     void fail_if_set_not_loaded() const;
@@ -497,38 +511,5 @@ private:
 protected:
     void read_struct_specifics_from(IOBase& io) override;
     void write_struct_specifics_into(IOBase& io) override;
-
-    template <class T>
-    static std::unique_ptr<T> create_subclass(const uint16_t dsc_type, const Segment& segm, BlockArray& cblkarr,
-                                              RuntimeContext& rctx) {
-        assert(segm.inline_data_sz() == 0);
-
-        const uint16_t sflags = 0;
-
-        struct Descriptor::header_t hdr = {.own_content = false,
-                                           .type = dsc_type,
-                                           .id = 0x00,
-                                           // set some temporal size, we will update them
-                                           // at the end of the function calling update_header()
-                                           .isize = 0,
-                                           .csize = 0,
-                                           .segm = segm};
-
-        hdr.segm.remove_inline_data();
-        hdr.own_content = hdr.segm.length() > 0;
-
-        auto dset = std::make_unique<T>(hdr, cblkarr, rctx);
-        assert(not dset->hdr.segm.has_end_of_segment());
-
-        if (not dset->hdr.own_content) {
-            dset->creserved = sflags;
-        }
-
-        dset->load_set();
-
-        // this call will make hdr.csize and hdr.isize to be correctly set
-        dset->update_header();
-        return dset;
-    }
 };
 }  // namespace xoz

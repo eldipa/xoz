@@ -18,6 +18,7 @@
 #include "xoz/io/iosegment.h"
 #include "xoz/mem/inet_checksum.h"
 
+#include "xoz/dsc/spy.h"
 
 #include <numeric>
 
@@ -27,6 +28,7 @@ using ::testing::AllOf;
 using ::testing::ElementsAre;
 
 using ::testing_xoz::PlainDescriptor;
+using ::testing_xoz::PlainWithImplContentDescriptor;
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::are_all_zeros;
@@ -39,6 +41,8 @@ namespace {
 const size_t FP_SZ = 224;
 }
 
+typedef ::xoz::dsc::internals::DescriptorInnerSpyForTesting DSpy;
+
 #define XOZ_RESET_FP(fp, sz) do {           \
     (fp).assign(sz, 0);                     \
 } while (0)
@@ -47,15 +51,15 @@ const size_t FP_SZ = 224;
 // byte-by-byte with the expected data (in hexdump) in the first
 // N bytes and the rest of fp are zeros
 #define XOZ_EXPECT_SERIALIZATION(fp, dsc, data) do {                                 \
-    EXPECT_EQ(hexdump((fp), 0, (dsc).calc_struct_footprint_size()), (data));         \
-    EXPECT_EQ(are_all_zeros((fp), (dsc).calc_struct_footprint_size()), (bool)true);  \
+    EXPECT_EQ(hexdump((fp), 0, DSpy(dsc).calc_struct_footprint_size()), (data));         \
+    EXPECT_EQ(are_all_zeros((fp), DSpy(dsc).calc_struct_footprint_size()), (bool)true);  \
 } while (0)
 
 // Calc checksum over the fp (bytes) and expect to be the same as the descriptor's checksum
 // Note: this requires a load_struct_from/write_struct_into call before to make
 // the descriptor's checksum updated
 #define XOZ_EXPECT_CHECKSUM(fp, dsc) do {    \
-    EXPECT_EQ(inet_checksum((uint8_t*)(fp).data(), (dsc).calc_struct_footprint_size()), (dsc).checksum); \
+    EXPECT_EQ(inet_checksum((uint8_t*)(fp).data(), DSpy(dsc).calc_struct_footprint_size()), (dsc).checksum); \
 } while (0)
 
 // Load from fp the obj and serialize it back again into
@@ -80,10 +84,10 @@ const size_t FP_SZ = 224;
 // Check the size in bytes of the segm in terms of how much is needed
 // to store the extents and how much they are pointing (allocated)
 #define XOZ_EXPECT_SIZES(dsc, disk_sz, idata_sz, cdata_sz, obj_data_sz) do {      \
-    EXPECT_EQ((dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
-    EXPECT_EQ((dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
-    EXPECT_EQ((dsc).calc_content_space_size(), (unsigned)(cdata_sz));      \
-    EXPECT_EQ((dsc).get_hdr_csize(), (unsigned)(obj_data_sz));       \
+    EXPECT_EQ(DSpy(dsc).calc_struct_footprint_size(), (unsigned)(disk_sz));                            \
+    EXPECT_EQ(DSpy(dsc).calc_internal_data_space_size(), (unsigned)(idata_sz));                                  \
+    EXPECT_EQ(DSpy(dsc).calc_segm_data_space_size(0), (unsigned)(cdata_sz));      \
+    EXPECT_EQ(DSpy(dsc).calc_declared_hdr_csize(0), (unsigned)(obj_data_sz));       \
 } while (0)
 
 #define XOZ_EXPECT_DSC_SERIALIZATION(blkarr, sg, data) do {         \
@@ -97,7 +101,8 @@ const size_t FP_SZ = 224;
 
 #define XOZ_EXPECT_SET(dset, cnt, pending) do {                      \
     EXPECT_EQ((dset)->count(), (uint32_t)(cnt));                         \
-    /* TODO EXPECT_EQ((dset)->does_require_write(), (bool)(pending));*/   \
+    /* TODO we changed *when* we are required to do a write, this must be reviewed once we have the dset final version
+     * EXPECT_EQ((dset)->does_require_write(), (bool)(pending));*/   \
 } while (0)
 
 #define XOZ_EXPECT_SET_SERIALIZATION(blkarr, dset, data) do {       \
@@ -164,14 +169,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -261,14 +264,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -346,14 +347,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -419,14 +418,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -493,14 +490,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -581,14 +576,18 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 130,
-            .segm = d_blkarr.allocator().alloc(130).add_end_of_segment() // <-- allocation here
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = 130,
+                    .segm = d_blkarr.allocator().alloc(130).add_end_of_segment(), // <-- allocation here
+                }
+            }
         };
 
         // Check that the block array grew due the descriptor's content (alloc 130 bytes)
@@ -598,12 +597,12 @@ namespace {
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1));
 
-        auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<PlainWithImplContentDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
         EXPECT_EQ(dset->count(), (uint32_t)1);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
@@ -612,13 +611,13 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 7));
 
         // Delete the descriptor: its content blocks should be released too
         dset->erase(id1);
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
         EXPECT_EQ(dset->count(), (uint32_t)0);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
@@ -660,14 +659,18 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 130,
-            .segm = d_blkarr.allocator().alloc(130).add_end_of_segment() // <-- allocation here
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = 130,
+                    .segm = d_blkarr.allocator().alloc(130).add_end_of_segment(), // <-- allocation here
+                }
+            }
         };
 
         // Check that the block array grew due the descriptor's content (alloc 130 bytes)
@@ -676,12 +679,12 @@ namespace {
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
         EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1));
 
-        auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<PlainWithImplContentDescriptor>(hdr, d_blkarr);
         uint32_t id1 = dset->add(std::move(dscptr));
 
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
         EXPECT_EQ(dset->count(), (uint32_t)1);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
@@ -690,7 +693,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 7));
 
         // Create another set
         Segment sg2(blk_sz_order);
@@ -701,7 +704,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 7));
 
         // Move the descriptor from dset to dset2: while the descriptor is deleted from dset,
         // its external blocks should not be deallocated because the descriptor "moved" to
@@ -710,12 +713,12 @@ namespace {
 
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         dset2->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
 
         dset->full_sync(true);
@@ -725,7 +728,7 @@ namespace {
 
         dset2->full_sync(true);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
 
         // Expected no change: what the dset2 grew, the dset shrank and the external blocks
@@ -733,14 +736,14 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1 /* TODO */ + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 6 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 7 + 2));
 
 
         // Delete the descriptor: its content blocks should be released too
         dset2->erase(id1);
         dset2->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         dset2->full_sync(true);
@@ -777,14 +780,12 @@ namespace {
 
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let the descriptor set assign a new id each
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         {
@@ -859,7 +860,7 @@ namespace {
         // Find the last descriptor. It is the one that has 2 bytes of data ({'C', 'D'})
         uint32_t last_dsc_id = 0;
         for (auto it = dset->begin(); it != dset->end(); ++it) {
-            if ((*it)->calc_internal_data_space_size() == 2) {
+            if (DSpy(*(*it)).calc_internal_data_space_size() == 2) {
                 last_dsc_id = (*it)->id();
             }
         }
@@ -891,14 +892,12 @@ namespace {
 
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let the descriptor set assign a new id each
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         {
@@ -929,7 +928,7 @@ namespace {
         // Test that we can get the descriptors (order is no guaranteed)
         sizes.clear();
         for (auto it = dset->begin(); it != dset->end(); ++it) {
-            sizes.push_back((*it)->calc_internal_data_space_size());
+            sizes.push_back(DSpy(*(*it)).calc_internal_data_space_size());
         }
 
         sizes.sort(); // make the test deterministic
@@ -943,7 +942,7 @@ namespace {
         // Test that we can get the descriptors - const version
         sizes.clear();
         for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
-            sizes.push_back((*it)->calc_internal_data_space_size());
+            sizes.push_back(DSpy(*(*it)).calc_internal_data_space_size());
         }
 
         sizes.sort(); // make the test deterministic
@@ -972,14 +971,13 @@ namespace {
 
 
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // see above
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
+
         };
 
         // Let the set assign a temporal id
@@ -1044,10 +1042,10 @@ namespace {
 
     class Dummy : public Descriptor {
     public:
-        Dummy(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : Descriptor(hdr, cblkarr) {}
+        Dummy(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : Descriptor(hdr, cblkarr, 0) {}
         void read_struct_specifics_from(IOBase&) override {}
         void write_struct_specifics_into(IOBase&) override {}
-        void update_sizes([[maybe_unused]] uint64_t& isize, [[maybe_unused]] uint64_t& csize) override { }
+        void update_isize([[maybe_unused]] uint64_t& isize) override { }
         static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) {
             return std::make_unique<Dummy>(hdr, cblkarr);
         }
@@ -1066,14 +1064,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -1232,14 +1228,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -1308,17 +1302,21 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = d_blkarr.allocator().alloc(130).add_end_of_segment()
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = 130,
+                    .segm = d_blkarr.allocator().alloc(130).add_end_of_segment(), // <-- allocation here
+                }
+            }
         };
 
-        auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<PlainWithImplContentDescriptor>(hdr, d_blkarr);
         dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1327,7 +1325,7 @@ namespace {
         // Write down the set: we expect to see that single descriptor there
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 fc68 fa80 0000 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1338,11 +1336,11 @@ namespace {
         //  - floor(130 / 32) blocks for the content
         //  - 1 block for suballocation to hold:
         //    - the remaining of the content (1 subblock)
-        //    - the descriptor set (8 subblock, 16 bytes in total)
+        //    - the descriptor set (9 subblock, 16 bytes in total)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(8 + 1));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(9 + 1));
 
         // Clear the set
         dset->clear_set();
@@ -1351,7 +1349,7 @@ namespace {
 
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         // The set's segment is not empty because clear_set()+full_sync(false) does not
@@ -1387,17 +1385,21 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = d_blkarr.allocator().alloc(130).add_end_of_segment()
+            .cparts = {
+                {
+                    .future_csize = 0,
+                    .csize = 130,
+                    .segm = d_blkarr.allocator().alloc(130).add_end_of_segment(), // <-- allocation here
+                }
+            }
         };
 
-        auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+        auto dscptr = std::make_unique<PlainWithImplContentDescriptor>(hdr, d_blkarr);
         dset->add(std::move(dscptr));
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1406,7 +1408,7 @@ namespace {
         // Write down the set: we expect to see that single descriptor there
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 fc68 fa80 0000 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1417,11 +1419,11 @@ namespace {
         //  - floor(130 / 32) blocks for the content
         //  - 1 block for suballocation to hold:
         //    - the remaining of the content (1 subblock)
-        //    - the descriptor set (8 subblock, 16 bytes in total)
+        //    - the descriptor set (9 subblock, 16 bytes in total)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(8 + 1));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(9 + 1));
 
         // Remove the set, we expect that this will release the allocated blocks
         // and shrink the block array, thus, it will also make the set's segment empty
@@ -1451,14 +1453,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -1536,14 +1536,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -1636,14 +1634,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr_1.blk_sz_order())
+            .cparts = {}
         };
 
         // Descriptor uses the same block array for the content than
@@ -1695,14 +1691,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -1776,14 +1770,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         // Store 1 descriptor and write it
@@ -1940,14 +1932,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0, // let DescriptorSet::add assign an id for us
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         // Add a bunch of descriptors
@@ -2117,18 +2107,16 @@ namespace {
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xfa,
 
             .id = 0x800000a1,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
-        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
+        EXPECT_EQ(DSpy(*dscptr).calc_struct_footprint_size(), (uint32_t)2);
         dset->add(std::move(dscptr));
 
         // 1 descriptor and pending to write
@@ -2141,18 +2129,21 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(*dset,
-                12,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
+                14,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
                 2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
-                10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
-                10   /* obj data size */
+                6,  /* segment data size: 2 bytes (dscptr) + 4 bytes (dset header) */
+                6   /* obj data size */
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
                 // dset (descriptor) header (from Descriptor)
-                "0184 0a00 "
+                "0184 0000 "
+
+                // csize
+                "0600 "
 
                 // segment's extents
-                "0084 c0ff "
+                "0084 00fc "
 
                 // segment's inline
                 "00c0 "
@@ -2178,18 +2169,20 @@ namespace {
         XOZ_EXPECT_SET(dset2, 1, false);
 
         XOZ_EXPECT_SIZES(*dset2,
-                12,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
+                14,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
                 2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
-                10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
-                10   /* obj data size */
+                6,  /* segment data size: r28 bytes (dscptr) + 4 bytes (dset header) */
+                6   /* obj data size */
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset2,
                 // dset (descriptor) header (from Descriptor)
-                "0184 0a00 "
+                "0184 0000 "
+                // csize
+                "0600 "
 
                 // segment's extents
-                "0084 c0ff "
+                "0084 00fc "
 
                 // segment's inline
                 "00c0 "
@@ -2219,18 +2212,16 @@ namespace {
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xfa,
 
             .id = 0x800000a1,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
-        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
+        EXPECT_EQ(DSpy(*dscptr).calc_struct_footprint_size(), (uint32_t)2);
         auto id1 = dset->add(std::move(dscptr));
 
         // Write the dset to disk. This will trigger the write of the set.
@@ -2240,19 +2231,20 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(*dset,
-                12,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
+                14,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
                 2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
-                10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
-                10   /* obj data size */
+                6,  /* segment data size: 2 bytes (dscptr) + 4 bytes (dset header) */
+                6   /* obj data size */
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
                 // dset (descriptor) header (from Descriptor)
-                "0184 0a00 "
+                "0184 0000 "
 
+                // Single content part
+                "0600 "  // csize: 6 bytes = (2*2) bytes of set hdr + 2 bytes of plain dsc
                 // segment's extents
-                "0084 c0ff "
-
+                "0084 00fc "
                 // segment's inline
                 "00c0 "
 
@@ -2394,18 +2386,16 @@ namespace {
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xfa,
 
             .id = 0x800000a1,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
-        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
+        EXPECT_EQ(DSpy(*dscptr).calc_struct_footprint_size(), (uint32_t)2);
         dset->add(std::move(dscptr));
 
         // Write the dset to disk. This will trigger the write of the set.
@@ -2413,7 +2403,7 @@ namespace {
         dset->write_struct_into(IOSpan(fp), rctx);
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
-                "0000 fb40 fa80 0000 00c0 0000 0000 0000"
+                "0000 fa00 fa00 0000 0000 0000 0000 0000"
                 );
 
         // Calling destroy should remove the set (and if we force a release
@@ -2455,14 +2445,12 @@ namespace {
 
         // Add one descriptor to the dset and another to the subdset
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr1 = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -2493,7 +2481,7 @@ namespace {
         // because full_sync is recursive.
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 03a9 fa00 0184 0600 0084 00e0 00c0 0000"
+                "0000 03a9 fa00 0184 0000 0600 0084 00e0 00c0 0000"
                 );
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
                 "0000 fa00 fa00"
@@ -2523,7 +2511,7 @@ namespace {
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 // the set has only 1 desc (fa00), the rest is just padding
                 // that could be reclaimed
-                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000"
+                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
@@ -2597,7 +2585,7 @@ namespace {
         dset->full_sync(false);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 09a8 0184 0600 0084 00e0 00c0 0000 0000"
+                "0000 09a8 0184 0000 0600 0084 00e0 00c0 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset2,
@@ -2620,13 +2608,14 @@ namespace {
         std::vector<char> idata;
         std::vector<char> defer_idata;
     public:
-        DeferWriteDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : Descriptor(hdr, cblkarr) {
+        DeferWriteDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr) : Descriptor(hdr, cblkarr, 0) {
             idata.resize(hdr.isize);
         }
 
         void read_struct_specifics_from(IOBase& io) override { io.readall(idata); }
         void write_struct_specifics_into(IOBase& io) override { io.writeall(idata); }
-        void update_sizes(uint64_t& isize, [[maybe_unused]] uint64_t& csize) override {
+
+        void update_isize(uint64_t& isize) override {
             isize = assert_u8(idata.size());
         }
 
@@ -2668,14 +2657,12 @@ namespace {
 
         // Add one descriptor to the dset and another to the subdset
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr1 = std::make_unique<DeferWriteDescriptor>(hdr, d_blkarr);
@@ -2707,7 +2694,7 @@ namespace {
         // because full_sync is recursive *including* a flush of any pending write
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 05b9 fa00 0184 0800 0084 00f0 00c0 0000"
+                "0000 05b9 fa00 0184 0000 0800 0084 00f0 00c0 0000"
                 );
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
                 "0000 3b47 fa04 4142"
@@ -2744,7 +2731,7 @@ namespace {
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 // the set has only 1 desc (fa00), the rest is just padding
                 // that could be reclaimed
-                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000"
+                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
@@ -2824,7 +2811,7 @@ namespace {
         dset->full_sync(false);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 11b8 0184 0a00 0084 04f0 00c0 0000 0000"
+                "0000 0fb8 0184 0000 0a00 0084 02f0 00c0 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset2,
@@ -2846,15 +2833,11 @@ namespace {
         public:
         constexpr static uint16_t TYPE = 0x1ff;
 
-        static std::unique_ptr<AppDescriptorSet> create(const uint16_t cookie, const Segment& segm, BlockArray& cblkarr, RuntimeContext& rctx) {
-            auto dset = create_subclass<AppDescriptorSet>(AppDescriptorSet::TYPE, segm, cblkarr, rctx);
-            dset->cookie = cookie;
-            return dset;
-        }
-
         static std::unique_ptr<AppDescriptorSet> create(const uint16_t cookie, BlockArray& cblkarr, RuntimeContext& rctx) {
-            const Segment segm = Segment::EmptySegment(cblkarr.blk_sz_order());
-            return AppDescriptorSet::create(cookie, segm, cblkarr, rctx);
+            auto dset = std::make_unique<AppDescriptorSet>(TYPE, cblkarr, rctx);
+            dset->cookie = cookie;
+            dset->load_set();
+            return dset;
         }
 
         static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
@@ -2864,7 +2847,8 @@ namespace {
             return dsc;
         }
 
-        AppDescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, RuntimeContext& rctx) : DescriptorSet(hdr, cblkarr, rctx), cookie(0) {}
+        AppDescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, RuntimeContext& rctx) : DescriptorSet(hdr, cblkarr, 1, rctx), cookie(0) {}
+        AppDescriptorSet(const uint16_t TYPE, BlockArray& cblkarr, RuntimeContext& rctx) : DescriptorSet(TYPE, cblkarr, 1, rctx), cookie(0) {}
 
         uint16_t get_cookie() const { return cookie; }
 
@@ -2879,9 +2863,8 @@ namespace {
             io.write_u16_to_le(cookie);
         }
 
-        public:
-        void /* internal */ update_sizes(uint64_t& isize, uint64_t& csize) override {
-            DescriptorSet::update_sizes(isize, csize);
+        void update_isize(uint64_t& isize) override {
+            DescriptorSet::update_isize(isize);
             isize += 2; // count for app's own cookie
         }
 
@@ -2905,18 +2888,16 @@ namespace {
 
         // Add a descriptor to the set
         struct Descriptor::header_t hdr = {
-            .own_content = true,
             .type = 0xfa,
 
             .id = 0x0,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
-        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)10);
+        EXPECT_EQ(DSpy(*dscptr).calc_struct_footprint_size(), (uint32_t)6);
 
         auto id1 = dset->add(std::move(dscptr), true);
 
@@ -2925,12 +2906,24 @@ namespace {
         dset->write_struct_into(IOSpan(fp), rctx);
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
-                "0000 fc42 fa82 0100 0000 0000 00c0 0000"
+                "0000 fb02 fa02 0100 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
-                "ff89 0e00 0084 fcff 00c0 "
-                "ff01 0000 " // AppDescriptorSet's TYPE
+                // First 4 bytes of the Descriptor header
+                "ff89 0000 "
+
+                // Serialization of the single content part
+                "0a00 "     // the csize field: 10 bytes: 2*2 bytes of set header + 6 of the only descriptor there
+                "0084 c0ff 00c0 " // the segment, inline-ended
+
+                // Part of the Descriptor header, this field is the AppDescriptorSet's TYPE
+                "ff01 "
+
+                // DescriptorSet's specific idata
+                "0000 "
+
+                // AppDescriptorSet's specific odata
                 "4241" // cookie
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dset);
@@ -2947,7 +2940,7 @@ namespace {
         EXPECT_EQ(dset2->count(), (uint32_t)1);
         EXPECT_EQ(dset2->get(id1)->get_owner(), std::addressof(*dset2));
         EXPECT_EQ(dset2->is_descriptor_set(), (bool)true);
-        EXPECT_EQ(dset2->type(), (uint16_t)AppDescriptorSet::TYPE);
+        EXPECT_EQ(DSpy(*dset2).type(), (uint16_t)AppDescriptorSet::TYPE);
         EXPECT_EQ(dset2->get_cookie(), (uint16_t)0x4142);
 
         // Pretend now to be an "older" version of the app where AppDescriptorSet didn't exist
@@ -2964,7 +2957,7 @@ namespace {
         EXPECT_EQ(dset3->count(), (uint32_t)1);
         EXPECT_EQ(dset3->get(id1)->get_owner(), std::addressof(*dset3));
         EXPECT_EQ(dset3->is_descriptor_set(), (bool)true);
-        EXPECT_EQ(dset3->type(), (uint16_t)AppDescriptorSet::TYPE); // AppDescriptorSet TYPE is preserved
+        EXPECT_EQ(DSpy(*dset3).type(), (uint16_t)AppDescriptorSet::TYPE); // AppDescriptorSet TYPE is preserved
 
         // Make the "older" version of the app write the descriptor set.
         // It is not aware of AppDescriptorSet class but it should preserve the data
@@ -2976,12 +2969,24 @@ namespace {
         dset3->write_struct_into(IOSpan(fp), rctx2);
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
-                "0000 f985 fa82 0100 0000 0000 00c0 fa82 0200 0000 0000 00c0 0000 0000 0000 0000"
+                "0000 f705 fa02 0100 0000 fa02 0200 0000"
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset3,
-                "ff89 1800 000c 0084 00ff 00c0 "
-                "ff01 0000 " // AppDescriptorSet's TYPE
+                // First 4 bytes of the Descriptor header
+                "ff89 0000 "
+
+                // Serialization of the single content part
+                "1000 "     // the csize field: 16 bytes = (2*2) bytes for dset hdr + (2*6) bytes for the 2 plain dscs
+                "000c 00c0 " // the segment, inline-ended
+
+                // Part of the Descriptor header, this field is the AppDescriptorSet's TYPE
+                "ff01 "
+
+                // DescriptorSet's specific idata
+                "0000 "
+
+                // AppDescriptorSet's specific odata
                 "4241" // cookie
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dset3);
@@ -2998,7 +3003,7 @@ namespace {
         EXPECT_EQ(dset4->get(id1)->get_owner(), std::addressof(*dset4));
         EXPECT_EQ(dset4->get(id2)->get_owner(), std::addressof(*dset4));
         EXPECT_EQ(dset4->is_descriptor_set(), (bool)true);
-        EXPECT_EQ(dset4->type(), (uint16_t)AppDescriptorSet::TYPE);
+        EXPECT_EQ(DSpy(*dset4).type(), (uint16_t)AppDescriptorSet::TYPE);
         EXPECT_EQ(dset4->get_cookie(), (uint16_t)0x4142);
     }
 
@@ -3050,14 +3055,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -3070,7 +3073,7 @@ namespace {
                 "2a00 2401 fa00"
                 );
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
-                "0184 0600 0084 00e0 00c0 0000"
+                "0184 0000 0600 0084 00e0 00c0 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dset);
 
@@ -3128,14 +3131,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -3148,7 +3149,7 @@ namespace {
                 "0000 fa00 fa00"
                 );
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
-                "0184 0600 0084 00e0 00c0 2a00"
+                "0184 0000 0600 0084 00e0 00c0 2a00"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dset);
 
@@ -3205,14 +3206,12 @@ namespace {
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -3225,7 +3224,7 @@ namespace {
                 "0000 fa00 fa00"
                 );
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
-                "0188 0600 0084 00e0 00c0 0010 4142"
+                "0188 0000 0600 0084 00e0 00c0 0010 4142"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dset);
 
@@ -3261,14 +3260,12 @@ namespace {
 
         // Add one descriptor to the dset and another to the subdset
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr1 = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -3291,7 +3288,7 @@ namespace {
         // because full_sync is recursive.
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 8eea 0184 1200 0080 ff25 80ff 00c0 0000 fa00"
+                "0000 cfec 0184 0000 1400 0080 fe27 c0ff 00c0 0000 fa00"
                 );
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, last_dset,
                 "0000 fa00 fa00"

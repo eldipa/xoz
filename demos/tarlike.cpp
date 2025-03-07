@@ -45,27 +45,20 @@ using xoz::File;
 // and has *no* idea of yours (like FileMember). We will have to teach it about that!
 using xoz::DescriptorMapping;
 
-// Each Descriptor may own a Segment: a ordered list of Extents, each being
-// a contiguous blocks of space within the xoz file.
+// You should *not* deal with a BlockArray in most of the cases but the class is
+// part of the  methods signatures that you will have to implement.
 //
-// A BlockArray is the space where those blocks live. You can think it as
-// the "usable" space of the xoz file (it is a little more than that but it is ok)
-//
-// You are developer of *your* file format (like tarlike) using xoz as a library
-// should not have to deal with neither Segment, Extent not BlockArray but you
-// may see it in the documentation.
-//
-// Here need to have a reference to BlockArray but that's all.
+// If you want to know what BlockArray does anyways check the source code
+// of the class and its subclasses that they're *fully* documented!
+// You will find them in xoz/blk/
 using xoz::BlockArray;
 
-// Reading and writing blocks is cumbersome. Instead, we can use an IOSegment
-// to see the blocks pointed by a Segment as a contiguous stream of bytes, very much
-// like the API that std::fstream offers you. IOBase is its parent class.
+// While under the hood xoz stores the data in blocks,
+// operating with them is cumbersome.
 //
-// These are the high-level classes that you should be working with. (instead
-// of Segment, Extent or BlockArray).
+// Instead, we can use an IOBase to see the data as a contiguous stream of bytes, very much
+// like the API that std::fstream offers you.
 using xoz::IOBase;
-using xoz::IOSegment;
 
 // Opaque object. Not used in this demo but used internally by xoz.
 using xoz::RuntimeContext;
@@ -134,10 +127,36 @@ public:
     // have the 0xab type. Of course this was chosen by me for this demo.
     // The type should be very well documented in a RFC or like.
     //
-    // Note: some are reserved and cannot be used for you.
+    // Note: some are reserved by the xoz format and cannot be used for you.
     constexpr static uint16_t TYPE = 0x00ab;
 
+protected:
+    // A descriptor may have zero or more "content parts".
+    // A content part is a place to store data specially data of large sizes
+    // or data with a dynamic size.
+    //
+    // You can have multiple parts each independent of the other.
+    //
+    // For FileMember makes sense to have 2 parts:
+    //  - FileData: to store the content of the file, potentially large ones.
+    //  - FileName: for the file name, which may be renamed by the user (hence changing of size).
+    //
+    // We will see shortly that we can store data outside of a content part,
+    // in an area called 'internal data' or 'idata'. This area however is meant
+    // for small, size-fixed attributes that want to be loaded from disk as soon
+    // as possible.
+    enum Parts : uint16_t {
+        FileData,
+        FileName,
 
+        // This 'CNT' must be *always* the last entry of the enum so we can
+        // use it as a counter for how many entries the enum have (2 in this case,
+        // FileData and FileName).
+        CNT
+    };
+
+
+public:
     // (4) create() method with user-defined signature.
     //
     // It creates a descriptor object from scratch: it does a lot of things, stores a lot
@@ -255,7 +274,7 @@ public:
 
         // Read the file content and dump it into f
         // The file is at the begin of the content section so we don't need to do a seek_rd
-        auto io = get_content_io();
+        auto io = get_content_part_io(Parts::FileData);
         io.readall(f, file_sz);
     }
 
@@ -271,17 +290,13 @@ protected:
     // and "warm" the file name.
     //
     void complete_load() override {
-        auto content_io = get_content_io();
-        content_io.turn_read_only();  // not necessary, just a safe check for us
-
-        // The file name is stored immediately after the file content
-        // so we seek to that position
-        content_io.seek_rd(file_sz);
+        auto io = get_content_part_io(Parts::FileName);
+        io.turn_read_only();  // not necessary, just a safe check for us
 
         // Read the file name
         std::vector<char> buf(fname_sz);
 
-        content_io.readall(buf);
+        io.readall(buf);
         fname.assign(buf.data(), fname_sz);
     }
 
@@ -291,20 +306,14 @@ protected:
     // or someone else calling on the descriptor set mark_as_modified()).
     //
     // Note: currently, it is not possible in xoz to "mark" what things are pending
-    // to write and which don't.
+    // to write and which don't.   TODO (can we???)
     // Moreover, how the content data section works, resize_content() almost implies
     // that flush_writes() must rewrite everything.
     void flush_writes() override {
-        // Do a resize of the content. Note that this will destroy the
-        // information at the end of the content section if the content
-        // is being shrinking.
-        //
-        // Thankfully, the file name is at the end anyways and it is what
-        // may change only.
-        resize_content(file_sz + fname_sz);
+        // Just update fname
+        resize_content_part(Parts::FileName, fname_sz);
 
-        auto io = get_content_io();
-        io.seek_wr(file_sz);
+        auto io = get_content_part_io(Parts::FileName);
         io.writeall(fname.c_str(), fname_sz);
     }
 
@@ -336,7 +345,7 @@ protected:
     // Failing to do this may not trigger any exception but it could leave data corrupted.
     // Avoid reading from "content" here and move the reads to complete_load().
     void read_struct_specifics_from(IOBase& io) override {
-        file_sz = io.read_u32_from_le();
+        file_sz = io.read_u32_from_le();  // TODO can we remove these and assume that size of segm is file/fname size?
         fname_sz = io.read_u16_from_le();
     }
 
@@ -353,10 +362,7 @@ protected:
     // The sizes are uint64_t so we don't need to worry about
     // a casual overflow or wrap. The xoz library however, will
     // perform the checks for us.
-    void update_sizes(uint64_t& isize, uint64_t& csize) override {
-        isize = sizeof(uint32_t) + sizeof(uint16_t);
-        csize = file_sz + fname_sz;
-    }
+    void update_isize(uint64_t& isize) override { isize = sizeof(uint32_t) + sizeof(uint16_t); }
 
     // (5)
     //
@@ -408,56 +414,48 @@ private:
     // This C++ class constructor is mandatory so FileMember can be instantiated by xoz
     // This is called by the create() method above.
     FileMember(const struct Descriptor::header_t& hdr, BlockArray& cblkarr):
-            Descriptor(hdr, cblkarr), fname(""), file_sz(0), fname_sz(0) {}
+            Descriptor(hdr, cblkarr, Parts::CNT), fname(""), file_sz(0), fname_sz(0) {}
 
     // This C++ class constructor can have any signature (except that you need to provide
     // the BlockArray). It is called by the create() method.
-    FileMember(BlockArray& cblkarr, const std::string& fpath): Descriptor(TYPE, cblkarr) {
+    FileMember(BlockArray& cblkarr, const std::string& fpath): Descriptor(TYPE, cblkarr, Parts::CNT) {
         // Get from the path the filename (fname) and
         // calculate its size (fname_sz) and the size of the file (file_sz).
         // Leave the file open, we will use it soon.
         std::ifstream file = init_attributes(fpath);
-
-        // We're going to store the file content and file name in the "content" section.
-        // First, let's see how much do we need:
-        auto content_alloc_sz = fname_sz + file_sz;
-
-        // Check that we can actually store all the data calling does_present_csize_fit.
-        //
-        // Strictly speaking the maximum size of data that we could save in XOZ is 1GB (minus 1 byte)
-        // but in practice depends of the block size (smaller block sizes will force to reduce the maximum)
-        // and how much fragmentation we tolerate (how large the Segment will become).
-        // In practice, the upper limit may be below this 1GB limit. This precise check is still missing in XOZ
-        // and it may happen during the allocation.
-        if (not does_present_csize_fit(content_alloc_sz)) {
-            throw std::runtime_error("File + file name is too large");
-        }
 
         // We allocate the required amount of bytes to hold the content.
         //
         // XOZ will do all the necessary things to find enough space without fragmenting
         // to much the xoz file or spreading the content too much.
         // If the xoz file is too small, it will grow automatically.
-        resize_content(content_alloc_sz);
+        // If the size is too large, the method will throw.
+        resize_content_part(Parts::FileData, file_sz);
 
-        // The xoz allocator (called in the resize_content above) works in terms
-        // of Segments, a discontinuous series of extents (blocks)
-        // Working with the allocator, the BlockArray and the Segments is hard.
-        //
-        // XOZ offers a better way: an 'io' object (IOSegment in this case)
-        // to see the entire space (the content) as a contiguous byte string
-        // very similar to a C++ file.
-        auto io = get_content_io();
+        {
+            // Under the hood xoz allocates a series of blocks from BlockArray.
+            // Dealing with blocks directly is cumbersome and generally not needed.
+            //
+            // XOZ offers a better way: an 'io' object (the IOBase subclass IOSegment)
+            // to see the entire space (the content) as a contiguous byte string
+            // very similar to a C++ file.
+            auto io = get_content_part_io(Parts::FileData);
 
-        // Now, copy the file content to the io object. Writing to the io will
-        // write directly to xoz file.
-        io.writeall(file);
+            // Now, copy the file content to the io object. Writing to the io will
+            // write directly to xoz file.
+            io.writeall(file);
+        }
 
-        // Then, write the file name (no null will be stored)
-        // Note how the 'io' works as a C++ file: we did a write and that automatically
-        // moved the 'write pointer' so the second write (this one) took place
-        // immediately after the former.
-        io.writeall(fname.c_str(), fname_sz);
+        // Now we do the same for the file name:
+        //  - we resize the content part "FileName" with the wanted size
+        //  - get an io object
+        //  - write the file name in the xoz file by writing via the io object.
+        resize_content_part(Parts::FileName, fname_sz);
+
+        {
+            auto io = get_content_part_io(Parts::FileName);
+            io.writeall(fname.c_str(), fname_sz);
+        }
     }
 };
 
@@ -581,7 +579,11 @@ void list_files(std::shared_ptr<DescriptorSet>& dset) {
     // pointers and **not** shared pointers so you may end up having memory corruptions
     // Don't do that.
     for (auto it = dset->begin(); it != dset->end(); ++it) {
-        auto f = it.deref_cast<FileMember>();
+        auto f = it.deref_cast<FileMember>(true);
+        if (!f) {
+            continue;  // TODO we are filtering IDMappingDescriptor, we should never being exposing it! We require
+                       // multipart content Root Set
+        }
         std::cout << "[ID " << f->id() << "] File " << f->get_fname() << "\n";
     }
 }

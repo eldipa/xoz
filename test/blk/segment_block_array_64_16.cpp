@@ -1195,6 +1195,44 @@ namespace {
         EXPECT_EQ(sg.ext_cnt(), (uint32_t)0);
     }
 
+    TEST_P(SegmentBlockArrayTest6416, SegmentWithInlineWillFail) {
+
+        VectorBlockArray base_blkarr(base_blkarr_blk_sz);
+        base_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+
+        SegmentBlockArray sg_blkarr(base_blkarr, blkarr_blk_sz, GetParam());
+
+        Segment sg(base_blkarr_blk_sz_order);
+
+        // With inline data, initialize_segment should fail
+        sg.set_inline_data({0x00, 0x00});
+        EXPECT_THAT(
+            [&]() { sg_blkarr.initialize_segment(sg); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("Segment cannot contain inline data to be used for SegmentBlockArray")
+                    )
+                )
+        );
+
+        // With zero-bytes inline data, initialize_segment should *not* fail but the zero-length
+        // inline section should be stripped away.
+        sg.set_inline_data({});
+        EXPECT_EQ(sg.is_inline_present(), (bool)true);
+        sg_blkarr.initialize_segment(sg);
+        EXPECT_EQ(sg.is_inline_present(), (bool)false);
+
+        // Initialize twice is an error
+        EXPECT_THAT(
+            [&]() { sg_blkarr.initialize_segment(sg); },
+            ThrowsMessage<std::runtime_error>(
+                AllOf(
+                    HasSubstr("Segment block array already initialized (managed). initialize_segment called twice?")
+                    )
+                )
+        );
+    }
+
 
     INSTANTIATE_TEST_SUITE_P(
             SegmentBlockArrayTest6416MultiFlags,

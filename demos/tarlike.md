@@ -1,6 +1,8 @@
 
 <!--
-$ bin_folder=$(dirname $(ls -1 build-*/tarlike | head -1))
+$ [ -x "$bin/tarlike" ] && echo "ok"        # byexample: +fail-fast
+ok
+
 $ mkdir -p tmp/
 $ rm -f tmp/myarchive.xoz
 -->
@@ -13,7 +15,7 @@ achiver and it is the perfect excuse to play with the `xoz` library.
 Here are what we can do:
 
 ```shell
-$ ./$bin_folder/tarlike                    # byexample: +norm-ws -capture +fail-fast
+$ ./$bin/tarlike                    # byexample: +norm-ws -capture +fail-fast
 Missing/Bad arguments
 Usage:
     add files:      tarlike <file.xoz> a <file name> [<file name>...]
@@ -28,20 +30,20 @@ Listing a non-existing file is not an error, it is just an empty
 archive:
 
 ```shell
-$ ./$bin_folder/tarlike tmp/myarchive.xoz  l
+$ ./$bin/tarlike tmp/myarchive.xoz  l
 ```
 
 But that's too boring. Let's add some files to the archive:
 
 ```shell
-$ ./$bin_folder/tarlike tmp/myarchive.xoz  a  test/tarlike-files/*
+$ ./$bin/tarlike tmp/myarchive.xoz  a  test/tarlike-files/*
 [ID 1] File test/tarlike-files/ada added.
 [ID 2] File test/tarlike-files/basic added.
 [ID 3] File test/tarlike-files/csharp added.
 ```
 
 ```shell
-$ ./$bin_folder/tarlike tmp/myarchive.xoz  l
+$ ./$bin/tarlike tmp/myarchive.xoz  l
 [ID 1] File ada
 [ID 2] File basic
 [ID 3] File csharp
@@ -50,21 +52,21 @@ $ ./$bin_folder/tarlike tmp/myarchive.xoz  l
 We can change the name of the files:
 
 ```shell
-$ ./$bin_folder/tarlike tmp/myarchive.xoz  r 3 "c#"
+$ ./$bin/tarlike tmp/myarchive.xoz  r 3 "c#"
 [ID 3] File c# renamed.
 ```
 
 Or we can delete them:
 
 ```shell
-$ ./$bin_folder/tarlike tmp/myarchive.xoz  d 2
+$ ./$bin/tarlike tmp/myarchive.xoz  d 2
 [ID 2] File basic removed.
 ```
 
 And of course, we can extract them!
 
 ```shell
-$ ./$bin_folder/tarlike tmp/myarchive.xoz  x 1 3
+$ ./$bin/tarlike tmp/myarchive.xoz  x 1 3
 [ID 1] File ada extracted
 [ID 3] File c# extracted
 ```

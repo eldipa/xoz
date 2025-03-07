@@ -192,6 +192,16 @@ public:
     const SegmentAllocator& allocator() const { return sg_alloc; }
 
     /*
+     * Convenient factory methods to create segment with the correct block size order.
+     * These segments are *not* allocated and *not* necessary are in the range
+     * of the block array so the segments created are mostly for testing or for
+     * initialization of temporal variables.
+     * */
+    Segment create_segment() const;
+    Segment create_segment_with(const std::vector<char>& data) const;
+    Segment create_segment(const Extent& ext) const;
+
+    /*
      * Convenient block-to-bytes and bytes-to-block functions.
      * When bytes-to-blocks conversion in 'exact' mode happen, a check is made
      * to ensure that the bytes number is divisible by the blk sz

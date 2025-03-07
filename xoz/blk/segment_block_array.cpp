@@ -33,18 +33,18 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t f
     // because realloc() will try to deallocate those suballocations and reallocate
     // a single larger one. The downside is this incurs in some copy of the data.
     // The latter is less efficient but no copy happens.
-    uint32_t orig_sg_sz = segm.calc_data_space_size();
+    uint32_t orig_sg_sz = segm->calc_data_space_size();
     if (flags & SG_BLKARR_REALLOC_ON_GROW) {
-        bg_blkarr.allocator().realloc(segm, orig_sg_sz + grow_sz, default_req);
-        assert(not segm.has_end_of_segment());
+        bg_blkarr.allocator().realloc(*segm, orig_sg_sz + grow_sz, default_req);
+        assert(not segm->is_inline_present());
     } else {
         auto additional_segm = bg_blkarr.allocator().alloc(grow_sz, default_req);
-        segm.extend(additional_segm);
+        segm->extend(additional_segm);
     }
 
     // Create a new io segment because the underlying segment changed
     // (like when we need to create a new iterator if the container changed)
-    bg_io.reset(new IOSegment(bg_blkarr, segm));
+    bg_io.reset(new IOSegment(bg_blkarr, *segm));
 
     // How many we really allocated? We requested grow_sz bytes so we should
     // have at least fg_blk_cnt blocks but we may had got more
@@ -53,7 +53,7 @@ std::tuple<uint32_t, uint16_t> SegmentBlockArray::impl_grow_by_blocks(uint16_t f
     // a single tiny chunk for it but larger than it, hence, this translate
     // to having allocated more blocks than the initially requested/expected
     // fg_blk_cnt
-    uint32_t real_grow_sz = segm.calc_data_space_size() - orig_sg_sz;
+    uint32_t real_grow_sz = segm->calc_data_space_size() - orig_sg_sz;
     uint16_t real_front_blk_cnt = bytes2blk_cnt(real_grow_sz);
     assert(real_grow_sz >= grow_sz);
     assert(real_front_blk_cnt >= fg_blk_cnt);
@@ -78,14 +78,14 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t fg_blk_cnt, bool rel
     // allows us to calculate fg_pending_blk_cnt as the diff of real and past-end.
     Segment to_free(bg_blkarr.blk_sz_order());
     while (shrink_sz > 0) {
-        assert(segm.ext_cnt() >= 1);
+        assert(segm->ext_cnt() >= 1);
 
-        auto last_ext = segm.exts().back();
+        auto last_ext = segm->exts().back();
         uint32_t alloc_sz = last_ext.calc_data_space_size(bg_blkarr.blk_sz_order());
 
         if (alloc_sz <= shrink_sz) {
             to_free.add_extent(last_ext);
-            segm.remove_last_extent();
+            segm->remove_last_extent();
             shrink_sz -= alloc_sz;
             shrank_sz += alloc_sz;
         } else {
@@ -114,8 +114,8 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t fg_blk_cnt, bool rel
                 if (not ext2.is_empty()) {
                     to_free.add_extent(ext2);
 
-                    segm.remove_last_extent();
-                    segm.add_extent(last_ext);
+                    segm->remove_last_extent();
+                    segm->add_extent(last_ext);
 
                     uint32_t alloc_sz2 = ext2.calc_data_space_size(bg_blkarr.blk_sz_order());
                     shrink_sz -= alloc_sz2;
@@ -130,7 +130,7 @@ uint32_t SegmentBlockArray::_impl_shrink_by_blocks(uint32_t fg_blk_cnt, bool rel
 
     if (to_free.ext_cnt() >= 1) {
         bg_blkarr.allocator().dealloc(to_free);
-        bg_io.reset(new IOSegment(bg_blkarr, segm));
+        bg_io.reset(new IOSegment(bg_blkarr, *segm));
 
         assert(shrank_sz > 0);
         assert(shrank_sz % blk_sz() == 0);
@@ -158,28 +158,48 @@ void SegmentBlockArray::impl_write(uint32_t blk_nr, uint32_t offset, char* buf, 
 }
 
 
-SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& bg_blkarr, uint32_t blk_sz, uint32_t flags):
-        BlockArray(), segm(segm), bg_blkarr(bg_blkarr), flags(flags) {
-    fail_if_bad_blk_sz(blk_sz);
-    if (segm.inline_data_sz() != 0) {
-        throw std::runtime_error("Segment cannot contain inline data to be used for SegmentBlockArray");
-    }
-    segm.remove_inline_data();  // remove the end-of-segment as side effect
+SegmentBlockArray::SegmentBlockArray(Segment& segm, BlockArray& bg_blkarr, uint32_t fg_blk_sz, uint32_t flags):
+        BlockArray(), segm(nullptr), bg_blkarr(bg_blkarr), flags(flags), fg_blk_sz(fg_blk_sz) {
+    fail_if_bad_blk_sz(fg_blk_sz);
 
-    bg_io.reset(new IOSegment(bg_blkarr, segm));
+    initialize_segment(segm);
 
-    if (bg_io->remain_rd() % blk_sz != 0) {
-        throw std::runtime_error(
-                "Segment does not has space multiple of the block size and cannot be used for SegmentBlockArray");
-    }
-
-    // TODO bg_blkarr.blk_sz() % blk_sz == 0 and (bg_blkarr.blk_sz()/16) % blk_sz == 0
-
-    initialize_block_array(blk_sz, 0, bg_io->remain_rd() / blk_sz);
+    // TODO bg_blkarr.fg_blk_sz() % fg_blk_sz == 0 and (bg_blkarr.fg_blk_sz()/16) % fg_blk_sz == 0
 
     default_req = bg_blkarr.allocator().get_default_alloc_requirements();
     default_req.max_inline_sz = 0;
 }
 
 SegmentBlockArray::~SegmentBlockArray() {}
+
+SegmentBlockArray::SegmentBlockArray(BlockArray& bg_blkarr, uint32_t fg_blk_sz, uint32_t flags):
+        BlockArray(), segm(nullptr), bg_blkarr(bg_blkarr), flags(flags), fg_blk_sz(fg_blk_sz) {
+    fail_if_bad_blk_sz(fg_blk_sz);
+
+    // TODO bg_blkarr.fg_blk_sz() % fg_blk_sz == 0 and (bg_blkarr.fg_blk_sz()/16) % fg_blk_sz == 0
+
+    default_req = bg_blkarr.allocator().get_default_alloc_requirements();
+    default_req.max_inline_sz = 0;
+}
+
+void SegmentBlockArray::initialize_segment(Segment& segm) {
+    if (this->segm != nullptr) {
+        throw std::runtime_error("Segment block array already initialized (managed). initialize_segment called twice?");
+    }
+
+    if (segm.inline_data_sz() != 0) {
+        throw std::runtime_error("Segment cannot contain inline data to be used for SegmentBlockArray");
+    }
+    segm.remove_inline_data();
+
+    bg_io.reset(new IOSegment(bg_blkarr, segm));
+
+    if (bg_io->remain_rd() % fg_blk_sz != 0) {
+        throw std::runtime_error(
+                "Segment does not has space multiple of the block size and cannot be used for SegmentBlockArray");
+    }
+
+    this->segm = &segm;
+    initialize_block_array(fg_blk_sz, 0, bg_io->remain_rd() / fg_blk_sz);
+}
 }  // namespace xoz

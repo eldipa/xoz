@@ -741,7 +741,7 @@ namespace {
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
-        Segment sg = Segment::create_empty_zero_inline(blkarr.blk_sz_order());
+        Segment sg = blkarr.create_segment_with({});
 
         IOSegment iosg1(blkarr, sg);
 

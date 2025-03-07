@@ -7,7 +7,6 @@
 #include "xoz/alloc/internals.h"
 #include "xoz/blk/block_array.h"
 #include "xoz/ext/extent.h"
-#include "xoz/file/file.h"
 
 
 namespace xoz::alloc::internals {

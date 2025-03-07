@@ -5,35 +5,93 @@
 #include <utility>
 
 #include "xoz/blk/block_array.h"
+#include "xoz/dsc/spy.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/file/runtime_context.h"
 #include "xoz/io/iosegment.h"
 #include "xoz/log/format_string.h"
 #include "xoz/mem/inet_checksum.h"
 
+typedef ::xoz::dsc::internals::DescriptorInnerSpyForInternal DSpy;
+
 namespace xoz {
-DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& blkarr, RuntimeContext& rctx):
-        Descriptor(hdr, blkarr),
+DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& blkarr, uint16_t decl_cpart_cnt,
+                             RuntimeContext& rctx):
+        Descriptor(hdr, blkarr, decl_cpart_cnt),
         visited(false),
-        segm(hdr.segm),
+        dset_segm(blkarr.create_segment_with({})),
         sg_blkarr(blkarr),
         cblkarr(blkarr),
-        st_blkarr(this->segm, sg_blkarr, 2, rctx.runcfg.dset.sg_blkarr_flags),
+        st_blkarr(sg_blkarr, 2, rctx.runcfg.dset.sg_blkarr_flags),
         rctx(rctx),
         set_loaded(false),
         ireserved(0),
         creserved(0),
         current_checksum(0),
-        header_does_require_write(false),
-        header_ext(Extent::EmptyExtent()) {}
+        header_does_require_write(false) {
+    if (decl_cpart_cnt == 0) {
+        throw std::runtime_error(
+                "DescriptorSet (or subclasses of) requires at least 1 content part but 0 was declared.");
+    }
+
+    // *After* initializing our parent class Descriptor, we can safely access to the cparts vector
+    // and retrieve our content part
+    // If there is some content at all (csize > 0), use the segment to initialize our segment
+    auto& cpart = this->hdr.cparts.at(0);  // TODO at()
+    if (cpart.csize > 0) {
+        dset_segm = cpart.segm;
+    }
+
+    // Only now we can initialize our segment block array
+    st_blkarr.initialize_segment(dset_segm);
+}
+
+DescriptorSet::DescriptorSet(const uint16_t TYPE, BlockArray& blkarr, uint16_t decl_cpart_cnt, RuntimeContext& rctx):
+        Descriptor(TYPE, blkarr, decl_cpart_cnt),
+        visited(false),
+        dset_segm(blkarr.create_segment_with({})),
+        sg_blkarr(blkarr),
+        cblkarr(blkarr),
+        st_blkarr(dset_segm, sg_blkarr, 2, rctx.runcfg.dset.sg_blkarr_flags),
+        rctx(rctx),
+        set_loaded(false),
+        ireserved(0),
+        creserved(0),
+        current_checksum(0),
+        header_does_require_write(false) {
+    if (decl_cpart_cnt == 0) {
+        throw std::runtime_error(
+                "DescriptorSet (or subclasses of) requires at least 1 content part but 0 was declared.");
+    }
+}
+
+DescriptorSet::DescriptorSet(const Segment& segm, BlockArray& blkarr, RuntimeContext& rctx):
+        Descriptor(DescriptorSet::TYPE, blkarr, DescriptorSet::Streams::END),
+        visited(false),
+        dset_segm(segm),
+        sg_blkarr(blkarr),
+        cblkarr(blkarr),
+        st_blkarr(dset_segm, sg_blkarr, 2, rctx.runcfg.dset.sg_blkarr_flags),
+        rctx(rctx),
+        set_loaded(false),
+        ireserved(0),
+        creserved(0),
+        current_checksum(0),
+        header_does_require_write(false) {}
+
+DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& blkarr, RuntimeContext& rctx):
+        DescriptorSet(hdr, blkarr, DescriptorSet::Streams::END, rctx) {}
 
 std::unique_ptr<DescriptorSet> DescriptorSet::create(const Segment& segm, BlockArray& blkarr, RuntimeContext& rctx) {
-    return create_subclass<DescriptorSet>(0x01, segm, blkarr, rctx);  // this calls load_set() for us
+    auto dsc = std::make_unique<DescriptorSet>(segm, blkarr, rctx);
+    dsc->load_set();
+    return dsc;
 }
 
 std::unique_ptr<DescriptorSet> DescriptorSet::create(BlockArray& blkarr, RuntimeContext& rctx) {
-    const Segment segm = Segment::EmptySegment(blkarr.blk_sz_order());
-    return DescriptorSet::create(segm, blkarr, rctx);  // this calls load_set() for us
+    auto dsc = std::make_unique<DescriptorSet>(DescriptorSet::TYPE, blkarr, DescriptorSet::Streams::END, rctx);
+    dsc->load_set();
+    return dsc;
 }
 
 std::unique_ptr<Descriptor> DescriptorSet::create(const struct Descriptor::header_t& hdr, BlockArray& blkarr,
@@ -68,10 +126,27 @@ void DescriptorSet::load_descriptors(std::queue<DescriptorSet*>& to_load_dsets) 
         throw std::runtime_error("DescriptorSet cannot be reloaded.");
     }
 
+    // XXX DRAFT
+    //
+    // get_or_allocate_content returns a copy of the allocated content part or
+    // allocates a new one of SIZE and returns it.
+    // The Descriptor class *always* ask to the subclass how many parts should be
+    // and:
+    //  - if loaded from the disk *less*, allocates the remaining and makes them visible
+    //  - if loaded from the disk *more*, hides the remaining
+    // This is the same than resize_content(PART, NEW_SIZE) but also returns the copy
+    // of the segment.
+    //                  dset_segm = Descriptor::get_or_allocate_content(PART=0, SIZE=0);
+
+    // The segment above either is new (0 size) or it isn't (size >= 4). In any
+    // case initialize_segment should work and the rest of the load_descriptors code too
+    //                  st_blkarr.initialize_segment(dset_segm);
+    // ==============================================================
+
     const bool is_new = st_blkarr.blk_cnt() == 0;
     const uint32_t header_size = 4;
 
-    auto io = IOSegment(sg_blkarr, segm);
+    auto io = IOSegment(sg_blkarr, dset_segm);
 
     const uint32_t align = st_blkarr.blk_sz();  // better semantic name
     assert(align == 2);                         // pre RFC
@@ -103,7 +178,7 @@ void DescriptorSet::load_descriptors(std::queue<DescriptorSet*>& to_load_dsets) 
         allocated_exts.push_back(ext);
     } else {
         // Note: creserved should had been set by read_struct_specifics_from() or
-        // by create_subclass() or set manually with _set_creserved().
+        // manually with _set_creserved().
         // creserved = u16data;
         current_checksum = inet_add(current_checksum, creserved);
         stored_checksum = inet_to_u16(current_checksum);
@@ -312,7 +387,7 @@ void DescriptorSet::flush_writes_no_recursive(const bool release) {
     // This "special" set should be stored somewhere else in the root set.
     // TODO
 
-    auto io = IOSegment(sg_blkarr, segm);
+    auto io = IOSegment(sg_blkarr, dset_segm);
     write_modified_descriptors(io);
 }
 
@@ -324,17 +399,10 @@ bool DescriptorSet::does_require_write() const {
 // Precondition: the descriptors in to_add and to_update must be full-sync'd
 // before calling this.
 void DescriptorSet::write_modified_descriptors(IOBase& io) {
-    if (segm.length() == 0 and count() > 0) {
-        assert(header_ext == Extent::EmptyExtent());
-        header_ext = st_blkarr.allocator().alloc_single_extent(4);
-
-        // Sanity check of the allocation for the header:
-        //  - 4 bytes allocated as 2 full blocks in a single extent,
-        //  - extent that it must be at the begin of the set (blk nr 0)
-        assert(header_ext.blk_cnt() == 2);
-        assert(header_ext.blk_nr() == 0);
-        assert(segm.length() != 0);
-
+    if (st_blkarr.blk_cnt() == 0 and count() > 0) {
+        // A hack: we are relaying in an implementation detail that ensures that
+        // we are going to get the lowest extent if the allocator is empty.
+        st_blkarr.allocator().alloc_single_extent(4);
         header_does_require_write = true;
     }
 
@@ -344,7 +412,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
 
     // Keep a copy of set's segment to compare it at the end of the method against
     // the, possibly updated, set's segment.
-    auto orig_segm = segm;
+    auto orig_segm = dset_segm;
 
     // Find any descriptor that shrank and it will require less space so we
     // can "split" the space and free a part.
@@ -352,7 +420,8 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // and we re-add it later
     std::list<Extent> pending;
     for (const auto dsc: to_update) {
-        uint32_t cur_dsc_sz = dsc->calc_struct_footprint_size();
+        auto dsc_spy = DSpy(*dsc);
+        uint32_t cur_dsc_sz = dsc_spy.calc_struct_footprint_size();
         uint32_t alloc_dsc_sz = st_blkarr.blk2bytes(dsc->ext.blk_cnt());
 
         if (alloc_dsc_sz < cur_dsc_sz) {
@@ -463,7 +532,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         zeros(io, ext);
     }
 
-    auto prev_segm_data_sz = segm.calc_data_space_size();
+    auto prev_segm_data_sz = dset_segm.calc_data_space_size();
 
     for (const auto& ext: pending) {
         st_blkarr.allocator().dealloc_single_extent(ext);
@@ -481,13 +550,14 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // from that pre-allocated space.
     // This should reduce the fragmentation of the set's segment making it much smaller
     for (const auto dsc: to_add) {
-        dsc->ext = st_blkarr.allocator().alloc_single_extent(dsc->calc_struct_footprint_size());
+        auto dsc_spy = DSpy(*dsc);
+        dsc->ext = st_blkarr.allocator().alloc_single_extent(dsc_spy.calc_struct_footprint_size());
     }
 
-    auto new_segm_data_sz = segm.calc_data_space_size();
+    auto new_segm_data_sz = dset_segm.calc_data_space_size();
 
     // Now that all the alloc/dealloc happen, let's rebuild the io object
-    auto io2 = IOSegment(sg_blkarr, segm);
+    auto io2 = IOSegment(sg_blkarr, dset_segm);
 
     if (new_segm_data_sz > prev_segm_data_sz) {
         io2.seek_wr(prev_segm_data_sz);
@@ -524,7 +594,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     io2.write_u16_to_le(assert_u16(this->current_checksum));
     header_does_require_write = false;
 
-    if (orig_segm != segm) {
+    if (orig_segm != dset_segm) {
         notify_descriptor_changed();
     }
 
@@ -545,9 +615,8 @@ void DescriptorSet::release_free_space_no_recursive() {
     // Release any free space of the set. The release of free space on each
     // descriptor is handled during the flush_writes_no_recursive before
     // flushing the writes of the set.
-    if (count() == 0 and header_ext != Extent::EmptyExtent()) {
-        st_blkarr.allocator().dealloc_single_extent(header_ext);
-        header_ext = Extent::EmptyExtent();
+    if (count() == 0) {
+        st_blkarr.allocator().reset();
     }
     st_blkarr.allocator().release();
 }
@@ -740,7 +809,7 @@ void DescriptorSet::destroy_no_recursive() {
     ireserved = 0;
     creserved = 0;
     current_checksum = 0;
-    segm = Segment::EmptySegment(sg_blkarr.blk_sz_order());
+    dset_segm = sg_blkarr.create_segment();
 }
 
 uint32_t DescriptorSet::assign_persistent_id(uint32_t id) {
@@ -853,27 +922,24 @@ void DescriptorSet::read_struct_specifics_from(IOBase& io) {
     ireserved = assert_read_bits_from_u16(uint16_t, field, MASK_DSET_IRESERVED);
 
     uint16_t sflags = 0;
-    if (does_own_content()) {
+    if (DSpy(*this).does_own_content()) {
         // Easiest case: the holder's segment points to the set's blocks
-        segm = content_segment_ref();
-
-        if (segm.inline_data_sz() != 0) {
-            throw InconsistentXOZ(F() << "Unexpected non-zero inline data in segment for descriptor set.");
-        }
-
     } else {
         // Second easiest case: the holder does not point to anything, the set
         // is empty. So build it from those bits.
+        //
+        // XXX the dset_segm SHOULD NOT BE SET HERE BUT IN load_descriptors
         sflags = io.read_u16_from_le();
-        segm = Segment::EmptySegment(cblkarr.blk_sz_order());
+        dset_segm = cblkarr.create_segment();
     }
 
 
     // DescriptorSet does not work with segments with inline data, even if it is empty.
     // Remove it before creating the set.
-    segm.remove_inline_data();
+    dset_segm.remove_inline_data();
+    dset_segm.remove_end_of_segment();
 
-    if (not does_own_content()) {
+    if (not DSpy(*this).does_own_content()) {
         creserved = sflags;
     } else {
         // TODO this will trigger a recursive chain reaction of reads if the set has other holders
@@ -898,10 +964,10 @@ void DescriptorSet::write_struct_specifics_into(IOBase& io) {
     io.write_u16_to_le(field);
 
     if (count() == 0) {
-        assert(does_own_content() == false);
+        assert(DSpy(*this).does_own_content() == false);
         io.write_u16_to_le(creserved);
     } else {
-        assert(does_own_content() == true);
+        assert(DSpy(*this).does_own_content() == true);
     }
 
     if (psize) {
@@ -909,31 +975,30 @@ void DescriptorSet::write_struct_specifics_into(IOBase& io) {
     }
 }
 
-bool DescriptorSet::update_content_segment(Segment& segm) {
+void DescriptorSet::update_content_parts(std::vector<struct Descriptor::content_part_t>& cparts) {
     if (not set_loaded) {
-        // If the set is not loaded yet, assume that we don't require updating
-        // the segment and if we own one or not is unchanged
-        return does_own_content();
+        // If the set is not loaded yet, assume no change in the idata/content sizes
+        return;
     }
+    auto& cpart = cparts.at(0);
 
     // Make sure set to be 100% sync so we can know how much space its segment is owning
     assert(count() == 0 or not does_require_write());
+    assert(cpart.future_csize == 0);
 
     if (count() == 0) {
-        // Second easiest case: the set is empty so we don't need to own any content
-        // and instead we save the minimum bits in holder's private space to reconstruct
-        // an empty set later.
-        return false;
-
+        cpart.segm = cblkarr.create_segment_with({});
+        cpart.csize = 0;
     } else {
-        // Easiest case: the holder's segment is the set's segment. Nothing else is needed
-        // except ensuring it has an end-of-segment because it is required by Descriptor
-        segm = this->segm;
-        return true;
+        cpart.segm = dset_segm;
+        cpart.csize = dset_segm.calc_data_space_size();
+        assert(cpart.csize > 0);
     }
+
+    cpart.segm.add_end_of_segment();
 }
 
-void DescriptorSet::update_sizes(uint64_t& isize, uint64_t& csize) {
+void DescriptorSet::update_isize(uint64_t& isize) {
     if (not set_loaded) {
         // If the set is not loaded yet, assume no change in the idata/content sizes
         return;
@@ -944,11 +1009,9 @@ void DescriptorSet::update_sizes(uint64_t& isize, uint64_t& csize) {
 
     if (count() == 0) {
         isize = 4;  // 2 uint16 fields: the set's first field and creserved fields
-        csize = 0;
 
     } else {
         isize = 2;  // 1 uint16 field: the set's first field
-        csize = segm.calc_data_space_size();
     }
 
     if (pdata.size()) {
@@ -1046,5 +1109,4 @@ void /* testing */ DescriptorSet::_set_creserved(uint16_t v) {
     current_checksum = inet_add(current_checksum, creserved);
 }
 void /* testing */ DescriptorSet::_set_pdata(const std::vector<char>& v) { pdata = v; }
-
 }  // namespace xoz

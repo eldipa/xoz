@@ -1,13 +1,18 @@
 .PHONY: all test clean coverage
 
+EXTRA_VALGRIND=--tool=memcheck --leak-check=full --leak-resolution=med --show-reachable=yes --trace-children=yes --track-fds=yes --track-origins=no --time-stamp=yes --num-callers=20
+
 test-debug: compile-debug
 	./build-debug/runtests
+	@bin=./build-debug/ byexample -l shell demos/tarlike.md
 
 test-release: compile-release
 	./build-release/runtests
+	@bin=./build-release/ byexample -l shell demos/tarlike.md
 
 test-relwithdebinfo: compile-relwithdebinfo
 	./build-relwithdebinfo/runtests
+	@bin=./build-relwithdebinfo/ byexample -l shell demos/tarlike.md
 
 compile-debug:
 	cmake -S . -B ./build-debug -DCMAKE_BUILD_TYPE=Debug $(EXTRA_GENERATE)

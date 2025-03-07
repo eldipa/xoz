@@ -189,18 +189,15 @@ namespace {
         };
 
         File xfile = File::create_mem_based(dmap, File::DefaultsParameters, runcfg);
-        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(blk_sz_order)
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
@@ -246,10 +243,10 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0800 0184 0080 00c0 "
+                "0184 0000 0800 0184 0080 00c0 "
 
                 // padding
-                "0000 0000 0000 "
+                "0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
@@ -279,18 +276,15 @@ namespace {
         };
 
         File xfile = File::create_mem_based(dmap, File::DefaultsParameters, runcfg);
-        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(blk_sz_order)
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());
@@ -334,10 +328,10 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0800 0184 0080 00c0 "
+                "0184 0000 0800 0184 0080 00c0 "
 
                 // padding
-                "0000 0000 0000 "
+                "0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
@@ -367,18 +361,15 @@ namespace {
         };
 
         File xfile = File::create_mem_based(dmap, File::DefaultsParameters, runcfg);
-        const auto blk_sz_order = xfile.expose_block_array().blk_sz_order();
 
         // Add one descriptor
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x80000001,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(blk_sz_order)
+            .cparts = {}
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, xfile.expose_block_array());

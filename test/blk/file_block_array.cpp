@@ -15,7 +15,7 @@ using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
 using ::testing::AllOf;
 
-#define DELETE(X) system("rm -f '" SCRATCH_HOME X "'")
+#define DELETE(X) std::remove( SCRATCH_HOME X )
 
 using ::testing_xoz::helpers::hexdump;
 using ::testing_xoz::helpers::file2mem;

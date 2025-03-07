@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <list>
 #include <map>
 #include <memory>
 #include <vector>
@@ -16,18 +17,27 @@ class BlockArray;
 
 class File;
 
+namespace dsc::internals {
+class DescriptorInnerSpyForTesting;
+class DescriptorInnerSpyForInternal;
+}  // namespace dsc::internals
+
 class Descriptor {
 public:
+    struct content_part_t {
+        uint32_t future_csize;  // in bytes
+        uint32_t csize;         // in bytes
+        Segment segm;           // data segment
+    };
+
     struct header_t {
-        bool own_content;
         uint16_t type;
 
         uint32_t id;
 
-        uint8_t isize;   // in bytes
-        uint32_t csize;  // in bytes
+        uint8_t isize;  // in bytes
 
-        Segment segm;  // data segment, only for own_content descriptors
+        std::vector<struct content_part_t> cparts;
     };
 
 public:
@@ -66,33 +76,12 @@ public:
         update_header();
     }
 
-public:
+    void collect_segments_into(std::list<Segment>& collection) const;
+
+private:
     // Return the size in bytes to represent the Descriptor structure in disk
-    // *including* the descriptor internal data (see calc_internal_data_space_size)
+    // *including* the descriptor internal data
     uint32_t calc_struct_footprint_size() const;
-
-    // Return the size in bytes that this descriptor has for internal data.
-    // Such internal data space can be used by a Descriptor subclass
-    // to retrieve / store specifics fields.
-    // For the perspective of this method, such interpretation is transparent
-    // and the whole space is seen as a single consecutive chunk of space
-    // whose size is returned.
-    uint32_t calc_internal_data_space_size() const { return hdr.isize; }
-
-    // Return the size in bytes of that referenced by the segment and
-    // that represent the content of the descriptor (not the descriptor's internal data).
-    //
-    // The size may be larger than get_hdr_csize() (the csize field in the descriptor
-    // header) if the descriptor has more space allocated than the declared in csize.
-    // In this sense, calc_content_space_size() is the
-    // total usable space while hdr.csize (or get_hdr_csize) is the used space.
-    //
-    // For non-owner descriptors returns always 0
-    uint32_t calc_content_space_size() const;
-
-    // Return the content size including any future content.
-    // If the descriptor does not own content, return 0
-    uint32_t get_hdr_csize() const { return hdr.own_content ? hdr.csize : 0; }
 
 public:
     virtual ~Descriptor() {}
@@ -212,32 +201,29 @@ public:
      * */
     bool is_descriptor_set() const;
 
-    uint16_t /* for testing */ type() const { return hdr.type; }
-
 public:  // public but it should be interpreted as an opaque section
     friend void PrintTo(const struct header_t& hdr, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);
 
-    /*
-     * Does the descriptor owns content?
-     * */
-    bool does_own_content() const { return hdr.own_content; }
-
-    /*
-     * Return a const reference to the segment that points to the owned content
-     * data.
-     * The segment is **undefined** if does_own_content() returns false.
-     * */
-    const Segment& content_segment_ref() const {
-        assert(does_own_content());
-        return hdr.segm;
-    }
-
     friend class DescriptorSet;
     friend class File;
 
+    friend class ::xoz::dsc::internals::DescriptorInnerSpyForTesting;
+    friend class ::xoz::dsc::internals::DescriptorInnerSpyForInternal;
+
 private:
     struct header_t hdr;
+
+    // This is how many content parts are declared by the Descriptor subclass
+    // We may find less or more when loading from disk/file:
+    //  - if we find less it means that the subclass may have an older version
+    //    with less content parts but the new version wants (declared) more
+    //    Non-existing content parts should be created as empty to match decl_cpart_cnt.
+    //  - if we find more it means that the subclass may have an newer version
+    //    the declared more parts than the current (old) one.
+    //    The first decl_cpart_cnt parts will be usable and the remaining
+    //    (unexpected) will be hidden but preserved.
+    uint16_t decl_cpart_cnt;
 
 protected:
     /*
@@ -246,21 +232,8 @@ protected:
      * The constructor is meant for internal use and its subclasses because it exposes
      * too much its header.
      * */
-    Descriptor(const struct header_t& hdr, BlockArray& cblkarr):
-            hdr(hdr),
-            future_content_size(0),
-            ext(Extent::EmptyExtent()),
-            cblkarr(cblkarr),
-            owner_raw_ptr(nullptr),
-            checksum(0) {}
-
-    Descriptor(const uint16_t type, BlockArray& cblkarr):
-            hdr(create_header(type, cblkarr)),
-            future_content_size(0),
-            ext(Extent::EmptyExtent()),
-            cblkarr(cblkarr),
-            owner_raw_ptr(nullptr),
-            checksum(0) {}
+    Descriptor(const struct header_t& hdr, BlockArray& cblkarr, uint16_t decl_cpart_cnt);
+    Descriptor(const uint16_t type, BlockArray& cblkarr, uint16_t decl_cpart_cnt);
 
     static void chk_hdr_isize_fit_or_fail(bool has_id, const struct Descriptor::header_t& hdr);
 
@@ -274,11 +247,12 @@ protected:
      * because it may not be enabled by the moment. Subclasses can use the cblkarr
      * for reading/writing without problem.
      *
-     * Note: calling get_content_io() is allowed however the io returned may
-     * yield more data than the descriptor should access, located at the end.
+     * Note: calling get_content_part_io() from read_struct_from() is *not* allowed.
+     * You can but it is undefined.
+     *
      * Subclasses must *not* assume than the size of the io is the size of
      * subclasses' content: subclasses *must* encode their content size
-     * in either the idata or at the begin of the content.
+     * in either the idata or at the begin of the content. TODO eventually change this
      *
      * Note: after read_struct_specifics_from() finishes, the update_sizes() should
      * return valid and meaningful sizes.
@@ -315,7 +289,7 @@ protected:
      * the descriptor.
      * */
     bool does_present_isize_fit(uint64_t present_isize) const;
-    bool does_present_csize_fit(uint64_t present_csize) const;
+    bool does_present_csize_fit(const struct content_part_t& cpart, uint64_t present_csize) const;
 
     /*
      * Subclasses *must* call this method to notify that the instance had been modified
@@ -335,11 +309,16 @@ protected:
     void notify_descriptor_changed();
 
 private:
+    static std::vector<struct content_part_t> reserve_content_part_vec(uint16_t content_part_cnt);
+    static uint32_t read_content_parts(IOBase& io, BlockArray& cblkarr, std::vector<struct content_part_t>& parts);
+    uint32_t write_content_parts(IOBase& io, const std::vector<struct content_part_t>& parts, int cparts_cnt);
+
     void read_future_idata(IOBase& io);
     void write_future_idata(IOBase& io) const;
     uint8_t future_idata_size() const;
 
-    uint32_t future_content_size;
+    void compute_future_content_parts_sizes();
+
 
 protected:
     /*
@@ -359,12 +338,81 @@ protected:
      * returned by future_idata_size().
      * */
     virtual void update_header();
-    virtual bool update_content_segment(Segment& segm);
 
     /*
-     * Update the current size of internal data and content respectively.
+     * Subclass must declare the size of the internal data needed.
+     *
+     * The caller will pass by reference the current "expected" isize
+     * so if the subclass didn't change what it would write in the internal
+     * data section (in terms of size), it could leave the parameter untouched.
+     *
+     * However, subclass *must* override the method anyways (even if it do nothing)
+     * because the Descriptor class cannot know a priori how much isize is needed
+     * if the descriptor subclass was created from memory instead of loading from disk.
+     * In those cases, Descriptor has no idea of the isize!
      * */
-    virtual void update_sizes(uint64_t& isize, uint64_t& csize) = 0;
+    virtual void update_isize(uint64_t& isize) = 0;
+
+    /*
+     * Subclass may update the content size and segment.
+     *
+     * If the subclass doesn't have content or if it does but accesses through
+     * the resize_content_part() and get_content_part_io() interfaces, the sizes and segments
+     * are automatically updated by Descriptor and it is not needed be managed
+     * explicitly by the subclass.
+     *
+     * Subclass must override this if they interact with the underlying content part(s)
+     * outsize the Descriptor's interface *or* if it wants to do a last-minute modification.
+     * (Note: last-minute modifications *probably* should be done in flush_writes()
+     * and not here).
+     *
+     * Warning: this method requires a *deep* understanding of what csize and future_csize
+     * mean and how they should be computed. Otherwise, backward/forward compatibility
+     * may be *broken*.
+     * In general, prefer to use the resize_content_part()/get_content_part_io() interface
+     * instead of managing the content parts directly.
+     *
+     * The parameter will be a reference to the Descriptor's content parts vector.
+     * Do *not* add/remove entries; do *not* modify entries that the subclass suppose
+     * not be aware of.
+     * */
+    virtual void update_content_parts(std::vector<struct content_part_t>& cparts);
+
+    /*
+     * Declare the size of each content part (csize).
+     *
+     * By default, the Descriptor class will do nothing on this and instead use what
+     * it found during the load of the descriptor from the disk.
+     *
+     * Subclasses should override this to change the default values to adjust what
+     * *they* think it is *theirs* csize. These may differ from what the Descriptor
+     * class loaded from disk.
+     *
+     * There are three posibilites:
+     *  - the declared sizes matches the found in the header: ok
+     *  - the declared sizes are greater than the found in the header: fail (throw)
+     *
+     * The third case is when the declared sizes are lesser than the found:
+     * the Descriptor class will asume that any "excessing" data (not declared by the subclass)
+     * is coming from the same subclass but from a future version so that "excessing" data
+     * will be hidden by the Descriptor and preserver on write so the data in disk can be
+     * read by future version of the code.
+     *
+     * Note: the method is for content parts' csizes; the Descriptor class will automatically
+     * learn how much of internal data (isize) the subclass needed (by measuring how much
+     * the subclass read on read_struct_specifics_from()) so it is not needed to declare anything
+     * as it is implicit.
+     * The same three posibilites can happen and they are handled in the same way
+     * after the call to read_struct_specifics_from().
+     *
+     * Note: if the subclass decides to *not* override this method, it *will* imply that
+     * the content parts the current version is aware of are fully of its own and
+     * future version cannot sneak into data that the previous version cannot understand
+     * In other words, not overriding implies not supporting forward-compatibility.
+     *
+     * This does *not* apply to additional content parts that a future version could add, however.
+     * */
+    virtual void declare_used_content_space_on_load(std::vector<uint64_t>& cparts_sizes) const;
 
     /*
      * Subclass must release any free/unused space allocated by the descriptor
@@ -390,7 +438,7 @@ protected:
 
     virtual void complete_load() {}
 
-    void update_sizes_of_header(bool called_from_load);
+    void update_sizes_of_header();
 
 private:
     /*
@@ -436,16 +484,24 @@ protected:
      * It it the correct way to disown the content and free space, however
      * the space may not be fully released if the descriptor has 'future' content.
      * */
-    void resize_content(uint32_t content_new_sz);
+    void resize_content_part(uint16_t part_num, uint32_t content_new_sz);
 
     /*
-     * Get content return the present version's content while get_allocated_content_io()
-     * returns the whole content allocated (including future data).
+     * Get content return the present version's content (hiding future content).
      *
-     * Subclasses should use get_content_io() only.
+     * Subclasses should use get_content_part_io() only.
      * */
-    IOSegment get_content_io();
-    IOSegment get_allocated_content_io();
+    IOSegment get_content_part_io(uint16_t part_num);
+
+    /*
+     * Count incompressible content parts.
+     * A content part is compressible if it has zero size and all the parts
+     * to its right are compressible as well.
+     * */
+    uint16_t count_incompressible_cparts() const;
+
+public:
+    static uint16_t count_incompressible_cparts(const struct header_t& hdr);
 
 private:
     /*
@@ -492,5 +548,8 @@ private:
                                                            uint32_t dsc_begin_pos, bool& ex_type_used);
     static void finish_load_dsc_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr, Descriptor& dsc,
                                      uint32_t dsc_begin_pos, uint32_t idata_begin_pos, bool ex_type_used);
+
+    static void chk_content_parts_count(bool wouldBe, const header_t& hdr, const uint16_t decl_cpart_cnt);
+    static void chk_content_parts_consistency(bool wouldBe, const header_t& hdr);
 };
 }  // namespace xoz

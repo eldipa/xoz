@@ -10,20 +10,15 @@
 #include "xoz/io/iobase.h"
 
 namespace xoz {
+class Descriptor;
+
 class Segment {
 public:
     static const uint32_t MaxInlineSize = (1 << 6) - 1;
     static const uint32_t EndOfSegmentSize = 2;  // 2 bytes
 
-    explicit Segment(uint8_t blk_sz_order): blk_sz_order(blk_sz_order), inline_present(false) {}
-
-    static Segment EmptySegment(uint8_t blk_sz_order) { return Segment(blk_sz_order); }
-
-    static Segment create_empty_zero_inline(uint8_t blk_sz_order) {
-        Segment segm(blk_sz_order);
-        segm.inline_present = true;
-        return segm;
-    }
+    explicit Segment(uint8_t blk_sz_order):
+            blk_sz_order(blk_sz_order), inline_present(false), explicit_end_of_segment_present(false) {}
 
     void set_inline_data(const std::vector<char>& data) {
         inline_present = true;
@@ -40,8 +35,25 @@ public:
         raw.clear();
     }
 
+    /*
+     * Remove the end of segment. If the segment has inline data, even if of zero length,
+     * throw.
+     * Caller must call remove_inline_data() first.
+     *
+     * Note: the reason why we fail if the inline is present it is because
+     * the caller may want to ensure that after calling remove_end_of_segment(),
+     * the segment will not produce an inline section that will act as end of segment
+     * but because there *is* inline data, this cannot happen, hence the exception.
+     * */
+    void remove_end_of_segment() {
+        if (is_inline_present()) {
+            throw std::runtime_error("Segment has inline data.");
+        }
+        explicit_end_of_segment_present = false;
+    }
+
     std::vector<char>& inline_data() {
-        if (not has_end_of_segment()) {
+        if (not is_inline_present()) {
             throw std::runtime_error("Segment has not inline data.");
         }
         return raw;
@@ -56,48 +68,52 @@ public:
      * */
     uint8_t inline_data_sz() const { return inline_present ? assert_u8(raw.size()) : 0; }
 
-    bool has_end_of_segment() const { return inline_present; }
+    bool is_inline_present() const { return inline_present; }
+    bool has_end_of_segment() const { return (inline_present or explicit_end_of_segment_present); }
 
     Segment& add_end_of_segment() {
-        inline_present = true;
+        explicit_end_of_segment_present = true;
         return *this;
     }
 
     std::vector<Extent> const& exts() const { return arr; }
 
     void add_extent(const Extent& ext) {
-        if (has_end_of_segment()) {
-            throw std::runtime_error("Segment with inline data/end of segment cannot be extended.");
+        if (is_inline_present()) {
+            throw std::runtime_error("Segment with inline data cannot be extended.");
         }
 
         arr.push_back(ext);
     }
 
     void extend(const Segment& segm) {
-        if (has_end_of_segment()) {
-            throw std::runtime_error("Segment with inline data/end of segment cannot be extended.");
+        if (is_inline_present()) {
+            throw std::runtime_error("Segment with inline data cannot be extended.");
         }
+
+        // Check invariant
+        assert(segm.inline_present or segm.raw.empty());
 
         // append the other segm's arr to ours
         arr.reserve(arr.capacity() + segm.arr.size());
         std::copy(segm.arr.begin(), segm.arr.end(), std::back_inserter(arr));
 
-        // plain copy - much easier (this is possible because this->has_end_of_segment() is false)
+        // plain copy - much easier (this is possible because this->is_inline_present() is false)
         raw = segm.raw;
-        inline_present = segm.inline_present or not raw.empty();
+        inline_present = segm.inline_present;
     }
 
     void remove_last_extent() {
-        if (has_end_of_segment()) {
-            throw std::runtime_error("Segment with inline data/end of segment cannot be reduced.");
+        if (is_inline_present()) {
+            throw std::runtime_error("Segment with inline data cannot be reduced.");
         }
 
         arr.pop_back();
     }
 
     void clear_extents() {
-        if (has_end_of_segment()) {
-            throw std::runtime_error("Segment with inline data/end of segment cannot be reduced.");
+        if (is_inline_present()) {
+            throw std::runtime_error("Segment with inline data cannot be reduced.");
         }
 
         arr.clear();
@@ -110,9 +126,10 @@ public:
 
     uint32_t ext_cnt() const { return assert_u32(arr.size()); }
 
+    // TODO what is the meaning of this????
     uint32_t length() const {
         // TODO overflow
-        return ext_cnt() + (inline_present ? 1 : 0);
+        return ext_cnt() + ((inline_present or explicit_end_of_segment_present) ? 1 : 0);
     }
 
     uint32_t full_blk_cnt() const {
@@ -128,7 +145,7 @@ public:
     }
 
     bool is_empty_space() const {
-        if (inline_present and raw.size() > 0) {
+        if (raw.size() > 0) {
             return false;
         }
 
@@ -213,6 +230,12 @@ private:
     uint8_t blk_sz_order;
 
     bool inline_present;
+    bool explicit_end_of_segment_present;
     std::vector<char> raw;
+
+private:
+    // Only for Descriptor's reserve_content_part_vec
+    Segment(): blk_sz_order(0), inline_present(false), explicit_end_of_segment_present(false) {}
+    friend Descriptor;
 };
 }  // namespace xoz

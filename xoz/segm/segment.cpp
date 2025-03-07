@@ -30,7 +30,7 @@ void PrintTo(const Segment& segm, std::ostream* out) {
 
     if (segm.inline_present) {
         (*out) << "(+" << segm.raw.size() << ") ";
-    }
+    }  // TODO print segm.explicit_end_of_segment_present
 
     (*out) << "(struct: " << segm.calc_struct_footprint_size() << " B, data: " << segm.calc_data_space_size(false)
            << " B) ";
@@ -69,7 +69,7 @@ uint32_t Segment::calc_struct_footprint_size() const {
         prev = ext;
     }
 
-    if (segm.inline_present) {
+    if ((segm.inline_present or segm.explicit_end_of_segment_present)) {
         // Ext header, always present
         sz += sizeof(uint16_t);
 
@@ -105,7 +105,7 @@ uint32_t Segment::calc_data_space_size(bool include_inline) const {
             segm.arr.cbegin(), segm.arr.cend(), uint32_t(0),
             [blk_sz_order](uint32_t sz, const Extent& ext) { return sz + ext.calc_data_space_size(blk_sz_order); });
 
-    if (segm.inline_present and include_inline) {
+    if (include_inline) {
         segm.fail_if_bad_inline_sz();
 
         // Note: the cast from size_t to uint16_t should be
@@ -376,7 +376,7 @@ void Segment::write_struct_into(IOBase& io, uint32_t* checksum_p) const {
 
     // If an inline follows the last extent, make it appear
     // and another remain_cnt item.
-    if (segm.inline_present) {
+    if ((segm.inline_present or segm.explicit_end_of_segment_present)) {
         ++remain_cnt;
     }
 
@@ -447,7 +447,7 @@ void Segment::write_struct_into(IOBase& io, uint32_t* checksum_p) const {
         prev = ext;
     }
 
-    if (segm.inline_present) {
+    if ((segm.inline_present or segm.explicit_end_of_segment_present)) {
         assert(remain_cnt == 1);
         --remain_cnt;
 

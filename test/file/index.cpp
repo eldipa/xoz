@@ -51,14 +51,12 @@ namespace {
 
         // Add one descriptor to the dset and another to the subdset
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr1 = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
@@ -136,14 +134,12 @@ namespace {
 
         // Add one descriptor to the dset and another to the subdset
         struct Descriptor::header_t hdr = {
-            .own_content = false,
             .type = 0xfa,
 
             .id = 0x0,
 
             .isize = 0,
-            .csize = 0,
-            .segm = Segment::create_empty_zero_inline(d_blkarr.blk_sz_order())
+            .cparts = {}
         };
 
         auto dscptr2 = std::make_unique<PlainDescriptor>(hdr, d_blkarr);

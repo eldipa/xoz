@@ -8,7 +8,6 @@
 #include <numeric>
 #include <vector>
 
-// TODO HEY
 #include "xoz/mem/endianness.h"
 #include "xoz/mem/integer_ops.h"
 #include <type_traits>

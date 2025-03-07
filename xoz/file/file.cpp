@@ -5,10 +5,13 @@
 #include <utility>
 
 #include "xoz/dsc/id_mapping.h"
+#include "xoz/dsc/spy.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/io/iospan.h"
 #include "xoz/mem/endianness.h"
 #include "xoz/mem/inet_checksum.h"
+
+typedef ::xoz::dsc::internals::DescriptorInnerSpyForInternal DSpy;
 
 namespace xoz {
 struct File::preload_file_ctx_t File::dummy = {false, {0}};
@@ -117,9 +120,7 @@ std::list<Segment> File::collect_allocated_segments_of_descriptors() const {
                                           [&allocated](const DescriptorSet* dset, [[maybe_unused]] size_t l) {
                                               for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
                                                   auto& dsc(*it);
-                                                  if (dsc->does_own_content()) {
-                                                      allocated.push_back(dsc->content_segment_ref());
-                                                  }
+                                                  dsc->collect_segments_into(allocated);
                                               }
                                           });
 
@@ -426,7 +427,7 @@ void File::write_panic_trailer() {
 void File::init_new_file(const struct default_parameters_t& defaults) {
     fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
-    trampoline_segm = Segment::EmptySegment(fblkarr->blk_sz_order());
+    trampoline_segm = fblkarr->create_segment();
     root_set = DescriptorSet::create(*fblkarr.get(), rctx);
 
     // Ensure that the descriptor set has a valid id.
@@ -536,7 +537,7 @@ void File::load_root_set(struct file_header_t& hdr) {
         }
     } else {
         // No trampoline
-        trampoline_segm = Segment::EmptySegment(fblkarr_ref.blk_sz_order());
+        trampoline_segm = fblkarr_ref.create_segment();
 
         // The root field has the descriptor set
         auto dsc = DescriptorSet::load_struct_from(root_io, rctx, fblkarr_ref);
@@ -553,7 +554,7 @@ void File::write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& 
 
     FileBlockArray& fblkarr_ref = *fblkarr.get();
 
-    bool trampoline_required = root_set->calc_struct_footprint_size() > HEADER_ROOT_SET_SZ;
+    bool trampoline_required = DSpy(*root_set).calc_struct_footprint_size() > HEADER_ROOT_SET_SZ;
 
     if (trampoline_required) {
         // Expand/shrink the trampoline space to make room for the
@@ -586,7 +587,7 @@ void File::write_root_set(uint8_t* rootbuf, const uint32_t rootbuf_sz, uint8_t& 
 
 void File::update_trampoline_space() {
     uint32_t cur_sz = trampoline_segm.calc_data_space_size();
-    uint32_t req_sz = root_set->calc_struct_footprint_size();
+    uint32_t req_sz = DSpy(*root_set).calc_struct_footprint_size();
     assert(req_sz > 0);
 
     const bool should_expand = (cur_sz < req_sz);
@@ -620,7 +621,7 @@ void File::update_trampoline_space() {
     if (trampoline_segm.calc_struct_footprint_size() > HEADER_ROOT_SET_SZ) {
         fblkarr->allocator().dealloc(trampoline_segm);
         const auto ext = fblkarr->allocator().alloc_single_extent(req_sz);
-        trampoline_segm = Segment::EmptySegment(fblkarr->blk_sz_order());
+        trampoline_segm = fblkarr->create_segment();
         trampoline_segm.add_extent(ext);
         trampoline_segm.add_end_of_segment();
 

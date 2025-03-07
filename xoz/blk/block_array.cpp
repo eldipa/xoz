@@ -449,4 +449,18 @@ void BlockArray::fail_if_bad_blk_nr(uint32_t blk_nr) {
                         .str());
     }
 }
+
+Segment BlockArray::create_segment() const { return Segment(blk_sz_order()); }
+
+Segment BlockArray::create_segment_with(const std::vector<char>& data) const {
+    auto sg = Segment(blk_sz_order());
+    sg.set_inline_data(data);
+    return sg;
+}
+
+Segment BlockArray::create_segment(const Extent& ext) const {
+    auto sg = Segment(blk_sz_order());
+    sg.add_extent(ext);
+    return sg;
+}
 }  // namespace xoz

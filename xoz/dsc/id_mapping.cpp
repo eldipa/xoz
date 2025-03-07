@@ -2,18 +2,19 @@
 
 namespace xoz {
 IDMappingDescriptor::IDMappingDescriptor(const struct Descriptor::header_t& hdr, BlockArray& cblkarr):
-        Descriptor(hdr, cblkarr), num_entries(0), content_sz(0) {}
+        Descriptor(hdr, cblkarr, IDMappingDescriptor::Parts::CNT), num_entries(0), content_sz(0) {}
 
 IDMappingDescriptor::IDMappingDescriptor(BlockArray& cblkarr):
-        Descriptor(IDMappingDescriptor::TYPE, cblkarr), num_entries(0), content_sz(0) {}
+        Descriptor(IDMappingDescriptor::TYPE, cblkarr, IDMappingDescriptor::Parts::CNT),
+        num_entries(0),
+        content_sz(0) {}
 
 void IDMappingDescriptor::read_struct_specifics_from(IOBase& io) { num_entries = io.read_u16_from_le(); }
 
 void IDMappingDescriptor::write_struct_specifics_into(IOBase& io) { io.write_u16_to_le(num_entries); }
 
-void IDMappingDescriptor::update_sizes(uint64_t& isize, uint64_t& csize) {
+void IDMappingDescriptor::update_isize(uint64_t& isize) {
     isize = sizeof(uint16_t);  // num entries
-    csize = content_sz;
 }
 
 std::unique_ptr<Descriptor> IDMappingDescriptor::create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
@@ -45,11 +46,11 @@ uint32_t IDMappingDescriptor::calculate_store_mapping_size(const std::map<std::s
 
 void IDMappingDescriptor::store(const std::map<std::string, uint32_t>& id_by_name) {
     content_sz = calculate_store_mapping_size(id_by_name);
-    resize_content(content_sz);
+    resize_content_part(Parts::Map, content_sz);
 
     // Note: sanity checks were made in calculate_store_mapping_size()
     // No need to repeat them here.
-    auto io = get_content_io();
+    auto io = get_content_part_io(Parts::Map);
     uint32_t cnt = 0;
     for (auto const& [name, id]: id_by_name) {
         // Temp names are not stored
@@ -70,7 +71,7 @@ std::map<std::string, uint32_t> IDMappingDescriptor::load() {
     std::map<std::string, uint32_t> id_by_name;
 
     char buf[256];
-    auto io = get_content_io();
+    auto io = get_content_part_io(Parts::Map);
     for (unsigned i = 0; i < num_entries; ++i) {
         uint32_t id = io.read_u32_from_le();
         uint8_t len = io.read_u8_from_le();

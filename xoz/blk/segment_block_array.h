@@ -26,7 +26,7 @@ protected:
     void impl_write(uint32_t blk_nr, uint32_t offset, char* buf, uint32_t exact_sz) override;
 
 private:
-    Segment& segm;
+    Segment* segm;
 
     BlockArray& bg_blkarr;
 
@@ -35,6 +35,7 @@ private:
     struct SegmentAllocator::req_t default_req;
 
     uint32_t flags;
+    uint32_t fg_blk_sz;
 
     uint32_t _impl_shrink_by_blocks(uint32_t fg_blk_cnt, bool release_blocks);
 
@@ -43,16 +44,26 @@ public:
      * Initialize the SegmentBlockArray object with the given segment that references/owns blocks
      * from the bg_blkarr (the backend).
      *
-     * The SegmentBlockArray will chop/cut blocks of blk_sz from the segment's space. If more
+     * The SegmentBlockArray will chop/cut blocks of fg_blk_sz from the segment's space. If more
      * space is needed, it will allocate more from bg_blkarr (and if less are needed, it will deallocate them).
      * For the alloc/dealloc strategy, see impl_grow_by_blocks() and impl_shrink_by_blocks() internal
      * methods.
      *
      * The bg_blkarr must be previously initialized by the caller, with the extents of the segment marked as
      * allocated.
+     *
+     * There constructor variant without the segment parameter constructs the block array but it does not
+     * initialize it. The caller must call initialize_segment() later before using the blk array.
      * */
-    SegmentBlockArray(Segment& segm, BlockArray& bg_blkarr, uint32_t blk_sz, uint32_t flags);
+    SegmentBlockArray(Segment& segm, BlockArray& bg_blkarr, uint32_t fg_blk_sz, uint32_t flags);
+    SegmentBlockArray(BlockArray& bg_blkarr, uint32_t fg_blk_sz, uint32_t flags);
     ~SegmentBlockArray();
+
+    /*
+     * Call this only if you didn't provide a segment in the constructor.
+     * The segment must be pointing to blocks of the bg_blkarr.
+     * */
+    void initialize_segment(Segment& segm);
 
     const IOSegment& expose_mem_fp() const { return *bg_io.get(); }
 };

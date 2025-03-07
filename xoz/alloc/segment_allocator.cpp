@@ -391,6 +391,7 @@ void SegmentAllocator::realloc(Segment& segm, const uint32_t sz, const struct re
 
         if (has_end_of_segment) {
             segm.remove_inline_data();
+            segm.remove_end_of_segment();
 
             in_use_inlined_sz -= inline_data_sz;
             in_use_by_user_sz -= inline_data_sz;
@@ -429,6 +430,7 @@ void SegmentAllocator::realloc(Segment& segm, const uint32_t sz, const struct re
         }
 
         segm.remove_inline_data();
+        segm.remove_end_of_segment();
         cur_sz -= inline_data_sz;  // this should not overflow
         in_use_inlined_sz -= inline_data_sz;
         in_use_by_user_sz -= inline_data_sz;
