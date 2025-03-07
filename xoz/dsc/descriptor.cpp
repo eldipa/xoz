@@ -205,6 +205,11 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     uint32_t lo_csize = 0, hi_csize = 0;
     if (own_content) {
+        uint16_t segm_cnt = io.read_u16_from_le();
+        assert(segm_cnt == 0);       // TODO not supported more than 1 segment for now so we expect 0
+        assert(segm_cnt != 0xffff);  // TODO this is reserved
+
+        // TODO put this in a for-loop eventually
         uint16_t sizefield = io.read_u16_from_le();
 
         local_checksum += sizefield;
@@ -469,6 +474,8 @@ void Descriptor::write_struct_into(IOBase& io, [[maybe_unused]] RuntimeContext& 
 
 
     if (hdr.own_content) {
+        io.write_u16_to_le(0);  // TODO other thing is not supported YET
+
         uint16_t sizefield = 0;
 
         // Write the sizefield and optionally the largefield
@@ -555,6 +562,9 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
 
 
     if (hdr.own_content) {
+        // segm_cnt
+        struct_sz += 2;
+
         if (hdr.csize < (1 << 15)) {
             // sizefield
             struct_sz += 2;

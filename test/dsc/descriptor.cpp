@@ -753,7 +753,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4+2+2+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -762,7 +762,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 0000 00c0"
+                "ff82 0100 0000 0000 0000 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -795,7 +795,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4+2+2+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -804,7 +804,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "df83 0100 0000 0000 00c0"
+                "df83 0100 0000 0000 0000 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -879,7 +879,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -888,7 +888,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff83 0100 0000 0000 00c0 e109"
+                "ff83 0100 0000 0000 0000 00c0 e109"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -963,7 +963,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -972,7 +972,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff83 0100 0000 0000 00c0 ffff"
+                "ff83 0100 0000 0000 0000 00c0 ffff"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1010,7 +1010,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+64, /* struct size */
+                2+4+2+2+2+64, /* struct size */
                 64,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -1019,7 +1019,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0080 0000 00c0 "
+                "ff82 0100 0080 0000 0000 00c0 "
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 "
                 "1819 1a1b 1c1d 1e1f 2021 2223 2425 2627 2829 2a2b 2c2d 2e2f "
                 "3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
@@ -1055,7 +1055,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4+2+2+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 1  /* obj data size */
@@ -1064,7 +1064,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 0100 00c0"
+                "ff82 0100 0000 0000 0100 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1097,7 +1097,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4+2+2+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 (1 << 15) - 1  /* obj data size */
@@ -1106,7 +1106,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 ff7f 00c0"
+                "ff82 0100 0000 0000 ff7f 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1139,7 +1139,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 (1 << 15)  /* obj data size */
@@ -1148,7 +1148,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 0080 0100 00c0"
+                "ff82 0100 0000 0000 0080 0100 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1181,7 +1181,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 uint32_t(1 << 31) - 1  /* obj data size */
@@ -1190,7 +1190,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 ffff ffff 00c0"
+                "ff82 0100 0000 0000 ffff ffff 00c0"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1225,7 +1225,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+4, /* struct size */
+                2+4+2+2+4, /* struct size */
                 0,   /* internal data size */
                 3,  /* segment data size */
                 1  /* obj data size */
@@ -1234,7 +1234,7 @@ namespace {
         // Write and check the dump
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff82 0100 0000 0100 03c3 0102"
+                "ff82 0100 0000 0000 0100 03c3 0102"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
 
@@ -1340,14 +1340,14 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2, /* struct size */
                 2,   /* internal data size */
                 0,  /* segment data size */
                 42  /* obj data size */
                 );
 
         IOSpan io(fp);
-        io.seek_wr(2+4+2+2+2 - 1, IOSpan::Seekdir::end); // point 1 byte off (available = 11 bytes)
+        io.seek_wr(2+4+2+2+2+2 - 1, IOSpan::Seekdir::end); // point 1 byte off (available = 11 bytes)
 
         EXPECT_THAT(
             ensure_called_once([&]() { dsc.write_struct_into(io, rctx); }),
@@ -1368,7 +1368,7 @@ namespace {
         dsc.write_struct_into(IOSpan(fp), rctx);
 
         // Now, truncate the file so the span will be shorter than the expected size
-        fp.resize(2+4+2+2+2 - 1); // shorter by 1 byte
+        fp.resize(2+4+2+2+2+2 - 1); // shorter by 1 byte
 
         EXPECT_THAT(
             ensure_called_once([&]() { Descriptor::load_struct_from(IOSpan(fp), rctx, cblkarr); }),
@@ -1446,7 +1446,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2, /* struct size */
                 2,   /* internal data size */
                 0,  /* segment data size */
                 42  /* obj data size */
@@ -1459,7 +1459,7 @@ namespace {
                     HasSubstr(
                         "The descriptor subclass underflowed the write pointer and "
                         "processed 0 bytes (left 2 bytes unprocessed of 2 bytes available) and "
-                        "left it at position 10 that it is before the end of the data section at position 12."
+                        "left it at position 12 that it is before the end of the data section at position 14."
                         )
                     )
                 )
@@ -1488,7 +1488,7 @@ namespace {
         // Check the write preserve the opaque data
         dsc3->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, *dsc3,
-                "ff86 0f00 0000 2a00 00c0 0102"
+                "ff86 0f00 0000 0000 2a00 00c0 0102"
                 );
 
         rctx.idmgr.reset();
@@ -1497,7 +1497,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(*dsc4,
-                2+4+2+2+2, /* struct size */
+                2+4+2+2+2+2, /* struct size */
                 2,   /* internal data size */
                 0,  /* segment data size */
                 42  /* obj data size */
@@ -1509,7 +1509,7 @@ namespace {
         XOZ_RESET_FP(fp, FP_SZ);
         dsc4->write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, *dsc4,
-                "ff86 0f00 0000 2a00 00c0 0102"
+                "ff86 0f00 0000 0000 2a00 00c0 0102"
                 );
     }
 
@@ -1537,7 +1537,7 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(dsc,
-                2+4+2+2, /* struct size */
+                2+4+2+2+2, /* struct size */
                 0,   /* internal data size */
                 0,  /* segment data size */
                 0  /* obj data size */
@@ -1571,7 +1571,7 @@ namespace {
         // that has_id but it has a id = 0
         fp[2] = fp[3] = 0;
         XOZ_EXPECT_SERIALIZATION(fp, dsc2,
-                "ff82 0000 0000 0000 00c0"
+                "ff82 0000 0000 0000 0000 00c0"
                 );
 
         // Because the isize of the descriptor is small, there is no reason to have
@@ -1606,7 +1606,7 @@ namespace {
 
         // the id should be 0, see also how the hi_dsize bit is set (0080)
         XOZ_EXPECT_SERIALIZATION(fp, dsc3,
-                "ff82 0000 0080 0000 00c0 "
+                "ff82 0000 0080 0000 0000 00c0 "
                 "0001 0203 0405 0607 0809 0a0b 0c0d 0e0f 1011 1213 1415 1617 1819 1a1b 1c1d 1e1f "
                 "2021 2223 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233 3435 3637 3839 3a3b 3c3d 3e3f"
                 );
@@ -1724,7 +1724,7 @@ namespace {
 
         // Check sizes: no content for now
         XOZ_EXPECT_SIZES(dsc,
-                10, // struct size: 6 of header + 4 of idata
+                12, // struct size: 8 of header + 4 of idata
                 4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
                 1,  // segment data size: 'A'
                 1   // obj data size: 'A'
@@ -1732,7 +1732,7 @@ namespace {
 
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff88 0100 41c1 0100 0000" // Note the 0x41 there: the content is stored within the segment
+                "ff88 0000 0100 41c1 0100 0000" // Note the 0x41 there: the content is stored within the segment
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
@@ -1743,7 +1743,7 @@ namespace {
 
         // Check sizes: no content for now
         XOZ_EXPECT_SIZES(dsc,
-                12, // struct size: 8 of header + 4 of idata
+                14, // struct size: 10 of header + 4 of idata
                 4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
                 2,  // segment data size: 'AB'
                 2   // obj data size: 'AB'
@@ -1751,7 +1751,7 @@ namespace {
 
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff88 0200 00c2 4142 0200 0000"
+                "ff88 0000 0200 00c2 4142 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
@@ -1763,7 +1763,7 @@ namespace {
 
         // Check sizes: no content for now
         XOZ_EXPECT_SIZES(dsc,
-                14, // struct size: 10 of header + 4 of idata
+                16, // struct size: 12 of header + 4 of idata
                 4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
                 64,  // segment data size: 1/16 of a block size (1 single subblock)
                 10   // obj data size: 'ABCDEFGHIJ'
@@ -1771,7 +1771,7 @@ namespace {
 
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff88 0a00 0084 0080 00c0 0a00 0000"
+                "ff88 0000 0a00 0084 0080 00c0 0a00 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
@@ -1787,7 +1787,7 @@ namespace {
 
         // Check sizes: no content for now
         XOZ_EXPECT_SIZES(dsc,
-                14, // struct size: 10 of header + 4 of idata
+                16, // struct size: 12 of header + 4 of idata
                 4,  // internal data size: 4 for the content_size field of PlainWithContentDescriptor
                 4,  // segment data size: 1/16 of a block size (1 single subblock)
                 4   // obj data size: 'ABCDEFGHIJ'
@@ -1795,7 +1795,7 @@ namespace {
 
         dsc.write_struct_into(IOSpan(fp), rctx);
         XOZ_EXPECT_SERIALIZATION(fp, dsc,
-                "ff88 0400 00c4 4748 494a 0400 0000" // use inline again
+                "ff88 0000 0400 00c4 4748 494a 0400 0000" // use inline again
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc);
         XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
