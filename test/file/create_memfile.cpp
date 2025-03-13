@@ -246,10 +246,10 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0800 0184 0080 00c0 "
+                "0184 0000 0800 0184 0080 00c0 "
 
                 // padding
-                "0000 0000 0000 "
+                "0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
@@ -334,10 +334,10 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0800 0184 0080 00c0 "
+                "0184 0000 0800 0184 0080 00c0 "
 
                 // padding
-                "0000 0000 0000 "
+                "0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 

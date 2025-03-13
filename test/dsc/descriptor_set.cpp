@@ -603,7 +603,7 @@ namespace {
 
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
         EXPECT_EQ(dset->count(), (uint32_t)1);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
@@ -612,13 +612,13 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 7));
 
         // Delete the descriptor: its content blocks should be released too
         dset->erase(id1);
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
         EXPECT_EQ(dset->count(), (uint32_t)0);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
@@ -681,7 +681,7 @@ namespace {
 
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
         EXPECT_EQ(dset->count(), (uint32_t)1);
         EXPECT_EQ(dset->does_require_write(), (bool)false);
@@ -690,7 +690,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 7));
 
         // Create another set
         Segment sg2(blk_sz_order);
@@ -701,7 +701,7 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 6));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 2 + 7));
 
         // Move the descriptor from dset to dset2: while the descriptor is deleted from dset,
         // its external blocks should not be deallocated because the descriptor "moved" to
@@ -710,12 +710,12 @@ namespace {
 
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         dset2->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
 
         dset->full_sync(true);
@@ -725,7 +725,7 @@ namespace {
 
         dset2->full_sync(true);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 7e69 fa80 8200 0024 0084 0080 00c0"
+                "0000 7e69 fa80 0000 8200 0024 0084 0080 00c0"
                 );
 
         // Expected no change: what the dset2 grew, the dset shrank and the external blocks
@@ -733,14 +733,14 @@ namespace {
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1 /* TODO */ + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 6 + 2));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(1 + 7 + 2));
 
 
         // Delete the descriptor: its content blocks should be released too
         dset2->erase(id1);
         dset2->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
-                "0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         dset2->full_sync(true);
@@ -1327,7 +1327,7 @@ namespace {
         // Write down the set: we expect to see that single descriptor there
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 fc68 fa80 0000 0024 0084 0080 00c0"
+                "0000 fc68 fa80 0000 0000 0024 0084 0080 00c0"
                 );
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1338,11 +1338,11 @@ namespace {
         //  - floor(130 / 32) blocks for the content
         //  - 1 block for suballocation to hold:
         //    - the remaining of the content (1 subblock)
-        //    - the descriptor set (8 subblock, 16 bytes in total)
+        //    - the descriptor set (9 subblock, 16 bytes in total)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(8 + 1));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(9 + 1));
 
         // Clear the set
         dset->clear_set();
@@ -1351,7 +1351,7 @@ namespace {
 
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 0000 0000 0000 0000 0000 0000 0000"
+                "0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         // The set's segment is not empty because clear_set()+full_sync(false) does not
@@ -1406,7 +1406,7 @@ namespace {
         // Write down the set: we expect to see that single descriptor there
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 fc68 fa80 0000 0024 0084 0080 00c0"
+                "0000 fc68 fa80 0000 0000 0024 0084 0080 00c0"
                 );
 
         EXPECT_EQ(dset->count(), (uint32_t)1);
@@ -1417,11 +1417,11 @@ namespace {
         //  - floor(130 / 32) blocks for the content
         //  - 1 block for suballocation to hold:
         //    - the remaining of the content (1 subblock)
-        //    - the descriptor set (8 subblock, 16 bytes in total)
+        //    - the descriptor set (9 subblock, 16 bytes in total)
         d_blkarr.allocator().release();
         d_blkarr.release_blocks();
         EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)(130 / 32) + 1);
-        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(8 + 1));
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(9 + 1));
 
         // Remove the set, we expect that this will release the allocated blocks
         // and shrink the block array, thus, it will also make the set's segment empty
@@ -2128,7 +2128,7 @@ namespace {
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
-        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
+        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)8);
         dset->add(std::move(dscptr));
 
         // 1 descriptor and pending to write
@@ -2141,18 +2141,18 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(*dset,
-                12,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
+                14,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
                 2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
-                10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
-                10   /* obj data size */
+                12,  /* segment data size: 8 bytes (dscptr) + 4 bytes (dset header) */
+                12   /* obj data size */
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
                 // dset (descriptor) header (from Descriptor)
-                "0184 0a00 "
+                "0184 0000 0c00 "
 
                 // segment's extents
-                "0084 c0ff "
+                "0084 f0ff "
 
                 // segment's inline
                 "00c0 "
@@ -2178,18 +2178,18 @@ namespace {
         XOZ_EXPECT_SET(dset2, 1, false);
 
         XOZ_EXPECT_SIZES(*dset2,
-                12,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
+                14,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
                 2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
-                10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
-                10   /* obj data size */
+                12,  /* segment data size: 8 bytes (dscptr) + 4 bytes (dset header) */
+                12   /* obj data size */
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset2,
                 // dset (descriptor) header (from Descriptor)
-                "0184 0a00 "
+                "0184 0000 0c00 "
 
                 // segment's extents
-                "0084 c0ff "
+                "0084 f0ff "
 
                 // segment's inline
                 "00c0 "
@@ -2230,7 +2230,7 @@ namespace {
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
-        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
+        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)8);
         auto id1 = dset->add(std::move(dscptr));
 
         // Write the dset to disk. This will trigger the write of the set.
@@ -2240,18 +2240,18 @@ namespace {
 
         // Check sizes
         XOZ_EXPECT_SIZES(*dset,
-                12,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
+                14,  /* struct size: (see XOZ_EXPECT_SERIALIZATION) */
                 2,   /* descriptor data size: 2 bytes for dset's reserved uint16_t */
-                10,  /* segment data size: 6 bytes (dscptr) + 4 bytes (dset header) */
-                10   /* obj data size */
+                12,  /* segment data size: 8 bytes (dscptr) + 4 bytes (dset header) */
+                12   /* obj data size */
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
                 // dset (descriptor) header (from Descriptor)
-                "0184 0a00 "
+                "0184 0000 0c00 "
 
                 // segment's extents
-                "0084 c0ff "
+                "0084 f0ff "
 
                 // segment's inline
                 "00c0 "
@@ -2405,7 +2405,7 @@ namespace {
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
-        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)6);
+        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)8);
         dset->add(std::move(dscptr));
 
         // Write the dset to disk. This will trigger the write of the set.
@@ -2413,7 +2413,7 @@ namespace {
         dset->write_struct_into(IOSpan(fp), rctx);
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
-                "0000 fb40 fa80 0000 00c0 0000 0000 0000"
+                "0000 fb40 fa80 0000 0000 00c0 0000 0000"
                 );
 
         // Calling destroy should remove the set (and if we force a release
@@ -2493,7 +2493,7 @@ namespace {
         // because full_sync is recursive.
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 03a9 fa00 0184 0600 0084 00e0 00c0 0000"
+                "0000 03a9 fa00 0184 0000 0600 0084 00e0 00c0 0000"
                 );
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
                 "0000 fa00 fa00"
@@ -2523,7 +2523,7 @@ namespace {
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 // the set has only 1 desc (fa00), the rest is just padding
                 // that could be reclaimed
-                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000"
+                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
@@ -2597,7 +2597,7 @@ namespace {
         dset->full_sync(false);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 09a8 0184 0600 0084 00e0 00c0 0000 0000"
+                "0000 09a8 0184 0000 0600 0084 00e0 00c0 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset2,
@@ -2707,7 +2707,7 @@ namespace {
         // because full_sync is recursive *including* a flush of any pending write
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 05b9 fa00 0184 0800 0084 00f0 00c0 0000"
+                "0000 05b9 fa00 0184 0000 0800 0084 00f0 00c0 0000"
                 );
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset,
                 "0000 3b47 fa04 4142"
@@ -2744,7 +2744,7 @@ namespace {
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
                 // the set has only 1 desc (fa00), the rest is just padding
                 // that could be reclaimed
-                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000"
+                "0000 fa00 fa00 0000 0000 0000 0000 0000 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset2,
@@ -2824,7 +2824,7 @@ namespace {
         dset->full_sync(false);
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 11b8 0184 0a00 0084 04f0 00c0 0000 0000"
+                "0000 0fb8 0184 0000 0a00 0084 02f0 00c0 0000 0000"
                 );
 
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, xsubdset2,
@@ -2916,7 +2916,7 @@ namespace {
         };
 
         auto dscptr = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
-        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)10);
+        EXPECT_EQ(dscptr->calc_struct_footprint_size(), (uint32_t)12);
 
         auto id1 = dset->add(std::move(dscptr), true);
 
@@ -2925,11 +2925,11 @@ namespace {
         dset->write_struct_into(IOSpan(fp), rctx);
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
-                "0000 fc42 fa82 0100 0000 0000 00c0 0000"
+                "0000 fc42 fa82 0100 0000 0000 0000 00c0"
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
-                "ff89 0e00 0084 fcff 00c0 "
+                "ff89 0000 1000 000c 00c0 "
                 "ff01 0000 " // AppDescriptorSet's TYPE
                 "4241" // cookie
                 );
@@ -2976,11 +2976,11 @@ namespace {
         dset3->write_struct_into(IOSpan(fp), rctx2);
 
         XOZ_EXPECT_BLOCK_ARRAY_SERIALIZATION(d_blkarr, 0, -1,
-                "0000 f985 fa82 0100 0000 0000 00c0 fa82 0200 0000 0000 00c0 0000 0000 0000 0000"
+                "0000 f985 fa82 0100 0000 0000 0000 00c0 fa82 0200 0000 0000 0000 00c0 0000 0000"
                 );
 
         XOZ_EXPECT_SERIALIZATION(fp, *dset3,
-                "ff89 1800 000c 0084 00ff 00c0 "
+                "ff89 0000 1c00 000c 0084 f0ff 00c0 "
                 "ff01 0000 " // AppDescriptorSet's TYPE
                 "4241" // cookie
                 );
@@ -3070,7 +3070,7 @@ namespace {
                 "2a00 2401 fa00"
                 );
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
-                "0184 0600 0084 00e0 00c0 0000"
+                "0184 0000 0600 0084 00e0 00c0 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dset);
 
@@ -3148,7 +3148,7 @@ namespace {
                 "0000 fa00 fa00"
                 );
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
-                "0184 0600 0084 00e0 00c0 2a00"
+                "0184 0000 0600 0084 00e0 00c0 2a00"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dset);
 
@@ -3225,7 +3225,7 @@ namespace {
                 "0000 fa00 fa00"
                 );
         XOZ_EXPECT_SERIALIZATION(fp, *dset,
-                "0188 0600 0084 00e0 00c0 0010 4142"
+                "0188 0000 0600 0084 00e0 00c0 0010 4142"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dset);
 
@@ -3291,7 +3291,7 @@ namespace {
         // because full_sync is recursive.
         dset->full_sync(false);
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, dset,
-                "0000 8eea 0184 1200 0080 ff25 80ff 00c0 0000 fa00"
+                "0000 cfec 0184 0000 1400 0080 fe27 c0ff 00c0 0000 fa00"
                 );
         XOZ_EXPECT_SET_SERIALIZATION(d_blkarr, last_dset,
                 "0000 fa00 fa00"

@@ -281,7 +281,7 @@ namespace {
         dsc_v1.full_sync(false);
         dsc_v1.write_struct_into(IOSpan(fp), rctx_v1);
         XOZ_EXPECT_SERIALIZATION_v2(fp, dsc_v1,
-                "ff88 0300 43c3 4142 0300 0000"
+                "ff88 0000 0300 43c3 4142 0300 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc_v1);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, dsc_v1, rctx_v1, cblkarr);
@@ -300,7 +300,7 @@ namespace {
         dsc_v2->full_sync(false);
         dsc_v2->write_struct_into(IOSpan(fp), rctx_v2);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc_v2,
-                "ff90 0500 45c5 4142 4344 0300 0000 0200 0000"
+                "ff90 0000 0500 45c5 4142 4344 0300 0000 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc_v2);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc_v2, rctx_v2, cblkarr);
@@ -319,7 +319,7 @@ namespace {
         dsc2_v1->full_sync(false);
         dsc2_v1->write_struct_into(IOSpan(fp), rctx_v1);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc2_v1,
-                "ff90 0500 45c5 4142 4344 0300 0000 0200 0000"
+                "ff90 0000 0500 45c5 4142 4344 0300 0000 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc2_v1);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc2_v1, rctx_v1, cblkarr);
@@ -341,7 +341,7 @@ namespace {
         dsc2_v2->full_sync(false);
         dsc2_v2->write_struct_into(IOSpan(fp), rctx_v2);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc2_v2,
-                "ff90 0500 45c5 4142 4344 0300 0000 0200 0000"
+                "ff90 0000 0500 45c5 4142 4344 0300 0000 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc2_v2);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc2_v2, rctx_v2, cblkarr);
@@ -379,7 +379,7 @@ namespace {
         dsc_v1.full_sync(false);
         dsc_v1.write_struct_into(IOSpan(fp), rctx_v1);
         XOZ_EXPECT_SERIALIZATION_v2(fp, dsc_v1,
-                "ff88 0300 43c3 4142 0300 0000"
+                "ff88 0000 0300 43c3 4142 0300 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc_v1);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, dsc_v1, rctx_v1, cblkarr);
@@ -398,7 +398,7 @@ namespace {
         dsc_v2->full_sync(false);
         dsc_v2->write_struct_into(IOSpan(fp), rctx_v2);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc_v2,
-                "ff90 0500 45c5 4142 4344 0300 0000 0200 0000"
+                "ff90 0000 0500 45c5 4142 4344 0300 0000 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc_v2);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc_v2, rctx_v2, cblkarr);
@@ -418,7 +418,7 @@ namespace {
         dsc2_v1->full_sync(false);
         dsc2_v1->write_struct_into(IOSpan(fp), rctx_v1);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc2_v1,
-                "ff90 0300 45c3 4644 0100 0000 0200 0000"
+                "ff90 0000 0300 45c3 4644 0100 0000 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc2_v1);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc2_v1, rctx_v1, cblkarr);
@@ -440,7 +440,7 @@ namespace {
         dsc2_v2->full_sync(false);
         dsc2_v2->write_struct_into(IOSpan(fp), rctx_v2);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc2_v2,
-                "ff90 0300 45c3 4644 0100 0000 0200 0000"
+                "ff90 0000 0300 45c3 4644 0100 0000 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc2_v2);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc2_v2, rctx_v2, cblkarr);
@@ -478,7 +478,7 @@ namespace {
         dsc_v1.full_sync(false);
         dsc_v1.write_struct_into(IOSpan(fp), rctx_v1);
         XOZ_EXPECT_SERIALIZATION_v2(fp, dsc_v1,
-                "ff88 0300 43c3 4142 0300 0000"
+                "ff88 0000 0300 43c3 4142 0300 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc_v1);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, dsc_v1, rctx_v1, cblkarr);
@@ -497,7 +497,7 @@ namespace {
         dsc_v2->full_sync(false);
         dsc_v2->write_struct_into(IOSpan(fp), rctx_v2);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc_v2,
-                "ff90 0500 45c5 4142 4344 0300 0000 0200 0000"
+                "ff90 0000 0500 45c5 4142 4344 0300 0000 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc_v2);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc_v2, rctx_v2, cblkarr);
@@ -517,7 +517,7 @@ namespace {
         dsc2_v1->full_sync(false);
         dsc2_v1->write_struct_into(IOSpan(fp), rctx_v1);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc2_v1,
-                "ff90 0600 00c6 4647 4849 4445 0400 0000 0200 0000"
+                "ff90 0000 0600 00c6 4647 4849 4445 0400 0000 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc2_v1);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc2_v1, rctx_v1, cblkarr);
@@ -539,7 +539,7 @@ namespace {
         dsc2_v2->full_sync(false);
         dsc2_v2->write_struct_into(IOSpan(fp), rctx_v2);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc2_v2,
-                "ff90 0600 00c6 4647 4849 4445 0400 0000 0200 0000"
+                "ff90 0000 0600 00c6 4647 4849 4445 0400 0000 0200 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc2_v2);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc2_v2, rctx_v2, cblkarr);
@@ -577,7 +577,7 @@ namespace {
         dsc_v1.full_sync(false);
         dsc_v1.write_struct_into(IOSpan(fp), rctx_v1);
         XOZ_EXPECT_SERIALIZATION_v2(fp, dsc_v1,
-                "ff88 0300 43c3 4142 0300 0000"
+                "ff88 0000 0300 43c3 4142 0300 0000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, dsc_v1);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, dsc_v1, rctx_v1, cblkarr);
@@ -599,7 +599,7 @@ namespace {
         dsc_v2->full_sync(false);
         dsc_v2->write_struct_into(IOSpan(fp), rctx_v2);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc_v2,
-                "ff90 0880 2000 0004 0004 00c8 fdfe ff00 0102 0304 0300 0000 0500 1000"
+                "ff90 0000 0880 2000 0004 0004 00c8 fdfe ff00 0102 0304 0300 0000 0500 1000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc_v2);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc_v2, rctx_v2, cblkarr);
@@ -619,7 +619,7 @@ namespace {
         dsc2_v1->full_sync(false);
         dsc2_v1->write_struct_into(IOSpan(fp), rctx_v1);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc2_v1,
-                "ff90 0680 2000 0004 0004 00c6 ff00 0102 0304 0100 0000 0500 1000"
+                "ff90 0000 0680 2000 0004 0004 00c6 ff00 0102 0304 0100 0000 0500 1000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc2_v1);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc2_v1, rctx_v1, cblkarr);
@@ -638,7 +638,7 @@ namespace {
         dsc2_v2->full_sync(false);
         dsc2_v2->write_struct_into(IOSpan(fp), rctx_v2);
         XOZ_EXPECT_SERIALIZATION_v2(fp, *dsc2_v2,
-                "ff90 0680 2000 0004 0004 00c6 ff00 0102 0304 0100 0000 0500 1000"
+                "ff90 0000 0680 2000 0004 0004 00c6 ff00 0102 0304 0100 0000 0500 1000"
                 );
         XOZ_EXPECT_CHECKSUM(fp, *dsc2_v2);
         XOZ_EXPECT_DESERIALIZATION_v2(fp, *dsc2_v2, rctx_v2, cblkarr);
