@@ -203,32 +203,29 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     uint8_t isize = uint8_t((uint8_t(hi_isize << 5) | lo_isize) << 1);  // in bytes
 
-    uint32_t lo_csize = 0, hi_csize = 0;
+    // Count content parts (if we own content at all)
+    uint16_t content_part_cnt = 0;
     if (own_content) {
-        uint16_t segm_cnt = io.read_u16_from_le();
-        assert(segm_cnt == 0);       // TODO not supported more than 1 segment for now so we expect 0
-        assert(segm_cnt != 0xffff);  // TODO this is reserved
+        content_part_cnt = io.read_u16_from_le();
+        local_checksum += content_part_cnt;
 
-        // TODO put this in a for-loop eventually
-        uint16_t sizefield = io.read_u16_from_le();
+        assert(content_part_cnt == 0);       // TODO not supported more than 1 segment for now so we expect 0
+        assert(content_part_cnt != 0xffff);  // TODO this is reserved
 
-        local_checksum += sizefield;
-
-        bool large = assert_read_bits_from_u16(bool, sizefield, MASK_LARGE_FLAG);
-        lo_csize = assert_read_bits_from_u16(uint32_t, sizefield, MASK_LO_CSIZE);
-
-        if (large) {
-            uint16_t largefield = io.read_u16_from_le();
-
-            local_checksum += largefield;
-
-            hi_csize = assert_read_bits_from_u16(uint32_t, largefield, MASK_HI_CSIZE);
-        }
+        content_part_cnt += 1;  // we always have at least 1 part
     }
 
-    uint32_t csize = (hi_csize << 15) | lo_csize;  // in bytes
+    // Read the parts
+    std::vector<struct content_part_t> content_parts = reserve_content_part_vec(content_part_cnt);
+    if (own_content) {
+        local_checksum += inet_checksum(read_content_parts(io, cblkarr, content_parts));
+    }
 
-    Segment segm(cblkarr.blk_sz_order());
+
+    // TODO remove these
+    uint32_t csize = own_content ? content_parts[0].csize : 0;
+    Segment segm = own_content ? content_parts[0].segm : Segment(cblkarr.blk_sz_order());
+
     struct Descriptor::header_t hdr = {
             .own_content = own_content, .type = type, .id = 0, .isize = isize, .csize = csize, .segm = segm};
 
@@ -266,11 +263,6 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     assert(id != 0);
     hdr.id = id;
-
-    if (own_content) {
-        hdr.segm = Segment::load_struct_from(io, cblkarr.blk_sz_order(), Segment::EndMode::AnyEnd, uint32_t(-1),
-                                             &local_checksum);
-    }
 
     /* TODO
     const auto segm_sz = hdr.segm.calc_data_space_size(???);
@@ -312,6 +304,37 @@ struct Descriptor::header_t Descriptor::load_header_from(IOBase& io, RuntimeCont
 
     io.seek_rd(idata_begin_pos);
     return hdr;
+}
+
+std::vector<struct Descriptor::content_part_t> Descriptor::reserve_content_part_vec(uint16_t content_part_cnt) {
+    return std::vector<content_part_t>(content_part_cnt);
+}
+
+uint32_t Descriptor::read_content_parts(IOBase& io, BlockArray& cblkarr, std::vector<struct content_part_t>& parts) {
+    uint32_t local_checksum = 0;
+    for (unsigned part_num = 0; part_num < parts.size(); ++part_num) {
+        uint16_t sizefield = io.read_u16_from_le();
+
+        local_checksum += sizefield;
+
+        uint32_t lo_csize = 0, hi_csize = 0;
+        bool large = assert_read_bits_from_u16(bool, sizefield, MASK_LARGE_FLAG);
+        lo_csize = assert_read_bits_from_u16(uint32_t, sizefield, MASK_LO_CSIZE);
+
+        if (large) {
+            uint16_t largefield = io.read_u16_from_le();
+
+            local_checksum += largefield;
+
+            hi_csize = assert_read_bits_from_u16(uint32_t, largefield, MASK_HI_CSIZE);
+        }
+
+        parts[part_num].csize = (hi_csize << 15) | lo_csize;  // in bytes
+        parts[part_num].segm = Segment::load_struct_from(io, cblkarr.blk_sz_order(), Segment::EndMode::AnyEnd,
+                                                         uint32_t(-1), &local_checksum);
+    }
+
+    return local_checksum;
 }
 
 std::unique_ptr<Descriptor> Descriptor::load_struct_from(IOBase& io, RuntimeContext& rctx, BlockArray& cblkarr) {
@@ -562,7 +585,7 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
 
 
     if (hdr.own_content) {
-        // segm_cnt
+        // content_part_cnt
         struct_sz += 2;
 
         if (hdr.csize < (1 << 15)) {

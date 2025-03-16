@@ -18,6 +18,11 @@ class File;
 
 class Descriptor {
 public:
+    struct content_part_t {
+        uint32_t csize;  // in bytes
+        Segment segm;    // data segment
+    };
+
     struct header_t {
         bool own_content;
         uint16_t type;
@@ -335,6 +340,9 @@ protected:
     void notify_descriptor_changed();
 
 private:
+    static std::vector<struct content_part_t> reserve_content_part_vec(uint16_t content_part_cnt);
+    static uint32_t read_content_parts(IOBase& io, BlockArray& cblkarr, std::vector<struct content_part_t>& parts);
+
     void read_future_idata(IOBase& io);
     void write_future_idata(IOBase& io) const;
     uint8_t future_idata_size() const;

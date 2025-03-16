@@ -10,6 +10,8 @@
 #include "xoz/io/iobase.h"
 
 namespace xoz {
+class Descriptor;
+
 class Segment {
 public:
     static const uint32_t MaxInlineSize = (1 << 6) - 1;
@@ -214,5 +216,10 @@ private:
 
     bool inline_present;
     std::vector<char> raw;
+
+private:
+    // Only for Descriptor's reserve_content_part_vec
+    Segment(): blk_sz_order(0), inline_present(false) {}
+    friend Descriptor;
 };
 }  // namespace xoz

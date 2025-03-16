@@ -1,5 +1,6 @@
 target_sources(xoz
     PRIVATE
+    content.cpp
     descriptor.cpp
     descriptor_mapping.cpp
     descriptor_set.cpp
@@ -7,6 +8,7 @@ target_sources(xoz
     opaque.cpp
     private.cpp
     PUBLIC
+    content.h
     descriptor.h
     descriptor_mapping.h
     descriptor_set.h
