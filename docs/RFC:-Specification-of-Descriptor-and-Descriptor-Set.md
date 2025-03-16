@@ -16,7 +16,21 @@ Changed in version 2:
 
 # Descriptor
 
- ```cpp
+```cpp
+struct content_part_t {
+    uint16_t {
+        uint large    : 1;      // mask: 0x8000
+        uint lo_csize : 15;     // mask: 0x7fff
+    };
+
+    /* present if large == 1 */
+    uint16_t hi_csize;
+
+    struct segment_t segm;
+};
+```
+
+```cpp
 struct descriptor_t {
     uint16_t {
         uint own_content : 1;   // mask: 0x8000
@@ -31,17 +45,11 @@ struct descriptor_t {
         uint id       : 31;     // mask: 0x7fffffff
     };
 
-    /* present if own_content == 1 */
-    uint16_t {
-        uint large    : 1;      // mask: 0x8000
-        uint lo_csize : 15;     // mask: 0x7fff
-    };
-
-    /* present if own_content == 1 && large == 1 */
-    uint16_t hi_csize;
+    /* present if own_content == 1 */ // TODO content_part_cnt == 0xffff is reserved
+    uint16_t content_part_cnt;
 
     /* present if own_content == 1 */
-    struct segment_t segm;
+    struct content_part_t cdata_entries[1 + content_part_cnt];
 
     /* present if type == 0x1ff */
     uint16_t ex_type;
