@@ -805,9 +805,7 @@ void Descriptor::declare_used_content_space_on_load([[maybe_unused]] std::vector
 
 void Descriptor::update_content_parts([[maybe_unused]] std::vector<struct Descriptor::content_part_t>& cparts) {}
 
-void Descriptor::resize_content_part(uint16_t part_num, uint32_t content_new_sz) {
-    auto& cpart = hdr.cparts.at(part_num);  // TODO at()
-
+void Descriptor::resize_content_part(struct Descriptor::content_part_t& cpart, uint32_t content_new_sz) {
     // No previous content and nothing to grow, then skip (no change)
     if (cpart.csize == 0 and content_new_sz == 0) {
         // TODO should try to dealloc anyways???
@@ -920,13 +918,11 @@ void Descriptor::resize_content_part(uint16_t part_num, uint32_t content_new_sz)
     cpart.csize = csize_new;
 }
 
-IOSegment Descriptor::get_content_part_io(uint16_t part_num) {
+IOSegment Descriptor::get_content_part_io(struct Descriptor::content_part_t& cpart) {
     // Hide from the caller the future content
     //
     // Note: if get_content_part_io() is called from read_struct_specifics_from,
     // by that time future content size is not set yet and it will default to 0
-
-    auto& cpart = hdr.cparts.at(part_num);  // TODO at()
     auto io = IOSegment(cblkarr, cpart.segm);
     auto present_csize = assert_u32_sub_nonneg(cpart.csize, cpart.future_csize);
 

@@ -103,16 +103,17 @@ namespace {
     public:
         void set_content_v1(const std::vector<char>& data) {
             content_v1_size = assert_u32(data.size());
-            resize_content_part(0, content_v1_size);
+            auto cpart = get_content_part(0);
+            cpart.resize(content_v1_size);
 
-            auto io = get_content_part_io(0);
+            auto io = cpart.get_io();
             io.writeall(data);
             notify_descriptor_changed();
         }
 
         const std::vector<char> get_content_v1() {
             std::vector<char> data;
-            auto io = get_content_part_io(0);
+            auto io = get_content_part(0).get_io();
 
             // For V1, the entire content *is* content_v1
             io.readall(data);
@@ -121,7 +122,7 @@ namespace {
         }
 
         void del_content_v1() {
-            resize_content_part(0, 0);
+            get_content_part(0).resize(0);
             content_v1_size = 0;
             notify_descriptor_changed();
         }
@@ -159,9 +160,10 @@ namespace {
     public:
         void set_content_v1(const std::vector<char>& data) {
             content_v1_size = assert_u32(data.size());
-            resize_content_part(0, content_v1_size + content_v2_size);
+            auto cpart = get_content_part(0);
+            cpart.resize(content_v1_size + content_v2_size);
 
-            auto io = get_content_part_io(0);
+            auto io = cpart.get_io();
             io.limit_wr(0, content_v1_size);
             io.writeall(data);
             notify_descriptor_changed();
@@ -169,7 +171,7 @@ namespace {
 
         const std::vector<char> get_content_v1() {
             std::vector<char> data;
-            auto io = get_content_part_io(0);
+            auto io = get_content_part(0).get_io();
             io.limit_rd(0, content_v1_size);
             io.readall(data);
 
@@ -177,13 +179,14 @@ namespace {
         }
 
         void del_content_v1() {
-            auto io = get_content_part_io(0);
+            auto cpart = get_content_part(0);
+            auto io = cpart.get_io();
 
             io.seek_wr(0);
             io.seek_rd(content_v1_size);
             io.copy_into_self(content_v2_size);
 
-            resize_content_part(0, content_v2_size);
+            cpart.resize(content_v2_size);
             content_v1_size = 0;
 
             notify_descriptor_changed();
@@ -191,9 +194,10 @@ namespace {
 
         void set_content_v2(const std::vector<char>& data) {
             content_v2_size = assert_u32(data.size());
-            resize_content_part(0, content_v1_size + content_v2_size);
+            auto cpart = get_content_part(0);
+            cpart.resize(content_v1_size + content_v2_size);
 
-            auto io = get_content_part_io(0);
+            auto io = cpart.get_io();
             io.limit_wr(content_v1_size, content_v2_size);
             io.writeall(data);
             notify_descriptor_changed();
@@ -201,7 +205,7 @@ namespace {
 
         const std::vector<char> get_content_v2() {
             std::vector<char> data;
-            auto io = get_content_part_io(0);
+            auto io = get_content_part(0).get_io();
             io.limit_rd(content_v1_size, content_v2_size);
             io.readall(data);
 
@@ -209,9 +213,10 @@ namespace {
         }
 
         void del_content_v2() {
-            auto io = get_content_part_io(0);
+            auto cpart = get_content_part(0);
+            auto io = cpart.get_io();
 
-            resize_content_part(0, content_v1_size);
+            cpart.resize(content_v1_size);
             content_v2_size = 0;
 
             notify_descriptor_changed();
@@ -259,9 +264,10 @@ namespace {
         // Same as in FooV2
         void set_content_v1(const std::vector<char>& data) {
             content_v1_size = assert_u32(data.size());
-            resize_content_part(0, content_v1_size + content_v2_size);
+            auto cpart = get_content_part(0);
+            cpart.resize(content_v1_size + content_v2_size);
 
-            auto io = get_content_part_io(0);
+            auto io = cpart.get_io();
             io.limit_wr(0, content_v1_size);
             io.writeall(data);
             notify_descriptor_changed();
@@ -270,7 +276,7 @@ namespace {
         // Same as in FooV2
         const std::vector<char> get_content_v1() {
             std::vector<char> data;
-            auto io = get_content_part_io(0);
+            auto io = get_content_part(0).get_io();
             io.limit_rd(0, content_v1_size);
             io.readall(data);
 
@@ -279,13 +285,14 @@ namespace {
 
         // Same as in FooV2
         void del_content_v1() {
-            auto io = get_content_part_io(0);
+            auto cpart = get_content_part(0);
+            auto io = cpart.get_io();
 
             io.seek_wr(0);
             io.seek_rd(content_v1_size);
             io.copy_into_self(content_v2_size);
 
-            resize_content_part(0, content_v2_size);
+            cpart.resize(content_v2_size);
             content_v1_size = 0;
 
             notify_descriptor_changed();
@@ -294,9 +301,10 @@ namespace {
         // Same as in FooV2
         void set_content_v2(const std::vector<char>& data) {
             content_v2_size = assert_u32(data.size());
-            resize_content_part(0, content_v1_size + content_v2_size);
+            auto cpart = get_content_part(0);
+            cpart.resize(content_v1_size + content_v2_size);
 
-            auto io = get_content_part_io(0);
+            auto io = cpart.get_io();
             io.limit_wr(content_v1_size, content_v2_size);
             io.writeall(data);
             notify_descriptor_changed();
@@ -305,7 +313,7 @@ namespace {
         // Same as in FooV2
         const std::vector<char> get_content_v2() {
             std::vector<char> data;
-            auto io = get_content_part_io(0);
+            auto io = get_content_part(0).get_io();
             io.limit_rd(content_v1_size, content_v2_size);
             io.readall(data);
 
@@ -314,9 +322,10 @@ namespace {
 
         // Same as in FooV2
         void del_content_v2() {
-            auto io = get_content_part_io(0);
+            auto cpart = get_content_part(0);
+            auto io = cpart.get_io();
 
-            resize_content_part(0, content_v1_size);
+            cpart.resize(content_v1_size);
             content_v2_size = 0;
 
             notify_descriptor_changed();
@@ -325,16 +334,17 @@ namespace {
         // FooV3 uses a separated content part (part number 1)
         virtual void set_content_v3(const std::vector<char>& data) {
             content_v3_size = assert_u32(data.size());
-            resize_content_part(1, content_v3_size);
+            auto cpart = get_content_part(1);
+            cpart.resize(content_v3_size);
 
-            auto io = get_content_part_io(1);
+            auto io = cpart.get_io();
             io.writeall(data);
             notify_descriptor_changed();
         }
 
         virtual const std::vector<char> get_content_v3() {
             std::vector<char> data;
-            auto io = get_content_part_io(1);
+            auto io = get_content_part(1).get_io();
 
             // For V3, the entire content *is* content_v3 (content part 2)
             io.readall(data);
@@ -343,7 +353,7 @@ namespace {
         }
 
         virtual void del_content_v3() {
-            resize_content_part(1, 0);
+            get_content_part(1).resize(0);
             content_v3_size = 0;
             notify_descriptor_changed();
         }
@@ -406,9 +416,10 @@ namespace {
         // in the same content part
         void set_content_v3(const std::vector<char>& data) override {
             content_v3_size = assert_u32(data.size());
-            resize_content_part(1, content_v3_size + content_v4_size);
+            auto cpart = get_content_part(1);
+            cpart.resize(content_v3_size + content_v4_size);
 
-            auto io = get_content_part_io(1);
+            auto io = cpart.get_io();
             io.limit_wr(0, content_v3_size);
             io.writeall(data);
             notify_descriptor_changed();
@@ -416,7 +427,7 @@ namespace {
 
         const std::vector<char> get_content_v3() override {
             std::vector<char> data;
-            auto io = get_content_part_io(1);
+            auto io = get_content_part(1).get_io();
             io.limit_rd(0, content_v3_size);
             io.readall(data);
 
@@ -424,13 +435,14 @@ namespace {
         }
 
         void del_content_v3() override {
-            auto io = get_content_part_io(1);
+            auto cpart = get_content_part(1);
+            auto io = cpart.get_io();
 
             io.seek_wr(0);
             io.seek_rd(content_v3_size);
             io.copy_into_self(content_v4_size);
 
-            resize_content_part(1, content_v4_size);
+            cpart.resize(content_v4_size);
             content_v3_size = 0;
 
             notify_descriptor_changed();
@@ -438,9 +450,10 @@ namespace {
 
         void set_content_v4(const std::vector<char>& data) {
             content_v4_size = assert_u32(data.size());
-            resize_content_part(1, content_v3_size + content_v4_size);
+            auto cpart = get_content_part(1);
+            cpart.resize(content_v3_size + content_v4_size);
 
-            auto io = get_content_part_io(1);
+            auto io = cpart.get_io();
             io.limit_wr(content_v3_size, content_v4_size);
             io.writeall(data);
             notify_descriptor_changed();
@@ -448,7 +461,7 @@ namespace {
 
         const std::vector<char> get_content_v4() {
             std::vector<char> data;
-            auto io = get_content_part_io(1);
+            auto io = get_content_part(1).get_io();
             io.limit_rd(content_v3_size, content_v4_size);
             io.readall(data);
 
@@ -456,9 +469,10 @@ namespace {
         }
 
         void del_content_v4() {
-            auto io = get_content_part_io(1);
+            auto cpart = get_content_part(1);
+            auto io = cpart.get_io();
 
-            resize_content_part(1, content_v3_size);
+            cpart.resize(content_v3_size);
             content_v4_size = 0;
 
             notify_descriptor_changed();

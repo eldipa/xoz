@@ -46,11 +46,12 @@ uint32_t IDMappingDescriptor::calculate_store_mapping_size(const std::map<std::s
 
 void IDMappingDescriptor::store(const std::map<std::string, uint32_t>& id_by_name) {
     content_sz = calculate_store_mapping_size(id_by_name);
-    resize_content_part(Parts::Map, content_sz);
+    auto cpart = get_content_part(Parts::Map);
+    cpart.resize(content_sz);
 
     // Note: sanity checks were made in calculate_store_mapping_size()
     // No need to repeat them here.
-    auto io = get_content_part_io(Parts::Map);
+    auto io = cpart.get_io();
     uint32_t cnt = 0;
     for (auto const& [name, id]: id_by_name) {
         // Temp names are not stored
@@ -71,7 +72,8 @@ std::map<std::string, uint32_t> IDMappingDescriptor::load() {
     std::map<std::string, uint32_t> id_by_name;
 
     char buf[256];
-    auto io = get_content_part_io(Parts::Map);
+    auto cpart = get_content_part(Parts::Map);
+    auto io = cpart.get_io();
     for (unsigned i = 0; i < num_entries; ++i) {
         uint32_t id = io.read_u32_from_le();
         uint8_t len = io.read_u8_from_le();

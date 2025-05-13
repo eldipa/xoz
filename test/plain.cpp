@@ -50,23 +50,24 @@ std::unique_ptr<Descriptor> PlainWithImplContentDescriptor::create(const struct 
 
 void PlainWithImplContentDescriptor::set_content(const std::vector<char>& content) {
     uint32_t content_size = assert_u32(content.size());
-    resize_content_part(Parts::Data, content_size);
+    auto cpart = get_content_part(Parts::Data);
+    cpart.resize(content_size);
 
-    auto io = get_content_part_io(Parts::Data);
+    auto io = cpart.get_io();
     io.writeall(content);
     notify_descriptor_changed();
 }
 
 const std::vector<char> PlainWithImplContentDescriptor::get_content() /* TODO const */ {
     std::vector<char> content;
-    auto io = get_content_part_io(Parts::Data);
+    auto io = get_content_part(Parts::Data).get_io();
     io.readall(content);
 
     return content;
 }
 
 void PlainWithImplContentDescriptor::del_content() {
-    resize_content_part(Parts::Data, 0);
+    get_content_part(Parts::Data).resize(0);
     notify_descriptor_changed();
 }
 
@@ -102,23 +103,24 @@ std::unique_ptr<Descriptor> PlainWithContentDescriptor::create(const struct Desc
 
 void PlainWithContentDescriptor::set_content(const std::vector<char>& content) {
     content_size = assert_u32(content.size());
-    resize_content_part(Parts::Data, content_size);
+    auto cpart = get_content_part(Parts::Data);
+    cpart.resize(content_size);
 
-    auto io = get_content_part_io(Parts::Data);
+    auto io = cpart.get_io();
     io.writeall(content);
     notify_descriptor_changed();
 }
 
 const std::vector<char> PlainWithContentDescriptor::get_content() /* TODO const */ {
     std::vector<char> content;
-    auto io = get_content_part_io(Parts::Data);
+    auto io = get_content_part(Parts::Data).get_io();
     io.readall(content);
 
     return content;
 }
 
 void PlainWithContentDescriptor::del_content() {
-    resize_content_part(Parts::Data, 0);
+    get_content_part(Parts::Data).resize(0);
     content_size = 0;
     notify_descriptor_changed();
 }

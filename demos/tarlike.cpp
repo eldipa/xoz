@@ -273,8 +273,9 @@ public:
         }
 
         // Read the file content and dump it into f
-        // The file is at the begin of the content section so we don't need to do a seek_rd
-        auto io = get_content_part_io(Parts::FileData);
+        // The file is at the begin of the content section so we don't need to do a seek_rda
+        auto cpart = get_content_part(Parts::FileData);
+        auto io = cpart.get_io();
         io.readall(f, file_sz);
     }
 
@@ -290,7 +291,8 @@ protected:
     // and "warm" the file name.
     //
     void complete_load() override {
-        auto io = get_content_part_io(Parts::FileName);
+        auto cpart = get_content_part(Parts::FileName);
+        auto io = cpart.get_io();
         io.turn_read_only();  // not necessary, just a safe check for us
 
         // Read the file name
@@ -311,9 +313,10 @@ protected:
     // that flush_writes() must rewrite everything.
     void flush_writes() override {
         // Just update fname
-        resize_content_part(Parts::FileName, fname_sz);
+        auto cpart = get_content_part(Parts::FileName);
+        cpart.resize(fname_sz);
 
-        auto io = get_content_part_io(Parts::FileName);
+        auto io = cpart.get_io();
         io.writeall(fname.c_str(), fname_sz);
     }
 
@@ -424,36 +427,38 @@ private:
         // Leave the file open, we will use it soon.
         std::ifstream file = init_attributes(fpath);
 
-        // We allocate the required amount of bytes to hold the content.
-        //
-        // XOZ will do all the necessary things to find enough space without fragmenting
-        // to much the xoz file or spreading the content too much.
-        // If the xoz file is too small, it will grow automatically.
-        // If the size is too large, the method will throw.
-        resize_content_part(Parts::FileData, file_sz);
-
         {
+            // We allocate the required amount of bytes to hold the content.
+            //
+            // XOZ will do all the necessary things to find enough space without fragmenting
+            // to much the xoz file or spreading the content too much.
+            // If the xoz file is too small, it will grow automatically.
+            // If the size is too large, the method will throw.
+            auto cpart = get_content_part(Parts::FileData);
+            cpart.resize(file_sz);
+
             // Under the hood xoz allocates a series of blocks from BlockArray.
             // Dealing with blocks directly is cumbersome and generally not needed.
             //
             // XOZ offers a better way: an 'io' object (the IOBase subclass IOSegment)
             // to see the entire space (the content) as a contiguous byte string
             // very similar to a C++ file.
-            auto io = get_content_part_io(Parts::FileData);
+            auto io = cpart.get_io();
 
             // Now, copy the file content to the io object. Writing to the io will
             // write directly to xoz file.
             io.writeall(file);
         }
 
-        // Now we do the same for the file name:
-        //  - we resize the content part "FileName" with the wanted size
-        //  - get an io object
-        //  - write the file name in the xoz file by writing via the io object.
-        resize_content_part(Parts::FileName, fname_sz);
-
         {
-            auto io = get_content_part_io(Parts::FileName);
+            // Now we do the same for the file name:
+            //  - we resize the content part "FileName" with the wanted size
+            //  - get an io object
+            //  - write the file name in the xoz file by writing via the io object.
+            auto cpart = get_content_part(Parts::FileName);
+            cpart.resize(fname_sz);
+
+            auto io = cpart.get_io();
             io.writeall(fname.c_str(), fname_sz);
         }
     }

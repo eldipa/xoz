@@ -40,6 +40,21 @@ public:
         std::vector<struct content_part_t> cparts;
     };
 
+    class Content {
+    public:
+        Content(Descriptor& dsc, struct Descriptor::content_part_t& cpart): dsc(dsc), cpart(cpart) {}
+
+        [[nodiscard]] inline IOSegment get_io() { return dsc.get_content_part_io(cpart); }
+
+        inline void resize(uint32_t content_new_sz) { return dsc.resize_content_part(cpart, content_new_sz); }
+
+        [[nodiscard]] inline uint32_t size() const { return assert_u32_sub_nonneg(cpart.csize, cpart.future_csize); }
+
+    private:
+        Descriptor& dsc;
+        struct Descriptor::content_part_t& cpart;
+    };
+
 public:
     /*
      * Callers should call update_header() before calling write_struct_into()
@@ -471,6 +486,8 @@ private:
     std::vector<char> future_idata;
 
 protected:
+    [[nodiscard]] inline Content get_content_part(uint16_t part_num) { return Content(*this, hdr.cparts.at(part_num)); }
+
     /*
      * Resize the content space to have the given size. If no content
      * exists before, a new space is allocated, otherwise a resize happen.
@@ -484,14 +501,14 @@ protected:
      * It it the correct way to disown the content and free space, however
      * the space may not be fully released if the descriptor has 'future' content.
      * */
-    void resize_content_part(uint16_t part_num, uint32_t content_new_sz);
+    void resize_content_part(struct content_part_t& cpart, uint32_t content_new_sz);
 
     /*
      * Get content return the present version's content (hiding future content).
      *
      * Subclasses should use get_content_part_io() only.
      * */
-    IOSegment get_content_part_io(uint16_t part_num);
+    IOSegment get_content_part_io(struct content_part_t& cpart);
 
     /*
      * Count incompressible content parts.

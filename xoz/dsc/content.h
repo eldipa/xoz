@@ -1,6 +1,2 @@
 #pragma once
-namespace xoz {
-
-class Content {};
-
-}  // namespace xoz
+namespace xoz {}  // namespace xoz

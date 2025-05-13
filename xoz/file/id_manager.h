@@ -70,5 +70,7 @@ private:
     uint32_t next_temporal_id;
 
     std::set<uint32_t> persistent_ids;
+
+    enum Parts : uint16_t { Map, CNT };
 };
 }  // namespace xoz
