@@ -712,6 +712,8 @@ void Descriptor::destroy() {
 }
 
 void Descriptor::notify_descriptor_changed() {
+    // TODO notify_descriptor_changed should be cached somehow to avoid calling mark_as_modified
+    // multiple times
     if (owner_raw_ptr != nullptr) {
         owner_raw_ptr->mark_as_modified(this->id());
     }

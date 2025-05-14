@@ -53,6 +53,13 @@ public:
 
         [[nodiscard]] inline uint32_t size() const { return assert_u32_sub_nonneg(cpart.csize, cpart.s.future_csize); }
 
+        inline void set_pending() {
+            cpart.s.pending = true;
+            dsc.notify_descriptor_changed();
+        }
+        inline void unset_pending() { cpart.s.pending = false; }
+        [[nodiscard]] inline bool is_pending() const { return cpart.s.pending; }
+
     private:
         Descriptor& dsc;
         struct Descriptor::content_part_t& cpart;

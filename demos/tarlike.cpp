@@ -240,16 +240,20 @@ public:
         fname_sz = xoz::assert_u16(new_fname.size());
         fname = new_fname;
 
-        // (10)
-        // We let know the descriptor set owner of us that we changed.
-        // We must call notify_descriptor_changed() if we have some pending
-        // writes and/or the size of the descriptor changed.
+        // We mark the content part as "pending".
+        // This implicitly call notify_descriptor_changed()
+        //
+        // While marking a content part as "pending" enables an optional optimization
+        // in flush_writes() (you can know what to flush and what to not);
+        // calling notify_descriptor_changed() is mandatory when there is a
+        // pending write *or* if the descriptor idata changed
         //
         // In our case we have both conditions:
         //  - the fname is pending to be written (see flush_writes())
         //  - the content size changed (the fname_sz changed)
         //
-        notify_descriptor_changed();
+        // Failing to call notify_descriptor_changed() will lead to data loss.
+        get_content_part(Parts::FileName).set_pending();
     }
 
     //
@@ -302,22 +306,20 @@ protected:
         fname.assign(buf.data(), fname_sz);
     }
 
-    //
     // Called every time the descriptor set (our owner) is notified that
     // we have pending writes (either the descriptor calling notify_descriptor_changed()
     // or someone else calling on the descriptor set mark_as_modified()).
-    //
-    // Note: currently, it is not possible in xoz to "mark" what things are pending
-    // to write and which don't.   TODO (can we???)
-    // Moreover, how the content data section works, resize_content() almost implies
-    // that flush_writes() must rewrite everything.
     void flush_writes() override {
-        // Just update fname
+        // Just update fname if there is a pending write
         auto cpart = get_content_part(Parts::FileName);
-        cpart.resize(fname_sz);
+        if (cpart.is_pending()) {
+            cpart.resize(fname_sz);
 
-        auto io = cpart.get_io();
-        io.writeall(fname.c_str(), fname_sz);
+            auto io = cpart.get_io();
+            io.writeall(fname.c_str(), fname_sz);
+
+            cpart.unset_pending();
+        }
     }
 
 protected:
