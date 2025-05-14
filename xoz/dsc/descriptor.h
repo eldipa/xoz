@@ -25,9 +25,12 @@ class DescriptorInnerSpyForInternal;
 class Descriptor {
 public:
     struct content_part_t {
-        uint32_t future_csize;  // in bytes
-        uint32_t csize;         // in bytes
-        Segment segm;           // data segment
+        struct {
+            bool pending : 1;
+            uint32_t future_csize : 31;  // in bytes
+        } s;
+        uint32_t csize;  // in bytes (31 bits only, MSB is unused)
+        Segment segm;    // data segment
     };
 
     struct header_t {
@@ -48,7 +51,7 @@ public:
 
         inline void resize(uint32_t content_new_sz) { return dsc.resize_content_part(cpart, content_new_sz); }
 
-        [[nodiscard]] inline uint32_t size() const { return assert_u32_sub_nonneg(cpart.csize, cpart.future_csize); }
+        [[nodiscard]] inline uint32_t size() const { return assert_u32_sub_nonneg(cpart.csize, cpart.s.future_csize); }
 
     private:
         Descriptor& dsc;

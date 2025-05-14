@@ -1011,7 +1011,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = 1,
                     .segm = cblkarr.create_segment_with({'a'})
                 }
@@ -1059,7 +1062,10 @@ namespace {
                 {
                     // A single content part with X csize
                     // The segment howerver it is 1 byte larger (and it is ok, larger segments are ok)
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = (1 << 15) - 1,
                     .segm = cblkarr.create_segment(Extent(0, ((1 << 15)) >> cblkarr.blk_sz_order(), false))
                 }
@@ -1105,7 +1111,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = (1 << 15),
                     .segm = cblkarr.create_segment(Extent(0, ((1 << 15)) >> cblkarr.blk_sz_order(), false))
                 }
@@ -1151,7 +1160,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = uint32_t(1 << 31) - 1,
                     .segm = cblkarr.create_segment(Extent(0, uint16_t(-1), false))
                 }
@@ -1197,7 +1209,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 1,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 1,
+                    },
                     .csize = 1,
                     .segm = cblkarr.create_segment_with({0x1, 0x2, 0x3})
                 }
@@ -1312,7 +1327,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = 42,
                     .segm = cblkarr.create_segment_with(std::vector<char>(42))
                 }
@@ -1426,7 +1444,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = 42,
                     .segm = cblkarr.create_segment_with(std::vector<char>(42))
                 }
@@ -1844,7 +1865,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = 4,
                     .segm = cblkarr.create_segment_with({0x1, 0x2, 0x3})
                 }
@@ -1883,7 +1907,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 3,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 3,
+                    },
                     .csize = 3,
                     .segm = cblkarr.create_segment_with({0x1, 0x2, 0x3})
                 }
@@ -1896,7 +1923,8 @@ namespace {
             dsc.full_sync(false);
         }
 
-        hdr.cparts[0].future_csize += 1;
+        uint32_t f = hdr.cparts[0].s.future_csize;
+        hdr.cparts[0].s.future_csize = (f + 1) & 0x7fffffff;
 
         // future_csize > csize  is not ok
         EXPECT_THAT(
@@ -1931,7 +1959,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = uint32_t(0x80000000),
                     .segm = cblkarr.create_segment(Extent(0, uint16_t(-1), false))
                 }
@@ -1981,7 +2012,10 @@ namespace {
                 .isize = 0,
                 .cparts = {
                     {
-                        .future_csize = 0,
+                        .s = {
+                            .pending = false,
+                            .future_csize = 0,
+                        },
                         .csize = 1,
                         .segm = cblkarr.create_segment_with({0, 1, 2})
                     }
@@ -2017,7 +2051,10 @@ namespace {
                 .isize = 0,
                 .cparts = {
                     {
-                        .future_csize = 0,
+                        .s = {
+                            .pending = false,
+                            .future_csize = 0,
+                        },
                         .csize = 0,
                         .segm = cblkarr.create_segment_with({})
                     }
@@ -2054,12 +2091,18 @@ namespace {
                 .isize = 0,
                 .cparts = {
                     {
-                        .future_csize = 0,
+                        .s = {
+                            .pending = false,
+                            .future_csize = 0,
+                        },
                         .csize = 1,
                         .segm = cblkarr.create_segment_with({0, 1, 2})
                     },
                     {
-                        .future_csize = 0,
+                        .s = {
+                            .pending = false,
+                            .future_csize = 0,
+                        },
                         .csize = 1,
                         .segm = cblkarr.create_segment_with({0, 1, 2})
                     }
@@ -2107,7 +2150,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = 3, // 1 byte larger, this is bad
                     .segm = cblkarr.create_segment_with({1, 2})
                 }
@@ -2185,7 +2231,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0, // note: there is *no* future data, so the rest of segm is garbage
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0, // note: there is *no* future data, so the rest of segm is garbage
+                    },
                     .csize = 1, // 1 byte smaller, this is perfectly fine
                     .segm = cblkarr.create_segment_with({1, 2})
                 }

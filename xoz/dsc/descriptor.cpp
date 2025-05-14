@@ -182,7 +182,8 @@ Descriptor::Descriptor(const struct Descriptor::header_t& hdr, BlockArray& cblka
         owner_raw_ptr(nullptr),
         checksum(0) {
 
-    const struct content_part_t example = {.future_csize = 0, .csize = 0, .segm = cblkarr.create_segment_with({})};
+    const struct content_part_t example = {
+            .s = {.pending = false, .future_csize = 0}, .csize = 0, .segm = cblkarr.create_segment_with({})};
 
     // If declared more parts that the one in the header, increase the vector.
     // If declared less do nothing. We will show the first parts (up to decl_cpart_cnt)
@@ -670,7 +671,7 @@ void PrintTo(const struct Descriptor::header_t& hdr, std::ostream* out) {
     if (hdr.cparts.size() > 0) {
         (*out) << ", [use/csize segm]: ";
         for (const auto& cpart: hdr.cparts) {
-            (*out) << cpart.csize - cpart.future_csize << "/" << cpart.csize << " " << cpart.segm;
+            (*out) << cpart.csize - cpart.s.future_csize << "/" << cpart.csize << " " << cpart.segm;
         }
     }
     (*out) << "}";
@@ -752,7 +753,8 @@ void Descriptor::compute_future_content_parts_sizes() {
                                                 << "they are respectively " << present_csize << " and " << hdr_csize);
         }
 
-        hdr.cparts[i].future_csize = assert_u32_sub_nonneg(hdr_csize, assert_u32(present_csize));
+        uint32_t f = assert_u32_sub_nonneg(hdr_csize, assert_u32(present_csize));
+        hdr.cparts[i].s.future_csize = f & 0x07fffffff;
     }
 }
 
@@ -809,19 +811,19 @@ void Descriptor::resize_content_part(struct Descriptor::content_part_t& cpart, u
     // No previous content and nothing to grow, then skip (no change)
     if (cpart.csize == 0 and content_new_sz == 0) {
         // TODO should try to dealloc anyways???
-        xoz_assert("invariant", cpart.future_csize == 0);
+        xoz_assert("invariant", cpart.s.future_csize == 0);
         return;
     }
 
     if (not does_present_csize_fit(cpart, content_new_sz)) {
         throw WouldEndUpInconsistentXOZ(F() << "The new content size (" << content_new_sz << ") "
-                                            << "plus the size from the future version (" << cpart.future_csize << ") "
+                                            << "plus the size from the future version (" << cpart.s.future_csize << ") "
                                             << "does not fit in the header.");
     }
 
     // Caller wants some space for the (new) content
     if (cpart.csize == 0) {
-        xoz_assert("invariant", cpart.future_csize == 0);
+        xoz_assert("invariant", cpart.s.future_csize == 0);
 
         // TODO dealloc first! then alloc. A specialize realloc may be?
         cpart.segm = cblkarr.allocator().alloc(content_new_sz);
@@ -841,7 +843,7 @@ void Descriptor::resize_content_part(struct Descriptor::content_part_t& cpart, u
 
     // We own some content but the caller does not want it
     // and we don't have any future data to preserve so we dealloc
-    if (content_new_sz == 0 and cpart.future_csize == 0) {
+    if (content_new_sz == 0 and cpart.s.future_csize == 0) {
         cblkarr.allocator().dealloc(cpart.segm);
         cpart.segm.remove_inline_data();
         cpart.segm.remove_end_of_segment();
@@ -851,7 +853,7 @@ void Descriptor::resize_content_part(struct Descriptor::content_part_t& cpart, u
         return;
     }
 
-    uint32_t csize_new = content_new_sz + cpart.future_csize;  // TODO add an assert?
+    uint32_t csize_new = content_new_sz + cpart.s.future_csize;  // TODO add an assert?
     if (cpart.csize < csize_new) {
         // The content is expanding.
         //
@@ -860,9 +862,9 @@ void Descriptor::resize_content_part(struct Descriptor::content_part_t& cpart, u
 
         // Copy from the io content the future content at the end of the io
         auto content_io = IOSegment(cblkarr, cpart.segm);
-        content_io.seek_rd(assert_u32_sub_nonneg(cpart.csize, cpart.future_csize), IOBase::Seekdir::beg);
-        content_io.seek_wr(cpart.future_csize, IOBase::Seekdir::end);
-        content_io.copy_into_self(cpart.future_csize);
+        content_io.seek_rd(assert_u32_sub_nonneg(cpart.csize, cpart.s.future_csize), IOBase::Seekdir::beg);
+        content_io.seek_wr(cpart.s.future_csize, IOBase::Seekdir::end);
+        content_io.copy_into_self(cpart.s.future_csize);
 
     } else if (cpart.csize > csize_new) {
         // The content is shrinking, we need to copy outside the future content,
@@ -870,13 +872,13 @@ void Descriptor::resize_content_part(struct Descriptor::content_part_t& cpart, u
         //
         // We can copy the future content into memory iff is small enough,
         // otherwise we go to disk.
-        if (cpart.future_csize < RESIZE_CONTENT_MEM_COPY_THRESHOLD_SZ) {
+        if (cpart.s.future_csize < RESIZE_CONTENT_MEM_COPY_THRESHOLD_SZ) {
             // The future_content size is small enough, copy it into memory
             std::vector<char> future_data;
-            future_data.reserve(cpart.future_csize);
+            future_data.reserve(cpart.s.future_csize);
             {
                 auto content_io = IOSegment(cblkarr, cpart.segm);
-                content_io.seek_rd(cpart.future_csize, IOBase::Seekdir::end);
+                content_io.seek_rd(cpart.s.future_csize, IOBase::Seekdir::end);
                 content_io.readall(future_data);
             }
 
@@ -886,18 +888,18 @@ void Descriptor::resize_content_part(struct Descriptor::content_part_t& cpart, u
             // Copy back the future data
             {
                 auto content_io = IOSegment(cblkarr, cpart.segm);  // cpart.segm changed, get a new io
-                content_io.seek_wr(cpart.future_csize, IOBase::Seekdir::end);
+                content_io.seek_wr(cpart.s.future_csize, IOBase::Seekdir::end);
                 content_io.writeall(future_data);
             }
 
         } else {
             // The future_csize size is too large, copy it into disk
-            auto future_sg = cblkarr.allocator().alloc(cpart.future_csize);
+            auto future_sg = cblkarr.allocator().alloc(cpart.s.future_csize);
             auto future_io = IOSegment(cblkarr, future_sg);
             {
                 auto content_io = IOSegment(cblkarr, cpart.segm);
-                content_io.seek_rd(cpart.future_csize, IOBase::Seekdir::end);
-                content_io.copy_into(future_io, cpart.future_csize);
+                content_io.seek_rd(cpart.s.future_csize, IOBase::Seekdir::end);
+                content_io.copy_into(future_io, cpart.s.future_csize);
             }
 
             // Perform the realloc
@@ -906,9 +908,9 @@ void Descriptor::resize_content_part(struct Descriptor::content_part_t& cpart, u
             // Copy back the future data
             {
                 auto content_io = IOSegment(cblkarr, cpart.segm);  // cpart.segm changed, get a new io
-                content_io.seek_wr(cpart.future_csize, IOBase::Seekdir::end);
+                content_io.seek_wr(cpart.s.future_csize, IOBase::Seekdir::end);
                 future_io.seek_rd(0);
-                future_io.copy_into(content_io, cpart.future_csize);
+                future_io.copy_into(content_io, cpart.s.future_csize);
             }
         }
     } /* else { neither shrink nor expand, leave it as is } */
@@ -924,7 +926,7 @@ IOSegment Descriptor::get_content_part_io(struct Descriptor::content_part_t& cpa
     // Note: if get_content_part_io() is called from read_struct_specifics_from,
     // by that time future content size is not set yet and it will default to 0
     auto io = IOSegment(cblkarr, cpart.segm);
-    auto present_csize = assert_u32_sub_nonneg(cpart.csize, cpart.future_csize);
+    auto present_csize = assert_u32_sub_nonneg(cpart.csize, cpart.s.future_csize);
 
     io.limit_rd(0, present_csize);
     io.limit_wr(0, present_csize);
@@ -942,11 +944,11 @@ bool Descriptor::does_present_isize_fit(uint64_t present_isize) const {
 }
 
 bool Descriptor::does_present_csize_fit(const struct Descriptor::content_part_t& cpart, uint64_t present_csize) const {
-    if (not is_u64_add_ok(present_csize, cpart.future_csize)) {
+    if (not is_u64_add_ok(present_csize, cpart.s.future_csize)) {
         return false;
     }
 
-    uint64_t hdr_csize = assert_u64_add_nowrap(present_csize, cpart.future_csize);
+    uint64_t hdr_csize = assert_u64_add_nowrap(present_csize, cpart.s.future_csize);
 
     return does_hdr_csize_fit(hdr_csize);
 }
@@ -986,10 +988,10 @@ void Descriptor::chk_content_parts_consistency(bool wouldBe, const Descriptor::h
     int part_ix = 0;
 
     for (const auto& cpart: hdr.cparts) {
-        if (cpart.csize < cpart.future_csize) {
+        if (cpart.csize < cpart.s.future_csize) {
             errmsg = std::move(F() << "The content part at index " << part_ix << " declares to have a csize of "
                                    << cpart.csize << " bytes"
-                                   << " which it is less than the computed future_csize of " << cpart.future_csize
+                                   << " which it is less than the computed future_csize of " << cpart.s.future_csize
                                    << " bytes.");
             goto fail;
         }

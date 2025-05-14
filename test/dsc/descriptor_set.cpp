@@ -583,7 +583,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = 130,
                     .segm = d_blkarr.allocator().alloc(130).add_end_of_segment(), // <-- allocation here
                 }
@@ -666,7 +669,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = 130,
                     .segm = d_blkarr.allocator().alloc(130).add_end_of_segment(), // <-- allocation here
                 }
@@ -1309,7 +1315,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = 130,
                     .segm = d_blkarr.allocator().alloc(130).add_end_of_segment(), // <-- allocation here
                 }
@@ -1392,7 +1401,10 @@ namespace {
             .isize = 0,
             .cparts = {
                 {
-                    .future_csize = 0,
+                    .s = {
+                        .pending = false,
+                        .future_csize = 0,
+                    },
                     .csize = 130,
                     .segm = d_blkarr.allocator().alloc(130).add_end_of_segment(), // <-- allocation here
                 }

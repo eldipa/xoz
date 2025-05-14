@@ -984,7 +984,7 @@ void DescriptorSet::update_content_parts(std::vector<struct Descriptor::content_
 
     // Make sure set to be 100% sync so we can know how much space its segment is owning
     assert(count() == 0 or not does_require_write());
-    assert(cpart.future_csize == 0);
+    assert(cpart.s.future_csize == 0);
 
     if (count() == 0) {
         cpart.segm = cblkarr.create_segment_with({});
