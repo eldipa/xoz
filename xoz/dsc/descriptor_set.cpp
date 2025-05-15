@@ -366,12 +366,12 @@ void DescriptorSet::flush_writes_no_recursive(const bool release) {
     //
     // TODO detect modifications to to_update/to_add during this
 
-    for (auto dsc: to_update) {
+    for (auto& dsc: to_update) {
         if (not dsc->is_descriptor_set()) {
             dsc->full_sync(release);
         }
     }
-    for (auto dsc: to_add) {
+    for (auto& dsc: to_add) {
         if (not dsc->is_descriptor_set()) {
             dsc->full_sync(release);
         }
@@ -419,7 +419,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // Also, find any descriptor that grew so we remove it
     // and we re-add it later
     std::list<Extent> pending;
-    for (const auto dsc: to_update) {
+    for (const auto& dsc: to_update) {
         auto dsc_spy = DSpy(*dsc);
         uint32_t cur_dsc_sz = dsc_spy.calc_struct_footprint_size();
         uint32_t alloc_dsc_sz = st_blkarr.blk2bytes(dsc->ext.blk_cnt());
@@ -549,7 +549,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     // in one shot all the required space. Then, we alloc each single extent hopefully
     // from that pre-allocated space.
     // This should reduce the fragmentation of the set's segment making it much smaller
-    for (const auto dsc: to_add) {
+    for (const auto& dsc: to_add) {
         auto dsc_spy = DSpy(*dsc);
         dsc->ext = st_blkarr.allocator().alloc_single_extent(dsc_spy.calc_struct_footprint_size());
     }
@@ -570,7 +570,7 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
     to_update.insert(to_add.begin(), to_add.end());
     to_add.clear();
 
-    for (const auto dsc: to_update) {
+    for (const auto& dsc: to_update) {
         auto pos = st_blkarr.blk2bytes(dsc->ext.blk_nr());
         current_checksum = inet_remove(current_checksum, dsc->checksum);
 
