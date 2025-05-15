@@ -577,6 +577,8 @@ void DescriptorSet::write_modified_descriptors(IOBase& io) {
         io2.seek_wr(pos);
         dsc->write_struct_into(io2, rctx);
         current_checksum = inet_add(current_checksum, dsc->checksum);
+
+        dsc->ack_descriptor_changed();
     }
     to_update.clear();
 

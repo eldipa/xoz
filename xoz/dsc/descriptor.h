@@ -540,6 +540,7 @@ private:
      * Of course, the pointer can be null if the descriptor is not owned by a set.
      * */
     DescriptorSet* owner_raw_ptr;
+    bool notified;
 
 
 public:  // Meant to be accesible from the tests and from the DescriptorSet
@@ -547,8 +548,19 @@ public:  // Meant to be accesible from the tests and from the DescriptorSet
      * Set/get the descriptor set owner of the descriptor (this).
      * It may be null if the descriptor has no owner.
      * */
-    void set_owner(DescriptorSet* owner) { this->owner_raw_ptr = owner; }
+    void set_owner(DescriptorSet* owner) {
+        this->owner_raw_ptr = owner;
+
+        // On an owner change, the set will call full_sync() regardless if there
+        // is any modification or not just due the change of owner so
+        // further changes to the descriptor before the call to full_sync() no
+        // need to call mark_as_modified() on the new set.
+        // Hence, set_owner implies notified=true
+        notified = true;
+    }
+
     DescriptorSet* get_owner() const { return this->owner_raw_ptr; }
+    void ack_descriptor_changed() { notified = false; }
 
 public:
     /*

@@ -180,6 +180,7 @@ Descriptor::Descriptor(const struct Descriptor::header_t& hdr, BlockArray& cblka
         ext(Extent::EmptyExtent()),
         cblkarr(cblkarr),
         owner_raw_ptr(nullptr),
+        notified(false),
         checksum(0) {
 
     const struct content_part_t example = {
@@ -712,10 +713,9 @@ void Descriptor::destroy() {
 }
 
 void Descriptor::notify_descriptor_changed() {
-    // TODO notify_descriptor_changed should be cached somehow to avoid calling mark_as_modified
-    // multiple times
-    if (owner_raw_ptr != nullptr) {
+    if (owner_raw_ptr != nullptr and not notified) {
         owner_raw_ptr->mark_as_modified(this->id());
+        notified = true;
     }
 }
 
