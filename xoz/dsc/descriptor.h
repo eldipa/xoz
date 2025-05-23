@@ -525,15 +525,13 @@ protected:
      * */
     IOSegment get_content_part_io(struct content_part_t& cpart);
 
+private:
     /*
      * Count incompressible content parts.
      * A content part is compressible if it has zero size and all the parts
      * to its right are compressible as well.
      * */
     uint16_t count_incompressible_cparts() const;
-
-public:
-    static uint16_t count_incompressible_cparts(const struct header_t& hdr);
 
 private:
     /*

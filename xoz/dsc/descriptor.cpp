@@ -640,9 +640,7 @@ uint32_t Descriptor::calc_struct_footprint_size() const {
     return struct_sz;
 }
 
-uint16_t Descriptor::count_incompressible_cparts() const { return count_incompressible_cparts(hdr); }
-
-uint16_t Descriptor::count_incompressible_cparts(const struct header_t& hdr) {
+uint16_t Descriptor::count_incompressible_cparts() const {
     // Count how many content parts do we have.
     // Parts at the end of the vector that are empty can be
     // stripped away to compress a little so they don't count.
