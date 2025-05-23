@@ -226,6 +226,11 @@ public:
      * */
     bool is_descriptor_set() const;
 
+    /*
+     * Return the descriptor type. Typically the same value than SubClass::TYPE attr.
+     * */
+    inline uint16_t type() const { return hdr.type; }
+
 public:  // public but it should be interpreted as an opaque section
     friend void PrintTo(const struct header_t& hdr, std::ostream* out);
     friend std::ostream& operator<<(std::ostream& out, const struct header_t& hdr);

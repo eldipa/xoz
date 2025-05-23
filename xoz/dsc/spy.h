@@ -21,8 +21,6 @@ public:
     // *including* the descriptor internal data (see calc_internal_data_space_size)
     inline uint32_t /* F S */ calc_struct_footprint_size() const { return dsc.calc_struct_footprint_size(); }
 
-    inline uint16_t type() const { return dsc.hdr.type; }
-
     /*
      * Does the descriptor owns content?
      * */

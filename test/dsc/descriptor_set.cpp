@@ -2952,7 +2952,7 @@ namespace {
         EXPECT_EQ(dset2->count(), (uint32_t)1);
         EXPECT_EQ(dset2->get(id1)->get_owner(), std::addressof(*dset2));
         EXPECT_EQ(dset2->is_descriptor_set(), (bool)true);
-        EXPECT_EQ(DSpy(*dset2).type(), (uint16_t)AppDescriptorSet::TYPE);
+        EXPECT_EQ((*dset2).type(), (uint16_t)AppDescriptorSet::TYPE);
         EXPECT_EQ(dset2->get_cookie(), (uint16_t)0x4142);
 
         // Pretend now to be an "older" version of the app where AppDescriptorSet didn't exist
@@ -2969,7 +2969,7 @@ namespace {
         EXPECT_EQ(dset3->count(), (uint32_t)1);
         EXPECT_EQ(dset3->get(id1)->get_owner(), std::addressof(*dset3));
         EXPECT_EQ(dset3->is_descriptor_set(), (bool)true);
-        EXPECT_EQ(DSpy(*dset3).type(), (uint16_t)AppDescriptorSet::TYPE); // AppDescriptorSet TYPE is preserved
+        EXPECT_EQ((*dset3).type(), (uint16_t)AppDescriptorSet::TYPE); // AppDescriptorSet TYPE is preserved
 
         // Make the "older" version of the app write the descriptor set.
         // It is not aware of AppDescriptorSet class but it should preserve the data
@@ -3015,7 +3015,7 @@ namespace {
         EXPECT_EQ(dset4->get(id1)->get_owner(), std::addressof(*dset4));
         EXPECT_EQ(dset4->get(id2)->get_owner(), std::addressof(*dset4));
         EXPECT_EQ(dset4->is_descriptor_set(), (bool)true);
-        EXPECT_EQ(DSpy(*dset4).type(), (uint16_t)AppDescriptorSet::TYPE);
+        EXPECT_EQ((*dset4).type(), (uint16_t)AppDescriptorSet::TYPE);
         EXPECT_EQ(dset4->get_cookie(), (uint16_t)0x4142);
     }
 
