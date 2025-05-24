@@ -2296,4 +2296,179 @@ namespace {
             XOZ_EXPECT_DESERIALIZATION(fp, dsc, rctx, cblkarr);
         }
     }
+
+    class FlushPending: public Descriptor {
+    public:
+        enum Parts : uint16_t {
+            Foo,
+            Bar,
+            CNT
+        };
+        void flush_writes() override {
+            auto foo_cpart = get_content_part(Parts::Foo);
+            if (foo_cpart.is_pending()) {
+                foo_cpart.resize(uint32_t(foo.size()));
+                auto io = foo_cpart.get_io();
+                io.writeall(foo.c_str(), uint32_t(foo.size()));
+                foo_cpart.unset_pending();
+                foo_flushed = true;
+            }
+
+            auto bar_cpart = get_content_part(Parts::Bar);
+            if (bar_cpart.is_pending()) {
+                bar_cpart.resize(uint32_t(bar.size()));
+                auto io = bar_cpart.get_io();
+                io.writeall(bar.c_str(), uint32_t(bar.size()));
+                bar_cpart.unset_pending();
+                bar_flushed = true;
+            }
+
+        }
+
+        void complete_load() override {
+            {
+                auto cpart = get_content_part(Parts::Foo);
+                auto io = cpart.get_io();
+
+                std::vector<char> buf(cpart.size());
+                io.readall(buf);
+                foo.assign(buf.data(), uint32_t(cpart.size()));
+            }
+            {
+                auto cpart = get_content_part(Parts::Bar);
+                auto io = cpart.get_io();
+
+                std::vector<char> buf(cpart.size());
+                io.readall(buf);
+                bar.assign(buf.data(), uint32_t(cpart.size()));
+            }
+        }
+
+        void read_struct_specifics_from([[maybe_unused]] IOBase& io) override { }
+
+        void write_struct_specifics_into([[maybe_unused]] IOBase& io) override { }
+
+        void update_isize([[maybe_unused]] uint64_t& isize) override { }
+
+    private:
+        std::string foo;
+        std::string bar;
+
+    public:
+        const static uint16_t TYPE = 0xf1;
+
+        bool foo_flushed;
+        bool bar_flushed;
+
+        FlushPending(BlockArray& cblkarr):
+                Descriptor(TYPE, cblkarr, Parts::CNT), foo_flushed(false), bar_flushed(false) {
+        }
+
+        FlushPending(const struct Descriptor::header_t& hdr, BlockArray& cblkarr):
+                Descriptor(hdr, cblkarr, Parts::CNT), foo_flushed(false), bar_flushed(false) {
+        }
+
+        void set_foo(const std::string& s) {
+            foo = s;
+            get_content_part(Parts::Foo).set_pending();
+        }
+        void set_bar(const std::string& s) {
+            bar = s;
+            get_content_part(Parts::Bar).set_pending();
+        }
+        void set_bar_buggy(const std::string& s) {
+            bar = s;
+            // call to set_pending() is missing
+        }
+        void set_bar_but_signal_all(const std::string& s) {
+            bar = s;
+            notify_descriptor_changed();
+        }
+
+        static std::unique_ptr<Descriptor> create(const struct Descriptor::header_t& hdr, BlockArray& cblkarr,
+                                                            [[maybe_unused]] RuntimeContext& rctx) {
+            return std::make_unique<FlushPending>(hdr, cblkarr);
+        }
+
+        static std::unique_ptr<FlushPending> create(BlockArray& cblkarr) {
+            return std::make_unique<FlushPending>(cblkarr);
+        }
+    };
+
+    TEST(DescriptorTest, FlushPendingTest) {
+        std::map<uint16_t, descriptor_create_fn> descriptors_map = {
+            {0xf1, FlushPending::create }
+        };
+        RuntimeContext rctx(descriptors_map);
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray cblkarr(1024);
+        cblkarr.allocator().initialize_with_nothing_allocated();
+
+        auto dscptr = FlushPending::create(cblkarr);
+
+        // Initial state
+        EXPECT_EQ(dscptr->foo_flushed, (bool)false);
+        EXPECT_EQ(dscptr->bar_flushed, (bool)false);
+
+        // Nothing to flush
+        dscptr->flush_writes();
+        EXPECT_EQ(dscptr->foo_flushed, (bool)false);
+        EXPECT_EQ(dscptr->bar_flushed, (bool)false);
+
+        {
+        // Update foo
+        dscptr->set_foo("x");
+
+        // Foo flushed only
+        dscptr->flush_writes();
+        EXPECT_EQ(dscptr->foo_flushed, (bool)true);
+        EXPECT_EQ(dscptr->bar_flushed, (bool)false);
+        dscptr->foo_flushed = dscptr->bar_flushed = false; // reset
+        }
+
+        {
+        // Update bar
+        dscptr->set_bar("x");
+
+        // Bar flushed only
+        dscptr->flush_writes();
+        EXPECT_EQ(dscptr->foo_flushed, (bool)false);
+        EXPECT_EQ(dscptr->bar_flushed, (bool)true);
+        dscptr->foo_flushed = dscptr->bar_flushed = false; // reset
+        }
+
+        {
+        // Update nothing,
+        // Nothing to flush
+        dscptr->flush_writes();
+        EXPECT_EQ(dscptr->foo_flushed, (bool)false);
+        EXPECT_EQ(dscptr->bar_flushed, (bool)false);
+        dscptr->foo_flushed = dscptr->bar_flushed = false; // reset
+        }
+
+        {
+        // Update bar but notify all
+        dscptr->set_bar_but_signal_all("x");
+
+        // Nothing to flush (notify all does not tell/mark that anything is pending or not)
+        dscptr->flush_writes();
+        EXPECT_EQ(dscptr->foo_flushed, (bool)false);
+        EXPECT_EQ(dscptr->bar_flushed, (bool)false);
+        dscptr->foo_flushed = dscptr->bar_flushed = false; // reset
+        }
+
+        {
+        // Update bar but miss to notify or mark as pending
+        dscptr->set_bar_buggy("x");
+
+        // Nothing to flush (set_bar_buggy is buggy)
+        dscptr->flush_writes();
+        EXPECT_EQ(dscptr->foo_flushed, (bool)false);
+        EXPECT_EQ(dscptr->bar_flushed, (bool)false);
+        dscptr->foo_flushed = dscptr->bar_flushed = false; // reset
+        }
+    }
 }
