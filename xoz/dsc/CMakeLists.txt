@@ -6,6 +6,7 @@ target_sources(xoz
     id_mapping.cpp
     opaque.cpp
     private.cpp
+    root_descriptor_set.cpp
     PUBLIC
     descriptor.h
     descriptor_mapping.h
@@ -14,5 +15,6 @@ target_sources(xoz
     internals.h
     opaque.h
     private.h
+    root_descriptor_set.h
     spy.h
     )

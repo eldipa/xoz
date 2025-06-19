@@ -4,6 +4,7 @@
 #include "xoz/dsc/id_mapping.h"
 #include "xoz/dsc/opaque.h"
 #include "xoz/dsc/private.h"
+#include "xoz/dsc/root_descriptor_set.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/log/format_string.h"
 
@@ -43,6 +44,8 @@ descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) 
                                                      .str());
                 case DescriptorSet::TYPE:
                     return DescriptorSet::create;
+                case RootDescriptorSet::TYPE:
+                    return RootDescriptorSet::create;
                 default:
                     return PrivateDescriptor::create;
             }
