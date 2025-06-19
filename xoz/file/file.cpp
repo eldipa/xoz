@@ -116,19 +116,19 @@ std::list<Segment> File::collect_allocated_segments_of_descriptors() const {
     std::list<Segment> allocated;
     allocated.push_back(root_set->segment());
 
-    DescriptorSet::bottom_up_for_each_set(*root_set,
-                                          [&allocated](const DescriptorSet* dset, [[maybe_unused]] size_t l) {
-                                              for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
-                                                  auto& dsc(*it);
-                                                  dsc->collect_segments_into(allocated);
-                                              }
-                                          });
+    RootDescriptorSet::bottom_up_for_each_set(*root_set,
+                                              [&allocated](const DescriptorSet* dset, [[maybe_unused]] size_t l) {
+                                                  for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
+                                                      auto& dsc(*it);
+                                                      dsc->collect_segments_into(allocated);
+                                                  }
+                                              });
 
     return allocated;
 }
 
 void File::notify_load_to_all_descriptors() {
-    DescriptorSet::bottom_up_for_each_set(*root_set, [this](DescriptorSet* s, [[maybe_unused]] size_t l) {
+    RootDescriptorSet::bottom_up_for_each_set(*root_set, [this](DescriptorSet* s, [[maybe_unused]] size_t l) {
         for (auto it = s->begin(); it != s->end(); ++it) {
             (*it)->on_after_load(root_set);
         }
@@ -428,7 +428,7 @@ void File::init_new_file(const struct default_parameters_t& defaults) {
     fblkarr->fail_if_bad_blk_sz(defaults.blk_sz, 0, MIN_BLK_SZ);
 
     trampoline_segm = fblkarr->create_segment();
-    root_set = DescriptorSet::create(*fblkarr.get(), rctx);
+    root_set = RootDescriptorSet::create_root_descriptor_set(*fblkarr.get(), rctx);
 
     // Ensure that the descriptor set has a valid id.
     root_set->id(rctx.idmgr.request_temporal_id());
@@ -523,9 +523,9 @@ void File::load_root_set(struct file_header_t& hdr) {
         // Read trampoline's content. We expect to find a set descriptor there.
         auto trampoline_io = IOSegment(fblkarr_ref, trampoline_segm);
 
-        // See if the set descriptor is in the trampoline. Build a shared ptr to DescriptorSet.
-        auto dsc = DescriptorSet::load_struct_from(trampoline_io, rctx, fblkarr_ref);
-        root_set = Descriptor::cast<DescriptorSet>(dsc);
+        // See if the set descriptor is in the trampoline. Build a shared ptr to RootDescriptorSet.
+        auto dsc = RootDescriptorSet::load_struct_from(trampoline_io, rctx, fblkarr_ref);
+        root_set = Descriptor::cast<RootDescriptorSet>(dsc);
 
         // Check that trampoline's content checksum is correct.
         auto checksum_check = fold_inet_checksum(inet_remove(checksum, root_set->checksum));
@@ -540,8 +540,8 @@ void File::load_root_set(struct file_header_t& hdr) {
         trampoline_segm = fblkarr_ref.create_segment();
 
         // The root field has the descriptor set
-        auto dsc = DescriptorSet::load_struct_from(root_io, rctx, fblkarr_ref);
-        root_set = Descriptor::cast<DescriptorSet>(dsc);
+        auto dsc = RootDescriptorSet::load_struct_from(root_io, rctx, fblkarr_ref);
+        root_set = Descriptor::cast<RootDescriptorSet>(dsc);
     }
 
     root_set->load_set();

@@ -90,7 +90,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -98,7 +98,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -167,7 +167,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -175,7 +175,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c058 "
+                "c158 "
 
                 // header padding
                 "0000 "
@@ -251,7 +251,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -259,7 +259,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -325,7 +325,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -333,7 +333,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c058 "
+                "c158 "
 
                 // header padding
                 "0000 "
@@ -388,7 +388,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -396,7 +396,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c058 "
+                "c158 "
 
                 // header padding
                 "0000 "
@@ -479,7 +479,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -487,7 +487,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c058 "
+                "c158 "
 
                 // header padding
                 "0000 "
@@ -568,7 +568,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -576,7 +576,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c058 "
+                "c158 "
 
                 // header padding
                 "0000 "
@@ -669,7 +669,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -677,7 +677,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c058 "
+                "c158 "
 
                 // header padding
                 "0000 "
@@ -751,7 +751,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -759,7 +759,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c85c "
+                "c95c "
 
                 // header padding
                 "0000 "
@@ -800,7 +800,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -808,7 +808,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -847,7 +847,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -855,7 +855,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -922,7 +922,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -930,7 +930,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c85c "
+                "c95c "
 
                 // header padding
                 "0000 "
@@ -969,7 +969,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -977,7 +977,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -1016,7 +1016,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1024,7 +1024,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -1092,7 +1092,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1100,7 +1100,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -1136,7 +1136,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1144,7 +1144,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -1209,7 +1209,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1217,7 +1217,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -1253,7 +1253,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1261,7 +1261,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -1329,7 +1329,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1337,7 +1337,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c85c "
+                "c95c "
 
                 // header padding
                 "0000 "
@@ -1397,7 +1397,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1405,7 +1405,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c85c "
+                "c95c "
 
                 // header padding
                 "0000 "
@@ -1459,7 +1459,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1467,7 +1467,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c058 "
+                "c158 "
 
                 // header padding
                 "0000 "
@@ -1545,7 +1545,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1553,7 +1553,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -1576,7 +1576,7 @@ namespace {
         f.write(&patch, 1);
 
         f.seekp(30+46);
-        patch = 0x3e;
+        patch = 0x3f;
         f.write(&patch, 1);
         f.close();
 
@@ -1595,7 +1595,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -1603,7 +1603,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3e58 "
+                "3f58 "
 
                 // header padding
                 "0000 "
@@ -1621,7 +1621,6 @@ namespace {
                     )
                 )
         );
-
     }
 
     TEST(FileTest, TrampolineNotRequired) {
@@ -1702,14 +1701,14 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
+                "0284 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
                 // checksum
-                "def8 "
+                "dff8 "
 
                 // header padding
                 "0000 "
@@ -1778,14 +1777,14 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
+                "0284 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
                 // checksum
-                "def8 "
+                "dff8 "
 
                 // header padding
                 "0000 "
@@ -1854,14 +1853,14 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
+                "0284 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
                 // checksum
-                "def8 "
+                "dff8 "
 
                 // header padding
                 "0000 "
@@ -1985,7 +1984,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "def8 "
+                "dff8 "
 
                 // header padding
                 "0000 "
@@ -2079,7 +2078,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "def8 "
+                "dff8 "
 
                 // header padding
                 "0000 "
@@ -2174,7 +2173,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "def8 "
+                "dff8 "
 
                 // header padding
                 "0000 "
@@ -2300,7 +2299,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  ---------------
-                "8448 0284 e0ff 00c4 00c0 "
+                "8548 0284 e0ff 00c4 00c0 "
                 //                   ^^^^ these are 2 bytes from the set inlined here
 
                 // trampoline padding
@@ -2309,7 +2308,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "aa21 "
+                "ab21 "
 
                 // header padding
                 "0000 "
@@ -2359,7 +2358,7 @@ namespace {
                 // second data block
 
                 // root set descriptor -----------
-                "0184 0000 7000 "
+                "0284 0000 7000 "
                 "0184 0080 0080 0100 0040 0080 0100 0020 "
                 "0080 0100 0010 0080 0100 0008 0080 0100 0004 "
                 "0080 0100 0002 0080 0100 0001 0080 0100 "
@@ -2416,7 +2415,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  ---------------
-                "8448 0284 e0ff 00c4 00c0 "
+                "8548 0284 e0ff 00c4 00c0 "
 
                 // trampoline padding
                 "0000 0000 0000 "
@@ -2424,7 +2423,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "aa21 "
+                "ab21 "
 
                 // header padding
                 "0000 "
@@ -2473,7 +2472,7 @@ namespace {
                 // second data block
 
                 // root set descriptor -----------
-                "0184 0000 7000 "
+                "0284 0000 7000 "
                 "0184 0080 0080 0100 0040 0080 0100 0020 "
                 "0080 0100 0010 0080 0100 0008 0080 0100 0004 "
                 "0080 0100 0002 0080 0100 0001 0080 0100 "
@@ -2530,7 +2529,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  ---------------
-                "8448 0284 e0ff 00c4 00c0 "
+                "8548 0284 e0ff 00c4 00c0 "
 
                 // trampoline padding
                 "0000 0000 0000 "
@@ -2538,7 +2537,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "aa21 "
+                "ab21 "
 
                 // header padding
                 "0000 "
@@ -2587,7 +2586,7 @@ namespace {
                 // second data block
 
                 // root set descriptor -----------
-                "0184 0000 7000 "
+                "0284 0000 7000 "
                 "0184 0080 0080 0100 0040 0080 0100 0020 "
                 "0080 0100 0010 0080 0100 0008 0080 0100 0004 "
                 "0080 0100 0002 0080 0100 0001 0080 0100 "
@@ -2692,14 +2691,14 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
+                "0284 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
                 // checksum
-                "def8 "
+                "dff8 "
 
                 // header padding
                 "0000 "
@@ -2807,7 +2806,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  --------------
-                "eccc " // trampoline checksum
+                "edcc " // trampoline checksum
                                    //|-------------| trampoline segment inline data (6 bytes)
                 "030c 0086 1f00 00c0 0000 0000 0000 " // trampoline segment --v
                 // 00003 00004 [   1] 00002 [0000000000011111]
@@ -2817,7 +2816,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "d1f0 "
+                "d2f0 "
 
                 // header padding
                 "0000 "
@@ -2872,7 +2871,7 @@ namespace {
 
                 // trampoline (first part) ---------------------
                 // third data block
-                "0184 0000 d800 0184 0080 0080 0100 0040 0080 0100 0020 "
+                "0284 0000 d800 0184 0080 0080 0100 0040 0080 0100 0020 "
                 "0080 0100 0010 0080 0100 0008 0080 0100 0004 0080 0100 "
                 "0002 0080 0100 0001 0080 0100 8000 0080 0100 4000 0080 "
                 "0100 2000 0080 0100 1000 0080 0100 0800 0080 0100 0400 "
@@ -2928,14 +2927,14 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  ---------------
-                "0184 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
+                "0284 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
                 // trampoline padding
                 "0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
                 // checksum
-                "def8 "
+                "dff8 "
 
                 // header padding
                 "0000 "
@@ -3008,14 +3007,14 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  ---------------
-                "0184 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
+                "0284 0000 1800 0184 0080 0080 0100 0040 0080 0100 0020 00c0 "
 
                 // trampoline padding
                 "0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
                 // checksum
-                "def8 "
+                "dff8 "
 
                 // header padding
                 "0000 "
@@ -3133,7 +3132,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  --------------
-                "4bc8 " // trampoline checksum
+                "4cc8 " // trampoline checksum
                                    //|-------------| trampoline segment inline data (6 bytes)
                 "0284 80ff 00c2 " // trampoline segment --v
                 // 00002 [1111111110000000] (+0) (struct: 6 B, data: 72 B)
@@ -3144,7 +3143,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "10df "
+                "11df "
 
                 // header padding
                 "0000 "
@@ -3174,7 +3173,7 @@ namespace {
                 "0000 0000 0000 0000 "
                 "0000 0000 "
                 // second data block
-                "0184 0000 5800 0184 "
+                "0284 0000 5800 0184 "
                 "0080 0080 0100 0040 "
                 "0080 0100 0020 0080 "
                 "0100 0010 0080 0100 "
@@ -3232,7 +3231,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  --------------
-                "32c0 " // trampoline checksum
+                "33c0 " // trampoline checksum
                 "0284 80ff 00c2 " // trampoline segment --v
                 // 00002 [1111111110000000]
 
@@ -3242,7 +3241,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "f7d6 "
+                "f8d6 "
 
                 // header padding
                 "0000 "
@@ -3273,7 +3272,7 @@ namespace {
                 "0000 0000 0000 0000 "
                 "0000 0000 0000 0000 "
                 // trampoline  ---------------------
-                "0184 0000 2800 "
+                "0284 0000 2800 "
                 "0184 0080 0080 0100 "
                 "0040 0080 0100 0020 "
                 "0080 0100 0010 0080 "
@@ -3338,7 +3337,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  --------------
-                "edc4 " // trampoline checksum
+                "eec4 " // trampoline checksum
                 "0284 80ff 00c2 " // trampoline segment --v
 
                 // trampoline padding
@@ -3347,7 +3346,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "b2db "
+                "b3db "
 
                 // header padding
                 "0000 "
@@ -3380,7 +3379,7 @@ namespace {
                 "0000 0000 "
 
                 // more data block
-                "0184 0000 "
+                "0284 0000 "
                 "5800 0184 0080 0080 "
                 "0100 0040 0080 0100 "
                 "0020 0080 0100 0010 "
@@ -3460,7 +3459,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline  --------------
-                "a8ee " // trampoline checksum
+                "a9ee " // trampoline checksum
                 "060c 0486 c001 00c0 " // trampoline segment --v
 
                 // trampoline padding
@@ -3469,7 +3468,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "b915 "
+                "ba15 "
 
                 // header padding
                 "0000 "
@@ -3605,14 +3604,14 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline ---------------
-                "bab9 0184 7800 00c6 8001 00c0 "
+                "bbb9 0184 7800 00c6 8001 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
                 // checksum
-                "7596 "
+                "7696 "
 
                 // header padding
                 "0000 "
@@ -3640,7 +3639,7 @@ namespace {
                 "0000 0000 "
                 "0100 0004 0080 0100 0002 00c0 "
                 "0000 0000 "
-                "0184 0000 3000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0010 0080 0100 "
+                "0284 0000 3000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0010 0080 0100 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
@@ -3724,14 +3723,14 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline ---------------
-                "bab9 0184 7800 00c6 8001 00c0 "
+                "bbb9 0184 7800 00c6 8001 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
                 // checksum
-                "7596 "
+                "7696 "
 
                 // header padding
                 "0000 "
@@ -3759,7 +3758,7 @@ namespace {
                 "0000 0000 "
                 "0100 0004 0080 0100 0002 00c0 "
                 "0000 0000 "
-                "0184 0000 3000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0010 0080 0100 "
+                "0284 0000 3000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0010 0080 0100 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
@@ -3839,14 +3838,14 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // trampoline ---------------
-                "bab9 0184 7800 00c6 8001 00c0 "
+                "bbb9 0184 7800 00c6 8001 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 // end of the root set descriptor ----
 
                 // checksum
-                "7596 "
+                "7696 "
 
                 // header padding
                 "0000 "
@@ -3874,7 +3873,7 @@ namespace {
                 "0000 0000 "
                 "0100 0004 0080 0100 0002 00c0 "
                 "0000 0000 "
-                "0184 0000 3000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0010 0080 0100 "
+                "0284 0000 3000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0010 0080 0100 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
                 );
 
@@ -4010,7 +4009,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "51ae 0284 00f0 00c6 0700 00c0 "
+                "52ae 0284 00f0 00c6 0700 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -4018,7 +4017,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "9e79 "
+                "9f79 "
 
                 // header padding
                 "0000 "
@@ -4038,7 +4037,7 @@ namespace {
         // 0184 4000 0080 0100 2000 00c0
         // 0000 0000
         // 0001 0080 0100 8000 0080 0100 1800 00c0
-        // 0000 0000 0000 0000 0184 0000 4000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0006 0080 0100 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
+        // 0000 0000 0000 0000 0284 0000 4000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0006 0080 0100 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
         XOZ_EXPECT_FILE_SERIALIZATION(fpath, 128, 128 * 2,
                 // first data block
                 // root descriptor set -----------
@@ -4063,7 +4062,7 @@ namespace {
                 "0000 0000 "
                 "0001 0080 0100 8000 0080 0100 1800 00c0 "
                 "0000 0000 0000 0000 "
-                "0184 0000 4000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0006 0080 0100 "
+                "0284 0000 4000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0006 0080 0100 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -4168,7 +4167,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "51ae 0284 00f0 00c6 0700 00c0 "
+                "52ae 0284 00f0 00c6 0700 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -4176,7 +4175,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "9e79 "
+                "9f79 "
 
                 // header padding
                 "0000 "
@@ -4209,7 +4208,7 @@ namespace {
                 "0000 0000 "
                 "0001 0080 0100 8000 0080 0100 1800 00c0 "
                 "0000 0000 0000 0000 "
-                "0184 0000 4000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0006 0080 0100 "
+                "0284 0000 4000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0006 0080 0100 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
@@ -4311,7 +4310,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "51ae 0284 00f0 00c6 0700 00c0 "
+                "52ae 0284 00f0 00c6 0700 00c0 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -4319,7 +4318,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "9e79 "
+                "9f79 "
 
                 // header padding
                 "0000 "
@@ -4352,7 +4351,7 @@ namespace {
                 "0000 0000 "
                 "0001 0080 0100 8000 0080 0100 1800 00c0 "
                 "0000 0000 0000 0000 "
-                "0184 0000 4000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0006 0080 0100 "
+                "0284 0000 4000 0184 0080 0080 0100 0040 0080 0100 0020 0080 0100 0006 0080 0100 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "
                 "0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 "

@@ -79,7 +79,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -87,7 +87,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -149,7 +149,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -157,7 +157,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "c058 "
+                "c158 "
 
                 // header padding
                 "0000 "
@@ -243,7 +243,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0000 0800 0184 0080 00c0 "
+                "0284 0000 0800 0184 0080 00c0 "
 
                 // padding
                 "0000 0000 "
@@ -251,7 +251,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "cb98 "
+                "cc98 "
 
                 // header padding
                 "0000 "
@@ -328,7 +328,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0184 0000 0800 0184 0080 00c0 "
+                "0284 0000 0800 0184 0080 00c0 "
 
                 // padding
                 "0000 0000 "
@@ -336,7 +336,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "cb98 "
+                "cc98 "
 
                 // header padding
                 "0000 "
@@ -418,7 +418,7 @@ namespace {
                 "0000 0000 "                     // feature_flags_ro_compat
 
                 // root set descriptor ---------------
-                "0108 0000 0000 "
+                "0208 0000 0000 "
 
                 // padding
                 "0000 0000 0000 0000 0000 "
@@ -426,7 +426,7 @@ namespace {
                 // end of the root set descriptor ----
 
                 // checksum
-                "3f58 "
+                "4058 "
 
                 // header padding
                 "0000 "
@@ -465,3 +465,4 @@ namespace {
         );
     }
 }
+

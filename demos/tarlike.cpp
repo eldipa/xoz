@@ -643,7 +643,8 @@ int main(int argc, char* argv[]) {
 
     // Each xfile has one root descriptor set. A set can then have more sets within (subsets)
     // but in this demo we are not exploring that.
-    auto dset = xfile.root();
+    auto root_dset = xfile.root();
+    auto dset = Descriptor::cast<DescriptorSet>(root_dset);
 
     ret = 0;
     try {

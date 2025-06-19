@@ -14,7 +14,7 @@
 #include "xoz/alloc/segment_allocator.h"
 #include "xoz/blk/block_array.h"
 #include "xoz/blk/file_block_array.h"
-#include "xoz/dsc/descriptor_set.h"
+#include "xoz/dsc/root_descriptor_set.h"
 #include "xoz/ext/extent.h"
 #include "xoz/file/runtime_config.h"
 #include "xoz/file/runtime_context.h"
@@ -53,7 +53,7 @@ private:
     RuntimeContext rctx;
 
     Segment trampoline_segm;
-    std::shared_ptr<DescriptorSet> root_set;
+    std::shared_ptr<RootDescriptorSet> root_set;
 
     std::shared_ptr<IDMappingDescriptor> idmap;
 
@@ -126,7 +126,7 @@ public:
     // Call to close()
     ~File();
 
-    inline std::shared_ptr<DescriptorSet> root() { return root_set; }
+    inline std::shared_ptr<RootDescriptorSet> root() { return root_set; }
 
     const std::stringstream& expose_mem_fp() const;
 
@@ -296,9 +296,9 @@ private:
         uint32_t feature_flags_incompat;
         uint32_t feature_flags_ro_compat;
 
-        // This is where we store the "root" of the file. This can be a DescriptorSet
+        // This is where we store the "root" of the file. This can be a RootDescriptorSet
         // serialized here *or* a segment that points to somewhere else outside the xoz header
-        // where the DescriptorSet lives.
+        // where the RootDescriptorSet lives.
         // See load_root_set() and write_root_set() methods.
         //
         // TODO ensure that the read and write preserves this "padding" for backward/forward compat
@@ -332,7 +332,7 @@ private:
      * to another part of the file where the set descriptor is stored.
      * Otherwise, the set descriptor is read directly from the root field.
      *
-     * In any case, the attribute root_set is initialized with a DescriptorSet object
+     * In any case, the attribute root_set is initialized with a RootDescriptorSet object
      * and the attribute trampoline_segm with the segment that points to the allocated trampoline
      * blocks. In the case of has_trampoline equals false, this segment will be empty.
      * */
