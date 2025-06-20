@@ -5,8 +5,8 @@
 #include <memory>
 
 #include "xoz/dsc/descriptor_mapping.h"
+#include "xoz/dsc/index.h"
 #include "xoz/file/id_manager.h"
-#include "xoz/file/index.h"
 #include "xoz/file/runtime_config.h"
 
 namespace xoz {

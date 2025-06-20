@@ -3,4 +3,5 @@ target_sources(runtests
     descriptor.cpp
     descriptor_compatibility.cpp
     descriptor_set.cpp
+    index.cpp
     )

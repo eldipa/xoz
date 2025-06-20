@@ -1,11 +1,9 @@
 target_sources(xoz
     PRIVATE
     file.cpp
-    index.cpp
     PUBLIC
     id_manager.h
     file.h
-    index.h
     runtime_context.h
     runtime_config.h
     )
