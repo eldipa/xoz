@@ -41,7 +41,17 @@ std::shared_ptr<Descriptor> Index::find(const std::string& name) {
 std::shared_ptr<Descriptor> Index::find(uint32_t id) {
     fail_if_not_initialized();
     if (dsc_by_id_cache.contains(id)) {
-        return dsc_by_id_cache[id];
+        // Descriptor found in the cache, but, is the C++ object still alive?
+        auto may_dsc = dsc_by_id_cache[id].lock();
+        if (may_dsc) {
+            // Alive, return a shared ptr to keep it like that
+            return may_dsc;
+        } else {
+            // Dead, remove it from the cache but don't return failure yet,
+            // let search it in the set tree in case the descriptor was loaded
+            // into memory a second time as another C++ object
+            dsc_by_id_cache.erase(id);
+        }
     }
 
     std::shared_ptr<Descriptor> dsc;

@@ -92,6 +92,6 @@ private:
     std::map<std::string, uint32_t> id_by_name;
     const IDManager& idmgr;
 
-    std::map<uint32_t, std::shared_ptr<Descriptor>> dsc_by_id_cache;
+    std::map<uint32_t, std::weak_ptr<Descriptor>> dsc_by_id_cache;
 };
 }  // namespace xoz

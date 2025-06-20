@@ -120,6 +120,34 @@ namespace {
                     )
                 )
         );
+
+        // Ensure the descriptor id2 is deleted (except for the "dangling reference" below)
+        dset->erase(id2);
+        dset->full_sync(false);
+
+        EXPECT_EQ(dsc.use_count(), (long)1); // only 'dsc' points to the descriptor
+        dsc.reset(); // release the C++ object
+
+        // The index fails to find it
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                rctx.index.find(id2);
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "does not belong to any set."
+                        )
+                    )
+                )
+        );
+
+        auto dsc_id1 = xsubdset->get(id1);
+        xsubdset->erase(id1);
+
+        // The C++ object is still alive so the Index still can find it.
+        // TODO this should not happen, the Descriptor *was* erased (destroyed)!!
+        EXPECT_EQ(std::addressof(*rctx.index.find(id1)), std::addressof(*dsc_id1));
     }
 
     TEST(DescriptorFinderTest, ManageNames) {
