@@ -8,6 +8,7 @@
 #include <queue>
 #include <set>
 #include <stdexcept>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -395,6 +396,11 @@ private:
 
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
 
+    std::map<std::string, uint32_t> load_index();
+    void store_index(const std::map<std::string, uint32_t>& id_by_name);
+
+    uint32_t calculate_store_index_size(const std::map<std::string, uint32_t>& id_by_name) const;
+
 protected:
     void update_isize(uint64_t& isize) override;
     void update_content_parts(std::vector<struct Descriptor::content_part_t>& cparts) override;
@@ -454,6 +460,9 @@ private:
     void fail_if_using_incorrect_blkarray(const Descriptor* dsc) const;
     void fail_if_null(const Descriptor* dsc) const;
     void fail_if_duplicated_id(const Descriptor* dsc) const;
+
+    void fail_if_bad_index_entry(uint32_t id, const std::string& name) const;
+
 
     void chk_if_any_descriptor_has_external_references() const;
     void chk_if_descriptor_has_external_references(const std::shared_ptr<Descriptor>& dscptr) const;

@@ -1114,4 +1114,111 @@ void /* testing */ DescriptorSet::_set_creserved(uint16_t v) {
     current_checksum = inet_add(current_checksum, creserved);
 }
 void /* testing */ DescriptorSet::_set_pdata(const std::vector<char>& v) { pdata = v; }
+
+std::map<std::string, uint32_t> DescriptorSet::load_index() {
+    std::map<std::string, uint32_t> id_by_name;
+
+    char buf[256];
+    auto cpart = get_content_part(Streams::Index_);
+
+    if (cpart.size() == 0) {
+        // The index is empty, quick return now
+        return id_by_name;
+    }
+
+    auto io = cpart.get_io();
+
+    uint32_t num_entries = io.read_u32_from_le();
+    for (unsigned i = 0; i < num_entries; ++i) {
+        uint32_t id = io.read_u32_from_le();
+        uint8_t len = io.read_u8_from_le();
+
+        xoz_assert("", len <= sizeof(buf));
+
+        io.readall(buf, len);
+        std::string name(buf, len);
+
+        fail_if_bad_index_entry(id, name);
+        id_by_name[name] = id;
+    }
+
+    return id_by_name;
+}
+
+void DescriptorSet::fail_if_bad_index_entry(uint32_t id, const std::string& name) const {
+    if (id == 0) {
+        throw std::runtime_error("Descriptor id '0' is not valid.");
+    }
+
+    if (id & 0x80000000) {
+        throw std::runtime_error("Descriptor id exceeds 2^31.");
+    }
+
+    if (name.size() > 255) {
+        throw std::runtime_error("Name for the descriptor is too large.");
+    }
+
+    if (name.size() == 0) {
+        throw std::runtime_error("Name for the descriptor cannot be empty.");
+    }
+
+    if (name == "/" or name == "." or name == "..") {
+        throw std::runtime_error("Name for the descriptor is reserved.");
+    }
+}
+
+void DescriptorSet::store_index(const std::map<std::string, uint32_t>& id_by_name) {
+    auto content_sz = calculate_store_index_size(id_by_name);
+    auto cpart = get_content_part(Streams::Index_);
+    cpart.resize(content_sz);
+
+    // If the mapping is empty, don't write anything, not even the entry count
+    if (content_sz == 0) {
+        assert(id_by_name.size() == 0);
+        return;
+    }
+
+    // Note: sanity checks were made in calculate_store_index_size()
+    // No need to repeat them here.
+    auto io = cpart.get_io();
+
+    // Track entry count
+    io.write_u32_to_le(assert_u32(id_by_name.size()));
+
+    for (auto const& [name, id]: id_by_name) {
+        // Temp names are not stored
+        if (name[0] == Index::TempNamePrefix) {
+            continue;
+        }
+
+        io.write_u32_to_le(id);
+        io.write_u8_to_le(assert_u8(name.size()));
+        io.writeall(name.data(), assert_u8(name.size()));
+    }
+}
+
+uint32_t DescriptorSet::calculate_store_index_size(const std::map<std::string, uint32_t>& id_by_name) const {
+    uint64_t sz = 0;
+
+    if (id_by_name.size() == 0) {
+        // Don't store anything
+        return 0;
+    }
+
+    sz += sizeof(uint32_t);  // for the entry count
+    for (auto const& [name, id]: id_by_name) {
+        fail_if_bad_index_entry(id, name);
+
+        // Temp names are not stored
+        if (name[0] == Index::TempNamePrefix) {
+            continue;
+        }
+
+        sz += sizeof(id);
+        sz += sizeof(uint8_t);  // name length
+        sz += assert_u8(name.size());
+    }
+
+    return assert_u32(sz);
+}
 }  // namespace xoz
