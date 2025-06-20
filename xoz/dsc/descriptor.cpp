@@ -703,7 +703,7 @@ void Descriptor::chk_hdr_isize_fit_or_fail(bool has_id, const struct Descriptor:
 }
 
 void Descriptor::destroy() {
-    // TODO assert(destroyed == true); // this flag should have been set by DescriptorSet before calling us
+    assert(destroyed == true);  // this flag should have been set by DescriptorSet before calling us
     for (const auto& cpart: hdr.cparts) {
         // Dealloc all the segments even if the csize is zero
         // A non-empty segment could have associated a csize of zero in case

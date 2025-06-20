@@ -766,6 +766,8 @@ void DescriptorSet::clear_set_no_recursive() {
         to_remove.insert(dsc->ext);
         to_destroy.insert(dscptr);
 
+        dscptr->mark_as_destroyed();
+
         if (dscptr->checksum != 0) {
             current_checksum = fold_inet_checksum(inet_remove(current_checksum, dscptr->checksum));
         }
