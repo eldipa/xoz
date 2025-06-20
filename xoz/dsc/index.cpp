@@ -1,5 +1,6 @@
 #include "xoz/dsc/index.h"
 
+#include "xoz/dsc/descriptor_set.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/file/id_manager.h"
 #include "xoz/log/format_string.h"

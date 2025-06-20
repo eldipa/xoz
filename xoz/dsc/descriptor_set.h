@@ -16,6 +16,7 @@
 #include "xoz/alloc/segment_allocator.h"
 #include "xoz/blk/segment_block_array.h"
 #include "xoz/dsc/descriptor.h"
+#include "xoz/dsc/index.h"
 #include "xoz/dsc/internals.h"
 #include "xoz/io/iobase.h"
 
@@ -58,6 +59,11 @@ private:
      * */
     std::set<DescriptorSet*, by_id> children;
     bool visited;
+
+    /*
+     * Id Mapping index (find descriptors by name).
+     * */
+    Index index;
 
     /*
      * <segm> is the segment that holds the descriptors of this set. The segment points to blocks
@@ -115,6 +121,7 @@ private:
 protected:
     enum Streams : uint16_t {
         Main = 0,
+        Index_,
         END  // this *must* be the last entry
     };
 

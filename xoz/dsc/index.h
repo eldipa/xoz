@@ -6,11 +6,11 @@
 #include <string>
 
 #include "xoz/dsc/descriptor.h"
-#include "xoz/dsc/descriptor_set.h"
 #include "xoz/dsc/id_mapping.h"
 
 namespace xoz {
 class IDManager;
+class DescriptorSet;
 
 /*
  * Index for the descriptors that live in the set or its subsets.

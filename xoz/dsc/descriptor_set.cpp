@@ -19,6 +19,7 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
                              RuntimeContext& rctx):
         Descriptor(hdr, blkarr, decl_cpart_cnt),
         visited(false),
+        index(rctx.idmgr),
         dset_segm(blkarr.create_segment_with({})),
         sg_blkarr(blkarr),
         cblkarr(blkarr),
@@ -49,6 +50,7 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
 DescriptorSet::DescriptorSet(const uint16_t TYPE, BlockArray& blkarr, uint16_t decl_cpart_cnt, RuntimeContext& rctx):
         Descriptor(TYPE, blkarr, decl_cpart_cnt),
         visited(false),
+        index(rctx.idmgr),
         dset_segm(blkarr.create_segment_with({})),
         sg_blkarr(blkarr),
         cblkarr(blkarr),
@@ -68,6 +70,7 @@ DescriptorSet::DescriptorSet(const uint16_t TYPE, BlockArray& blkarr, uint16_t d
 DescriptorSet::DescriptorSet(const Segment& segm, BlockArray& blkarr, RuntimeContext& rctx):
         Descriptor(DescriptorSet::TYPE, blkarr, DescriptorSet::Streams::END),
         visited(false),
+        index(rctx.idmgr),
         dset_segm(segm),
         sg_blkarr(blkarr),
         cblkarr(blkarr),
