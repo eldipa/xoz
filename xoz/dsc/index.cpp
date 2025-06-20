@@ -44,10 +44,18 @@ std::shared_ptr<Descriptor> Index::find(uint32_t id) {
         // Descriptor found in the cache, but, is the C++ object still alive?
         auto may_dsc = dsc_by_id_cache[id].lock();
         if (may_dsc) {
-            // Alive, return a shared ptr to keep it like that
-            return may_dsc;
+            // C++ object is alive, but is it the descriptor?
+            if (may_dsc->is_destroyed()) {
+                // Descriptor was destroyed, fail as if there was not found.
+                throw std::invalid_argument(
+                        (F() << "Descriptor " << xoz::log::hex(id) << " does not belong to any set.").str());
+            } else {
+                // Descriptor is still alive, return it
+                return may_dsc;
+            }
         } else {
-            // Dead, remove it from the cache but don't return failure yet,
+            // C++ object is dead (deallocated)
+            // Remove it from the cache but don't return failure yet,
             // let search it in the set tree in case the descriptor was loaded
             // into memory a second time as another C++ object
             dsc_by_id_cache.erase(id);
