@@ -12,7 +12,9 @@ public:
 
     enum Streams : uint16_t {
         Main = 0,
-        Meta,
+        Index_,
+        Reserved1,
+        Reserved2,
         END  // this *must* be the last entry
     };
 

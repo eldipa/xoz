@@ -61,9 +61,8 @@ DescriptorSet::DescriptorSet(const uint16_t TYPE, BlockArray& blkarr, uint16_t d
         creserved(0),
         current_checksum(0),
         header_does_require_write(false) {
-    if (decl_cpart_cnt == 0) {
-        throw std::runtime_error(
-                "DescriptorSet (or subclasses of) requires at least 1 content part but 0 was declared.");
+    if (decl_cpart_cnt < Streams::END) {
+        throw std::runtime_error("DescriptorSet (or subclasses of) is declaring too few content parts.");
     }
 }
 

@@ -2859,8 +2859,8 @@ namespace {
             return dsc;
         }
 
-        AppDescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, RuntimeContext& rctx) : DescriptorSet(hdr, cblkarr, 1, rctx), cookie(0) {}
-        AppDescriptorSet(const uint16_t TYPE, BlockArray& cblkarr, RuntimeContext& rctx) : DescriptorSet(TYPE, cblkarr, 1, rctx), cookie(0) {}
+        AppDescriptorSet(const struct Descriptor::header_t& hdr, BlockArray& cblkarr, RuntimeContext& rctx) : DescriptorSet(hdr, cblkarr, DescriptorSet::Streams::END, rctx), cookie(0) {}
+        AppDescriptorSet(const uint16_t TYPE, BlockArray& cblkarr, RuntimeContext& rctx) : DescriptorSet(TYPE, cblkarr, DescriptorSet::Streams::END, rctx), cookie(0) {}
 
         uint16_t get_cookie() const { return cookie; }
 

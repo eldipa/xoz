@@ -123,6 +123,8 @@ protected:
     enum Streams : uint16_t {
         Main = 0,
         Index_,
+        Reserved1,
+        Reserved2,
         END  // this *must* be the last entry
     };
 
