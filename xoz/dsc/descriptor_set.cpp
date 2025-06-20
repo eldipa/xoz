@@ -38,7 +38,7 @@ DescriptorSet::DescriptorSet(const struct Descriptor::header_t& hdr, BlockArray&
     // *After* initializing our parent class Descriptor, we can safely access to the cparts vector
     // and retrieve our content part
     // If there is some content at all (csize > 0), use the segment to initialize our segment
-    auto& cpart = this->hdr.cparts.at(0);  // TODO at()
+    auto& cpart = this->hdr.cparts.at(Streams::Main);
     if (cpart.csize > 0) {
         dset_segm = cpart.segm;
     }
