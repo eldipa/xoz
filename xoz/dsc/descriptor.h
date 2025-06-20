@@ -227,6 +227,11 @@ public:
     bool is_descriptor_set() const;
 
     /*
+     * Return if the descriptor was destroyed (its content was deleted)
+     * */
+    inline bool is_destroyed() const { return destroyed; }
+
+    /*
      * Return the descriptor type. Typically the same value than SubClass::TYPE attr.
      * */
     inline uint16_t type() const { return hdr.type; }
@@ -349,6 +354,7 @@ private:
 
     void compute_future_content_parts_sizes();
 
+    void mark_as_destroyed() { destroyed = true; }
 
 protected:
     /*
@@ -544,6 +550,7 @@ private:
      * */
     DescriptorSet* owner_raw_ptr;
     bool notified;
+    bool destroyed;
 
 
 public:  // Meant to be accesible from the tests and from the DescriptorSet

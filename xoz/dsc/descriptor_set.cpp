@@ -737,6 +737,7 @@ void DescriptorSet::impl_remove(std::shared_ptr<Descriptor>& dscptr, bool moved)
     // Defer the descriptor destruction if it was removed and not moved outside
     // For that, keep a reference to the descriptor
     if (not moved) {
+        dscptr->mark_as_destroyed();
         to_destroy.insert(dscptr);
     }
 

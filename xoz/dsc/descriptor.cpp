@@ -183,6 +183,7 @@ Descriptor::Descriptor(const struct Descriptor::header_t& hdr, BlockArray& cblka
         cblkarr(cblkarr),
         owner_raw_ptr(nullptr),
         notified(false),
+        destroyed(false),
         checksum(0) {
 
     const struct content_part_t example = {
@@ -702,6 +703,7 @@ void Descriptor::chk_hdr_isize_fit_or_fail(bool has_id, const struct Descriptor:
 }
 
 void Descriptor::destroy() {
+    // TODO assert(destroyed == true); // this flag should have been set by DescriptorSet before calling us
     for (const auto& cpart: hdr.cparts) {
         // Dealloc all the segments even if the csize is zero
         // A non-empty segment could have associated a csize of zero in case
