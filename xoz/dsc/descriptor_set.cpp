@@ -128,6 +128,8 @@ void DescriptorSet::load_descriptors(std::queue<DescriptorSet*>& to_load_dsets) 
         throw std::runtime_error("DescriptorSet cannot be reloaded.");
     }
 
+    load_index();
+
     // XXX DRAFT
     //
     // get_or_allocate_content returns a copy of the allocated content part or
@@ -388,6 +390,8 @@ void DescriptorSet::flush_writes_no_recursive(const bool release) {
     //
     // This "special" set should be stored somewhere else in the root set.
     // TODO
+
+    store_index();
 
     auto io = IOSegment(sg_blkarr, dset_segm);
     write_modified_descriptors(io);
@@ -1114,7 +1118,7 @@ void /* testing */ DescriptorSet::_set_creserved(uint16_t v) {
 }
 void /* testing */ DescriptorSet::_set_pdata(const std::vector<char>& v) { pdata = v; }
 
-std::map<std::string, uint32_t> DescriptorSet::load_index() {
+void DescriptorSet::load_index() {
     std::map<std::string, uint32_t> id_by_name;
 
     char buf[256];
@@ -1122,7 +1126,8 @@ std::map<std::string, uint32_t> DescriptorSet::load_index() {
 
     if (cpart.size() == 0) {
         // The index is empty, quick return now
-        return id_by_name;
+        index.init_index(*this, id_by_name);
+        return;
     }
 
     auto io = cpart.get_io();
@@ -1141,7 +1146,7 @@ std::map<std::string, uint32_t> DescriptorSet::load_index() {
         id_by_name[name] = id;
     }
 
-    return id_by_name;
+    index.init_index(*this, id_by_name);
 }
 
 void DescriptorSet::fail_if_bad_index_entry(uint32_t id, const std::string& name) const {
@@ -1166,8 +1171,9 @@ void DescriptorSet::fail_if_bad_index_entry(uint32_t id, const std::string& name
     }
 }
 
-void DescriptorSet::store_index(const std::map<std::string, uint32_t>& id_by_name) {
-    auto content_sz = calculate_store_index_size(id_by_name);
+void DescriptorSet::store_index() {
+    const auto id_by_name = index.flush();
+    const auto content_sz = calculate_store_index_size(id_by_name);
     auto cpart = get_content_part(Streams::Index_);
     cpart.resize(content_sz);
 
@@ -1176,6 +1182,8 @@ void DescriptorSet::store_index(const std::map<std::string, uint32_t>& id_by_nam
         assert(id_by_name.size() == 0);
         return;
     }
+
+    // TODO avoid writing index if didn't change
 
     // Note: sanity checks were made in calculate_store_index_size()
     // No need to repeat them here.

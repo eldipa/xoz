@@ -398,8 +398,8 @@ private:
 
     std::shared_ptr<Descriptor> get_owned_dsc_or_fail(uint32_t id);
 
-    std::map<std::string, uint32_t> load_index();
-    void store_index(const std::map<std::string, uint32_t>& id_by_name);
+    void load_index();
+    void store_index();
 
     uint32_t calculate_store_index_size(const std::map<std::string, uint32_t>& id_by_name) const;
 

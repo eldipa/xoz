@@ -31,6 +31,7 @@ class Index {
 public:
     explicit Index(const IDManager& idmgr);
     void init_index(DescriptorSet& dset, std::shared_ptr<IDMappingDescriptor>& idmap);
+    void init_index(DescriptorSet& dset, const std::map<std::string, uint32_t>& id_by_name);
 
     /*
      * find() searches for the descriptor in the entire xoz file
@@ -76,6 +77,7 @@ public:
     bool contains(const std::string& name) const;
 
     void flush(std::shared_ptr<IDMappingDescriptor>& idmap);
+    std::map<std::string, uint32_t> flush();
 
 private:
     void fail_if_bad_values(const std::string& name, uint32_t id, bool is_temporal_name) const;
