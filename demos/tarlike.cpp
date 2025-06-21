@@ -586,11 +586,7 @@ void list_files(std::shared_ptr<DescriptorSet>& dset) {
     // pointers and **not** shared pointers so you may end up having memory corruptions
     // Don't do that.
     for (auto it = dset->begin(); it != dset->end(); ++it) {
-        auto f = it.deref_cast<FileMember>(true);
-        if (!f) {
-            continue;  // TODO we are filtering IDMappingDescriptor, we should never being exposing it! We require
-                       // multipart content Root Set
-        }
+        auto f = it.deref_cast<FileMember>();
         std::cout << "[ID " << f->id() << "] File " << f->get_fname() << "\n";
     }
 }
