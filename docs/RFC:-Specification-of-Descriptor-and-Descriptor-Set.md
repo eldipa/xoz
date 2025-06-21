@@ -89,7 +89,7 @@ This RFC defines some types:
 
  - `type` 0x0001 is a *descriptor set*.
  -
- - `type` 0x0002 and 0x003 are reserved.
+ - `type` 0x0002 to 0x007 are reserved.
 
 ## Descriptors that own content
 
