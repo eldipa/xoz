@@ -1,7 +1,6 @@
 #include "xoz/dsc/descriptor_mapping.h"
 
 #include "xoz/dsc/descriptor_set.h"
-#include "xoz/dsc/id_mapping.h"
 #include "xoz/dsc/opaque.h"
 #include "xoz/dsc/private.h"
 #include "xoz/dsc/root_descriptor_set.h"
@@ -53,8 +52,6 @@ descriptor_create_fn DescriptorMapping::descriptor_create_lookup(uint16_t type) 
 
         if (RESERVED_METADATA_MIN_TYPE <= type and type <= RESERVED_METADATA_MAX_TYPE) {
             switch (type) {
-                case IDMappingDescriptor::TYPE:
-                    return IDMappingDescriptor::create;
                 default:
                     return PrivateDescriptor::create;
             }
