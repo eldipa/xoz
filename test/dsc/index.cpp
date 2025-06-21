@@ -270,29 +270,23 @@ namespace {
                 )
         );
 
-#if 0
-        // TODO move these to the File test suite
 
-        // this calls to idmap->store() under the hood
-        rctx.index->flush(idmap);
-
-        auto mapping = idmap->load();
+        auto mapping =  rctx.index->get_mapping();
         EXPECT_EQ(mapping.size(), (size_t)2);
         EXPECT_EQ(mapping["foo"], (uint32_t)id2);
         EXPECT_EQ(mapping["baz"], (uint32_t)id3);
 
         // Temporal names are names that can be used to find descriptors but
-        // the mapping is not stored
+        // should not be preserved by DescriptorSet
         rctx.index->add_temporal_name("~zap", id2, true);
         EXPECT_EQ(std::addressof(*rctx.index->find("~zap")), std::addressof(*dsc2));
 
-        // this calls to idmap->store() under the hood, ~zap however should not be stored
-        rctx.index->flush(idmap);
+        // however, ~zap should be present in the mapping
+        auto mapping2 = rctx.index->get_mapping();
 
-        auto mapping2 = idmap->load();
-        EXPECT_EQ(mapping2.size(), (size_t)2); // ~zap is not present
+        EXPECT_EQ(mapping2.size(), (size_t)3); // ~zap is present
         EXPECT_EQ(mapping2["foo"], (uint32_t)id2);
         EXPECT_EQ(mapping2["baz"], (uint32_t)id3);
-#endif
+        EXPECT_EQ(mapping2["~zap"], (uint32_t)id2);
     }
 }

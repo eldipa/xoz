@@ -1175,7 +1175,7 @@ void DescriptorSet::fail_if_bad_index_entry(uint32_t id, const std::string& name
 }
 
 void DescriptorSet::store_index() {
-    const auto id_by_name = index_.flush();
+    const auto& id_by_name = index_.get_mapping();
     const auto content_sz = calculate_store_index_size(id_by_name);
     auto cpart = get_content_part(Streams::Index_);
     cpart.resize(content_sz);

@@ -74,7 +74,7 @@ public:
     void delete_name(const std::string& name);
     bool contains(const std::string& name) const;
 
-    std::map<std::string, uint32_t> flush();
+    const std::map<std::string, uint32_t>& get_mapping() const;
 
 private:
     void fail_if_bad_values(const std::string& name, uint32_t id, bool is_temporal_name) const;

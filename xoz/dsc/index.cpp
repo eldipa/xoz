@@ -134,7 +134,7 @@ bool Index::contains(const std::string& name) const {
     return id_by_name.contains(name);
 }
 
-std::map<std::string, uint32_t> Index::flush() { return id_by_name; }
+const std::map<std::string, uint32_t>& Index::get_mapping() const { return id_by_name; }
 
 void Index::fail_if_bad_values(const std::string& name, uint32_t id, bool is_temporal_name) const {
     if (name.size() > 255) {
