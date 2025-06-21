@@ -55,8 +55,6 @@ private:
     Segment trampoline_segm;
     std::shared_ptr<RootDescriptorSet> root_set;
 
-    std::shared_ptr<IDMappingDescriptor> idmap;
-
     uint32_t feature_flags_compat;
     uint32_t feature_flags_incompat;
     uint32_t feature_flags_ro_compat;

@@ -6,7 +6,6 @@
 #include <string>
 
 #include "xoz/dsc/descriptor.h"
-#include "xoz/dsc/id_mapping.h"
 
 namespace xoz {
 class IDManager;
@@ -30,7 +29,6 @@ class DescriptorSet;
 class Index {
 public:
     explicit Index(const IDManager& idmgr);
-    void init_index(DescriptorSet& dset, std::shared_ptr<IDMappingDescriptor>& idmap);
     void init_index(DescriptorSet& dset, const std::map<std::string, uint32_t>& id_by_name);
 
     /*
@@ -63,7 +61,7 @@ public:
         return ptr;
     }
 
-    constexpr static char TempNamePrefix = IDMappingDescriptor::TempNamePrefix;
+    constexpr static char TempNamePrefix = '~';
 
     /*
      * Add a mapping between a name (string) and the descriptor's id (int).
@@ -76,7 +74,6 @@ public:
     void delete_name(const std::string& name);
     bool contains(const std::string& name) const;
 
-    void flush(std::shared_ptr<IDMappingDescriptor>& idmap);
     std::map<std::string, uint32_t> flush();
 
 private:

@@ -14,16 +14,16 @@ class RuntimeContext {
 public:
     IDManager idmgr;
     DescriptorMapping dmap;
-    Index index;
+    Index* index;
 
     const struct runtime_config_t runcfg;
 
     explicit RuntimeContext(const DescriptorMapping& dmap,
                             const struct runtime_config_t& runcfg = DefaultRuntimeConfig):
-            dmap(dmap), index(idmgr), runcfg(runcfg) {}
+            dmap(dmap), index(nullptr), runcfg(runcfg) {}
     explicit RuntimeContext(const std::map<uint16_t, descriptor_create_fn>& descriptors_map,
                             bool override_reserved = false,
                             const struct runtime_config_t& runcfg = DefaultRuntimeConfig):
-            dmap(descriptors_map, override_reserved), index(idmgr), runcfg(runcfg) {}
+            dmap(descriptors_map, override_reserved), index(nullptr), runcfg(runcfg) {}
 };
 }  // namespace xoz

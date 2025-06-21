@@ -8,14 +8,6 @@
 namespace xoz {
 Index::Index(const IDManager& idmgr): dset(nullptr), idmgr(idmgr) {}
 
-void Index::init_index(DescriptorSet& dset, std::shared_ptr<IDMappingDescriptor>& idmap) {
-    if (!idmap) {
-        throw std::runtime_error("The index cannot be initialized because the IDMappingDescriptor is null");
-    }
-
-    init_index(dset, idmap->load());
-}
-
 void Index::init_index(DescriptorSet& dset, const std::map<std::string, uint32_t>& id_by_name) {
     if (this->dset) {
         throw std::runtime_error("The index is already initialized");
@@ -141,8 +133,6 @@ bool Index::contains(const std::string& name) const {
     fail_if_not_initialized();
     return id_by_name.contains(name);
 }
-
-void Index::flush(std::shared_ptr<IDMappingDescriptor>& idmap) { idmap->store(id_by_name); }
 
 std::map<std::string, uint32_t> Index::flush() { return id_by_name; }
 

@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <utility>
 
-#include "xoz/dsc/id_mapping.h"
 #include "xoz/dsc/spy.h"
 #include "xoz/err/exceptions.h"
 #include "xoz/io/iospan.h"
@@ -502,11 +501,8 @@ void File::full_sync_metadata() {
     // There is no need to flush/sync the descriptors themselves because
     // they should belong to a set and the sets will be flushed/synced
     // in File::full_sync();
-    // Note: the exceptions are the descriptors that were explicitly not
-    // added to any set. In this case their writings will be lost.
-    if (rctx.runcfg.file.keep_index_updated) {
-        rctx.index.flush(idmap);
-    }
+
+    // note: there is no "private/metadata" descriptor by the moment
 }
 
 void File::load_root_set(struct file_header_t& hdr) {
@@ -544,7 +540,13 @@ void File::load_root_set(struct file_header_t& hdr) {
         root_set = Descriptor::cast<RootDescriptorSet>(dsc);
     }
 
+    // Link the root's index to the runtime's, even if it is unloaded.
+    // During the first moments of load_set(), the index will be loaded
+    // and moments later, during the load of the set, it may be accessed
+    // via the runtime so it needs to be linked before.
+    rctx.index = &root_set->index();
     root_set->load_set();
+
     load_private_metadata_from_root_set();
 }
 
@@ -630,34 +632,10 @@ void File::update_trampoline_space() {
 }
 
 void File::load_private_metadata_from_root_set() {
-    xoz_assert("IDMappingDescriptor already loaded", not idmap);
-    std::shared_ptr<IDMappingDescriptor> idmap_tmp;
-
     // Search for the private descriptors that contain xoz-specific metadata
-    for (auto it = root_set->begin(); it != root_set->end(); ++it) {
-        idmap_tmp = Descriptor::cast<IDMappingDescriptor>(*it, true);
-        if (idmap_tmp) {
-            if (not idmap) {
-                idmap = idmap_tmp;
-            } else {
-                throw InconsistentXOZ("IDMappingDescriptor (index data) found duplicated.");
-            }
-        }
-    }
-
-    // Create default descriptors if they were not found earlier
-    if (not idmap) {
-        auto dsc = IDMappingDescriptor::create(*fblkarr);
-        if (rctx.runcfg.file.keep_index_updated) {
-            auto id = root_set->add(std::move(dsc));
-            idmap = root_set->get<IDMappingDescriptor>(id);
-        } else {
-            idmap = std::shared_ptr<IDMappingDescriptor>(std::move(dsc));
-        }
-    }
-
-    // Initialize the index
-    rctx.index.init_index(*root_set, idmap);
+    // and load them
+    //
+    // note: there are no private descriptors for the moment.
 }
 
 void File::check_header_magic(struct file_header_t& hdr) {
