@@ -64,7 +64,7 @@ private:
     /*
      * Id Mapping index (find descriptors by name).
      * */
-    Index index;
+    Index index_;
 
     /*
      * <segm> is the segment that holds the descriptors of this set. The segment points to blocks
@@ -366,6 +366,8 @@ public:
     }
 
     Segment segment() const { return dset_segm; }
+
+    Index& index() { return index_; }
 
 public:
     void fail_if_not_allowed_to_add(const Descriptor* dsc) const;
