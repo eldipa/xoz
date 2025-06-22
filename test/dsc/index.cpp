@@ -210,7 +210,7 @@ namespace {
             ThrowsMessage<std::runtime_error>(
                 AllOf(
                     HasSubstr(
-                        "Temporal ids cannot be registered."
+                        "The descriptor id 0x80000000 is not persistent so we cannot assign it the name 'bar'."
                         )
                     )
                 )

@@ -148,9 +148,9 @@ void Index::fail_if_bad_values(const std::string& name, uint32_t id, bool is_tem
         throw std::runtime_error((F() << "Name for the descriptor " << xoz::log::hex(id) << " cannot be empty.").str());
     }
 
-    if (not idmgr.is_registered(id)) {
+    if (not idmgr.is_persistent(id)) {
         throw std::runtime_error((F() << "The descriptor id " << xoz::log::hex(id)
-                                      << " is not registered so we cannot assign it the name '" << name << "'.")
+                                      << " is not persistent so we cannot assign it the name '" << name << "'.")
                                          .str());
     }
 
