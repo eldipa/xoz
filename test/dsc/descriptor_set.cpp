@@ -3316,4 +3316,137 @@ namespace {
                 ""
                 );
     }
+
+    TEST(DescriptorSetTest, Index) {
+        RuntimeContext rctx({});
+
+        std::vector<char> fp;
+        XOZ_RESET_FP(fp, FP_SZ);
+
+        VectorBlockArray d_blkarr(32);
+        d_blkarr.allocator().initialize_from_allocated(std::list<Segment>());
+        const auto blk_sz_order = d_blkarr.blk_sz_order();
+
+        d_blkarr.allocator().release();
+        d_blkarr.release_blocks();
+        EXPECT_EQ(d_blkarr.blk_cnt(), (uint32_t)0);
+        EXPECT_EQ(d_blkarr.allocator().stats().current.in_use_subblk_cnt, (uint32_t)(0));
+
+        Segment sg(blk_sz_order);
+        auto dset = DescriptorSet::create(sg, d_blkarr, rctx);
+        dset->id(0x8000ffff);
+
+        Segment sg2(blk_sz_order);
+        auto dset2 = DescriptorSet::create(sg2, d_blkarr, rctx);
+        dset2->id(0x8000efff);
+
+
+        struct Descriptor::header_t hdr = {
+            .type = 0xfa,
+
+            .id = 0x0,
+
+            .isize = 0,
+            .cparts = {}
+        };
+
+        {
+            // Add descriptor 1, 2, 3 to dset
+            // Note: we write the set each time we add a descriptor to make
+            // the output determinisitc otherwise, if multiples descriptors
+            // are pending to be added, there is no deterministic order
+            // in which they will be written.
+            hdr.id = 0x41414141;
+            auto id1 = dset->add(std::make_unique<PlainDescriptor>(hdr, d_blkarr));
+            dset->index().add_name("dsc1", id1);
+            dset->full_sync(false);
+
+            hdr.id = 0x42424242;
+            auto dscptr2 = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+            dscptr2->set_idata({'A', 'B'});
+            uint32_t id2 = dset->add(std::move(dscptr2));
+            dset->index().add_name("dsc2", id2);
+            dset->full_sync(false);
+
+            hdr.id = 0x43434343;
+            auto dscptr3 = std::make_unique<PlainDescriptor>(hdr, d_blkarr);
+            dscptr3->set_idata({'C', 'D'});
+            uint32_t id3 = dset->add(std::move(dscptr3));
+            dset->index().add_temporal_name("~dsc3", id3);
+            dset->full_sync(false);
+
+            // Then, add a bunch of descriptors to dset2
+            // Note: we add a bunch but we don't write the set until the end.
+            // This tests that multiples descriptors can be added at once and because
+            // all the descriptors are the same, it doesn't matter
+            // the order and their output will still be deterministic.
+            hdr.id = 0x0;
+            for (int i = 0; i < 2; ++i) {
+                dset2->add(std::make_unique<PlainDescriptor>(hdr, d_blkarr));
+            }
+            dset2->full_sync(false);
+
+            EXPECT_EQ(dset->get(id2)->get_owner(), std::addressof(*dset));
+
+            // Find via dset's index or by searching directly in dset
+            EXPECT_EQ(std::addressof(*dset->index().find("dsc1")), std::addressof(*dset->get(id1)));
+            EXPECT_EQ(std::addressof(*dset->index().find("dsc2")), std::addressof(*dset->get(id2)));
+            EXPECT_EQ(std::addressof(*dset->index().find("~dsc3")), std::addressof(*dset->get(id3)));
+
+            // Descriptor 2 moved from dset to dset2
+            dset->move_out(id2, dset2);
+
+            // Find via dset's index (it still should work) or by searching directly in dset (id1) or dset2 (id2)
+            EXPECT_EQ(std::addressof(*dset->index().find("dsc1")), std::addressof(*dset->get(id1)));
+            EXPECT_EQ(std::addressof(*dset->index().find("dsc2")), std::addressof(*dset2->get(id2)));
+            EXPECT_EQ(std::addressof(*dset->index().find("~dsc3")), std::addressof(*dset->get(id3)));
+
+            dset->full_sync(false);
+            dset2->full_sync(false);
+
+            // Same thing after full_sync
+            EXPECT_EQ(dset2->get(id2)->get_owner(), std::addressof(*dset2));
+            EXPECT_EQ(std::addressof(*dset->index().find("dsc1")), std::addressof(*dset->get(id1)));
+            EXPECT_EQ(std::addressof(*dset->index().find("dsc2")), std::addressof(*dset2->get(id2)));
+            EXPECT_EQ(std::addressof(*dset->index().find("~dsc3")), std::addressof(*dset->get(id3)));
+
+            for (int i = 0; i < 3; ++i) {
+                dset2->add(std::make_unique<PlainDescriptor>(hdr, d_blkarr));
+            }
+            dset2->full_sync(false);
+        }
+
+        // Check that the index of dset is serialized/deserialized correctly
+        dset->write_struct_into(IOSpan(fp), rctx);
+
+        XOZ_EXPECT_SERIALIZATION(fp, *dset,
+                "0184 0100 1a00 0184 f8ff 00c0 1600 0084 1ffc 00c0 0000"
+                );
+        XOZ_EXPECT_CHECKSUM(fp, *dset);
+
+        // Load, write it back and check both byte-strings
+        // are the same
+        rctx.idmgr.reset();
+        XOZ_EXPECT_DESERIALIZATION(fp, *dset, rctx, d_blkarr);
+
+        rctx.idmgr.reset();
+        auto dsc3 = Descriptor::load_struct_from(IOSpan(fp), rctx, d_blkarr);
+        auto dset3 = dsc3->cast<DescriptorSet>();
+        dset3->load_set();
+
+        // "dsc1" was preserved but the temporal name "~dsc3" wasn't
+        EXPECT_EQ(dset3->index().find("dsc1")->id(), (uint32_t)(0x41414141));
+        EXPECT_THAT(
+            ensure_called_once([&]() {
+                dset3->index().find("~dsc3");
+                }),
+            ThrowsMessage<std::invalid_argument>(
+                AllOf(
+                    HasSubstr(
+                        "No descriptor with name '~dsc3' was found."
+                        )
+                    )
+                )
+        );
+    }
 }
