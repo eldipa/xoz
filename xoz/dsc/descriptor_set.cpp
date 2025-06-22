@@ -1236,4 +1236,23 @@ uint32_t DescriptorSet::calculate_store_index_size(const std::map<std::string, u
 
     return assert_u32(sz);
 }
+
+void DescriptorSet::dump_tree(std::ostream& out) {
+    DescriptorSet::top_down_for_each_set(*this, [&out, this](DescriptorSet* dset, [[maybe_unused]] size_t l) {
+        const std::string indent(l * 2, ' ');
+        out << indent << "set " << std::hex << this->id() << "\n" << indent << " -- {";
+
+        for (auto it = dset->cbegin(); it != dset->cend(); ++it) {
+            auto& dsc(*it);
+            if (dsc->is_descriptor_set()) {
+                continue;
+            }
+
+            out << std::hex << dsc->id() << ", ";
+        }
+
+        out << "}\n";
+        return false;
+    });
+}
 }  // namespace xoz

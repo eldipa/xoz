@@ -369,6 +369,14 @@ public:
 
     Index& index() { return index_; }
 
+    /*
+     * Write to out the descriptors of the current set and the children subsets
+     * in a tree-like structure.
+     *
+     * This is for introspection and debugging.
+     * */
+    void dump_tree(std::ostream& out);
+
 public:
     void fail_if_not_allowed_to_add(const Descriptor* dsc) const;
 
