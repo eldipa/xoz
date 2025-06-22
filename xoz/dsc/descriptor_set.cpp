@@ -1191,10 +1191,9 @@ void DescriptorSet::store_index() {
     // Note: sanity checks were made in calculate_store_index_size()
     // No need to repeat them here.
     auto io = cpart.get_io();
+    io.seek_wr(sizeof(uint32_t));
 
-    // Track entry count
-    io.write_u32_to_le(assert_u32(id_by_name.size()));
-
+    uint32_t cnt = 0;
     for (auto const& [name, id]: id_by_name) {
         // Temp names are not stored
         if (name[0] == Index::TempNamePrefix) {
@@ -1204,7 +1203,13 @@ void DescriptorSet::store_index() {
         io.write_u32_to_le(id);
         io.write_u8_to_le(assert_u8(name.size()));
         io.writeall(name.data(), assert_u8(name.size()));
+
+        ++cnt;
     }
+
+    // Track entry count
+    io.seek_wr(0);
+    io.write_u32_to_le(cnt);
 }
 
 uint32_t DescriptorSet::calculate_store_index_size(const std::map<std::string, uint32_t>& id_by_name) const {
@@ -1224,7 +1229,7 @@ uint32_t DescriptorSet::calculate_store_index_size(const std::map<std::string, u
             continue;
         }
 
-        sz += sizeof(id);
+        sz += sizeof(uint32_t);
         sz += sizeof(uint8_t);  // name length
         sz += assert_u8(name.size());
     }
