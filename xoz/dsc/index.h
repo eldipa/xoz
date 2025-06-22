@@ -25,6 +25,10 @@ class DescriptorSet;
  * However, during the load of the descriptor D (method Descriptor::read_struct_from),
  * the descriptors of the set where D lives of any subset may not be loaded
  * yet so Index may fail if D searches for T there.
+ *
+ * NOTE: an index may have an entry for a valid and alive descriptor that used to
+ * belong to the set or one of its subsets but now it was moved out from the tree
+ * Such cases are not supported.
  * */
 class Index {
 public:
